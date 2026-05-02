@@ -82,6 +82,13 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
   String _lastThemeFolder = '';
   final bool _loadingThemeAssets = false;
 
+  /// Cache for computed TextPainter widths in the system indicator bar.
+  final Map<String, double> _itemWidthCache = {};
+
+  /// Tracks the last index for which _updateBackground was scheduled, to avoid
+  /// firing redundant postFrameCallbacks on every build.
+  int _lastBackgroundBuildIndex = -1;
+
   @override
   void initState() {
     super.initState();
@@ -597,16 +604,19 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
   }
 
   /// Dynamically computes width for the system label indicator based on font metrics.
+  /// Results are cached by text + font key to avoid repeated TextPainter layout calls.
   double _calculateItemWidth(SystemInfo system, TextStyle style) {
     final text = (system.shortName ?? system.title ?? "Unknown").toUpperCase();
-    final textPainter = TextPainter(
-      text: TextSpan(text: text, style: style),
-      textAlign: TextAlign.center,
-      maxLines: 1,
-      textDirection: TextDirection.ltr,
-    )..layout();
-
-    return textPainter.width + 24.r;
+    final cacheKey = '$text|${style.fontSize}|${style.fontWeight?.value}';
+    return _itemWidthCache.putIfAbsent(cacheKey, () {
+      final textPainter = TextPainter(
+        text: TextSpan(text: text, style: style),
+        textAlign: TextAlign.center,
+        maxLines: 1,
+        textDirection: TextDirection.ltr,
+      )..layout();
+      return textPainter.width + 24.r;
+    });
   }
 
   /// Background resolution for carousel items, including music cover shader support.
@@ -672,6 +682,7 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
       _themeLogos
         ..clear()
         ..addAll(newLogos);
+      _itemWidthCache.clear();
     });
   }
 
@@ -798,12 +809,15 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
             );
           }
 
-          // Trigger initial background update
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) {
-              _updateBackground(allSystems[_currentIndex]);
-            }
-          });
+          // Trigger background update only when the displayed index changes.
+          if (_lastBackgroundBuildIndex != _currentIndex) {
+            _lastBackgroundBuildIndex = _currentIndex;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                _updateBackground(allSystems[_currentIndex]);
+              }
+            });
+          }
 
           final textStyle = TextStyle(
             color: theme.colorScheme.onSurface,

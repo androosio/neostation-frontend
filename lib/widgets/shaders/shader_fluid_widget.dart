@@ -13,8 +13,9 @@ class ShaderFluidWidget extends StatefulWidget {
 class _ShaderFluidWidgetState extends State<ShaderFluidWidget>
     with SingleTickerProviderStateMixin {
   FragmentProgram? _program;
-  late Ticker _ticker;
+  late final Ticker _ticker;
   double _time = 0.0;
+  final ValueNotifier<double> _timeNotifier = ValueNotifier(0.0);
   Duration _lastElapsed = Duration.zero;
   Duration _lastFrameTime = Duration.zero;
   static const double _maxTime =
@@ -38,7 +39,7 @@ class _ShaderFluidWidgetState extends State<ShaderFluidWidget>
 
         // Throttle to ~30 FPS
         if (elapsed - _lastFrameTime >= _frameInterval) {
-          setState(() {});
+          _timeNotifier.value = _time;
           _lastFrameTime = elapsed;
         }
       }
@@ -65,6 +66,7 @@ class _ShaderFluidWidgetState extends State<ShaderFluidWidget>
   @override
   void dispose() {
     _ticker.dispose();
+    _timeNotifier.dispose();
     super.dispose();
   }
 
@@ -77,7 +79,7 @@ class _ShaderFluidWidgetState extends State<ShaderFluidWidget>
     return CustomPaint(
       painter: _FluidShaderPainter(
         shader: _program!.fragmentShader(),
-        time: _time,
+        timeNotifier: _timeNotifier,
         col4: Theme.of(context).colorScheme.primary,
       ),
     );
@@ -85,21 +87,21 @@ class _ShaderFluidWidgetState extends State<ShaderFluidWidget>
 }
 
 class _FluidShaderPainter extends CustomPainter {
-  final FragmentShader shader;
-  final double time;
-  final Color col4;
-
   _FluidShaderPainter({
     required this.shader,
-    required this.time,
+    required this.timeNotifier,
     required this.col4,
-  });
+  }) : super(repaint: timeNotifier);
+
+  final FragmentShader shader;
+  final ValueNotifier<double> timeNotifier;
+  final Color col4;
 
   @override
   void paint(Canvas canvas, Size size) {
     shader.setFloat(0, size.width);
     shader.setFloat(1, size.height);
-    shader.setFloat(2, time);
+    shader.setFloat(2, timeNotifier.value);
     shader.setFloat(3, col4.r);
     shader.setFloat(4, col4.g);
     shader.setFloat(5, col4.b);
@@ -109,6 +111,6 @@ class _FluidShaderPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _FluidShaderPainter oldDelegate) {
-    return oldDelegate.time != time || oldDelegate.col4 != col4;
+    return oldDelegate.col4 != col4 || oldDelegate.shader != shader;
   }
 }

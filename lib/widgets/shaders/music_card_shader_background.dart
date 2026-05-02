@@ -35,6 +35,7 @@ class _MusicCardShaderBackgroundState extends State<MusicCardShaderBackground>
   late final Ticker _ticker;
   Duration _lastElapsed = Duration.zero;
   double _time = 0.0;
+  final ValueNotifier<double> _timeNotifier = ValueNotifier(0.0);
 
   @override
   void initState() {
@@ -114,14 +115,14 @@ class _MusicCardShaderBackgroundState extends State<MusicCardShaderBackground>
     if (!mounted) return;
     final delta = (elapsed - _lastElapsed).inMicroseconds / 1000000.0;
     _lastElapsed = elapsed;
-    setState(() {
-      _time += delta;
-    });
+    _time += delta;
+    _timeNotifier.value = _time;
   }
 
   @override
   void dispose() {
     _ticker.dispose();
+    _timeNotifier.dispose();
     _coverImage?.dispose();
     super.dispose();
   }
@@ -153,7 +154,7 @@ class _MusicCardShaderBackgroundState extends State<MusicCardShaderBackground>
             coverImage: _coverImage!,
             diskImage: _diskImage!,
             tintColor: widget.tintColor,
-            time: _time,
+            timeNotifier: _timeNotifier,
           ),
           child: const SizedBox.expand(),
         ),
@@ -163,25 +164,25 @@ class _MusicCardShaderBackgroundState extends State<MusicCardShaderBackground>
 }
 
 class _MusicCardShaderPainter extends CustomPainter {
-  const _MusicCardShaderPainter({
+  _MusicCardShaderPainter({
     required this.shader,
     required this.coverImage,
     required this.diskImage,
     required this.tintColor,
-    required this.time,
-  });
+    required this.timeNotifier,
+  }) : super(repaint: timeNotifier);
 
   final ui.FragmentShader shader;
   final ui.Image coverImage;
   final ui.Image diskImage;
   final Color tintColor;
-  final double time;
+  final ValueNotifier<double> timeNotifier;
 
   @override
   void paint(Canvas canvas, Size size) {
     shader.setFloat(0, size.width);
     shader.setFloat(1, size.height);
-    shader.setFloat(2, time);
+    shader.setFloat(2, timeNotifier.value);
     shader.setFloat(3, tintColor.r);
     shader.setFloat(4, tintColor.g);
     shader.setFloat(5, tintColor.b);
@@ -198,9 +199,9 @@ class _MusicCardShaderPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _MusicCardShaderPainter oldDelegate) {
-    return oldDelegate.time != time ||
-        oldDelegate.coverImage != coverImage ||
+    return oldDelegate.coverImage != coverImage ||
         oldDelegate.diskImage != diskImage ||
-        oldDelegate.tintColor != tintColor;
+        oldDelegate.tintColor != tintColor ||
+        oldDelegate.shader != shader;
   }
 }
