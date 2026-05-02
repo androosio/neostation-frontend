@@ -155,11 +155,7 @@ class _SetupWizardState extends State<SetupWizard> {
               child: Builder(
                 builder: (context) {
                   final bg = Theme.of(context).scaffoldBackgroundColor;
-                  return Container(
-                    decoration: BoxDecoration(
-                      color: bg,
-                    ),
-                  );
+                  return Container(decoration: BoxDecoration(color: bg));
                 },
               ),
             ),

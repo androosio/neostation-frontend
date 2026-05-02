@@ -632,15 +632,7 @@ class SqliteConfigProvider extends ChangeNotifier {
         final bool isAndroidVirtual =
             (system.folderName == 'android' && Platform.isAndroid);
 
-        // Music is always shown when not in Fast Scan mode.
-        // Steam is intentionally excluded so it only appears when it has ROMs or a physical folder.
-        final bool isAlwaysVisibleVirtual =
-            system.folderName == 'music' && !_isFastScan;
-
-        if (romCount > 0 ||
-            hasFolderWhenNonRecursive ||
-            isAndroidVirtual ||
-            isAlwaysVisibleVirtual) {
+        if (romCount > 0 || hasFolderWhenNonRecursive || isAndroidVirtual) {
           systemsToKeep.add(system.copyWith(romCount: romCount));
 
           // Increment count for 'all' logic if it's a real emulator system with games

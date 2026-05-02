@@ -32,6 +32,7 @@ import 'package:neostation/widgets/systems_grid_footer.dart';
 import 'package:neostation/services/logger_service.dart';
 import 'package:neostation/models/secondary_display_state.dart';
 import 'package:neostation/providers/neo_assets_provider.dart';
+import 'package:neostation/providers/system_background_provider.dart';
 
 /// Primary widget for the 'My Systems' view, supporting both Grid and Carousel layouts.
 ///
@@ -44,6 +45,9 @@ class MySystems extends StatelessWidget {
 
   /// Static lock to prevent race conditions during heavy navigation transitions.
   static bool isNavigating = false;
+
+  /// Notifier to hide the systems grid while a game launch dialog is active.
+  static final gridLaunchNotifier = ValueNotifier<bool>(false);
 
   /// Currently selected system index in the active layout (Grid or Carousel).
   final int selectedIndex;
@@ -498,9 +502,17 @@ class MySystems extends StatelessWidget {
 
       try {
         GamepadNavigationManager.deactivateAll();
+        MySystems.gridLaunchNotifier.value = true;
 
         final fileProvider = Provider.of<FileProvider>(context, listen: false);
         final syncProvider = context.read<SyncManager>().active!;
+
+        // Free maximum RAM before handing off to the emulator.
+        imageCache.clear();
+        imageCache.clearLiveImages();
+        if (context.mounted) {
+          context.read<SystemBackgroundProvider>().clear();
+        }
 
         await launchGameWithDialog(
           context: context,
@@ -509,16 +521,20 @@ class MySystems extends StatelessWidget {
           fileProvider: fileProvider,
           syncProvider: syncProvider,
           onGameClosed: () {
+            MySystems.gridLaunchNotifier.value = false;
             GamepadNavigationManager.reactivate();
             Provider.of<SqliteDatabaseProvider>(
               context,
               listen: false,
             ).refresh();
           },
-          onLaunchFailed: (ctx, r) async =>
-              GamepadNavigationManager.reactivate(),
+          onLaunchFailed: (ctx, r) async {
+            MySystems.gridLaunchNotifier.value = false;
+            GamepadNavigationManager.reactivate();
+          },
         );
       } catch (e) {
+        MySystems.gridLaunchNotifier.value = false;
         if (context.mounted) {
           AppNotification.showNotification(
             context,
@@ -910,8 +926,9 @@ class _SystemCardGridViewState extends State<SystemCardGridView> {
         radius: const Radius.circular(3),
       ),
     );
-    _cachedScrollBehavior =
-        ScrollConfiguration.of(context).copyWith(scrollbars: false);
+    _cachedScrollBehavior = ScrollConfiguration.of(
+      context,
+    ).copyWith(scrollbars: false);
   }
 
   @override
@@ -1252,22 +1269,30 @@ class _SystemCardGridViewState extends State<SystemCardGridView> {
 
   @override
   Widget build(BuildContext context) {
-    final neoThemeFolder = context.select<NeoAssetsProvider, String>(
-      (p) => p.activeThemeFolder,
-    );
-    if (neoThemeFolder != _lastThemeFolder) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _loadThemeAssetsForSystems();
-      });
-    }
+    return ValueListenableBuilder<bool>(
+      valueListenable: MySystems.gridLaunchNotifier,
+      builder: (context, isLaunching, child) {
+        if (isLaunching) return const SizedBox.shrink();
 
-    return Theme(
-      data: _cachedThemeData ?? Theme.of(context),
-      child: ScrollConfiguration(
-        behavior: _cachedScrollBehavior ??
-            ScrollConfiguration.of(context).copyWith(scrollbars: false),
-        child: _buildWideCardGrid(context, _systemCards),
-      ),
+        final neoThemeFolder = context.select<NeoAssetsProvider, String>(
+          (p) => p.activeThemeFolder,
+        );
+        if (neoThemeFolder != _lastThemeFolder) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _loadThemeAssetsForSystems();
+          });
+        }
+
+        return Theme(
+          data: _cachedThemeData ?? Theme.of(context),
+          child: ScrollConfiguration(
+            behavior:
+                _cachedScrollBehavior ??
+                ScrollConfiguration.of(context).copyWith(scrollbars: false),
+            child: _buildWideCardGrid(context, _systemCards),
+          ),
+        );
+      },
     );
   }
 

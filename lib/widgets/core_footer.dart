@@ -142,6 +142,7 @@ class GamepadControl extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
+        canRequestFocus: false,
         splashColor: contentColor.withValues(alpha: 0.2),
         highlightColor: Colors.transparent,
         borderRadius: BorderRadius.circular(6.r),

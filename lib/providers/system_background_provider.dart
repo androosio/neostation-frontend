@@ -25,4 +25,12 @@ class SystemBackgroundProvider extends ChangeNotifier {
     _imagePath = imagePath;
     notifyListeners();
   }
+
+  /// Clears the current background image to free memory during gameplay.
+  void clear() {
+    if (_imageProvider == null) return;
+    _imageProvider = null;
+    _imagePath = null;
+    notifyListeners();
+  }
 }

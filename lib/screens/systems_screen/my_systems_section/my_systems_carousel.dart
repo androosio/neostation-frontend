@@ -68,6 +68,9 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
   /// State lock to prevent animation jank during rapid navigation.
   bool _isNavigating = false;
 
+  /// Set while game launch dialog is active to hide carousel content and free RAM.
+  bool _isGameLaunching = false;
+
   SecondaryDisplayState? _secondaryDisplayState;
 
   /// In-memory cache for resolved ID3v2 album art.
@@ -407,6 +410,14 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
 
       try {
         _gamepadNav.deactivate();
+        setState(() => _isGameLaunching = true);
+
+        // Free maximum RAM before handing off to the emulator.
+        imageCache.clear();
+        imageCache.clearLiveImages();
+        if (context.mounted) {
+          context.read<SystemBackgroundProvider>().clear();
+        }
 
         final syncProvider = context.read<SyncManager>().active!;
 
@@ -417,13 +428,17 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
           fileProvider: fileProvider,
           syncProvider: syncProvider,
           onGameClosed: () {
+            if (mounted) setState(() => _isGameLaunching = false);
             _gamepadNav.activate();
             Provider.of<SqliteDatabaseProvider>(
               context,
               listen: false,
             ).refresh();
           },
-          onLaunchFailed: (ctx, r) async => _gamepadNav.activate(),
+          onLaunchFailed: (ctx, r) async {
+            if (mounted) setState(() => _isGameLaunching = false);
+            _gamepadNav.activate();
+          },
         );
       } catch (e) {
         if (context.mounted) {
@@ -731,9 +746,7 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
           : Stack(
               children: [
                 Container(color: Theme.of(context).colorScheme.surface),
-                Container(
-                  color: system.color1AsColor?.withValues(alpha: 0.4),
-                ),
+                Container(color: system.color1AsColor?.withValues(alpha: 0.4)),
               ],
             ),
     );
@@ -773,6 +786,10 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isGameLaunching) {
+      return const PopScope(canPop: false, child: SizedBox.shrink());
+    }
+
     // Reload theme assets when active theme changes
     final neoThemeFolder = context.select<NeoAssetsProvider, String>(
       (p) => p.activeThemeFolder,

@@ -169,8 +169,12 @@ class _GameSettingsModalState extends State<GameSettingsModal> {
                     height: 40.w,
                     decoration: BoxDecoration(
                       color: _cloudSyncEnabled
-                          ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.6)
-                          : Theme.of(context).colorScheme.surface.withValues(alpha: 0.3),
+                          ? Theme.of(
+                              context,
+                            ).colorScheme.primary.withValues(alpha: 0.6)
+                          : Theme.of(
+                              context,
+                            ).colorScheme.surface.withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(20.w),
                     ),
                     child: Icon(
@@ -244,7 +248,9 @@ class _GameSettingsModalState extends State<GameSettingsModal> {
               Container(
                 padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.primary.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(8.w),
                   border: Border.all(
                     color: Theme.of(

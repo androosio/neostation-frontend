@@ -242,11 +242,7 @@ class _AndroidAppsGridState extends State<AndroidAppsGrid> {
                 child: Builder(
                   builder: (context) {
                     final bg = Theme.of(context).scaffoldBackgroundColor;
-                    return Container(
-                      decoration: BoxDecoration(
-                        color: bg,
-                      ),
-                    );
+                    return Container(decoration: BoxDecoration(color: bg));
                   },
                 ),
               )

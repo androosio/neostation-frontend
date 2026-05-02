@@ -344,11 +344,7 @@ class _SecondaryScreenState extends State<SecondaryScreen> {
     return Builder(
       builder: (context) {
         final bg = Theme.of(context).scaffoldBackgroundColor;
-        return Container(
-          decoration: BoxDecoration(
-            color: bg,
-          ),
-        );
+        return Container(decoration: BoxDecoration(color: bg));
       },
     );
   }
