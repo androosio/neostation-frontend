@@ -1,8 +1,8 @@
 {
   "system": {
-    "id": "gb",
-    "name": "Game Boy",
-    "short_name": "GB",
+    "id": "gb-hacks",
+    "name": "Game Boy Hacks",
+    "short_name": "GBH",
     "details": {
       "manufacturer": "Nintendo",
       "release_date": "1989-04-21",
@@ -14,10 +14,10 @@
       "retroachievements": 4
     },
     "folders": [
-      "gb",
-      "Game Boy",
-      "Nintendo Game Boy",
-      "gameboy"
+      "gbh",
+      "Game Boy Hacks",
+      "Nintendo Game Boy Hacks",
+      "gameboy-hacks"
     ],
     "colors": [
       "#90A4AE",

@@ -1,8 +1,8 @@
 {
   "system": {
-    "id": "nes",
-    "name": "Nintendo Entertainment System",
-    "short_name": "NES",
+    "id": "nes-hacks",
+    "name": "Nintendo Entertainment System Hacks",
+    "short_name": "NESH",
     "details": {
       "manufacturer": "Nintendo",
       "release_date": "1983-07-15",
@@ -14,9 +14,10 @@
       "retroachievements": 7
     },
     "folders": [
-      "nes",
-      "Nintendo Entertainment System",
-      "Nintendo"
+      "nesh",
+      "nes-hacks",
+      "Nintendo Entertainment System Hacks",
+      "Nintendo Hacks"
     ],
     "colors": [
       "#bdbdbd",
@@ -54,7 +55,7 @@
       "is_retroachievements_compatible": false,
       "platforms": {
         "android": {
-          "launch_arguments": "-n com.androidemu.nes/.EmulatorActivity -a android.intent.action.VIEW -d \"{file.uri}\" --activity-clear-task --activity-clear-top --activity-no-history"
+          "launch_arguments": "-n com.androidemu.nes/.EmulatorActivity -a android.intent.action.VIEW -d \"{file.uri}\" -t application/zip --activity-clear-task --activity-clear-top --activity-no-history"
         }
       }
     },

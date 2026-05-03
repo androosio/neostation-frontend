@@ -1,16 +1,16 @@
 {
   "system": {
-    "id": "steam",
-    "name": "Steam",
+    "id": "pcgames",
+    "name": "PC Games",
     "neosync": {
       "sync": false,
       "sync_folder": null
     },
-    "short_name": "Steam",
+    "short_name": "PCGames",
     "details": {
-      "manufacturer": "Valve",
-      "release_date": "2003-09-12",
-      "description": "Valve's digital distribution platform for PC games.",
+      "manufacturer": "Various",
+      "release_date": "0000-00-00",
+      "description": "Collection of Windows 9X+ PC Games",
       "type": "virtual"
     },
     "ids": {
@@ -18,23 +18,23 @@
       "retroachievements": null
     },
     "folders": [
-      "steam"
+      "pcgames"
     ],
     "colors": [
-      "#1b2838",
-      "#66c0f4"
+      "#FFFFFF",
+      "#2F2D2E"
     ],
     "extensions": [
-      "steam"
+      "pcgames"
     ]
   },
   "emulators": [
     {
       "name": "Standalone GameNative",
-      "unique_id": "steam.gamenative",
+      "unique_id": "pcgame.gamenative",
       "default": true,
       "is_retroachievements_compatible": false,
-      "description": "Supported extensions: steam",
+      "description": "Supported extensions: pcgame",
       "platforms": {
         "android": {
           "launch_arguments": "-a app.gamenative.LAUNCH_GAME -n app.gamenative/.MainActivity --ei app_id \"{tags.steamappid}\" --activity-clear-task --activity-clear-top"

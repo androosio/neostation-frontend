@@ -1,16 +1,16 @@
 {
   "system": {
-    "id": "steam",
-    "name": "Steam",
+    "id": "epic",
+    "name": "Epic Games",
     "neosync": {
       "sync": false,
       "sync_folder": null
     },
-    "short_name": "Steam",
+    "short_name": "EpicGames",
     "details": {
-      "manufacturer": "Valve",
-      "release_date": "2003-09-12",
-      "description": "Valve's digital distribution platform for PC games.",
+      "manufacturer": "Epic",
+      "release_date": "2018-12-06",
+      "description": "Epic's digital distribution platform for PC games.",
       "type": "virtual"
     },
     "ids": {
@@ -18,23 +18,23 @@
       "retroachievements": null
     },
     "folders": [
-      "steam"
+      "epic"
     ],
     "colors": [
-      "#1b2838",
-      "#66c0f4"
+      "#2F2D2E",
+      "#FFFFFF"
     ],
     "extensions": [
-      "steam"
+      "epic"
     ]
   },
   "emulators": [
     {
       "name": "Standalone GameNative",
-      "unique_id": "steam.gamenative",
+      "unique_id": "epic.gamenative",
       "default": true,
       "is_retroachievements_compatible": false,
-      "description": "Supported extensions: steam",
+      "description": "Supported extensions: epic",
       "platforms": {
         "android": {
           "launch_arguments": "-a app.gamenative.LAUNCH_GAME -n app.gamenative/.MainActivity --ei app_id \"{tags.steamappid}\" --activity-clear-task --activity-clear-top"

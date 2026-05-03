@@ -1,8 +1,8 @@
 {
   "system": {
-    "id": "snes",
-    "name": "Super Nintendo Entertainment System",
-    "short_name": "SNES",
+    "id": "snes-hacks",
+    "name": "Super Nintendo Entertainment System Hacks",
+    "short_name": "SNESH",
     "details": {
       "manufacturer": "Nintendo",
       "release_date": "1990-11-21",
@@ -14,10 +14,12 @@
       "retroachievements": 3
     },
     "folders": [
-      "snes",
-      "snesna",
-      "Super Nintendo",
-      "Super Nintendo Entertainment System"
+      "snesh",
+      "snes-hacks",
+      "snesnah",
+      "snesna-hacks",
+      "Super Nintendo Hacks",
+      "Super Nintendo Entertainment System Hacks"
     ],
     "colors": [
       "#d1d5db",

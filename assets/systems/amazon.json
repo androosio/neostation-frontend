@@ -1,16 +1,16 @@
 {
   "system": {
-    "id": "steam",
-    "name": "Steam",
+    "id": "amazon",
+    "name": "Amazon",
     "neosync": {
       "sync": false,
       "sync_folder": null
     },
-    "short_name": "Steam",
+    "short_name": "Amazon",
     "details": {
-      "manufacturer": "Valve",
-      "release_date": "2003-09-12",
-      "description": "Valve's digital distribution platform for PC games.",
+      "manufacturer": "Amazon Game",
+      "release_date": "2008-10-01",
+      "description": "Amazon's digital distribution platform for PC games.",
       "type": "virtual"
     },
     "ids": {
@@ -18,14 +18,14 @@
       "retroachievements": null
     },
     "folders": [
-      "steam"
+      "amazon"
     ],
     "colors": [
-      "#1b2838",
-      "#66c0f4"
+      "#FF9900",
+      "#232F3E"
     ],
     "extensions": [
-      "steam"
+      "amazon"
     ]
   },
   "emulators": [
@@ -34,7 +34,7 @@
       "unique_id": "steam.gamenative",
       "default": true,
       "is_retroachievements_compatible": false,
-      "description": "Supported extensions: steam",
+      "description": "Supported extensions: amazon",
       "platforms": {
         "android": {
           "launch_arguments": "-a app.gamenative.LAUNCH_GAME -n app.gamenative/.MainActivity --ei app_id \"{tags.steamappid}\" --activity-clear-task --activity-clear-top"
