@@ -13,6 +13,7 @@ import 'package:neostation/services/permission_service.dart';
 import 'package:neostation/services/sfx_service.dart';
 import 'package:neostation/services/user_data_location_service.dart';
 import 'package:neostation/widgets/custom_notification.dart';
+import 'package:neostation/widgets/restart_required_dialog.dart';
 import 'package:neostation/widgets/tv_directory_picker.dart';
 import 'package:provider/provider.dart';
 import 'settings_title.dart';
@@ -327,22 +328,7 @@ class DirectoriesSettingsContentState
       await showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (ctx) => AlertDialog(
-          title: Text(AppLocale.restartRequired.getString(context)),
-          content: Text(AppLocale.restartRequiredBody.getString(context)),
-          actions: [
-            TextButton(
-              onPressed: () {
-                if (Platform.isAndroid) {
-                  SystemNavigator.pop();
-                } else {
-                  exit(0);
-                }
-              },
-              child: Text(AppLocale.ok.getString(context)),
-            ),
-          ],
-        ),
+        builder: (ctx) => const RestartRequiredDialog(),
       );
     }
   }

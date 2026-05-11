@@ -34,16 +34,13 @@ class _UpdateDialogState extends State<UpdateDialog> {
       },
       onBack: _closeDialog,
     );
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      _gamepadNav.initialize();
-      _gamepadNav.activate();
-      GamepadNavigationManager.pushLayer(
-        'update_dialog',
-        onActivate: () => _gamepadNav.activate(),
-        onDeactivate: () => _gamepadNav.deactivate(),
-      );
-    });
+    _gamepadNav.initialize();
+    _gamepadNav.activate();
+    GamepadNavigationManager.pushLayer(
+      'update_dialog',
+      onActivate: () => _gamepadNav.activate(),
+      onDeactivate: () => _gamepadNav.deactivate(),
+    );
   }
 
   @override

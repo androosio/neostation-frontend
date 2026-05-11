@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
 const Color _primaryColor = Color(0xFF8183C9);
-const Color _onPrimaryColor = Color(0xFF2E084D);
+const Color _onPrimaryColor = Color(0xFF252029);
 const Color _secondaryColor = Color(0xFF30D1A1);
-const Color _onSecondaryColor = Color(0xFF49495A);
+const Color _onSecondaryColor = Color(0xFF252029);
 const Color _tertiaryColor = Color(0xFFE0E5FF);
-const Color _onTertiaryColor = Color(0xFF2E084D);
+const Color _onTertiaryColor = Color(0xFF252029);
 final Color _surfaceColor = HSLColor.fromColor(
   const Color(0xFF232030),
 ).withLightness(0.25).toColor();
@@ -22,13 +22,13 @@ const Color _batteryLow = Color(0xFFE53E3E);
 const Color _batteryPower = Color(0xFF4A90B8);
 
 const Color _errorColor = Color(0xFFFF5252);
-const Color _onErrorColor = Color(0xFF2E084D);
+const Color _onErrorColor = Color(0xFF252029);
 const Color _warningColor = Color(0xFFFFB84D);
-const Color _onWarningColor = Color(0xFF2E084D);
+const Color _onWarningColor = Color(0xFF252029);
 const Color _successColor = Color(0xFF30D1A1);
-const Color _onSuccessColor = Color(0xFF2E084D);
+const Color _onSuccessColor = Color(0xFF252029);
 const Color _infoColor = Color(0xFF4A90B8);
-const Color _onInfoColor = Color(0xFF2E084D);
+const Color _onInfoColor = Color(0xFF252029);
 
 final ThemeData nsdarkPalette = ThemeData(
   useMaterial3: true,
