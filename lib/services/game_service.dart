@@ -781,9 +781,7 @@ class GameService {
         }
       }
     } else {
-      if (Platform.isWindows) {
-        GamepadNavigationManager.reactivate();
-      }
+      GamepadNavigationManager.reactivate();
     }
   }
 

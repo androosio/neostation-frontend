@@ -713,6 +713,7 @@ const Map<String, dynamic> appLocaleFr = {
   AppLocale.systemsUpdateCurrentVersion: 'Version actuelle : {version}',
   AppLocale.systemsUpdateNewVersion: 'Nouvelle version : {version}',
   AppLocale.systemsUpdateDownloading: 'Téléchargement des configs systèmes...',
+  AppLocale.systemsUpdateSyncing: 'Synchronisation de la base de données...',
   AppLocale.systemsUpdateComplete: 'Systèmes mis à jour avec succès !',
   AppLocale.systemsUpdateError:
       'Échec de la mise à jour des systèmes. Réessayez plus tard.',

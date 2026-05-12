@@ -51,6 +51,9 @@ class SystemsUpdateService {
     return dir.path;
   }
 
+  /// Returns the path to the local systems cache directory.
+  static Future<String> getCacheDir() async => _getSystemsCachePath();
+
   /// Returns the path to a cached system file, or null if not cached.
   static Future<String?> getCachedSystemPath(String jsonFileName) async {
     try {
@@ -214,8 +217,13 @@ class SystemsUpdateService {
 
   static Future<Map<String, dynamic>?> _fetchManifest() async {
     try {
+      final bustUrl =
+          '$_manifestUrl?t=${DateTime.now().millisecondsSinceEpoch}';
       final response = await http
-          .get(Uri.parse(_manifestUrl))
+          .get(
+            Uri.parse(bustUrl),
+            headers: {'Cache-Control': 'no-cache', 'Pragma': 'no-cache'},
+          )
           .timeout(const Duration(seconds: 10));
       if (response.statusCode != 200) return null;
       return json.decode(response.body) as Map<String, dynamic>;

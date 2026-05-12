@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:path/path.dart' as path;
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:neostation/services/logger_service.dart';
 
@@ -53,6 +54,76 @@ class UserDataLocationService {
     } catch (_) {
       return null;
     }
+  }
+
+  /// Resolves the best accessible user-data path for a given Android SAF URI.
+  ///
+  /// If MANAGE_EXTERNAL_STORAGE is granted, returns the user's exact chosen
+  /// real filesystem path (same access model as ROM folders).
+  ///
+  /// If MANAGE_EXTERNAL_STORAGE is NOT granted (common on Android 15+ devices
+  /// where it must be explicitly enabled in Settings → Special App Access),
+  /// real filesystem paths outside Android/data/pkg/ become inaccessible
+  /// after a restart. In that case this method falls back to the app-specific
+  /// external storage directory for the selected volume, which is always
+  /// accessible without any special permission on any Android version.
+  static Future<String?> resolveAndroidUserDataPath(
+    String safUri, {
+    required bool hasAllFilesAccess,
+  }) async {
+    final direct = safUriToRealPath(safUri);
+
+    if (hasAllFilesAccess) {
+      // MANAGE_EXTERNAL_STORAGE granted — user's chosen path is fully accessible.
+      if (direct != null) _log.i('UserDataLocationService: direct path → $direct');
+      return direct;
+    }
+
+    // No MANAGE_EXTERNAL_STORAGE: fall back to app-specific external dir so
+    // the path remains accessible after restart without special permissions.
+    // Identify SD card dirs by absence of "/emulated/" (primary storage).
+    try {
+      final externalDirs = await getExternalStorageDirectories();
+      final sdDirs =
+          externalDirs?.where((d) => !d.path.contains('/emulated/')).toList();
+
+      if (sdDirs != null && sdDirs.isNotEmpty) {
+        // Extract volume ID from SAF URI for best match.
+        String? volume;
+        try {
+          final uri = Uri.parse(safUri);
+          if (uri.host == 'com.android.externalstorage.documents') {
+            final segments = uri.pathSegments;
+            final treeIndex = segments.indexOf('tree');
+            if (treeIndex >= 0 && treeIndex + 1 < segments.length) {
+              final docId = Uri.decodeComponent(segments[treeIndex + 1]);
+              final idx = docId.indexOf(':');
+              if (idx >= 0) volume = docId.substring(0, idx);
+            }
+          }
+        } catch (_) {}
+
+        final best = volume != null
+            ? sdDirs.firstWhere(
+                (d) => d.path.contains(volume!),
+                orElse: () => sdDirs.first,
+              )
+            : sdDirs.first;
+
+        final resolved = path.join(best.path, 'user-data');
+        _log.i(
+          'UserDataLocationService: no MANAGE_EXTERNAL_STORAGE → '
+          'app-specific fallback: $resolved',
+        );
+        return resolved;
+      }
+    } catch (e) {
+      _log.w('UserDataLocationService: getExternalStorageDirectories error: $e');
+    }
+
+    // Last resort: try direct path anyway.
+    if (direct != null) _log.i('UserDataLocationService: last-resort direct → $direct');
+    return direct;
   }
 
   /// Copies all content from [sourceUserDataPath] to [destPath], then deletes source.

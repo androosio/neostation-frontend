@@ -1,14 +1,16 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:neostation/services/logger_service.dart';
+import 'package:neostation/services/systems_update_service.dart';
+import 'package:path/path.dart' as p;
 import '../models/system_model.dart';
 import '../models/system_configuration.dart';
 
-/// Service responsible for loading and parsing system configuration JSON files from assets.
+/// Service responsible for loading and parsing system configuration JSON files.
 ///
-/// Discovers all JSON files in `assets/systems/`, parses their nested structures,
-/// and transforms them into [SystemConfiguration] objects containing both
-/// system metadata and emulator definitions.
+/// Prefers locally cached files downloaded via [SystemsUpdateService] over
+/// the bundled assets, and merges any new systems introduced by updates.
 class JsonConfigService {
   static final JsonConfigService _instance = JsonConfigService._internal();
   static JsonConfigService get instance => _instance;
@@ -16,28 +18,56 @@ class JsonConfigService {
 
   static final _log = LoggerService.instance;
 
-  /// Loads and parses all system configuration files located in `assets/systems/`.
-  ///
-  /// Uses the [AssetManifest] to discover available files and applies data
-  /// transformation logic to map nested JSON structures into the flattened
-  /// [SystemModel] format.
+  /// Loads all system configurations, preferring cached (updated) versions
+  /// over bundled assets. Also picks up new systems added by remote updates.
   Future<List<SystemConfiguration>> loadSystems() async {
     try {
       final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
 
-      final systemFiles = manifest
+      final bundledFiles = manifest
           .listAssets()
           .where(
-            (String key) =>
+            (key) =>
                 key.startsWith('assets/systems/') && key.endsWith('.json'),
           )
           .toList();
 
-      List<SystemConfiguration> systems = [];
+      final bundledFileNames =
+          bundledFiles.map((f) => p.basename(f)).toSet();
 
-      for (final filePath in systemFiles) {
+      // Discover extra files in the cache not present in the bundle.
+      final cachedOnlyFileNames = <String>{};
+      try {
+        final cacheDir = Directory(await SystemsUpdateService.getCacheDir());
+        if (await cacheDir.exists()) {
+          await for (final entity in cacheDir.list()) {
+            if (entity is File && entity.path.endsWith('.json')) {
+              final name = p.basename(entity.path);
+              if (!bundledFileNames.contains(name)) {
+                cachedOnlyFileNames.add(name);
+              }
+            }
+          }
+        }
+      } catch (e) {
+        _log.w('JsonConfigService: error scanning cache dir: $e');
+      }
+
+      final allFileNames = {...bundledFileNames, ...cachedOnlyFileNames};
+      final List<SystemConfiguration> systems = [];
+
+      for (final fileName in allFileNames) {
         try {
-          final content = await rootBundle.loadString(filePath);
+          final String content;
+          final cachedPath =
+              await SystemsUpdateService.getCachedSystemPath(fileName);
+          if (cachedPath != null) {
+            content = await File(cachedPath).readAsString();
+          } else {
+            content =
+                await rootBundle.loadString('assets/systems/$fileName');
+          }
+
           final Map<String, dynamic> jsonMap = json.decode(content);
 
           if (jsonMap.containsKey('system')) {
@@ -54,7 +84,8 @@ class JsonConfigService {
               'type': systemData['details']?['type'],
               'screenscraperId': systemData['ids']?['screenscraper'],
               'raId': systemData['ids']?['retroachievements'],
-              'iconImage': 'assets/images/systems/${systemData['id']}-icon.png',
+              'iconImage':
+                  'assets/images/systems/${systemData['id']}-icon.png',
               'backgroundImage':
                   'assets/images/systems/${systemData['id']}-bg.jpg',
               'color1':
@@ -91,7 +122,7 @@ class JsonConfigService {
             );
           }
         } catch (e) {
-          _log.e('Error parsing system JSON $filePath: $e');
+          _log.e('Error parsing system JSON $fileName: $e');
         }
       }
 
@@ -102,8 +133,5 @@ class JsonConfigService {
     }
   }
 
-  /// Generates a numeric identifier from a string ID using its hash code.
-  int _generateId(String id) {
-    return id.hashCode;
-  }
+  int _generateId(String id) => id.hashCode;
 }

@@ -687,6 +687,7 @@ const Map<String, dynamic> appLocaleRu = {
   AppLocale.systemsUpdateCurrentVersion: 'Текущая версия: {version}',
   AppLocale.systemsUpdateNewVersion: 'Новая версия: {version}',
   AppLocale.systemsUpdateDownloading: 'Загрузка конфигураций систем...',
+  AppLocale.systemsUpdateSyncing: 'Синхронизация базы данных систем...',
   AppLocale.systemsUpdateComplete: 'Системы успешно обновлены!',
   AppLocale.systemsUpdateError: 'Ошибка обновления систем. Попробуйте позже.',
 

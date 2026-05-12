@@ -624,6 +624,7 @@ const Map<String, dynamic> appLocaleZhHant = {
   AppLocale.systemsUpdateCurrentVersion: '目前版本：{version}',
   AppLocale.systemsUpdateNewVersion: '新版本：{version}',
   AppLocale.systemsUpdateDownloading: '正在下載系統設定...',
+  AppLocale.systemsUpdateSyncing: '正在同步系統資料庫...',
   AppLocale.systemsUpdateComplete: '系統更新成功！',
   AppLocale.systemsUpdateError: '系統更新失敗，請稍後再試。',
 

@@ -1033,7 +1033,7 @@ class _SystemGamesListState extends State<SystemGamesList> {
       if (_selectedGame != null) _updateSecondaryDisplay(_selectedGame!);
     }
 
-    _gamepadNav.activate();
+    GamepadNavigationManager.reactivate();
 
     // Reload games list (was cleared to free RAM during gameplay).
     try {

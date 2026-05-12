@@ -13,8 +13,10 @@ import 'package:neostation/services/permission_service.dart';
 import 'package:neostation/services/sfx_service.dart';
 import 'package:neostation/services/user_data_location_service.dart';
 import 'package:neostation/widgets/custom_notification.dart';
+import 'package:neostation/widgets/permission_check_wrapper.dart';
 import 'package:neostation/widgets/restart_required_dialog.dart';
 import 'package:neostation/widgets/tv_directory_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import 'settings_title.dart';
 
@@ -233,13 +235,20 @@ class DirectoriesSettingsContentState
         if (isTV) {
           selected = await TvDirectoryPicker.show(context);
         } else {
-          // Regular Android: same SAF picker as ROM folders; convert URI → real path.
+          // Regular Android: SAF picker → resolve to accessible path.
+          // On Android 15+, SD card volumes require app-specific external
+          // storage dirs; resolveAndroidUserDataPath handles this automatically.
           try {
             final uri = await PermissionService.requestFolderAccess();
             if (uri != null) {
-              selected = UserDataLocationService.safUriToRealPath(
-                uri.toString(),
-              );
+              final uriStr = uri.toString();
+              final hasFiles = await PermissionService.hasAllFilesAccess();
+              selected =
+                  await UserDataLocationService.resolveAndroidUserDataPath(
+                    uriStr,
+                    hasAllFilesAccess: hasFiles,
+                  ) ??
+                  UserDataLocationService.safUriToRealPath(uriStr);
             }
           } on PlatformException catch (e) {
             if (e.code == 'PICKER_FAILED' && mounted) {
@@ -304,6 +313,14 @@ class DirectoriesSettingsContentState
         },
       );
       await UserDataLocationService.setCustomPath(destPath);
+      // Reinforce the SharedPreferences setup flag so that if the new path
+      // (e.g. SD card) is temporarily unavailable on next boot, the wizard
+      // is not shown again.
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(
+        PermissionCheckWrapper.setupCompletedKey,
+        true,
+      );
     } catch (e) {
       migrationError = e.toString();
       _log.e('Migration failed: $e');

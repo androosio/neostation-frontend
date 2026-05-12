@@ -42,10 +42,22 @@ class ConfigService {
     final customPath = prefs.getString(_customPathKey);
     if (customPath != null && customPath.isNotEmpty) {
       final dir = Directory(customPath);
-      if (!await dir.exists()) {
-        await dir.create(recursive: true);
+      if (await dir.exists()) {
+        return customPath;
       }
-      return customPath;
+      // Directory missing — try to create it (first-run on new device or new location).
+      // If creation fails (SD card not mounted, permission revoked, etc.) fall back
+      // to the default path so we never open a fresh empty DB at a wrong location.
+      try {
+        await dir.create(recursive: true);
+        return customPath;
+      } catch (e) {
+        _log.w(
+          'ConfigService: custom path "$customPath" inaccessible ($e). '
+          'Falling back to default path.',
+        );
+        return getDefaultUserDataPath();
+      }
     }
     return getDefaultUserDataPath();
   }

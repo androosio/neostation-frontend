@@ -287,6 +287,9 @@ class _SystemsUpdateDialogState extends State<SystemsUpdateDialog> {
     if (!mounted) return;
 
     if (result != null) {
+      setState(() {
+        _downloadStatus = AppLocale.systemsUpdateSyncing.getString(context);
+      });
       await SqliteService.loadAndSyncSystems();
       if (!mounted) return;
       Navigator.of(context).pop(true);
