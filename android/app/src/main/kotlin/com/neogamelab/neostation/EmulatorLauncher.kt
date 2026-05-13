@@ -157,6 +157,18 @@ object EmulatorLauncher {
                 if (intent.clipData == null) {
                     intent.clipData = ClipData.newRawUri("ROM", primaryContentUri)
                 }
+
+                // Multi-file formats (.cue, .gdi, .m3u) reference sibling track files
+                // (.bin, .iso, .img, .wav, etc.) that also need explicit URI permissions.
+                // Without this, the emulator can open the cue/gdi but gets permission
+                // denied when it tries to read the actual track data.
+                val masterFileName = getFileNameFromUri(context, primaryContentUri) ?: ""
+                val masterExt = masterFileName.substringAfterLast('.', "").lowercase()
+                if (masterExt in setOf("cue", "gdi", "m3u") &&
+                    android.provider.DocumentsContract.isDocumentUri(context, primaryContentUri) &&
+                    android.provider.DocumentsContract.isTreeUri(primaryContentUri)) {
+                    grantSiblingTrackPermissions(context, packageName, primaryContentUri)
+                }
             }
 
             // RetroArch: ensure CONFIGFILE; if ROM couldn't resolve to real path, grant content URI permissions
@@ -345,5 +357,50 @@ object EmulatorLauncher {
 
     private fun isExternalStorageDocument(uri: Uri): Boolean {
         return "com.android.externalstorage.documents" == uri.authority
+    }
+
+    // Grants read permission for sibling track files belonging to the same disc image.
+    // Matches: (1) any extension with the exact same base name, or (2) track files whose
+    // name starts with the master base name (e.g. "Game Track 01.bin", "Game Track 02.bin").
+    // This avoids over-granting when multiple games share the same directory.
+    private fun grantSiblingTrackPermissions(context: Context, packageName: String, masterUri: Uri) {
+        val trackExts = setOf("bin", "iso", "img", "sub", "wav", "flac", "dat")
+        try {
+            val treeDocId = android.provider.DocumentsContract.getTreeDocumentId(masterUri)
+            val docId = android.provider.DocumentsContract.getDocumentId(masterUri)
+            val parentDocId = if (docId.contains('/')) docId.substringBeforeLast('/') else treeDocId
+            val treeUri = android.provider.DocumentsContract.buildTreeDocumentUri(masterUri.authority, treeDocId)
+            val childrenUri = android.provider.DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, parentDocId)
+
+            val masterFileName = getFileNameFromUri(context, masterUri) ?: ""
+            val masterBase = masterFileName.substringBeforeLast('.').lowercase()
+
+            context.contentResolver.query(
+                childrenUri,
+                arrayOf(
+                    android.provider.DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                    android.provider.DocumentsContract.Document.COLUMN_DISPLAY_NAME
+                ),
+                null, null, null
+            )?.use { cursor ->
+                while (cursor.moveToNext()) {
+                    val childDocId = cursor.getString(0) ?: continue
+                    val childName = cursor.getString(1) ?: continue
+                    val childNameLower = childName.lowercase()
+                    val childExt = childName.substringAfterLast('.', "").lowercase()
+                    val childBase = childName.substringBeforeLast('.').lowercase()
+
+                    val sameBaseName = childBase == masterBase
+                    val isTrackSibling = childExt in trackExts && childNameLower.startsWith(masterBase)
+
+                    if (sameBaseName || isTrackSibling) {
+                        val childUri = android.provider.DocumentsContract.buildDocumentUriUsingTree(treeUri, childDocId)
+                        try {
+                            context.grantUriPermission(packageName, childUri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        } catch (_: Exception) {}
+                    }
+                }
+            }
+        } catch (_: Exception) {}
     }
 }

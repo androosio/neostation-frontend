@@ -75,8 +75,9 @@ class UserDataLocationService {
 
     if (hasAllFilesAccess) {
       // MANAGE_EXTERNAL_STORAGE granted — user's chosen path is fully accessible.
-      if (direct != null)
+      if (direct != null) {
         _log.i('UserDataLocationService: direct path → $direct');
+      }
       return direct;
     }
 
@@ -126,8 +127,9 @@ class UserDataLocationService {
     }
 
     // Last resort: try direct path anyway.
-    if (direct != null)
+    if (direct != null) {
       _log.i('UserDataLocationService: last-resort direct → $direct');
+    }
     return direct;
   }
 
