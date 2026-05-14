@@ -45,8 +45,8 @@ object EmulatorLauncher {
             }
 
             // Resolve neostation-* markers before building the intent. Markers are
-            // injected by the Dart launcher when the JSON config uses {file.realpath}
-            // or {file.fileuri} placeholders. All other values pass
+            // injected by the Dart launcher when the JSON config uses {file.path}
+            // or {file.localuri} placeholders. All other values pass
             // through unchanged, so this step is a no-op for emulators that don't opt in.
             val resolvedData = data?.let { resolveMarkedValue(context, it) }
             val resolvedExtras: List<Map<String, Any>>? = extras?.map { extra ->
@@ -184,11 +184,11 @@ object EmulatorLauncher {
     // Resolves neostation-* markers injected by the Dart launcher for placeholders that
     // require Android SAF access at launch time. Unknown or plain values pass through.
     //
-    //  neostation-realpath:<uri> → best-effort real filesystem path: resolves SAF
-    //                              content:// directly; falls back to a local cache
-    //                              copy for network/NAS providers (Round Sync, CIFS…)
-    //                              that have no filesystem mapping.
-    //  neostation-fileuri:<uri>  → same resolution as realpath, returned as file:// URI.
+    //  neostation-realpath:<uri>  → best-effort real filesystem path: resolves SAF
+    //                               content:// directly; falls back to a local cache
+    //                               copy for network/NAS providers (Round Sync, CIFS…)
+    //                               that have no filesystem mapping.
+    //  neostation-localuri:<uri> → same resolution as realpath, returned as file:// URI.
     private fun resolveMarkedValue(context: Context, value: String): String {
         return when {
             value.startsWith("neostation-realpath:") -> {
@@ -201,8 +201,8 @@ object EmulatorLauncher {
                     }
                 } else raw
             }
-            value.startsWith("neostation-fileuri:") -> {
-                val raw = value.removePrefix("neostation-fileuri:")
+            value.startsWith("neostation-localuri:") -> {
+                val raw = value.removePrefix("neostation-localuri:")
                 if (raw.startsWith("content://")) {
                     val uri = Uri.parse(raw)
                     val path = resolveSafUriToPath(context, uri) ?: run {

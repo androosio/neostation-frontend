@@ -339,36 +339,33 @@ class LauncherService {
   /// Replaces placeholders in Android-specific launch templates with game data.
   ///
   /// Supported placeholders:
-  /// - `{file.path}`     — raw SAF content:// URI or real filesystem path
-  /// - `{file.uri}`      — proper URI: content:// passes through, bare paths become file://
-  /// - `{file.realpath}` — requests Kotlin to resolve content:// → real filesystem path;
-  ///                       encodes a marker that EmulatorLauncher detects and resolves at launch time
-  /// - `{file.fileuri}`  — requests Kotlin to resolve content:// → file:// URI;
-  ///                       encodes a marker that EmulatorLauncher detects and resolves at launch time
+  /// - `{file.path}`     — best-effort real filesystem path; resolves SAF content://
+  ///                       directly when possible, falls back to a local cache copy
+  ///                       for network/NAS providers. Use for emulators that need a
+  ///                       real path (RetroArch, DuckStation, AetherSX2, Dolphin…).
+  /// - `{file.uri}`      — URI: content:// passes through as-is, bare paths → file://.
+  ///                       Use for emulators that accept content:// natively (-d flag).
+  /// - `{file.localuri}` — same resolution as {file.path} returned as a file:// URI.
+  ///                       Use for emulators that need file:// but not content://.
   String resolvePlaceholdersAndroid(String template, GameModel game) {
     if (template.isEmpty) return template;
 
     String result = template;
     if (game.romPath != null) {
       final String romPath = game.romPath!;
-      result = result.replaceAll('{file.path}', romPath);
 
-      // SAF content:// URIs and file:// URIs pass through as-is.
-      // Only convert bare filesystem paths to file:// scheme.
+      // {file.path} and {file.localuri} use marker-based resolution: Kotlin's
+      // EmulatorLauncher detects these prefixes and resolves SAF content:// at
+      // launch time — no package-name checks needed in the launcher.
+      result = result.replaceAll('{file.path}', 'neostation-realpath:$romPath');
+      result = result.replaceAll('{file.localuri}', 'neostation-localuri:$romPath');
+
+      // {file.uri}: content:// and file:// pass through; bare paths → file://.
       final String uri =
           (romPath.startsWith('content://') || romPath.startsWith('file://'))
           ? romPath
           : Uri.file(romPath).toString();
       result = result.replaceAll('{file.uri}', uri);
-
-      // Marker-based resolution: Kotlin's EmulatorLauncher detects these prefixes
-      // and resolves the embedded path at launch time — no package-name checks needed.
-      // {file.realpath} → best-effort real filesystem path: resolves SAF content://
-      //                   directly when possible, falls back to a local cache copy
-      //                   for network/NAS providers that have no filesystem mapping.
-      // {file.fileuri}  → same resolution as realpath but returned as a file:// URI.
-      result = result.replaceAll('{file.realpath}', 'neostation-realpath:$romPath');
-      result = result.replaceAll('{file.fileuri}', 'neostation-fileuri:$romPath');
 
       if (game.titleId != null) {
         result = result.replaceAll('{tags.steamappid}', game.titleId!);
