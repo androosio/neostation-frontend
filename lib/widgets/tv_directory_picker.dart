@@ -400,7 +400,9 @@ class _TvDirectoryPickerState extends State<TvDirectoryPicker> {
       child: Row(
         children: [
           Icon(
-            _showVolumePicker ? Symbols.storage_rounded : Symbols.folder_open_rounded,
+            _showVolumePicker
+                ? Symbols.storage_rounded
+                : Symbols.folder_open_rounded,
             color: theme.colorScheme.primary,
             size: 20.r,
           ),
@@ -546,7 +548,9 @@ class _TvDirectoryPickerState extends State<TvDirectoryPicker> {
             child: Row(
               children: [
                 Icon(
-                  vol.isInternal ? Symbols.phone_android_rounded : Symbols.sd_card_rounded,
+                  vol.isInternal
+                      ? Symbols.phone_android_rounded
+                      : Symbols.sd_card_rounded,
                   color: focused
                       ? theme.colorScheme.primary
                       : theme.colorScheme.onSurface.withValues(alpha: 0.7),

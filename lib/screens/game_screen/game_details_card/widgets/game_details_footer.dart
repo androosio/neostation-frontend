@@ -220,7 +220,9 @@ class GameDetailsFooter extends StatelessWidget {
         onToggleFavorite();
       },
       iconPath: 'assets/images/gamepad/Xbox_Y_button.png',
-      iconData: isFav ? Symbols.favorite_rounded : Symbols.favorite_border_rounded,
+      iconData: isFav
+          ? Symbols.favorite_rounded
+          : Symbols.favorite_border_rounded,
       iconColor: isFav
           ? Colors.redAccent
           : Theme.of(context).colorScheme.onSurface,
@@ -338,7 +340,9 @@ class GameDetailsFooter extends StatelessWidget {
         onScrapeGame();
       },
       iconPath: 'assets/images/gamepad/Xbox_X_button.png',
-      iconData: isDescriptionMissing ? Symbols.search_rounded : Symbols.refresh_rounded,
+      iconData: isDescriptionMissing
+          ? Symbols.search_rounded
+          : Symbols.refresh_rounded,
       label: isDescriptionMissing
           ? AppLocale.scrape.getString(context)
           : AppLocale.rescrape.getString(context),
@@ -575,7 +579,11 @@ class GameDetailsFooter extends StatelessWidget {
                     ),
                   )
                 else
-                  Icon(Symbols.emoji_events_rounded, color: statusColor, size: 16.r),
+                  Icon(
+                    Symbols.emoji_events_rounded,
+                    color: statusColor,
+                    size: 16.r,
+                  ),
                 SizedBox(height: 2.r),
                 Text(
                   progressText.toUpperCase(),

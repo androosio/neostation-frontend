@@ -239,7 +239,10 @@ class _StandaloneEmulatorConfigScreenState
               child: Row(
                 children: [
                   IconButton(
-                    icon: Icon(Symbols.arrow_back_rounded, color: colorScheme.onSurface),
+                    icon: Icon(
+                      Symbols.arrow_back_rounded,
+                      color: colorScheme.onSurface,
+                    ),
                     onPressed: () => Navigator.pop(context),
                   ),
                   SizedBox(width: 16.w),

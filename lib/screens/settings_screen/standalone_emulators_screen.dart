@@ -147,11 +147,18 @@ class _StandaloneEmulatorsScreenState extends State<StandaloneEmulatorsScreen> {
               child: Row(
                 children: [
                   IconButton(
-                    icon: Icon(Symbols.arrow_back_rounded, color: colorScheme.onSurface),
+                    icon: Icon(
+                      Symbols.arrow_back_rounded,
+                      color: colorScheme.onSurface,
+                    ),
                     onPressed: () => Navigator.pop(context),
                   ),
                   SizedBox(width: 8.r),
-                  Icon(Symbols.gamepad_rounded, color: colorScheme.primary, size: 32.r),
+                  Icon(
+                    Symbols.gamepad_rounded,
+                    color: colorScheme.primary,
+                    size: 32.r,
+                  ),
                   SizedBox(width: 16.r),
                   Text(
                     'Standalone Emulators',

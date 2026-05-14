@@ -119,7 +119,11 @@ class AccountContent extends StatelessWidget {
               ),
               child: ElevatedButton.icon(
                 onPressed: onLogout,
-                icon: Icon(Symbols.logout_rounded, size: 14.r, color: Colors.white),
+                icon: Icon(
+                  Symbols.logout_rounded,
+                  size: 14.r,
+                  color: Colors.white,
+                ),
                 label: Text(
                   AppLocale.disconnectAccount.getString(context),
                   style: TextStyle(

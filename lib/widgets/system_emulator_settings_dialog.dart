@@ -1690,22 +1690,31 @@ class _SystemEmulatorSettingsDialogState
       return Image.file(
         File(path),
         fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) =>
-            Icon(Symbols.broken_image_rounded, size: 16.r, color: Colors.white24),
+        errorBuilder: (context, error, stackTrace) => Icon(
+          Symbols.broken_image_rounded,
+          size: 16.r,
+          color: Colors.white24,
+        ),
       );
     } else if (path.startsWith('assets')) {
       return Image.asset(
         path,
         fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) =>
-            Icon(Symbols.broken_image_rounded, size: 16.r, color: Colors.white24),
+        errorBuilder: (context, error, stackTrace) => Icon(
+          Symbols.broken_image_rounded,
+          size: 16.r,
+          color: Colors.white24,
+        ),
       );
     } else {
       return Image.network(
         path,
         fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) =>
-            Icon(Symbols.broken_image_rounded, size: 16.r, color: Colors.white24),
+        errorBuilder: (context, error, stackTrace) => Icon(
+          Symbols.broken_image_rounded,
+          size: 16.r,
+          color: Colors.white24,
+        ),
       );
     }
   }

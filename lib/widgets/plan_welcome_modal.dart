@@ -124,7 +124,11 @@ class PlanWelcomeModalState extends State<PlanWelcomeModal> {
                   color: planColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(20.w),
                 ),
-                child: Icon(Symbols.celebration_rounded, size: 20.sp, color: planColor),
+                child: Icon(
+                  Symbols.celebration_rounded,
+                  size: 20.sp,
+                  color: planColor,
+                ),
               ),
 
               SizedBox(height: 12.h),

@@ -518,7 +518,11 @@ class _RAContentState extends State<RAContent> {
           // Header: USER PROFILE + Logout
           Row(
             children: [
-              Icon(Symbols.person_rounded, color: theme.colorScheme.primary, size: 20.r),
+              Icon(
+                Symbols.person_rounded,
+                color: theme.colorScheme.primary,
+                size: 20.r,
+              ),
               SizedBox(width: 8.r),
               Text(
                 AppLocale.userProfile.getString(context),
@@ -934,7 +938,11 @@ class _RAContentState extends State<RAContent> {
           // Header
           Row(
             children: [
-              Icon(Symbols.history_rounded, color: theme.colorScheme.primary, size: 20.r),
+              Icon(
+                Symbols.history_rounded,
+                color: theme.colorScheme.primary,
+                size: 20.r,
+              ),
               SizedBox(width: 8.r),
               Text(
                 AppLocale.recentlyPlayed.getString(context),

@@ -129,7 +129,11 @@ class _AndroidAppCardState extends State<AndroidAppCard> {
         else
           Opacity(
             opacity: 0.5,
-            child: Icon(Symbols.android_rounded, size: iconSize, color: Colors.white),
+            child: Icon(
+              Symbols.android_rounded,
+              size: iconSize,
+              color: Colors.white,
+            ),
           ),
       ],
     );

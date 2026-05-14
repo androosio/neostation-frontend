@@ -408,7 +408,11 @@ class _PulsatingIndicatorState extends State<_PulsatingIndicator>
           scale: _animation.value,
           child: Opacity(
             opacity: _animation.value,
-            child: Icon(Symbols.headphones_rounded, size: 14.r, color: Colors.white),
+            child: Icon(
+              Symbols.headphones_rounded,
+              size: 14.r,
+              color: Colors.white,
+            ),
           ),
         );
       },

@@ -379,8 +379,11 @@ class _RandomGameDialogState extends State<RandomGameDialog>
                       'assets/images/gamepad/Xbox_B_button.png',
                       width: 14.r,
                       height: 14.r,
-                      errorBuilder: (context, e, s) =>
-                          Icon(Symbols.close_rounded, size: 14.r, color: Colors.white),
+                      errorBuilder: (context, e, s) => Icon(
+                        Symbols.close_rounded,
+                        size: 14.r,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                   SizedBox(width: 2.r),

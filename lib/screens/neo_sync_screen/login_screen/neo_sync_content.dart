@@ -1334,7 +1334,11 @@ class NeoSyncContentState extends State<NeoSyncContent>
         children: [
           Row(
             children: [
-              Icon(Symbols.cloud_rounded, color: theme.colorScheme.primary, size: 24.r),
+              Icon(
+                Symbols.cloud_rounded,
+                color: theme.colorScheme.primary,
+                size: 24.r,
+              ),
               SizedBox(width: 12.r),
               Text(
                 AppLocale.whatIsNeoSync.getString(context),
@@ -2921,7 +2925,11 @@ class _ErrorDialogState extends State<_ErrorDialog> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
       title: Row(
         children: [
-          Icon(Symbols.error_rounded, color: theme.colorScheme.error, size: 24.r),
+          Icon(
+            Symbols.error_rounded,
+            color: theme.colorScheme.error,
+            size: 24.r,
+          ),
           SizedBox(width: 12.r),
           Text(
             widget.title,

@@ -180,7 +180,11 @@ class MySystems extends StatelessWidget {
                   ),
                 ],
               ),
-              child: const Icon(Symbols.sync_rounded, color: Colors.white, size: 32),
+              child: const Icon(
+                Symbols.sync_rounded,
+                color: Colors.white,
+                size: 32,
+              ),
             ),
             const SizedBox(height: 24),
             Text(
@@ -323,7 +327,11 @@ class MySystems extends StatelessWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Symbols.folder_rounded, color: Colors.white, size: 20),
+                        const Icon(
+                          Symbols.folder_rounded,
+                          color: Colors.white,
+                          size: 20,
+                        ),
                         const SizedBox(width: 8),
                         Text(
                           AppLocale.selectRomFolderButton.getString(context),

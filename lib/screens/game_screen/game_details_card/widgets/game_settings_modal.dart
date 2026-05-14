@@ -227,7 +227,10 @@ class _GameSettingsModalState extends State<GameSettingsModal> {
                   ),
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Symbols.close_rounded, color: Colors.white),
+                    icon: const Icon(
+                      Symbols.close_rounded,
+                      color: Colors.white,
+                    ),
                   ),
                 ],
               ),

@@ -88,7 +88,11 @@ class _GameSettingsModalState extends State<GameSettingsModal> {
                     ),
                     borderRadius: BorderRadius.circular(24.w),
                   ),
-                  child: Icon(Symbols.settings_rounded, color: Colors.white, size: 24.sp),
+                  child: Icon(
+                    Symbols.settings_rounded,
+                    color: Colors.white,
+                    size: 24.sp,
+                  ),
                 ),
                 SizedBox(width: 16.w),
                 Expanded(
@@ -179,7 +183,9 @@ class _GameSettingsModalState extends State<GameSettingsModal> {
                       borderRadius: BorderRadius.circular(20.w),
                     ),
                     child: Icon(
-                      _cloudSyncEnabled ? Symbols.cloud_done_rounded : Symbols.cloud_off_rounded,
+                      _cloudSyncEnabled
+                          ? Symbols.cloud_done_rounded
+                          : Symbols.cloud_off_rounded,
                       color: Colors.white,
                       size: 20.sp,
                     ),

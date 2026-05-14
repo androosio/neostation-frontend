@@ -45,7 +45,11 @@ class QuotaExceededDialog extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Icon(Symbols.warning_rounded, color: Colors.orange, size: 20),
+                      Icon(
+                        Symbols.warning_rounded,
+                        color: Colors.orange,
+                        size: 20,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(

@@ -358,7 +358,11 @@ class _SetupWizardState extends State<SetupWizard> {
               ),
               child: Center(
                 child: isCompleted
-                    ? Icon(Symbols.check_rounded, color: Colors.white, size: 14.r)
+                    ? Icon(
+                        Symbols.check_rounded,
+                        color: Colors.white,
+                        size: 14.r,
+                      )
                     : Text(
                         '${index + 1}',
                         style: TextStyle(
@@ -413,7 +417,11 @@ class _SetupWizardState extends State<SetupWizard> {
               ),
               child: Center(
                 child: isCompleted
-                    ? Icon(Symbols.check_rounded, color: Colors.white, size: 24.r)
+                    ? Icon(
+                        Symbols.check_rounded,
+                        color: Colors.white,
+                        size: 24.r,
+                      )
                     : Text(
                         '${index + 1}',
                         style: TextStyle(
