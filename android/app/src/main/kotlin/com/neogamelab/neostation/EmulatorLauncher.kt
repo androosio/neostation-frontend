@@ -53,6 +53,16 @@ object EmulatorLauncher {
                 }
             }
 
+            // Imagine-engine emulators (com.explusalpha.*) derive save-state and BIOS
+            // paths from the ROM's filesystem location. A content:// URI lets them read
+            // the ROM but breaks save-state lookup. Resolve to file:// when possible.
+            if (uriData?.scheme == "content" && packageName.startsWith("com.explusalpha")) {
+                val resolved = resolveSafUriToPath(context, uriData!!)
+                if (resolved != null) {
+                    uriData = Uri.parse("file://$resolved")
+                }
+            }
+
             if (uriData != null && type != null) {
                 intent.setDataAndType(uriData, type)
             } else if (uriData != null) {
