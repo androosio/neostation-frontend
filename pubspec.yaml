@@ -99,6 +99,7 @@ flutter:
     - assets/images/gamepad/
     - assets/images/icons/
     - assets/images/music/
+    - assets/manifest.json
     - assets/data/
     - assets/systems/
     - assets/sounds/

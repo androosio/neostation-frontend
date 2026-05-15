@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path/path.dart' as path;
@@ -73,26 +74,52 @@ class SystemsUpdateService {
   /// `loadAndSyncSystems` re-applies all bundled/cached JSON definitions.
   static Future<void> initialize() async {
     try {
-      // Detect app version change — force full systems re-sync on app update.
       final packageInfo = await PackageInfo.fromPlatform();
       final currentAppVersion = packageInfo.version;
       final storedAppVersion = await SqliteService.getNeostationAppVersion();
 
       if (storedAppVersion != currentAppVersion) {
         _log.i(
-          'SystemsUpdateService: app updated $storedAppVersion → $currentAppVersion, resetting systems_version',
+          'SystemsUpdateService: app updated $storedAppVersion → $currentAppVersion',
         );
-        await SqliteService.updateSystemsVersion('');
+
+        final bundledVersion = await _readBundledManifestVersion();
+        final cachedVersion = await SqliteService.getSystemsVersion();
+
+        // Only advance the baseline if the bundled systems are newer than what
+        // the user already has cached. A stale bundle must never downgrade
+        // systems that were downloaded from the remote repo.
+        if (bundledVersion.isNotEmpty &&
+            !_meetsMinimumVersion(cachedVersion, bundledVersion)) {
+          _log.i(
+            'SystemsUpdateService: bundled v$bundledVersion > cached "$cachedVersion", advancing baseline',
+          );
+          await SqliteService.updateSystemsVersion(bundledVersion);
+        }
+
         await SqliteService.updateNeostationAppVersion(currentAppVersion);
       }
 
       final current = await SqliteService.getSystemsVersion();
       if (current.isEmpty) {
-        await SqliteService.updateSystemsVersion('bundled');
-        _log.i('SystemsUpdateService: initialized systems_version=bundled');
+        final bundledVersion = await _readBundledManifestVersion();
+        final baseline = bundledVersion.isNotEmpty ? bundledVersion : 'bundled';
+        await SqliteService.updateSystemsVersion(baseline);
+        _log.i('SystemsUpdateService: initialized systems_version=$baseline');
       }
     } catch (e) {
       _log.w('SystemsUpdateService: failed to initialize version: $e');
+    }
+  }
+
+  /// Reads the `latest_version` from the manifest bundled with this app build.
+  static Future<String> _readBundledManifestVersion() async {
+    try {
+      final jsonString = await rootBundle.loadString('assets/manifest.json');
+      final manifest = json.decode(jsonString) as Map<String, dynamic>;
+      return manifest['latest_version']?.toString() ?? '';
+    } catch (_) {
+      return '';
     }
   }
 
@@ -102,6 +129,8 @@ class SystemsUpdateService {
     try {
       final manifest = await _fetchManifest();
       if (manifest == null) return null;
+
+      if (!await _appMeetsManifestMinimum(manifest)) return null;
 
       final remoteVersion = manifest['latest_version']?.toString() ?? '';
       if (remoteVersion.isEmpty) return null;
@@ -131,6 +160,8 @@ class SystemsUpdateService {
       // 1. Fetch manifest — failure here means no internet, bail silently.
       final manifest = await _fetchManifest();
       if (manifest == null) return null;
+
+      if (!await _appMeetsManifestMinimum(manifest)) return null;
 
       final remoteVersion = manifest['latest_version']?.toString() ?? '';
       if (remoteVersion.isEmpty) return null;
@@ -213,6 +244,38 @@ class SystemsUpdateService {
       _log.w('SystemsUpdateService: GitHub API error: $e');
       return [];
     }
+  }
+
+  /// Returns false (and logs) if the manifest declares a minimum app version
+  /// that the current build doesn't satisfy. Missing field → always passes.
+  static Future<bool> _appMeetsManifestMinimum(
+    Map<String, dynamic> manifest,
+  ) async {
+    final minimum = manifest['neostation_minimum_version']?.toString() ?? '';
+    if (minimum.isEmpty) return true;
+    final packageInfo = await PackageInfo.fromPlatform();
+    final appVersion = packageInfo.version;
+    if (_meetsMinimumVersion(appVersion, minimum)) return true;
+    _log.i(
+      'SystemsUpdateService: remote requires app >= $minimum, current $appVersion — skipping update',
+    );
+    return false;
+  }
+
+  /// Compares two semver-style "major.minor.patch" strings numerically.
+  /// Returns true if [appVersion] >= [minimum].
+  static bool _meetsMinimumVersion(String appVersion, String minimum) {
+    List<int> parse(String v) =>
+        v.split('.').map((s) => int.tryParse(s) ?? 0).toList();
+    final a = parse(appVersion);
+    final m = parse(minimum);
+    final len = a.length > m.length ? a.length : m.length;
+    for (var i = 0; i < len; i++) {
+      final av = i < a.length ? a[i] : 0;
+      final mv = i < m.length ? m[i] : 0;
+      if (av != mv) return av > mv;
+    }
+    return true;
   }
 
   static Future<Map<String, dynamic>?> _fetchManifest() async {
