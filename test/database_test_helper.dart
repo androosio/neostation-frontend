@@ -72,6 +72,8 @@ class DatabaseTestHelper {
         is_favorite INTEGER DEFAULT 0,
         play_time INTEGER DEFAULT 0,
         last_played TEXT,
+        created_at TEXT,
+        updated_at TEXT,
         app_emulator_unique_id TEXT,
         app_emulator_os_id INTEGER
       )
@@ -90,6 +92,7 @@ class DatabaseTestHelper {
         is_fullscreen INTEGER,
         bartop_exit_poweroff INTEGER,
         scan_on_startup INTEGER,
+        ignore_hidden_files INTEGER DEFAULT 1,
         setup_completed INTEGER,
         hide_bottom_screen INTEGER,
         sfx_enabled INTEGER,

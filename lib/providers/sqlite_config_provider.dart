@@ -725,6 +725,7 @@ class SqliteConfigProvider extends ChangeNotifier {
       final summary = await SqliteDatabaseService.scanSystemRoms(
         system,
         _config.romFolders,
+        ignoreHiddenFiles: _config.ignoreHiddenFiles,
         rootFoldersMap: rootFoldersMap,
       );
 
@@ -1147,6 +1148,13 @@ class SqliteConfigProvider extends ChangeNotifier {
   /// Updates whether startup scan is enabled
   Future<void> updateScanOnStartup(bool value) async {
     _config = _config.copyWith(scanOnStartup: value);
+    await SqliteConfigService.saveConfig(_config);
+    notifyListeners();
+  }
+
+  /// Updates whether hidden files/folders are ignored during ROM scans.
+  Future<void> updateIgnoreHiddenFiles(bool ignoreHiddenFiles) async {
+    _config = _config.copyWith(ignoreHiddenFiles: ignoreHiddenFiles);
     await SqliteConfigService.saveConfig(_config);
     notifyListeners();
   }
