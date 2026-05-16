@@ -18,7 +18,6 @@ import '../../../providers/sqlite_config_provider.dart';
 import '../../../providers/sqlite_database_provider.dart';
 import '../../../providers/file_provider.dart';
 import '../../../widgets/system_scan_progress_widget.dart';
-import '../../../models/game_model.dart';
 import '../../game_screen/my_games_list.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'my_systems_carousel.dart';
@@ -34,6 +33,8 @@ import 'package:neostation/services/logger_service.dart';
 import 'package:neostation/models/secondary_display_state.dart';
 import 'package:neostation/providers/neo_assets_provider.dart';
 import 'package:neostation/providers/system_background_provider.dart';
+import 'package:neostation/constants/system_folder_names.dart';
+import 'system_list_builder.dart';
 
 /// Primary widget for the 'My Systems' view, supporting both Grid and Carousel layouts.
 ///
@@ -357,49 +358,14 @@ class MySystems extends StatelessWidget {
     BuildContext context,
     SqliteConfigProvider configProvider,
   ) {
-    final dbProvider = Provider.of<SqliteDatabaseProvider>(context);
     final fileProvider = Provider.of<FileProvider>(context, listen: false);
-
-    const count = 1;
-    final hideRecent = configProvider.config.hideRecentCard;
-    final recentDbGames = hideRecent
-        ? dbProvider.getRecentlyPlayedGames(0)
-        : dbProvider.getRecentlyPlayedGames(count);
-
-    final recentGames = recentDbGames
-        .map((dbGame) => GameModel.fromDatabaseModel(dbGame))
-        .map((game) => SystemInfo.fromGameModel(game, fileProvider))
-        .toList();
-
-    final hiddenFolders = configProvider.hiddenSystemFolders;
-
-    return [
-      ...recentGames,
-      ...configProvider.detectedSystems
-          .where((s) => !hiddenFolders.contains(s.folderName))
-          .map((system) {
-            final info = SystemInfo.fromSystemMetadata(system);
-
-            if (system.folderName == 'all') {
-              return info.copyWith(
-                numOfRoms: configProvider.totalGames,
-                totalStorage: AppLocale.gamesCount
-                    .getString(context)
-                    .replaceFirst(
-                      '{count}',
-                      configProvider.totalGames.toString(),
-                    ),
-              );
-            } else if (system.folderName == 'android') {
-              return info.copyWith(
-                totalStorage: AppLocale.appsCount
-                    .getString(context)
-                    .replaceFirst('{count}', system.romCount.toString()),
-              );
-            }
-            return info;
-          }),
-    ];
+    final dbProvider = Provider.of<SqliteDatabaseProvider>(context);
+    return buildSystemsList(
+      context: context,
+      configProvider: configProvider,
+      dbProvider: dbProvider,
+      fileProvider: fileProvider,
+    );
   }
 
   /// Builds the high-density grid layout for system selection.
@@ -473,6 +439,8 @@ class MySystems extends StatelessWidget {
     try {
       final selectedSystem = system.folderName == 'all'
           ? _createAllGamesSystem(context, configProvider.detectedSystems)
+          : system.folderName == SystemFolderNames.favorites
+          ? createFavoritesSystem(context, configProvider.detectedSystems)
           : configProvider.detectedSystems.firstWhere(
               (s) => s.folderName == system.folderName,
             );
@@ -594,6 +562,22 @@ class MySystems extends StatelessWidget {
         );
         final targetScreen = SystemGamesList(
           system: allGamesSystem,
+          fileProvider: fileProvider,
+        );
+
+        if (context.mounted) {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => targetScreen),
+          );
+        }
+      } else if (systemInfo.folderName == SystemFolderNames.favorites) {
+        final favoritesSystem = createFavoritesSystem(
+          context,
+          configProvider.detectedSystems,
+        );
+        final targetScreen = SystemGamesList(
+          system: favoritesSystem,
           fileProvider: fileProvider,
         );
 

@@ -7,6 +7,7 @@ import 'package:neostation/services/sfx_service.dart';
 import 'package:provider/provider.dart';
 import '../../../providers/sqlite_config_provider.dart';
 import '../../../widgets/custom_toggle_switch.dart';
+import '../../../constants/system_folder_names.dart';
 import 'settings_title.dart';
 
 /// A specialized content panel for managing system visibility and interface components.
@@ -57,24 +58,51 @@ class SystemsSettingsContentState extends State<SystemsSettingsContent> {
 
   /// Calculates the total number of navigable settings (Global Card + Detected Systems).
   int getItemCount(SqliteConfigProvider provider) {
-    return 1 + provider.detectedSystems.length;
+    return provider.hiddenSystemFolders.length +
+        provider.detectedSystems.length;
   }
 
   /// Executes the toggle action for the specified system or feature.
   void selectItem(int index, SqliteConfigProvider provider) {
     SfxService().playNavSound();
-
-    // Index 0: Global 'Recent Games' card visibility.
-    if (index == 0) {
-      provider.updateHideRecentCard(!provider.config.hideRecentCard);
-    } else {
-      // Indices >0: Specific system visibility filters.
-      final systemIndex = index - 1;
-      if (systemIndex < provider.detectedSystems.length) {
-        final system = provider.detectedSystems[systemIndex];
-        provider.toggleSystemHidden(system.folderName);
-      }
+    final items = _buildItems(provider);
+    if (index >= 0 && index < items.length) {
+      items[index].onToggle();
     }
+  }
+
+  List<_SettingsRow> _buildItems(SqliteConfigProvider provider) {
+    final hiddenFolders = provider.hiddenSystemFolders;
+    final systems = provider.detectedSystems;
+
+    return <_SettingsRow>[
+      _SettingsRow(
+        icon: Symbols.access_time_rounded,
+        title: AppLocale.hideRecentCard.getString(context),
+        subtitle: AppLocale.hideRecentCardSubtitle.getString(context),
+        isEnabled: !provider.config.hideRecentCard,
+        onToggle: () =>
+            provider.updateHideRecentCard(!provider.config.hideRecentCard),
+      ),
+      _SettingsRow(
+        icon: Symbols.favorite_rounded,
+        title: AppLocale.favorite.getString(context),
+        subtitle: SystemFolderNames.favorites,
+        isEnabled: !hiddenFolders.contains(SystemFolderNames.favorites),
+        isHideToggle: true,
+        onToggle: () => provider.toggleSystemHidden(SystemFolderNames.favorites),
+      ),
+      ...systems.map(
+        (s) => _SettingsRow(
+          icon: Symbols.videogame_asset_rounded,
+          title: s.realName,
+          subtitle: s.folderName,
+          isEnabled: !hiddenFolders.contains(s.folderName),
+          isHideToggle: true,
+          onToggle: () => provider.toggleSystemHidden(s.folderName),
+        ),
+      ),
+    ];
   }
 
   @override
@@ -87,27 +115,7 @@ class SystemsSettingsContentState extends State<SystemsSettingsContent> {
   Widget build(BuildContext context) {
     return Consumer<SqliteConfigProvider>(
       builder: (context, provider, _) {
-        final systems = provider.detectedSystems;
-        final hiddenFolders = provider.hiddenSystemFolders;
-
-        // Construct the row models for the current application state.
-        final items = <_SettingsRow>[
-          _SettingsRow(
-            icon: Symbols.access_time_rounded,
-            title: AppLocale.hideRecentCard.getString(context),
-            subtitle: AppLocale.hideRecentCardSubtitle.getString(context),
-            isEnabled: !provider.config.hideRecentCard,
-          ),
-          ...systems.map(
-            (s) => _SettingsRow(
-              icon: Symbols.videogame_asset_rounded,
-              title: s.realName,
-              subtitle: s.folderName,
-              isEnabled: hiddenFolders.contains(s.folderName),
-              isHideToggle: true,
-            ),
-          ),
-        ];
+        final items = _buildItems(provider);
 
         _ensureKeys(items.length);
 
@@ -243,12 +251,14 @@ class _SettingsRow {
   final String subtitle;
   final bool isEnabled;
   final bool isHideToggle;
+  final VoidCallback onToggle;
 
   const _SettingsRow({
     required this.icon,
     required this.title,
     required this.subtitle,
     required this.isEnabled,
+    required this.onToggle,
     this.isHideToggle = false,
   });
 }
