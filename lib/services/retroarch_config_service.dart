@@ -47,7 +47,6 @@ class RetroArchConfigService {
       }
     }
 
-    _log.w('RetroArch config not found in standard Android locations');
     return null;
   }
 
