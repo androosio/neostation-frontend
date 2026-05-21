@@ -194,19 +194,14 @@ cat > "$APPDIR/AppRun" << 'APPRUN_EOF'
 #!/bin/bash
 HERE="$(dirname "$(readlink -f "${0}")")"
 
-export LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu:/usr/lib64:/usr/lib:${HERE}/usr/lib:${HERE}/usr/bin/lib"
 export XDG_DATA_DIRS="${HERE}/usr/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
-
-# Always use discrete GPU (PRIME render offload)
-if [ -d /proc/driver/nvidia ] || command -v nvidia-smi &>/dev/null; then
-  # NVIDIA Optimus
-  export __NV_PRIME_RENDER_OFFLOAD=1
-  export __GLX_VENDOR_LIBRARY_NAME=nvidia
-  export __VK_LAYER_NV_optimus=NVIDIA_only
-else
-  # AMD or Intel discrete (DRI_PRIME=1 selects most powerful GPU, harmless on single-GPU)
-  export DRI_PRIME=1
-fi
+# NOTE: Do NOT set LD_LIBRARY_PATH. The binary has RUNPATH:$ORIGIN/lib which
+# resolves to usr/bin/lib inside the AppImage, matching the bundle layout.
+# Setting LD_LIBRARY_PATH can shadow system GL/EGL libs and break video rendering.
+#
+# NOTE: Do NOT force GPU selection (e.g. DRI_PRIME, __NV_PRIME_RENDER_OFFLOAD).
+# The app and mdk/fvp must use the same GPU. Forcing PRIME offload can cause
+# mdk to render on a different GPU than Flutter, resulting in black video.
 
 if [ "$DEBUG_APPIMAGE" = "1" ]; then
   echo "HERE: $HERE"
