@@ -1001,7 +1001,7 @@ class _TvButtonState extends State<_TvButton> {
             fontWeight: FontWeight.w600,
           ),
           child: IconTheme(
-            data: IconThemeData(
+            data: IconTheme.of(context).copyWith(
               color: isSecondary
                   ? theme.colorScheme.onSurface
                   : theme.colorScheme.onPrimary,

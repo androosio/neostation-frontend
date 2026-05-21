@@ -461,6 +461,7 @@ class _MyAppState extends State<MyApp> {
                         textTheme: GoogleFonts.antaTextTheme(
                           paletteProvider.currentPalette.textTheme,
                         ),
+                        iconTheme: const IconThemeData(fill: 1.0),
                         visualDensity: VisualDensity.adaptivePlatformDensity,
                         materialTapTargetSize: MaterialTapTargetSize.padded,
                         pageTransitionsTheme: PageTransitionsTheme(
