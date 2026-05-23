@@ -874,11 +874,12 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
                           animateToClosest: true,
                           pageSnapping: true,
                           enableInfiniteScroll: true,
-                          //viewport fraction cannot be max of 0.8
-                          viewportFraction: 
-                              MediaQuery.of(context).devicePixelRatio / 1.8,
+                          padEnds: true,
+                          disableCenter: false,
+                          
+                          viewportFraction: MediaQuery.of(context).size.aspectRatio >= 1.5 ? 0.5 : 0.75,
                           height: MediaQuery.of(context).size.height,
-                          //aspectRatio: 4 / 3,
+                          //aspectRatio: 16 / 9,
                           enlargeCenterPage: true,
                           enlargeFactor: 0.5,
                           enlargeStrategy: CenterPageEnlargeStrategy.zoom,
@@ -1034,12 +1035,14 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
         File(customLogoPath),
         key: ValueKey('${customLogoPath}_${system.imageVersion}'),
         isAntiAlias: true,
+        height: 746.r,
         filterQuality: FilterQuality.medium,
         cacheWidth: 746,
         fit: BoxFit.contain,
         errorBuilder: (context, error, stackTrace) => Image.asset(
           assetLogoPath,
           isAntiAlias: true,
+          height: 746.r,
           filterQuality: FilterQuality.medium,
           cacheWidth: 746,
           fit: BoxFit.contain,
@@ -1055,12 +1058,14 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
         File(themeLogoPath),
         key: ValueKey(themeLogoPath),
         isAntiAlias: true,
+        height: 746.r,
         filterQuality: FilterQuality.medium,
         cacheWidth: 746,
         fit: BoxFit.contain,
         errorBuilder: (context, error, stackTrace) => Image.asset(
           assetLogoPath,
           isAntiAlias: true,
+          height: 746.r,
           filterQuality: FilterQuality.medium,
           cacheWidth: 746,
           fit: BoxFit.contain,
@@ -1073,6 +1078,7 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
     return Image.asset(
       assetLogoPath,
       isAntiAlias: true,
+      height: 746.r,
       filterQuality: FilterQuality.medium,
       cacheWidth: 746,
       fit: BoxFit.contain,
@@ -1158,15 +1164,16 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
                     // Central Branding / Game Wheel Art.
                     if (!system.hideLogo || hasWheelFile)
                       Positioned(
-                        top: 90.r,
-                        left: 60.r,
-                        right: 60.r,
-                        bottom: 20.r,
+                        top: 64.r,
+                        left: 64.r,
+                        right: 64.r,
+                        bottom: 64.r,
                         child: hasWheelFile
                             ? Image.file(
                                 wheelFile,
                                 isAntiAlias: true,
                                 filterQuality: FilterQuality.medium,
+                                height: 512.r,
                                 cacheWidth: 512,
                                 fit: BoxFit.contain,
                                 errorBuilder: (context, error, stackTrace) =>

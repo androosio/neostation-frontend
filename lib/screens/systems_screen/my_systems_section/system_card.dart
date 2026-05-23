@@ -312,7 +312,7 @@ class _SystemCardState extends State<SystemCard> {
                 key: ValueKey('${activeBgPath}_${widget.info.imageVersion}'),
                 fit: BoxFit.cover,
                 filterQuality: FilterQuality.medium,
-                cacheWidth: widget.info.isGame ? 512 : 256,
+                cacheWidth: widget.info.isGame ? 1024 : 512,
                 isAntiAlias: true,
                 errorBuilder: (context, error, stackTrace) => Stack(
                   children: [
@@ -358,22 +358,22 @@ class _SystemCardState extends State<SystemCard> {
       return Image.file(
         File(customLogoPath),
         key: ValueKey('${customLogoPath}_${widget.info.imageVersion}'),
-        height: 40.r,
+        height: 512.r,
         filterQuality: FilterQuality.medium,
         isAntiAlias: true,
-        cacheWidth: 256,
+        cacheWidth: 512,
         fit: BoxFit.contain,
         errorBuilder: (context, error, stackTrace) => Image.asset(
           assetLogoPath,
-          height: 40.r,
+          height: 512.r,
           filterQuality: FilterQuality.medium,
           isAntiAlias: true,
-          cacheWidth: 256,
+          cacheWidth: 512,
           fit: BoxFit.contain,
           errorBuilder: (context, error, stackTrace) => SystemLogoFallback(
             title: widget.info.title,
             shortName: widget.info.shortName,
-            height: 36.r,
+            height: 24.r,
           ),
         ),
       );
@@ -384,22 +384,22 @@ class _SystemCardState extends State<SystemCard> {
       return Image.file(
         File(themeLogoPath),
         key: ValueKey(themeLogoPath),
-        height: 40.r,
+        height: 512.r,
         filterQuality: FilterQuality.medium,
         isAntiAlias: true,
-        cacheWidth: 256,
+        cacheWidth: 512,
         fit: BoxFit.contain,
         errorBuilder: (context, error, stackTrace) => Image.asset(
           assetLogoPath,
-          height: 40.r,
+          height: 512.r,
           filterQuality: FilterQuality.medium,
           isAntiAlias: true,
-          cacheWidth: 256,
+          cacheWidth: 512,
           fit: BoxFit.contain,
           errorBuilder: (context, error2, stackTrace2) => SystemLogoFallback(
             title: widget.info.title,
             shortName: widget.info.shortName,
-            height: 36.r,
+            height: 24.r,
           ),
         ),
       );
@@ -407,15 +407,15 @@ class _SystemCardState extends State<SystemCard> {
 
     return Image.asset(
       assetLogoPath,
-      height: 40.r,
+      height: 512.r,
       filterQuality: FilterQuality.medium,
       isAntiAlias: true,
-      cacheWidth: 256,
+      cacheWidth: 512,
       fit: BoxFit.contain,
       errorBuilder: (context, error, stackTrace) => SystemLogoFallback(
         title: widget.info.title,
         shortName: widget.info.shortName,
-        height: 36.r,
+        height: 24.r,
       ),
     );
   }
@@ -480,9 +480,10 @@ class _SystemCardState extends State<SystemCard> {
         ] else ...[
           // Centered branding for standard system cards.
           Positioned(
-            bottom: 6.r,
-            left: 6.r,
-            right: 6.r,
+            bottom: 15.r,
+            left: 15.r,
+            right: 15.r,
+            top: 15.r,
             child: Center(
               child: widget.info.hideLogo
                   ? const SizedBox.shrink()
