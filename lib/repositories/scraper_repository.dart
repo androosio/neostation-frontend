@@ -240,7 +240,8 @@ class ScraperRepository {
               (int.tryParse(row['scrape_images']?.toString() ?? '1') ?? 1) == 1,
           'scrape_videos':
               (int.tryParse(row['scrape_videos']?.toString() ?? '1') ?? 1) == 1,
-          'region_priority': row['region_priority']?.toString() ??
+          'region_priority':
+              row['region_priority']?.toString() ??
               '["wor","us","eu","jp","sp","fr","de","it","kr","cn"]',
           'scrape_media_types': _parseMediaTypes(row),
         };
@@ -260,7 +261,8 @@ class ScraperRepository {
         'scrape_metadata': true,
         'scrape_images': true,
         'scrape_videos': true,
-        'region_priority': '["wor","us","eu","jp","sp","fr","de","it","kr","cn"]',
+        'region_priority':
+            '["wor","us","eu","jp","sp","fr","de","it","kr","cn"]',
       };
     } catch (e) {
       _log.e('Error getting scraper config: $e');
@@ -269,7 +271,8 @@ class ScraperRepository {
         'scrape_metadata': true,
         'scrape_images': true,
         'scrape_videos': true,
-        'region_priority': '["wor","us","eu","jp","sp","fr","de","it","kr","cn"]',
+        'region_priority':
+            '["wor","us","eu","jp","sp","fr","de","it","kr","cn"]',
         'scrape_media_types': '["fanart","ss","wheel","box2D","video"]',
       };
     }
@@ -592,9 +595,7 @@ class ScraperRepository {
 
   static Future<bool> saveRegionPriority(List<String> regions) async {
     try {
-      return await saveScraperConfig({
-        'region_priority': jsonEncode(regions),
-      });
+      return await saveScraperConfig({'region_priority': jsonEncode(regions)});
     } catch (e) {
       _log.e('Error saving region priority: $e');
       return false;
@@ -622,8 +623,8 @@ class ScraperRepository {
   static Future<List<String>> getEnabledMediaTypes() async {
     try {
       final config = await getScraperConfig();
-      final jsonStr = config['scrape_media_types']?.toString() ??
-          defaultScrapeMediaTypes;
+      final jsonStr =
+          config['scrape_media_types']?.toString() ?? defaultScrapeMediaTypes;
       final List<dynamic> decoded = jsonDecode(jsonStr);
       return decoded.cast<String>();
     } catch (e) {
@@ -634,9 +635,7 @@ class ScraperRepository {
 
   static Future<bool> saveEnabledMediaTypes(List<String> types) async {
     try {
-      return await saveScraperConfig({
-        'scrape_media_types': jsonEncode(types),
-      });
+      return await saveScraperConfig({'scrape_media_types': jsonEncode(types)});
     } catch (e) {
       _log.e('Error saving enabled media types: $e');
       return false;

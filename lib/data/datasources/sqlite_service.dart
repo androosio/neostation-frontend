@@ -1600,8 +1600,8 @@ class SqliteService {
         scrape_metadata INTEGER DEFAULT 1,
         scrape_images INTEGER DEFAULT 1,
         scrape_videos INTEGER DEFAULT 1,
-        region_priority TEXT DEFAULT '[\"wor\",\"us\",\"eu\",\"jp\",\"sp\",\"fr\",\"de\",\"it\",\"kr\",\"cn\"]',
-        scrape_media_types TEXT DEFAULT '[\"fanart\",\"ss\",\"wheel\",\"box2D\",\"video\"]',
+        region_priority TEXT DEFAULT '["wor","us","eu","jp","sp","fr","de","it","kr","cn"]',
+        scrape_media_types TEXT DEFAULT '["fanart","ss","wheel","box2D","video"]',
         updated_at TEXT DEFAULT CURRENT_TIMESTAMP
       );
       ''',

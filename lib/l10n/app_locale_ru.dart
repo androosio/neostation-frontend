@@ -325,7 +325,8 @@ const Map<String, dynamic> appLocaleRu = {
   AppLocale.region: 'Регион',
   AppLocale.regionSub: 'Установить приоритет регионов для скрапинга',
   AppLocale.regionPriority: 'Приоритет регионов',
-  AppLocale.regionPrioritySub: 'Регионы с высоким приоритетом предпочитаются при выборе имён, дат и медиа. Нажмите A чтобы взять, Вверх/Вниз чтобы переместить, B чтобы отпустить.',
+  AppLocale.regionPrioritySub:
+      'Регионы с высоким приоритетом предпочитаются при выборе имён, дат и медиа. Нажмите A чтобы взять, Вверх/Вниз чтобы переместить, B чтобы отпустить.',
   AppLocale.regionUpdated: 'Приоритет регионов обновлён',
   AppLocale.regionError: 'Ошибка обновления приоритета регионов',
   AppLocale.systems: 'Системы',

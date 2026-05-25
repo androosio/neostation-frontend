@@ -63,7 +63,6 @@ class _NewScraperOptionsScreenState extends State<NewScraperOptionsScreen> {
   String? _currentScrapeMode;
   String? _currentLanguage;
   List<String> _currentEnabledMediaTypes = [];
-  List<String> _currentRegionPriority = [];
 
   @override
   void initState() {
@@ -74,7 +73,6 @@ class _NewScraperOptionsScreenState extends State<NewScraperOptionsScreen> {
     _loadCurrentScrapeMode();
     _loadCurrentLanguage();
     _loadCurrentMediaConfig();
-    _loadCurrentRegionPriority();
   }
 
   @override
@@ -198,19 +196,6 @@ class _NewScraperOptionsScreenState extends State<NewScraperOptionsScreen> {
       }
     } catch (e) {
       _log.e('Error loading media config: $e');
-    }
-  }
-
-  Future<void> _loadCurrentRegionPriority() async {
-    try {
-      final regions = await ScraperRepository.getRegionPriority();
-      if (mounted) {
-        setState(() {
-          _currentRegionPriority = regions;
-        });
-      }
-    } catch (e) {
-      _log.e('Error loading region priority: $e');
     }
   }
 
@@ -486,11 +471,7 @@ class _NewScraperOptionsScreenState extends State<NewScraperOptionsScreen> {
     }
   }
 
-  Future<void> _handleRegionPriorityChange(List<String> newPriority) async {
-    setState(() {
-      _currentRegionPriority = newPriority;
-    });
-  }
+  void _handleRegionPriorityChange(List<String> newPriority) async {}
 
   @override
   Widget build(BuildContext context) {

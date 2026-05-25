@@ -78,7 +78,10 @@ class RegionContentState extends State<RegionContent> {
       _moveRegion(-1);
     } else {
       setState(() {
-        _selectedIndex = (_selectedIndex - 1).clamp(0, _orderedRegions.length - 1);
+        _selectedIndex = (_selectedIndex - 1).clamp(
+          0,
+          _orderedRegions.length - 1,
+        );
       });
       scrollToIndex(_selectedIndex);
     }
@@ -89,7 +92,10 @@ class RegionContentState extends State<RegionContent> {
       _moveRegion(1);
     } else {
       setState(() {
-        _selectedIndex = (_selectedIndex + 1).clamp(0, _orderedRegions.length - 1);
+        _selectedIndex = (_selectedIndex + 1).clamp(
+          0,
+          _orderedRegions.length - 1,
+        );
       });
       scrollToIndex(_selectedIndex);
     }
@@ -151,7 +157,6 @@ class RegionContentState extends State<RegionContent> {
   }
 
   void _onReorder(int oldIndex, int newIndex) {
-    if (newIndex > oldIndex) newIndex -= 1;
     SfxService().playNavSound();
     setState(() {
       final item = _orderedRegions.removeAt(oldIndex);
@@ -200,7 +205,7 @@ class RegionContentState extends State<RegionContent> {
             scrollController: _scrollController,
             physics: const BouncingScrollPhysics(),
             buildDefaultDragHandles: false,
-            onReorder: _onReorder,
+            onReorderItem: _onReorder,
             itemCount: _orderedRegions.length,
             proxyDecorator: (child, index, animation) {
               return AnimatedBuilder(
@@ -211,7 +216,9 @@ class RegionContentState extends State<RegionContent> {
                     elevation: 6.0 + (animValue * 6.0),
                     borderRadius: BorderRadius.circular(12.r),
                     color: Colors.transparent,
-                    shadowColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+                    shadowColor: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.3),
                     child: Transform.scale(
                       scale: 1.02 + (animValue * 0.02),
                       child: Container(
@@ -231,7 +238,8 @@ class RegionContentState extends State<RegionContent> {
             },
             itemBuilder: (context, index) {
               final regionCode = _orderedRegions[index];
-              final isFocused = widget.isContentFocused && _selectedIndex == index;
+              final isFocused =
+                  widget.isContentFocused && _selectedIndex == index;
               final isMovingItem = _isMoving && _selectedIndex == index;
 
               return Padding(
@@ -287,25 +295,28 @@ class RegionContentState extends State<RegionContent> {
             });
           }
         },
-        borderRadius: BorderRadius.circular(12.r),
+        borderRadius: BorderRadius.circular(8.r),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           curve: Curves.easeOut,
-          padding: EdgeInsets.symmetric(horizontal: 12.r, vertical: 8.r),
+          padding: EdgeInsets.only(
+            left: 12.r,
+            right: 12.r,
+            top: 6.r,
+            bottom: 6.r,
+          ),
           decoration: BoxDecoration(
             color: isMovingItem
                 ? theme.colorScheme.primary.withValues(alpha: 0.2)
-                : (isFocused
-                    ? theme.cardColor.withValues(alpha: 0.5)
-                    : theme.cardColor.withValues(alpha: 0.25)),
-            borderRadius: BorderRadius.circular(12.r),
+                : theme.cardColor.withValues(alpha: 0.25),
+            borderRadius: BorderRadius.circular(8.r),
             border: Border.all(
               color: isMovingItem
                   ? theme.colorScheme.primary
                   : (isFocused
-                      ? theme.colorScheme.primary.withValues(alpha: 0.5)
-                      : theme.colorScheme.primary.withValues(alpha: 0.15)),
-              width: isMovingItem ? 2.r : 1.r,
+                        ? theme.colorScheme.primary
+                        : Colors.transparent),
+              width: 2,
             ),
           ),
           child: Row(
@@ -340,20 +351,22 @@ class RegionContentState extends State<RegionContent> {
                   children: [
                     Text(
                       regionName,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14.r,
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.w500,
+                        fontSize: 12.r,
                         color: isFocused
                             ? theme.colorScheme.primary
                             : theme.colorScheme.onSurface,
                       ),
                     ),
-                    SizedBox(height: 2.r),
+                    SizedBox(height: 4.r),
                     Text(
                       regionCode.toUpperCase(),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        fontSize: 10.r,
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontSize: 9.r,
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.4,
+                        ),
                       ),
                     ),
                   ],
@@ -391,8 +404,12 @@ class RegionContentState extends State<RegionContent> {
                             Symbols.drag_indicator_rounded,
                             size: 20.r,
                             color: isFocused
-                                ? theme.colorScheme.onSurface.withValues(alpha: 0.5)
-                                : theme.colorScheme.onSurface.withValues(alpha: 0.2),
+                                ? theme.colorScheme.onSurface.withValues(
+                                    alpha: 0.5,
+                                  )
+                                : theme.colorScheme.onSurface.withValues(
+                                    alpha: 0.2,
+                                  ),
                           ),
                   ),
                 ),

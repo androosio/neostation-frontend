@@ -64,7 +64,16 @@ class ScreenScraperService {
   static final _log = LoggerService.instance;
 
   static const List<String> _defaultRegionOrder = [
-    'wor', 'us', 'eu', 'jp', 'sp', 'fr', 'de', 'it', 'kr', 'cn',
+    'wor',
+    'us',
+    'eu',
+    'jp',
+    'sp',
+    'fr',
+    'de',
+    'it',
+    'kr',
+    'cn',
   ];
 
   static Map<String, int> _buildRegionPriorityMap(List<String> orderedRegions) {
@@ -852,8 +861,8 @@ class ScreenScraperService {
     final typesToSearch = mediaType == 'wheel'
         ? ['wheel-hd', 'wheel']
         : (mediaType == 'ss'
-            ? ['ss-hd', 'ss']
-            : (mediaType == 'box2D' ? ['box-2D'] : [mediaType]));
+              ? ['ss-hd', 'ss']
+              : (mediaType == 'box2D' ? ['box-2D'] : [mediaType]));
 
     const defaultLanguageHierarchy = ['en', 'es', 'fr', 'de', 'it', 'pt', 'jp'];
 
@@ -957,7 +966,8 @@ class ScreenScraperService {
 
     final userDataDir = await _getMediaDirectory();
     final regionPriority = await _getRegionPriority();
-    final mediaTypes = allowedMediaTypes ?? ['fanart', 'ss', 'video', 'wheel', 'box2D'];
+    final mediaTypes =
+        allowedMediaTypes ?? ['fanart', 'ss', 'video', 'wheel', 'box2D'];
 
     final downloadTasks = <Map<String, dynamic>>[];
     for (final mediaType in mediaTypes) {
@@ -1481,7 +1491,13 @@ class ScreenScraperService {
         return {'hasAllMedia': false, 'error': 'System not found'};
       }
       final userDataDir = await _getMediaDirectory();
-      const expectedTypes = ['fanarts', 'screenshots', 'wheels', 'box2d', 'videos'];
+      const expectedTypes = [
+        'fanarts',
+        'screenshots',
+        'wheels',
+        'box2d',
+        'videos',
+      ];
       final romBaseName = await _getCleanRomName(romName, appSystemId);
       final missing = <String>[];
       final existing = <String>[];

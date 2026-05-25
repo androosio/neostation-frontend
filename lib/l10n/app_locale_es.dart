@@ -329,7 +329,8 @@ const Map<String, dynamic> appLocaleEs = {
   AppLocale.region: 'Región',
   AppLocale.regionSub: 'Configura la prioridad de región para el scraping',
   AppLocale.regionPriority: 'Prioridad de Región',
-  AppLocale.regionPrioritySub: 'Las regiones con mayor prioridad se prefieren al seleccionar nombres, fechas y medios. Pulsa A para seleccionar, Arriba/Abajo para mover, B para soltar.',
+  AppLocale.regionPrioritySub:
+      'Las regiones con mayor prioridad se prefieren al seleccionar nombres, fechas y medios. Pulsa A para seleccionar, Arriba/Abajo para mover, B para soltar.',
   AppLocale.regionUpdated: 'Prioridad de región actualizada',
   AppLocale.regionError: 'Error al actualizar la prioridad de región',
   AppLocale.systems: 'Sistemas',
@@ -361,15 +362,13 @@ const Map<String, dynamic> appLocaleEs = {
   AppLocale.scrapeFanart: 'Fanart',
   AppLocale.scrapeFanartDesc: 'Descargar arte de fondo de los juegos.',
   AppLocale.scrapeScreenshot: 'Capturas',
-  AppLocale.scrapeScreenshotDesc:
-      'Descargar capturas de pantalla del juego.',
+  AppLocale.scrapeScreenshotDesc: 'Descargar capturas de pantalla del juego.',
   AppLocale.scrapeWheel: 'Logos',
   AppLocale.scrapeWheelDesc: 'Descargar logos del juego.',
   AppLocale.scrapeBox2D: 'Box Art 2D',
   AppLocale.scrapeBox2DDesc: 'Descargar carátulas 2D.',
   AppLocale.scrapeVideo: 'Videos',
-  AppLocale.scrapeVideoDesc:
-      'Descargar vistas previas en vídeo de los juegos.',
+  AppLocale.scrapeVideoDesc: 'Descargar vistas previas en vídeo de los juegos.',
   AppLocale.scrapingInProgress: 'Scraping en curso con',
   AppLocale.scraperSubtitle: 'Descargar metadatos de juegos de ScreenScraper',
   AppLocale.estimatedTimeLeft: 'Tiempo estimado restante:',

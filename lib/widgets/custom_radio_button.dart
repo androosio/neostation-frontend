@@ -37,15 +37,20 @@ class CustomRadioButton<T> extends StatelessWidget {
           SfxService().playNavSound();
           onChanged(value);
         },
-        borderRadius: BorderRadius.circular(12.r),
+        borderRadius: BorderRadius.circular(8.r),
         child: Container(
-          padding: EdgeInsets.symmetric(horizontal: 12.r, vertical: 8.r),
+          padding: EdgeInsets.only(
+            left: 12.r,
+            right: 12.r,
+            top: 6.r,
+            bottom: 6.r,
+          ),
           decoration: BoxDecoration(
             color: theme.cardColor.withValues(alpha: 0.25),
-            borderRadius: BorderRadius.circular(12.r),
+            borderRadius: BorderRadius.circular(8.r),
             border: Border.all(
-              color: theme.colorScheme.primary.withValues(alpha: 0.15),
-              width: 1.r,
+              color: isFocused ? theme.colorScheme.primary : Colors.transparent,
+              width: 2,
             ),
           ),
           child: Row(
@@ -57,9 +62,9 @@ class CustomRadioButton<T> extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14.r,
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.w500,
+                        fontSize: 12.r,
                         color: isFocused
                             ? theme.colorScheme.primary
                             : theme.colorScheme.onSurface,
@@ -69,8 +74,8 @@ class CustomRadioButton<T> extends StatelessWidget {
                       SizedBox(height: 4.r),
                       Text(
                         subtitle!,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          fontSize: 11.r,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontSize: 9.r,
                           color: theme.colorScheme.onSurface.withValues(
                             alpha: 0.6,
                           ),

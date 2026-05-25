@@ -318,7 +318,8 @@ const Map<String, dynamic> appLocaleId = {
   AppLocale.region: 'Wilayah',
   AppLocale.regionSub: 'Atur prioritas wilayah untuk scraping',
   AppLocale.regionPriority: 'Prioritas Wilayah',
-  AppLocale.regionPrioritySub: 'Wilayah dengan prioritas lebih tinggi lebih disukai untuk nama, tanggal, dan media. Tekan A untuk mengambil, Atas/Bawah untuk memindahkan, B untuk meletakkan.',
+  AppLocale.regionPrioritySub:
+      'Wilayah dengan prioritas lebih tinggi lebih disukai untuk nama, tanggal, dan media. Tekan A untuk mengambil, Atas/Bawah untuk memindahkan, B untuk meletakkan.',
   AppLocale.regionUpdated: 'Prioritas wilayah diperbarui',
   AppLocale.regionError: 'Kesalahan saat memperbarui prioritas wilayah',
   AppLocale.systems: 'Sistem',

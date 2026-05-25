@@ -4405,10 +4405,14 @@ class SqliteMigrations {
   }
 
   static Future<void> _migrateToVersion85(Database db) async {
-    _log.i('Migration v85: Adding region_priority to user_screenscraper_config');
+    _log.i(
+      'Migration v85: Adding region_priority to user_screenscraper_config',
+    );
 
     try {
-      final tableInfo = db.select('PRAGMA table_info(user_screenscraper_config)');
+      final tableInfo = db.select(
+        'PRAGMA table_info(user_screenscraper_config)',
+      );
       final columns = tableInfo.map((c) => c['name'].toString()).toList();
 
       if (!columns.contains('region_priority')) {
@@ -4427,10 +4431,14 @@ class SqliteMigrations {
   }
 
   static Future<void> _migrateToVersion86(Database db) async {
-    _log.i('Migration v86: Adding scrape_media_types to user_screenscraper_config');
+    _log.i(
+      'Migration v86: Adding scrape_media_types to user_screenscraper_config',
+    );
 
     try {
-      final tableInfo = db.select('PRAGMA table_info(user_screenscraper_config)');
+      final tableInfo = db.select(
+        'PRAGMA table_info(user_screenscraper_config)',
+      );
       final columns = tableInfo.map((c) => c['name'].toString()).toList();
 
       if (!columns.contains('scrape_media_types')) {

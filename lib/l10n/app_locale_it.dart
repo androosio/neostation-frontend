@@ -326,7 +326,8 @@ const Map<String, dynamic> appLocaleIt = {
   AppLocale.region: 'Regione',
   AppLocale.regionSub: 'Imposta priorità regione per lo scraping',
   AppLocale.regionPriority: 'Priorità Regione',
-  AppLocale.regionPrioritySub: 'Le regioni con priorità maggiore sono preferite per nomi, date e media. Premi A per selezionare, Su/Giù per spostare, B per rilasciare.',
+  AppLocale.regionPrioritySub:
+      'Le regioni con priorità maggiore sono preferite per nomi, date e media. Premi A per selezionare, Su/Giù per spostare, B per rilasciare.',
   AppLocale.regionUpdated: 'Priorità regione aggiornata',
   AppLocale.regionError: "Errore nell'aggiornamento della priorità regione",
   AppLocale.systems: 'Sistemi',

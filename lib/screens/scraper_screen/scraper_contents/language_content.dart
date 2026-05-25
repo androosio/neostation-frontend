@@ -42,11 +42,9 @@ class LanguageContentState extends State<LanguageContent> {
   void ensureVisible(int index) {
     if (!_scrollController.hasClients) return;
 
-    // Altura de cada item (RadioListTile con decoration + margin)
-    const itemHeight = 76.0;
-    const headerHeight = 120.0; // Header con título y descripción
-    const padding =
-        40.0; // Margen para hacer scroll antes de que salga de vista
+    const itemHeight = 50.0;
+    const headerHeight = 120.0;
+    const padding = 40.0;
 
     // Calcular la posición del item en el scroll (considerando header)
     final itemPosition = headerHeight + (index * itemHeight);

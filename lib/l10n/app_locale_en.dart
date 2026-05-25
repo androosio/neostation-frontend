@@ -316,7 +316,8 @@ const Map<String, dynamic> appLocaleEn = {
   AppLocale.region: 'Region',
   AppLocale.regionSub: 'Set region priority for scraping',
   AppLocale.regionPriority: 'Region Priority',
-  AppLocale.regionPrioritySub: 'Higher priority regions are preferred when selecting game names, dates and media. Press A to pick up, Up/Down to move, B to drop.',
+  AppLocale.regionPrioritySub:
+      'Higher priority regions are preferred when selecting game names, dates and media. Press A to pick up, Up/Down to move, B to drop.',
   AppLocale.regionUpdated: 'Region priority updated',
   AppLocale.regionError: 'Error updating region priority',
   AppLocale.systems: 'Systems',

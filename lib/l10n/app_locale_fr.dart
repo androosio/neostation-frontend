@@ -335,9 +335,11 @@ const Map<String, dynamic> appLocaleFr = {
   AppLocale.region: 'Région',
   AppLocale.regionSub: 'Définir la priorité de région pour le scraping',
   AppLocale.regionPriority: 'Priorité de Région',
-  AppLocale.regionPrioritySub: 'Les régions prioritaires sont préférées pour les noms, dates et médias. Appuyez sur A pour saisir, Haut/Bas pour déplacer, B pour déposer.',
+  AppLocale.regionPrioritySub:
+      'Les régions prioritaires sont préférées pour les noms, dates et médias. Appuyez sur A pour saisir, Haut/Bas pour déplacer, B pour déposer.',
   AppLocale.regionUpdated: 'Priorité de région mise à jour',
-  AppLocale.regionError: 'Erreur lors de la mise à jour de la priorité de région',
+  AppLocale.regionError:
+      'Erreur lors de la mise à jour de la priorité de région',
   AppLocale.systems: 'Systèmes',
   AppLocale.screenscraper: 'Compte ScreenScraper',
   AppLocale.totalGames: 'Total de Jeux',

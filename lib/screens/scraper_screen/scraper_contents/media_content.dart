@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:material_symbols_icons/symbols.dart';
 import 'package:neostation/l10n/app_locale.dart';
 import 'package:flutter_localization/flutter_localization.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -74,23 +73,6 @@ class MediaContentState extends State<MediaContent> {
     }
   }
 
-  IconData _icon(String key) {
-    switch (key) {
-      case 'fanart':
-        return Symbols.wallpaper_rounded;
-      case 'ss':
-        return Symbols.screenshot_rounded;
-      case 'wheel':
-        return Symbols.title_rounded;
-      case 'box2D':
-        return Symbols.inventory_2_rounded;
-      case 'video':
-        return Symbols.videocam_rounded;
-      default:
-        return Symbols.image_rounded;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -112,14 +94,20 @@ class MediaContentState extends State<MediaContent> {
                 widget.isContentFocused && widget.selectedContentIndex == index;
 
             return Container(
-              margin: EdgeInsets.only(bottom: 8.h),
-              padding: EdgeInsets.all(12.r),
+              padding: EdgeInsets.only(
+                left: 12.r,
+                right: 12.r,
+                top: 6.r,
+                bottom: 6.r,
+              ),
               decoration: BoxDecoration(
                 color: theme.cardColor.withValues(alpha: 0.25),
-                borderRadius: BorderRadius.circular(12.r),
+                borderRadius: BorderRadius.circular(8.r),
                 border: Border.all(
-                  color: theme.colorScheme.primary.withValues(alpha: 0.15),
-                  width: 1.r,
+                  color: isFocused
+                      ? theme.colorScheme.primary
+                      : Colors.transparent,
+                  width: 2,
                 ),
               ),
               child: Row(
@@ -128,6 +116,7 @@ class MediaContentState extends State<MediaContent> {
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
                           _title(key, context),
@@ -139,11 +128,11 @@ class MediaContentState extends State<MediaContent> {
                                 : theme.colorScheme.onSurface,
                           ),
                         ),
-                        SizedBox(height: 2.r),
+                        SizedBox(height: 4.r),
                         Text(
                           _description(key, context),
                           style: theme.textTheme.bodyMedium?.copyWith(
-                            fontSize: 10.r,
+                            fontSize: 9.r,
                             color: theme.colorScheme.onSurface.withValues(
                               alpha: 0.6,
                             ),
