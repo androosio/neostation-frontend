@@ -100,7 +100,7 @@ class ConfigProvider extends ChangeNotifier {
   /// Automatically triggers a full system and emulator scan upon successful selection.
   Future<bool> selectRomFolder() async {
     try {
-      final result = await FilePicker.platform.getDirectoryPath(
+      final result = await FilePicker.getDirectoryPath(
         dialogTitle: 'Select ROM Folder',
         lockParentWindow: true,
       );

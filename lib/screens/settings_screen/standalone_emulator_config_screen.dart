@@ -128,7 +128,7 @@ class _StandaloneEmulatorConfigScreenState
 
       if (Platform.isWindows) {
         // Windows Environment: Utilize the specialized executable filter.
-        final result = await FilePicker.platform.pickFiles(
+        final result = await FilePicker.pickFiles(
           type: FileType.custom,
           allowedExtensions: ['exe'],
           dialogTitle: 'Select ${emulator['name']} executable',
@@ -139,7 +139,7 @@ class _StandaloneEmulatorConfigScreenState
         }
       } else {
         // POSIX Environments (Linux/macOS): Utilize generic binary selection.
-        final result = await FilePicker.platform.pickFiles(
+        final result = await FilePicker.pickFiles(
           type: FileType.any,
           dialogTitle: 'Select ${emulator['name']} executable',
         );

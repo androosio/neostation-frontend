@@ -912,7 +912,7 @@ class SqliteConfigProvider extends ChangeNotifier {
         }
       } else {
         // Desktop: Use standard file picker
-        result = await FilePicker.platform.getDirectoryPath(
+        result = await FilePicker.getDirectoryPath(
           dialogTitle: 'Select ROM Folder',
         );
       }

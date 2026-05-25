@@ -622,7 +622,7 @@ class _SetupWizardState extends State<SetupWizard> {
           }
         }
       } else {
-        selected = await FilePicker.platform.getDirectoryPath(
+        selected = await FilePicker.getDirectoryPath(
           dialogTitle: AppLocale.selectUserDataFolder.getString(context),
           initialDirectory: _selectedUserDataPath,
         );

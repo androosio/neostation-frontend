@@ -188,7 +188,7 @@ class DirectoriesSettingsContentState
           }
         }
       } else {
-        selected = await FilePicker.platform.getDirectoryPath(
+        selected = await FilePicker.getDirectoryPath(
           dialogTitle: AppLocale.selectRomsFolder.getString(context),
         );
       }
@@ -258,7 +258,7 @@ class DirectoriesSettingsContentState
           }
         }
       } else {
-        selected = await FilePicker.platform.getDirectoryPath(
+        selected = await FilePicker.getDirectoryPath(
           dialogTitle: AppLocale.selectUserDataFolder.getString(context),
           initialDirectory: _currentUserDataPath,
         );

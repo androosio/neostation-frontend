@@ -875,7 +875,7 @@ class _SystemEmulatorSettingsDialogState
       final extension = Platform.isWindows ? 'exe' : null;
 
       // Open file picker
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.pickFiles(
         dialogTitle: AppLocale.selectEmulatorExecutable
             .getString(context)
             .replaceFirst('{name}', standalone.name),
@@ -947,7 +947,7 @@ class _SystemEmulatorSettingsDialogState
   Future<void> _configureRetroArchPath() async {
     try {
       // Open file picker for RetroArch executable
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
+      FilePickerResult? result = await FilePicker.pickFiles(
         type: Platform.isWindows ? FileType.custom : FileType.any,
         allowedExtensions: Platform.isWindows ? ['exe'] : null,
         dialogTitle: AppLocale.selectRetroArchExe.getString(context),
@@ -1456,7 +1456,7 @@ class _SystemEmulatorSettingsDialogState
           extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif'],
         );
       } else {
-        final result = await FilePicker.platform.pickFiles(
+        final result = await FilePicker.pickFiles(
           type: FileType.custom,
           allowedExtensions: ['png', 'jpg', 'jpeg', 'webp', 'gif'],
           dialogTitle: 'Select Background Image',
@@ -1583,7 +1583,7 @@ class _SystemEmulatorSettingsDialogState
           extensions: ['png', 'jpg', 'jpeg', 'webp'],
         );
       } else {
-        final result = await FilePicker.platform.pickFiles(
+        final result = await FilePicker.pickFiles(
           type: FileType.custom,
           allowedExtensions: ['png', 'jpg', 'jpeg', 'webp'],
           dialogTitle: 'Select Logo Image',
