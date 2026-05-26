@@ -85,11 +85,11 @@ class Responsive extends StatelessWidget {
   /// Obtener el crossAxisCount para theme selection grid
   /// Grid de selección de temas optimizado para previews
   static int getThemesCrossAxisCount(BuildContext context) {
-    if (isHandheldXLarge(context)) return 4; // Desktop muy grande
-    if (isHandheldLarge(context)) return 4; // Desktop grande
-    if (isHandheldMedium(context)) return 3; // Desktop/tablet
-    if (isHandheldSmall(context)) return 3; // Tablet
-    return 2; // Móvil pequeño
+    if (isHandheldXLarge(context)) return 6; // Desktop muy grande
+    if (isHandheldLarge(context)) return 5; // Desktop grande
+    if (isHandheldMedium(context)) return 4; // Desktop/tablet
+    if (isHandheldSmall(context)) return 4; // Tablet
+    return 4; // Móvil pequeño
   }
 
   /// Función genérica - usa systems por defecto (mantiene compatibilidad)

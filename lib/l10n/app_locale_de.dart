@@ -164,6 +164,11 @@ const Map<String, dynamic> appLocaleDe = {
   AppLocale.joinCommunity: 'Tritt unserer Community bei, um Hilfe zu erhalten',
   AppLocale.specialThanks: 'Besonderer Dank',
   AppLocale.forInvaluableContributions: 'für unschätzbare Beiträge',
+  AppLocale.supportOnKofi: 'Unterstütze uns auf Ko-fi',
+  AppLocale.supportOnPatreon: 'Unterstütze uns auf Patreon',
+  AppLocale.openSourceLicense: 'Open-Source-Projekt',
+  AppLocale.openSourceLicenseDesc: 'Lizenziert unter GPLv3',
+  AppLocale.leadMaintainer: 'Hauptbetreuer',
 
   AppLocale.gameSettings: 'Spieleinstellungen',
   AppLocale.cloudSync: 'Cloud-Synchronisation',

@@ -139,6 +139,11 @@ const Map<String, dynamic> appLocaleJa = {
   AppLocale.joinCommunity: 'コミュニティに参加してサポートを受ける',
   AppLocale.specialThanks: '特別な感謝',
   AppLocale.forInvaluableContributions: '貴重な貢献に感謝します',
+  AppLocale.supportOnKofi: 'Ko-fiでサポート',
+  AppLocale.supportOnPatreon: 'Patreonでサポート',
+  AppLocale.openSourceLicense: 'オープンソースプロジェクト',
+  AppLocale.openSourceLicenseDesc: 'GPLv3ライセンス',
+  AppLocale.leadMaintainer: 'リードメンテナー',
 
   AppLocale.gameSettings: 'ゲーム設定',
   AppLocale.cloudSync: 'クラウド同期',

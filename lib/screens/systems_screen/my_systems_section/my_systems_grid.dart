@@ -146,7 +146,7 @@ class MySystems extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14.r),
           border: Border.all(
             color: Theme.of(
               context,
@@ -156,7 +156,7 @@ class MySystems extends StatelessWidget {
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.1),
-              blurRadius: 16,
+              blurRadius: 16.r,
               offset: const Offset(0, 4),
             ),
           ],
@@ -166,10 +166,10 @@ class MySystems extends StatelessWidget {
           children: [
             // Dynamic branding icon with atmospheric glow.
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.primary,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(12.r),
                 boxShadow: [
                   BoxShadow(
                     color: Theme.of(
@@ -232,7 +232,7 @@ class MySystems extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(16.r),
           border: Border.all(
             color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
             width: 1,
@@ -254,7 +254,7 @@ class MySystems extends StatelessWidget {
                 color: Theme.of(
                   context,
                 ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(12.r),
               ),
               child: SizedBox(
                 width: 48,
@@ -295,7 +295,7 @@ class MySystems extends StatelessWidget {
             Container(
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.primary,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(8.r),
                 boxShadow: [
                   BoxShadow(
                     color: Theme.of(
@@ -314,7 +314,7 @@ class MySystems extends StatelessWidget {
                   hoverColor: Colors.transparent,
                   highlightColor: Colors.transparent,
                   splashColor: Colors.transparent,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(8.r),
                   onTap: () {
                     SfxService().playEnterSound();
                     configProvider.selectRomFolder(context: context);
@@ -393,7 +393,7 @@ class MySystems extends StatelessWidget {
               crossAxisCount: Responsive.getSystemsCrossAxisCountFromSize(
                 configProvider.config.systemGridColumns,
               ),
-              childAspectRatio: 8 / 7,
+              childAspectRatio: 1,
               selectedIndex: selectedIndex,
               onCardTapped: onCardTapped,
               systems: allSystems,
@@ -705,7 +705,7 @@ class SystemCardGridView extends StatefulWidget {
   const SystemCardGridView({
     super.key,
     required this.crossAxisCount,
-    this.childAspectRatio = 8 / 7,
+    this.childAspectRatio = 1,
     this.selectedIndex = 0,
     this.onCardTapped,
     this.onEnterPressed,
@@ -937,7 +937,7 @@ class _SystemCardGridViewState extends State<SystemCardGridView> {
           theme.colorScheme.onSurface.withValues(alpha: 0.05),
         ),
         thickness: WidgetStateProperty.all(6),
-        radius: const Radius.circular(3),
+        radius: Radius.circular(3.r),
       ),
     );
     _cachedScrollBehavior = ScrollConfiguration.of(
@@ -1580,7 +1580,7 @@ class _SystemCardGridViewState extends State<SystemCardGridView> {
                               color: Theme.of(context).colorScheme.secondary,
                               width: 4.r,
                             ),
-                            borderRadius: BorderRadius.circular(16.r),
+                            borderRadius: BorderRadius.circular(14.r),
                           ),
                         ),
                       ),

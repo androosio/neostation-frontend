@@ -246,7 +246,14 @@ class _NewSettingsScreenState extends State<NewSettingsScreen> {
 
     final selectedKey = _menuItems[_selectedMenuIndex].localeKey;
     if (selectedKey == AppLocale.palettes) {
-      _focusOnMenu = _paletteSettingsKey.currentState?.navigateLeft() ?? true;
+      final returnToMenu =
+          _paletteSettingsKey.currentState?.navigateLeft() ?? true;
+      if (returnToMenu) {
+        setState(() {
+          _focusOnMenu = true;
+          _selectedContentIndex = 0;
+        });
+      }
     } else if (selectedKey == AppLocale.neoThemes) {
       final returnToMenu =
           _themesSettingsKey.currentState?.navigateLeft() ?? true;

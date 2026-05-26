@@ -158,6 +158,11 @@ const Map<String, dynamic> appLocaleId = {
       'Bergabunglah dengan komunitas kami untuk mendapatkan dukungan',
   AppLocale.specialThanks: 'Terima Kasih Khusus',
   AppLocale.forInvaluableContributions: 'atas kontribusi yang sangat berharga',
+  AppLocale.supportOnKofi: 'Dukung kami di Ko-fi',
+  AppLocale.supportOnPatreon: 'Dukung kami di Patreon',
+  AppLocale.openSourceLicense: 'Proyek Sumber Terbuka',
+  AppLocale.openSourceLicenseDesc: 'Dilisensikan di bawah GPLv3',
+  AppLocale.leadMaintainer: 'Pengelola Utama',
 
   AppLocale.gameSettings: 'Pengaturan Game',
   AppLocale.cloudSync: 'Sinkronisasi Cloud',

@@ -161,6 +161,11 @@ const Map<String, dynamic> appLocaleRu = {
   AppLocale.joinCommunity: 'Присоединяйтесь к нашему сообществу для поддержки',
   AppLocale.specialThanks: 'Особая благодарность',
   AppLocale.forInvaluableContributions: 'За неоценимый вклад',
+  AppLocale.supportOnKofi: 'Поддержите нас на Ko-fi',
+  AppLocale.supportOnPatreon: 'Поддержите нас на Patreon',
+  AppLocale.openSourceLicense: 'Проект с открытым исходным кодом',
+  AppLocale.openSourceLicenseDesc: 'Лицензия GPLv3',
+  AppLocale.leadMaintainer: 'Ведущий разработчик',
 
   AppLocale.gameSettings: 'Настройки игры',
   AppLocale.cloudSync: 'Облачная синхронизация',

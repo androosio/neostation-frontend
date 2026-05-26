@@ -138,6 +138,11 @@ const Map<String, dynamic> appLocaleZh = {
   AppLocale.joinCommunity: '加入我们的社区获取支持',
   AppLocale.specialThanks: '特别鸣谢',
   AppLocale.forInvaluableContributions: '感谢其宝贵的贡献',
+  AppLocale.supportOnKofi: '在 Ko-fi 上支持我们',
+  AppLocale.supportOnPatreon: '在 Patreon 上支持我们',
+  AppLocale.openSourceLicense: '开源项目',
+  AppLocale.openSourceLicenseDesc: '基于 GPLv3 许可',
+  AppLocale.leadMaintainer: '主要维护者',
 
   AppLocale.gameSettings: '游戏设置',
   AppLocale.cloudSync: '云同步',

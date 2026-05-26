@@ -9,10 +9,6 @@ import 'package:neostation/data/datasources/sqlite_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'settings_title.dart';
 
-/// A specialized content panel for application metadata, community links, and contributor attribution.
-///
-/// Orchestrates dynamic version extraction from the build manifest, handles
-/// external URL dispatching for social/web platforms, and displays project credits.
 class AboutSettingsContent extends StatefulWidget {
   final bool isContentFocused;
   final int selectedContentIndex;
@@ -45,7 +41,6 @@ class AboutSettingsContentState extends State<AboutSettingsContent> {
     super.dispose();
   }
 
-  /// Synchronizes the scroll viewport with the focused community link.
   void scrollToIndex(int index) {
     if (!_scrollController.hasClients) return;
     _scrollController.animateTo(
@@ -66,7 +61,6 @@ class AboutSettingsContentState extends State<AboutSettingsContent> {
     } catch (_) {}
   }
 
-  /// Extracts the application version string from the platform package info.
   Future<void> _loadAppVersion() async {
     try {
       final packageInfo = await PackageInfo.fromPlatform();
@@ -78,13 +72,12 @@ class AboutSettingsContentState extends State<AboutSettingsContent> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _appVersion = 'v1.0.0'; // Fallback version string.
+          _appVersion = 'v1.0.0';
         });
       }
     }
   }
 
-  /// Dispatches a URL request to the platform's default external application.
   Future<void> _launchUrl(String url) async {
     final uri = Uri.parse(url);
     if (await canLaunchUrl(uri)) {
@@ -92,17 +85,29 @@ class AboutSettingsContentState extends State<AboutSettingsContent> {
     }
   }
 
-  /// Returns the count of navigable external links.
   int getItemCount() {
-    return 2; // Primary Web and Community Discord links.
+    return 5;
   }
 
-  /// Executes the external link action for the specified index.
   void selectItem(int index) {
-    if (index == 0) {
-      _launchUrl('https://neostation.dev/');
-    } else if (index == 1) {
-      _launchUrl('https://discord.gg/xE2kgKsRVq');
+    switch (index) {
+      case 0:
+        _launchUrl(
+          'https://github.com/miguelsotobaez/neostation-frontend',
+        );
+        break;
+      case 1:
+        _launchUrl('https://ko-fi.com/neostation');
+        break;
+      case 2:
+        _launchUrl('https://www.patreon.com/cw/NeoStation');
+        break;
+      case 3:
+        _launchUrl('https://discord.gg/xE2kgKsRVq');
+        break;
+      case 4:
+        _launchUrl('https://neostation.dev/');
+        break;
     }
   }
 
@@ -123,7 +128,6 @@ class AboutSettingsContentState extends State<AboutSettingsContent> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Metadata Section: Identity, Branding, and Lifecycle Versioning.
                 Column(
                   children: [
                     SizedBox(
@@ -170,21 +174,41 @@ class AboutSettingsContentState extends State<AboutSettingsContent> {
                   ],
                 ),
                 SizedBox(width: 16.r),
-
-                // Interaction Section: Community Access and External Portals.
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       _buildInfoCard(
-                        icon: Symbols.language_rounded,
-                        title: AppLocale.visitWebsite.getString(context),
-                        value: 'neostation.dev',
-                        url: 'https://neostation.dev/',
+                        icon: Symbols.code_rounded,
+                        title: AppLocale.openSourceLicense.getString(context),
+                        value: AppLocale.openSourceLicenseDesc.getString(context),
+                        url: 'https://github.com/miguelsotobaez/neostation-frontend',
                         theme: theme,
                         isFocused:
                             widget.isContentFocused &&
                             widget.selectedContentIndex == 0,
+                      ),
+                      SizedBox(height: 8.h),
+                      _buildInfoCard(
+                        icon: Symbols.coffee_rounded,
+                        title: AppLocale.supportOnKofi.getString(context),
+                        value: 'ko-fi.com/neostation',
+                        url: 'https://ko-fi.com/neostation',
+                        theme: theme,
+                        isFocused:
+                            widget.isContentFocused &&
+                            widget.selectedContentIndex == 1,
+                      ),
+                      SizedBox(height: 8.h),
+                      _buildInfoCard(
+                        icon: Symbols.favorite_rounded,
+                        title: AppLocale.supportOnPatreon.getString(context),
+                        value: 'patreon.com/NeoStation',
+                        url: 'https://www.patreon.com/cw/NeoStation',
+                        theme: theme,
+                        isFocused:
+                            widget.isContentFocused &&
+                            widget.selectedContentIndex == 2,
                       ),
                       SizedBox(height: 8.h),
                       _buildInfoCard(
@@ -195,10 +219,19 @@ class AboutSettingsContentState extends State<AboutSettingsContent> {
                         theme: theme,
                         isFocused:
                             widget.isContentFocused &&
-                            widget.selectedContentIndex == 1,
+                            widget.selectedContentIndex == 3,
                       ),
                       SizedBox(height: 8.h),
-                      _buildCreditsCard(theme),
+                      _buildInfoCard(
+                        icon: Symbols.language_rounded,
+                        title: AppLocale.visitWebsite.getString(context),
+                        value: 'neostation.dev',
+                        url: 'https://neostation.dev/',
+                        theme: theme,
+                        isFocused:
+                            widget.isContentFocused &&
+                            widget.selectedContentIndex == 4,
+                      ),
                     ],
                   ),
                 ),
@@ -210,98 +243,6 @@ class AboutSettingsContentState extends State<AboutSettingsContent> {
     );
   }
 
-  /// Constructs the contributor attribution card.
-  Widget _buildCreditsCard(ThemeData theme) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 12.r, vertical: 12.r),
-      decoration: BoxDecoration(
-        color: theme.cardColor.withValues(alpha: 0.25),
-        borderRadius: BorderRadius.circular(12.r),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 28.r,
-                height: 28.r,
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8.r),
-                ),
-                child: Icon(
-                  Symbols.favorite_rounded,
-                  size: 16.r,
-                  color: theme.colorScheme.primary,
-                ),
-              ),
-              SizedBox(width: 8.r),
-              Text(
-                AppLocale.specialThanks.getString(context),
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12.r,
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: 8.r),
-          _buildCreditItem(
-            'Reckkles, Sekyom, PaulStranger, Moderators & Supporters',
-            AppLocale.forInvaluableContributions.getString(context),
-            theme,
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Constructs an individual attribution entry with title and descriptive context.
-  Widget _buildCreditItem(String name, String description, ThemeData theme) {
-    return Padding(
-      padding: EdgeInsets.only(left: 6.r),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: EdgeInsets.only(top: 3.h),
-            child: Icon(
-              Symbols.check_circle_rounded,
-              size: 12.r,
-              color: theme.colorScheme.primary.withValues(alpha: 0.7),
-            ),
-          ),
-          SizedBox(width: 6.r),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: theme.colorScheme.onSurface,
-                    fontSize: 9.r,
-                  ),
-                ),
-                SizedBox(height: 1.h),
-                Text(
-                  description,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                    fontSize: 9.r,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Constructs a clickable information card for community portals.
   Widget _buildInfoCard({
     required IconData icon,
     required String title,
@@ -329,8 +270,8 @@ class AboutSettingsContentState extends State<AboutSettingsContent> {
           border: Border.all(
             color: isFocused
                 ? theme.colorScheme.primary
-                : theme.colorScheme.outline.withValues(alpha: 0),
-            width: isFocused ? 2.r : 1.r,
+                : Colors.transparent,
+            width: 2,
           ),
         ),
         child: Row(

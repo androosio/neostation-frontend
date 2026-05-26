@@ -210,7 +210,7 @@ class _SystemCardState extends State<SystemCard> {
     return MouseRegion(
       cursor: SystemMouseCursors.basic,
       child: Container(
-        margin: EdgeInsets.all(4.r),
+        margin: EdgeInsets.all(2.r),
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12.r),
@@ -479,17 +479,11 @@ class _SystemCardState extends State<SystemCard> {
           ),
         ] else ...[
           // Centered branding for standard system cards.
-          Positioned(
-            bottom: 15.r,
-            left: 15.r,
-            right: 15.r,
-            top: 15.r,
-            child: Center(
+          Center(
               child: widget.info.hideLogo
                   ? const SizedBox.shrink()
                   : _buildSystemLogo(assetLogoPath),
             ),
-          ),
         ],
       ],
     );

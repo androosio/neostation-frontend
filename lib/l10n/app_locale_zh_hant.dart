@@ -138,6 +138,11 @@ const Map<String, dynamic> appLocaleZhHant = {
   AppLocale.joinCommunity: '加入我們的社群以取得支援',
   AppLocale.specialThanks: '特別感謝',
   AppLocale.forInvaluableContributions: '感謝其寶貴的貢獻',
+  AppLocale.supportOnKofi: '在 Ko-fi 上支持我們',
+  AppLocale.supportOnPatreon: '在 Patreon 上支持我們',
+  AppLocale.openSourceLicense: '開源專案',
+  AppLocale.openSourceLicenseDesc: '基於 GPLv3 許可',
+  AppLocale.leadMaintainer: '主要維護者',
 
   AppLocale.gameSettings: '遊戲設定',
   AppLocale.cloudSync: '雲端同步',

@@ -13,7 +13,7 @@ workspace:
   - packages/gamepads_platform_interface
   - packages/gamepads_windows
 
-version: 0.8.7+102
+version: 0.9.0+105
 
 environment:
   sdk: '>=3.9.2'
@@ -51,7 +51,6 @@ dependencies:
   device_info_plus: ^13.1.0
   package_info_plus: ^10.1.0
   pointycastle: ^4.0.0
-  carousel_slider: ^5.1.2
   sqlite3: ^3.3.1
   fullscreen_window: ^1.2.1
   animated_toggle_switch: ^0.8.7

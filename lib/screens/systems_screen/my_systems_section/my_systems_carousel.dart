@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:neostation/l10n/app_locale.dart';
@@ -28,6 +27,7 @@ import '../../../widgets/shaders/music_card_shader_background.dart';
 import '../../../utils/image_utils.dart';
 import 'package:neostation/models/secondary_display_state.dart';
 import 'package:neostation/widgets/header_sort_dropdown.dart';
+import 'package:neostation/widgets/native_carousel.dart';
 import '../../../widgets/system_logo_fallback.dart';
 import 'package:neostation/services/music_player_service.dart';
 import 'system_list_builder.dart';
@@ -54,7 +54,7 @@ class MySystemsCarousel extends StatefulWidget {
 }
 
 class _MySystemsCarouselState extends State<MySystemsCarousel> {
-  final CarouselSliderController _controller = CarouselSliderController();
+  final GlobalKey<NativeCarouselState> _carouselKey = GlobalKey();
   final ScrollController _scrollController = ScrollController();
   final MusicPlayerService _musicPlayerService = MusicPlayerService();
 
@@ -154,9 +154,7 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
         _currentIndex = widget.selectedIndex;
       });
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_controller.ready) {
-          _controller.jumpToPage(_currentIndex);
-        }
+        _carouselKey.currentState?.jumpToPage(_currentIndex);
       });
     }
   }
@@ -284,12 +282,8 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
     if (_isNavigating) return;
     _isNavigating = true;
 
-    _controller.previousPage(
-      duration: const Duration(milliseconds: 260),
-      curve: Curves.easeOutQuart,
-    );
+    _carouselKey.currentState?.previousPage();
 
-    // Auto-release the navigation lock after the animation duration.
     Future.delayed(const Duration(milliseconds: 310), () {
       if (mounted && _isNavigating) {
         setState(() => _isNavigating = false);
@@ -297,15 +291,11 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
     });
   }
 
-  /// Logic for smooth next item navigation.
   void _navigateNext() {
     if (_isNavigating) return;
 
     _isNavigating = true;
-    _controller.nextPage(
-      duration: const Duration(milliseconds: 260),
-      curve: Curves.easeOutQuart,
-    );
+    _carouselKey.currentState?.nextPage();
 
     Future.delayed(const Duration(milliseconds: 310), () {
       if (mounted && _isNavigating) {
@@ -548,32 +538,42 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
 
   /// Centrally aligns the selected item in the scrollable secondary indicator list.
   void _scrollToIndex(int index) {
-    if (_scrollController.hasClients) {
-      final allSystems = _getSystemsList();
-      final textStyle = TextStyle(fontSize: 10.r, fontWeight: FontWeight.bold);
-      final widths = allSystems
-          .map((s) => _calculateItemWidth(s, textStyle))
-          .toList();
+    _scrollToPage(index.toDouble());
+  }
 
-      double itemWidth = widths[index];
-      double itemOffset = _getItemOffset(index, widths);
-      double screenWidth = MediaQuery.of(context).size.width;
+  /// Continuously aligns the scroll bar to a fractional page position.
+  void _scrollToPage(double page) {
+    if (!_scrollController.hasClients) return;
 
-      double paddingOffset = 10.r;
-      double offset =
-          itemOffset - (screenWidth / 2) + (itemWidth / 2) + paddingOffset;
+    final allSystems = _getSystemsList();
+    final textStyle = TextStyle(fontSize: 10.r, fontWeight: FontWeight.bold);
+    final widths = allSystems
+        .map((s) => _calculateItemWidth(s, textStyle))
+        .toList();
+    final screenWidth = MediaQuery.of(context).size.width;
 
-      if (offset < 0) offset = 0;
-      if (offset > _scrollController.position.maxScrollExtent) {
-        offset = _scrollController.position.maxScrollExtent;
-      }
+    final fromIndex = page.floor();
+    final toIndex = page.ceil();
+    final fraction = page - fromIndex;
 
-      _scrollController.animateTo(
-        offset,
-        duration: const Duration(milliseconds: 120),
-        curve: Curves.easeInOut,
-      );
-    }
+    final fromOffset = _getItemOffset(fromIndex, widths);
+    final toOffset = toIndex < widths.length
+        ? _getItemOffset(toIndex, widths)
+        : fromOffset;
+
+    final itemWidth = widths[fromIndex.clamp(0, widths.length - 1)];
+    final itemOffset = fromOffset + (toOffset - fromOffset) * fraction;
+    final paddingOffset = 10.r;
+
+    double offset =
+        itemOffset - (screenWidth / 2) + (itemWidth / 2) + paddingOffset;
+
+    offset = offset.clamp(
+      0.0,
+      _scrollController.position.maxScrollExtent,
+    );
+
+    _scrollController.jumpTo(offset);
   }
 
   /// Dynamically computes width for the system label indicator based on font metrics.
@@ -684,7 +684,7 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
     final hasActiveBg = activeBgPath != null && activeBgPath.isNotEmpty;
 
     return Positioned.fill(
-      child: hasActiveBg
+      child:  hasActiveBg
           ? Image.file(
               File(activeBgPath),
               key: ValueKey('${activeBgPath}_${system.imageVersion}'),
@@ -860,10 +860,11 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
                           false, // Intercept native Flutter focus to use custom gamepad logic.
                       skipTraversal: true,
                       child: RepaintBoundary(
-                        child: CarouselSlider.builder(
-                          carouselController: _controller,
+                        child: NativeCarousel(
+                          key: _carouselKey,
                           itemCount: allSystems.length,
-                          itemBuilder: (context, index, realIndex) {
+                          initialIndex: _currentIndex,
+                          itemBuilder: (context, index) {
                             final system = allSystems[index];
                             final isSelected = index == _currentIndex;
                             return _buildSystemCard(
@@ -873,42 +874,19 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
                               index,
                             );
                           },
-                          options: CarouselOptions(
-                            scrollDirection: Axis.horizontal,
-                            animateToClosest: true,
-                            pageSnapping: true,
-                            enableInfiniteScroll: true,
-                            padEnds: true,
-                            disableCenter: false,
-
-                            viewportFraction:
-                                MediaQuery.of(context).size.aspectRatio >= 1.5
-                                ? 0.5
-                                : 0.75,
-                            height: MediaQuery.of(context).size.height,
-                            //aspectRatio: 16 / 9,
-                            enlargeCenterPage: true,
-                            enlargeFactor: 0.5,
-                            enlargeStrategy: CenterPageEnlargeStrategy.zoom,
-                            initialPage: _currentIndex,
-                            onPageChanged: (index, reason) {
-                              // Trigger navigation SFX only for manual swipe gestures.
-                              // Gamepad and tap interactions handle their own sound feedback
-                              // to avoid latency or double-triggering on high-performance devices.
-                              if (reason == CarouselPageChangedReason.manual) {
-                                SfxService().playNavSound();
-                              }
-                              setState(() {
-                                _currentIndex = index;
-                                _isNavigating =
-                                    false; // Release navigation lock.
-                              });
-                              _scrollToIndex(index);
-                              _updateBackground(allSystems[index]);
-                              _updateSecondaryScreenName();
-                              widget.onCardTapped?.call(index);
-                            },
-                          ),
+                          onPageScrolled: (page) {
+                            _scrollToPage(page);
+                          },
+                          onPageChanged: (index) {
+                            SfxService().playNavSound();
+                            setState(() {
+                              _currentIndex = index;
+                              _isNavigating = false;
+                            });
+                            _updateBackground(allSystems[index]);
+                            _updateSecondaryScreenName();
+                            widget.onCardTapped?.call(index);
+                          },
                         ),
                       ),
                     ),
@@ -952,7 +930,7 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
                           return GestureDetector(
                             onTap: () {
                               SfxService().playNavSound();
-                              _controller.animateToPage(index);
+                              _carouselKey.currentState?.animateToPage(index);
                             },
                             child: Container(
                               width: itemWidth,
@@ -1043,16 +1021,16 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
         File(customLogoPath),
         key: ValueKey('${customLogoPath}_${system.imageVersion}'),
         isAntiAlias: true,
-        height: 746.r,
+        height: 1024.r,
         filterQuality: FilterQuality.medium,
-        cacheWidth: 746,
+        cacheWidth: 1024,
         fit: BoxFit.contain,
         errorBuilder: (context, error, stackTrace) => Image.asset(
           assetLogoPath,
           isAntiAlias: true,
-          height: 746.r,
+          height: 1024.r,
           filterQuality: FilterQuality.medium,
-          cacheWidth: 746,
+          cacheWidth: 1024,
           fit: BoxFit.contain,
           errorBuilder: (context, e2, st2) => fallback,
         ),
@@ -1066,16 +1044,16 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
         File(themeLogoPath),
         key: ValueKey(themeLogoPath),
         isAntiAlias: true,
-        height: 746.r,
+        height: 1024.r,
         filterQuality: FilterQuality.medium,
-        cacheWidth: 746,
+        cacheWidth: 1024,
         fit: BoxFit.contain,
         errorBuilder: (context, error, stackTrace) => Image.asset(
           assetLogoPath,
           isAntiAlias: true,
-          height: 746.r,
+          height: 1024.r,
           filterQuality: FilterQuality.medium,
-          cacheWidth: 746,
+          cacheWidth: 1024,
           fit: BoxFit.contain,
           errorBuilder: (context, e2, st2) => fallback,
         ),
@@ -1086,9 +1064,9 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
     return Image.asset(
       assetLogoPath,
       isAntiAlias: true,
-      height: 746.r,
+      height: 1024.r,
       filterQuality: FilterQuality.medium,
-      cacheWidth: 746,
+      cacheWidth: 1024,
       fit: BoxFit.contain,
       errorBuilder: (context, error, stackTrace) => fallback,
     );
@@ -1124,18 +1102,29 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
       onTap: () {
         if (!isSelected) {
           SfxService().playNavSound();
-          _controller.animateToPage(index);
+          _carouselKey.currentState?.animateToPage(index);
         } else {
           // Intentional No-op: If already selected, taps do not trigger
           // navigation to prevent accidental launches during grid exploration.
         }
       },
       child: RepaintBoundary(
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 120),
-          margin: EdgeInsets.symmetric(vertical: 5.r, horizontal: 2.r),
+        child: Container(
+          clipBehavior: Clip.antiAlias,
+          margin: EdgeInsets.all(5.r),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(32.r),
+            boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.5),
+              blurRadius: 5.r,
+              offset: Offset(2.0.r, 2.0.r),
+            ),
+          ],
+          ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(12.r),
+            borderRadius: BorderRadius.circular(32.r),
+            clipBehavior: Clip.antiAliasWithSaveLayer,
             child: Stack(
               fit: StackFit.expand,
               children: [
@@ -1171,12 +1160,7 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
 
                     // Central Branding / Game Wheel Art.
                     if (!system.hideLogo || hasWheelFile)
-                      Positioned(
-                        top: 64.r,
-                        left: 64.r,
-                        right: 64.r,
-                        bottom: 64.r,
-                        child: hasWheelFile
+                      hasWheelFile
                             ? Image.file(
                                 wheelFile,
                                 isAntiAlias: true,
@@ -1197,7 +1181,6 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
                                 assetLogoPath: assetLogoPath,
                                 displayFolderName: displayFolderName,
                               ),
-                      ),
                   ],
                 ),
               ],
