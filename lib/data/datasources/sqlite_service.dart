@@ -993,115 +993,175 @@ class SqliteService {
 
   /// Initializes the database with versioning and migration support.
   Future<DatabaseAdapter> _initDatabase() async {
+    String? dbPath;
     try {
-      _log.i('SQlite database init v$_databaseVersion');
-
-      String dbPath;
-      try {
-        dbPath = await _getDatabasePath();
-        _log.i('Database path: $dbPath');
-
-        // Ensure the directory exists.
-        final dbDir = Directory(path.dirname(dbPath));
-        if (!await dbDir.exists()) {
-          await dbDir.create(recursive: true);
-        }
-      } catch (e) {
-        // On Android, this might fail if permissions haven't been granted yet.
-        if (Platform.isAndroid && e.toString().contains('Permission denied')) {
-          _log.w('Permission denied accessing DB. Waiting for SetupWizard...');
-          // Rethrow to notify the provider/UI so SetupWizard can handle the retry later.
-          throw Exception('StoragePermissionMissing');
-        }
-        rethrow;
+      dbPath = await _getDatabasePath();
+    } catch (e) {
+      // On Android, this might fail if permissions haven't been granted yet.
+      if (Platform.isAndroid && e.toString().contains('Permission denied')) {
+        _log.w('Permission denied accessing DB. Waiting for SetupWizard...');
+        throw Exception('StoragePermissionMissing');
       }
+      rethrow;
+    }
 
-      // Android: Use legacy location directly.
-      // Database path resolution is handled in _getDatabasePath.
+    _log.i('SQlite database init v$_databaseVersion');
+    _log.i('Database path: $dbPath');
 
-      // Migration for Desktop platforms (Windows, Linux, MacOS)
-      if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-        final userDataPath = await ConfigService.getUserDataPath();
-        // User data path is .../folder/user-data. Root is .../folder
-        final appRoot = Directory(userDataPath).parent;
+    // Ensure the directory exists.
+    final dbDir = Directory(path.dirname(dbPath));
+    if (!await dbDir.exists()) {
+      await dbDir.create(recursive: true);
+    }
 
-        // Potential legacy locations:
-        // 1. Root of the application (common in older portable versions)
-        final oldPathRoot = path.join(appRoot.path, _databaseName);
+    // Migration for Desktop platforms (Windows, Linux, MacOS)
+    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+      final userDataPath = await ConfigService.getUserDataPath();
+      final appRoot = Directory(userDataPath).parent;
 
-        // 2. In a 'databases' subfolder at root (plugin default)
-        final oldPathDbDir = path.join(
-          appRoot.path,
-          'databases',
-          _databaseName,
-        );
+      final oldPathRoot = path.join(appRoot.path, _databaseName);
+      final oldPathDbDir = path.join(
+        appRoot.path,
+        'databases',
+        _databaseName,
+      );
 
-        // Attempt migration from legacy paths.
-        if (await File(oldPathRoot).exists()) {
-          await _attemptMigration(dbPath, File(oldPathRoot));
-        } else if (await File(oldPathDbDir).exists()) {
-          await _attemptMigration(dbPath, File(oldPathDbDir));
-        }
+      if (await File(oldPathRoot).exists()) {
+        await _attemptMigration(dbPath, File(oldPathRoot));
+      } else if (await File(oldPathDbDir).exists()) {
+        await _attemptMigration(dbPath, File(oldPathDbDir));
       }
+    }
 
-      final db = sqlite.sqlite3.open(dbPath);
-      final adapter = DatabaseAdapter(db);
-
-      await _onConfigure(adapter);
-
-      // Simple version check mechanism as sqlite3 doesn't have onCreate/onUpgrade built-in like sqflite
-      // We implement it manually using user_version pragma
-      final versionResult = await adapter.rawQuery('PRAGMA user_version;');
-      final currentVersion =
-          int.tryParse(versionResult.first.values.first?.toString() ?? '') ?? 0;
-
-      _log.i('Database version: $currentVersion');
-
-      if (currentVersion == 0) {
-        // Check for legacy installs that have tables but no version tracking.
-        // Old app versions didn't set PRAGMA user_version, so they read as 0
-        // even though user_config already exists. CREATE TABLE IF NOT EXISTS
-        // is a no-op in that case, leaving new columns (e.g. app_language) missing.
-        final existingTables = await adapter.rawQuery(
-          "SELECT name FROM sqlite_master WHERE type='table' AND name='user_config';",
+    try {
+      return await _initDatabaseCore(dbPath);
+    } on sqlite.SqliteException catch (e) {
+      // If the error is I/O-related the WAL/SHM files are likely corrupted
+      // from a previous crash (common on SD cards/exFAT). Clean them up and
+      // retry once before giving up.
+      if (_isDiskError(e)) {
+        _log.w(
+          'Disk I/O error opening database, cleaning WAL/SHM and retrying: $e',
         );
-        if (existingTables.isNotEmpty) {
-          _log.i(
-            'Legacy install detected (version=0 but tables exist). Running migrations.',
+        await _cleanupWalFiles(dbPath);
+        try {
+          return await _initDatabaseCore(dbPath);
+        } catch (retryError, stackTrace) {
+          _log.e(
+            'Error initializing database after WAL cleanup',
+            error: retryError,
+            stackTrace: stackTrace,
           );
-          await _onUpgrade(adapter, 0, _databaseVersion);
-        } else {
-          await _onCreate(adapter, _databaseVersion);
+          rethrow;
         }
-      } else if (currentVersion < _databaseVersion) {
-        await _onUpgrade(adapter, currentVersion, _databaseVersion);
-      } else if (currentVersion > _databaseVersion) {
-        await _onDowngrade(adapter, currentVersion, _databaseVersion);
       }
-
-      // Update version
-      await adapter.execute('PRAGMA user_version = $_databaseVersion;');
-
-      _initialized = true;
-      _log.i('Database initialized');
-
-      return adapter;
+      rethrow;
     } catch (e, stackTrace) {
       _log.e('Error initializing database', error: e, stackTrace: stackTrace);
       rethrow;
     }
   }
 
-  /// Configures the database session (runs before schema creation/upgrades).
-  Future<void> _onConfigure(DatabaseAdapter db) async {
-    // Enable referential integrity
-    await db.execute('PRAGMA foreign_keys = ON;');
+  /// Core database initialization: open, configure, version check, migrate.
+  Future<DatabaseAdapter> _initDatabaseCore(String dbPath) async {
+    final db = sqlite.sqlite3.open(dbPath);
+    final adapter = DatabaseAdapter(db);
 
-    // Performance optimizations
-    await db.execute('PRAGMA synchronous = NORMAL;');
-    await db.execute('PRAGMA cache_size = 1000;');
-    await db.execute('PRAGMA temp_store = memory;');
-    await db.execute('PRAGMA journal_mode = WAL;');
+    await _onConfigure(adapter);
+
+    final versionResult = await adapter.rawQuery('PRAGMA user_version;');
+    final currentVersion =
+        int.tryParse(versionResult.first.values.first?.toString() ?? '') ?? 0;
+
+    _log.i('Database version: $currentVersion');
+
+    if (currentVersion == 0) {
+      final existingTables = await adapter.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='user_config';",
+      );
+      if (existingTables.isNotEmpty) {
+        _log.i(
+          'Legacy install detected (version=0 but tables exist). Running migrations.',
+        );
+        await _onUpgrade(adapter, 0, _databaseVersion);
+      } else {
+        await _onCreate(adapter, _databaseVersion);
+      }
+    } else if (currentVersion < _databaseVersion) {
+      await _onUpgrade(adapter, currentVersion, _databaseVersion);
+    } else if (currentVersion > _databaseVersion) {
+      await _onDowngrade(adapter, currentVersion, _databaseVersion);
+    }
+
+    await adapter.execute('PRAGMA user_version = $_databaseVersion;');
+
+    _initialized = true;
+    _log.i('Database initialized');
+
+    return adapter;
+  }
+
+  /// Returns true when [error] is a [sqlite.SqliteException] caused by a disk
+  /// I/O failure (e.g. code 4618 SQLITE_IOERR_SHORT_READ).
+  bool _isDiskError(Object error) {
+    if (error is sqlite.SqliteException) {
+      final msg = error.toString().toLowerCase();
+      return msg.contains('disk i/o error') || msg.contains('ioerr');
+    }
+    return false;
+  }
+
+  /// Deletes WAL and SHM journal files associated with the database at
+  /// [dbPath]. These files can become corrupted after an improper shutdown,
+  /// especially on SD cards / exFAT, and prevent the database from opening.
+  Future<void> _cleanupWalFiles(String dbPath) async {
+    for (final suffix in ['-wal', '-shm']) {
+      try {
+        final file = File('$dbPath$suffix');
+        if (await file.exists()) {
+          await file.delete();
+          _log.i('Deleted stale journal file: ${file.path}');
+        }
+      } catch (e) {
+        _log.w('Could not delete $suffix file: $e');
+      }
+    }
+  }
+
+  /// Configures the database session (runs before schema creation/upgrades).
+  ///
+  /// Pragma statements are wrapped individually so a filesystem error on one
+  /// (e.g. an SD card that doesn't support WAL) doesn't block the entire DB.
+  Future<void> _onConfigure(DatabaseAdapter db) async {
+    try {
+      await db.execute('PRAGMA foreign_keys = ON;');
+    } catch (e) {
+      _log.w('Could not set PRAGMA foreign_keys = ON: $e');
+    }
+
+    try {
+      await db.execute('PRAGMA synchronous = NORMAL;');
+    } catch (e) {
+      _log.w('Could not set PRAGMA synchronous = NORMAL: $e');
+    }
+
+    try {
+      await db.execute('PRAGMA cache_size = 1000;');
+    } catch (e) {
+      _log.w('Could not set PRAGMA cache_size = 1000: $e');
+    }
+
+    try {
+      await db.execute('PRAGMA temp_store = memory;');
+    } catch (e) {
+      _log.w('Could not set PRAGMA temp_store = memory: $e');
+    }
+
+    try {
+      await db.execute('PRAGMA journal_mode = WAL;');
+    } catch (e) {
+      _log.w('Could not set PRAGMA journal_mode = WAL: $e');
+    }
 
     // Verify critical tables exist before attempting hotfixes.
     // This prevents "no such table" errors during fresh initializations.

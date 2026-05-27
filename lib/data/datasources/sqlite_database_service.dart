@@ -405,16 +405,29 @@ class SqliteDatabaseService {
   /// Optimizes the SQLite database engine for high-concurrency and batch I/O operations.
   ///
   /// Configures synchronous mode, WAL journaling, cache size, and memory mapping.
+  /// Each PRAGMA is wrapped individually so a filesystem error on one doesn't
+  /// block subsequent operations.
   static Future<void> initialize() async {
+    final db = await SqliteService.getDatabase();
     try {
-      final db = await SqliteService.getDatabase();
       await db.execute('PRAGMA synchronous = NORMAL');
+    } catch (e) {
+      _log.w('Could not set PRAGMA synchronous = NORMAL: $e');
+    }
+    try {
       await db.execute('PRAGMA cache_size = 10000');
+    } catch (e) {
+      _log.w('Could not set PRAGMA cache_size = 10000: $e');
+    }
+    try {
       await db.execute('PRAGMA temp_store = MEMORY');
+    } catch (e) {
+      _log.w('Could not set PRAGMA temp_store = MEMORY: $e');
+    }
+    try {
       await db.execute('PRAGMA mmap_size = 268435456');
     } catch (e) {
-      _log.e('Error initializing SQLite database: $e');
-      rethrow;
+      _log.w('Could not set PRAGMA mmap_size = 268435456: $e');
     }
   }
 
