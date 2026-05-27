@@ -624,7 +624,11 @@ class MySystems extends StatelessWidget {
   ) async {
     if (!Platform.isAndroid) return;
 
-    final secondaryState = SecondaryDisplayState();
+    final secondaryState = Provider.of<SqliteConfigProvider>(
+      context,
+      listen: false,
+    ).secondaryDisplayState;
+    if (secondaryState == null) return;
     final folder = system.primaryFolderName ?? system.folderName ?? 'all';
 
     // UI Asset Mapping logic.
@@ -795,11 +799,6 @@ class _SystemCardGridViewState extends State<SystemCardGridView> {
       _onSecondaryStateChanged();
       // Also attempt direct update — works when secondary is already connected.
       _updateSecondaryScreenName();
-    });
-    // Delayed retry for first-launch where getDisplays() may return <=1 on
-    // the initial post-frame tick but the secondary connects shortly after.
-    Future.delayed(const Duration(milliseconds: 600), () {
-      if (mounted) _updateSecondaryScreenName();
     });
   }
 

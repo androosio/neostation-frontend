@@ -17,7 +17,6 @@ import 'neo_sync_screen/neo_sync_tab.dart';
 import '../widgets/scraper_content.dart';
 import 'package:neostation/services/game_service.dart';
 import 'package:neostation/providers/palette_provider.dart';
-import '../models/secondary_display_state.dart';
 import 'dart:io';
 
 /// The root screen of the application, managing high-level navigation tabs.
@@ -229,7 +228,11 @@ class AppScreenState extends State<AppScreen> {
     if (!mounted || !Platform.isAndroid || _themeProvider == null) return;
 
     final themeProvider = _themeProvider!;
-    final secondaryState = SecondaryDisplayState();
+    final secondaryState = Provider.of<SqliteConfigProvider>(
+      context,
+      listen: false,
+    ).secondaryDisplayState;
+    if (secondaryState == null) return;
 
     secondaryState.updateState(
       isOled: themeProvider.isOled,
@@ -368,7 +371,12 @@ class AppScreenState extends State<AppScreen> {
   /// Updates secondary display metadata based on the current active tab.
   void _updateSecondaryScreenTab(int index) {
     if (Platform.isAndroid) {
-      final secondaryState = SecondaryDisplayState();
+      final secondaryState = Provider.of<SqliteConfigProvider>(
+        context,
+        listen: false,
+      ).secondaryDisplayState;
+      if (secondaryState == null) return;
+
       final paletteProvider = Provider.of<PaletteProvider>(
         context,
         listen: false,

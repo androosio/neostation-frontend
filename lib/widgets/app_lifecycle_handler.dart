@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:neostation/services/logger_service.dart';
 import '../services/notification_service.dart';
@@ -8,6 +9,7 @@ import '../widgets/plan_welcome_modal.dart';
 import '../widgets/plan_farewell_modal.dart';
 import '../services/game_service.dart';
 import '../services/music_player_service.dart';
+import '../providers/sqlite_config_provider.dart';
 import 'package:provider/provider.dart';
 
 /// Widget that detects when the app returns to the foreground and reactivates the gamepad
@@ -79,6 +81,14 @@ class _AppLifecycleHandlerState extends State<AppLifecycleHandler>
       await GameService.handleAppResumed();
 
       if (!mounted) return;
+
+      // Re-apply secondary display preference after display reconnection.
+      if (Platform.isAndroid) {
+        Provider.of<SqliteConfigProvider>(
+          context,
+          listen: false,
+        ).reapplySecondaryDisplay();
+      }
 
       final notificationService = Provider.of<NotificationService>(
         context,

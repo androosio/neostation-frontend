@@ -128,7 +128,9 @@ class NativeCarouselState extends State<NativeCarousel> {
         final availableWidth = constraints.maxWidth;
         // Calculate viewportFraction so each page is square sized to fill height.
         // Page width = available height (square), fraction = pageWidth / viewportWidth.
-        final oneCardFraction = (availableWidth > 0) ? constraints.maxHeight / availableWidth : 0.3;
+        final oneCardFraction = (availableWidth > 0)
+            ? constraints.maxHeight / availableWidth
+            : 0.3;
         final vpFraction = oneCardFraction.clamp(0.18, 1.0);
 
         _ensureController(vpFraction);

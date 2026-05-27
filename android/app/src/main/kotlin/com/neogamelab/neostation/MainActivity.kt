@@ -42,6 +42,7 @@ class MainActivity: MultiDisplayFlutterActivity(), GamepadsCompatibleActivity {
     private var launcherMethodChannel: MethodChannel? = null // Canal para launcher
     private var secondaryDisplayChannel: MethodChannel? = null // Canal para pantalla secundaria
     private var gameLaunchTimestamp: Long = 0 // Timestamp del lanzamiento del juego
+    private var displayListener: android.hardware.display.DisplayManager.DisplayListener? = null
 
     // Usar directorio por defecto para cores; no verificar existencia por permisos
     private fun getDefaultLibretroDirectory(retroArchPackage: String): String {
@@ -58,7 +59,10 @@ class MainActivity: MultiDisplayFlutterActivity(), GamepadsCompatibleActivity {
 
     override fun onLaunchSubScreen(display: Display) {
         if (isSecondaryDisplayHiddenInDb()) {
-            // Do not launch if hidden in DB
+            // The sub_screen package may have already auto-created and shown the
+            // presentation when a display reconnects. Actively close it here to
+            // enforce the user's persisted preference.
+            onCloseSubScreen()
             return
         }
         super.onLaunchSubScreen(display)
@@ -112,6 +116,10 @@ class MainActivity: MultiDisplayFlutterActivity(), GamepadsCompatibleActivity {
 
     override fun onDestroy() {
         super.onDestroy()
+        displayListener?.let {
+            val dm = getSystemService(android.content.Context.DISPLAY_SERVICE) as android.hardware.display.DisplayManager
+            dm.unregisterDisplayListener(it)
+        }
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -306,6 +314,33 @@ class MainActivity: MultiDisplayFlutterActivity(), GamepadsCompatibleActivity {
                 else -> result.notImplemented()
             }
         }
+
+        // Register display listener to notify Flutter when secondary display connects/disconnects
+        displayListener = object : android.hardware.display.DisplayManager.DisplayListener {
+            override fun onDisplayAdded(displayId: Int) {
+                val dm = getSystemService(android.content.Context.DISPLAY_SERVICE) as android.hardware.display.DisplayManager
+                val display = dm.getDisplay(displayId)
+                if (display != null && displayId != Display.DEFAULT_DISPLAY && !isSecondaryDisplayHiddenInDb()) {
+                    Handler(Looper.getMainLooper()).post {
+                        secondaryDisplayChannel?.invokeMethod("onSecondaryDisplayConnected", null)
+                    }
+                }
+            }
+
+            override fun onDisplayRemoved(displayId: Int) {
+                if (displayId != Display.DEFAULT_DISPLAY) {
+                    Handler(Looper.getMainLooper()).post {
+                        secondaryDisplayChannel?.invokeMethod("onSecondaryDisplayDisconnected", null)
+                    }
+                }
+            }
+
+            override fun onDisplayChanged(displayId: Int) {
+                // No action needed for display changes
+            }
+        }
+        val dm = getSystemService(android.content.Context.DISPLAY_SERVICE) as android.hardware.display.DisplayManager
+        dm.registerDisplayListener(displayListener!!, Handler(Looper.getMainLooper()))
     }
 
     private fun setSecondaryDisplayVisible(visible: Boolean) {

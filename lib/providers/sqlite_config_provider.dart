@@ -79,6 +79,9 @@ class SqliteConfigProvider extends ChangeNotifier {
   bool get isScanningRoms => _isScanningRoms;
   bool get isSilentScanning => _isSilentScanning;
 
+  /// The shared secondary display state instance (null on non-Android platforms).
+  SecondaryDisplayState? get secondaryDisplayState => _secondaryDisplayState;
+
   /// True when a startup scan was requested but deferred for update checks.
   bool get pendingStartupScan => _pendingStartupScan;
 
@@ -163,6 +166,10 @@ class SqliteConfigProvider extends ChangeNotifier {
       if (Platform.isAndroid) {
         _secondaryDisplayState = SecondaryDisplayState();
         _secondaryDisplayState!.addListener(_onSecondaryStateChanged);
+
+        _secondaryDisplayChannel.setMethodCallHandler(
+          _handleSecondaryDisplayCall,
+        );
 
         // Initial permission check
         await refreshAllFilesAccess();
@@ -1264,7 +1271,7 @@ class SqliteConfigProvider extends ChangeNotifier {
           hideBottomScreen: value,
           backgroundColor: backgroundColor ?? current.backgroundColor,
           muteToggleTrigger: current.muteToggleTrigger,
-          isSecondaryActive: current.isSecondaryActive,
+          isSecondaryActive: value ? false : current.isSecondaryActive,
         );
       }
     }
@@ -1275,6 +1282,38 @@ class SqliteConfigProvider extends ChangeNotifier {
       });
     }
 
+    notifyListeners();
+  }
+
+  /// Handles native→Dart method calls for secondary display events.
+  Future<dynamic> _handleSecondaryDisplayCall(MethodCall call) async {
+    switch (call.method) {
+      case 'onSecondaryDisplayConnected':
+        if (_config.hideBottomScreen) {
+          _log.i('Secondary display connected but hidden by user preference');
+        } else {
+          _log.i('Secondary display connected, activating');
+        }
+        _onSecondaryDisplayChanged(
+          connected: call.method == 'onSecondaryDisplayConnected',
+        );
+        break;
+      case 'onSecondaryDisplayDisconnected':
+        _log.i('Secondary display disconnected');
+        _onSecondaryDisplayChanged(connected: false);
+        break;
+    }
+  }
+
+  /// Updates secondary display state when a physical display is connected or disconnected.
+  void _onSecondaryDisplayChanged({required bool connected}) {
+    if (_secondaryDisplayState == null) return;
+
+    if (connected && !_config.hideBottomScreen) {
+      _secondaryDisplayState!.updateState(isSecondaryActive: true);
+    } else {
+      _secondaryDisplayState!.updateState(isSecondaryActive: false);
+    }
     notifyListeners();
   }
 
@@ -1304,6 +1343,21 @@ class SqliteConfigProvider extends ChangeNotifier {
         // ignore: unawaited_futures
         toggleVideoSound();
       }
+    }
+  }
+
+  /// Re-applies the persisted secondary display visibility setting to the native
+  /// side. Used as a safety net when the app resumes after a display reconnection
+  /// event that may have auto-created the subscreen before our native gate could
+  /// intercept it.
+  void reapplySecondaryDisplay() {
+    if (!Platform.isAndroid) return;
+    if (_config.hideBottomScreen) {
+      // ignore: unawaited_futures
+      _secondaryDisplayChannel.invokeMethod('setSecondaryDisplayVisible', {
+        'visible': false,
+      });
+      _onSecondaryDisplayChanged(connected: false);
     }
   }
 

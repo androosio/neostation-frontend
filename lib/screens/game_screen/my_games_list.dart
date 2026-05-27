@@ -720,7 +720,8 @@ class _SystemGamesListState extends State<SystemGamesList> {
       final bool hasScreenshot =
           !isMusicSystem && File(screenshotPath).existsSync();
 
-      await _secondaryDisplayState?.updateState(
+      // ignore: unawaited_futures
+      _secondaryDisplayState?.updateState(
         systemName: widget.system.realName,
         gameFanart: hasFanart ? fanartPath : null,
         gameScreenshot: hasScreenshot ? screenshotPath : null,
@@ -764,7 +765,8 @@ class _SystemGamesListState extends State<SystemGamesList> {
           if (activeBytes != null &&
               !listEquals(activeBytes, currentBytes) &&
               !_isNavigatingBack) {
-            await _secondaryDisplayState?.updateState(
+            // ignore: unawaited_futures
+            _secondaryDisplayState?.updateState(
               gameImageBytes: activeBytes,
               gameId: activeRomPath,
             );
@@ -812,7 +814,8 @@ class _SystemGamesListState extends State<SystemGamesList> {
     final videoExists = await _fileProvider.fileExists(videoPath);
 
     if (videoExists && !_isNavigatingBack && _selectedGame == game) {
-      await _secondaryDisplayState?.updateState(gameVideo: videoPath);
+      // ignore: unawaited_futures
+      _secondaryDisplayState?.updateState(gameVideo: videoPath);
       _updateMusicDucking();
     }
   }
@@ -985,7 +988,8 @@ class _SystemGamesListState extends State<SystemGamesList> {
     );
     final isOled = paletteProvider.isOled;
 
-    await _secondaryDisplayState?.updateState(
+    // ignore: unawaited_futures
+    _secondaryDisplayState?.updateState(
       systemName: widget.system.realName,
       isGameSelected: false,
       isVideoMuted: !configProvider.config.videoSound,

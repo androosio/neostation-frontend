@@ -92,9 +92,7 @@ class AboutSettingsContentState extends State<AboutSettingsContent> {
   void selectItem(int index) {
     switch (index) {
       case 0:
-        _launchUrl(
-          'https://github.com/miguelsotobaez/neostation-frontend',
-        );
+        _launchUrl('https://github.com/miguelsotobaez/neostation-frontend');
         break;
       case 1:
         _launchUrl('https://ko-fi.com/neostation');
@@ -181,8 +179,11 @@ class AboutSettingsContentState extends State<AboutSettingsContent> {
                       _buildInfoCard(
                         icon: Symbols.code_rounded,
                         title: AppLocale.openSourceLicense.getString(context),
-                        value: AppLocale.openSourceLicenseDesc.getString(context),
-                        url: 'https://github.com/miguelsotobaez/neostation-frontend',
+                        value: AppLocale.openSourceLicenseDesc.getString(
+                          context,
+                        ),
+                        url:
+                            'https://github.com/miguelsotobaez/neostation-frontend',
                         theme: theme,
                         isFocused:
                             widget.isContentFocused &&
@@ -268,9 +269,7 @@ class AboutSettingsContentState extends State<AboutSettingsContent> {
           color: theme.cardColor.withValues(alpha: 0.25),
           borderRadius: BorderRadius.circular(12.r),
           border: Border.all(
-            color: isFocused
-                ? theme.colorScheme.primary
-                : Colors.transparent,
+            color: isFocused ? theme.colorScheme.primary : Colors.transparent,
             width: 2,
           ),
         ),

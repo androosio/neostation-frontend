@@ -15,7 +15,6 @@ import 'package:neostation/services/game_service.dart';
 import 'package:neostation/utils/gamepad_nav.dart';
 import '../../../providers/sqlite_config_provider.dart';
 import '../../../widgets/custom_toggle_switch.dart';
-import 'package:sub_screen/sub_screen.dart';
 import 'settings_title.dart';
 import '../../../services/permission_service.dart';
 
@@ -56,7 +55,6 @@ class GeneralSettingsContentState extends State<GeneralSettingsContent>
     WidgetsBinding.instance.addObserver(this);
     _loadFullscreenState();
     _checkDefaultLauncher();
-    _checkSecondDisplay();
 
     // Pre-allocate keys for maximum theoretical setting items.
     for (int i = 0; i < 14; i++) {
@@ -137,24 +135,6 @@ class GeneralSettingsContentState extends State<GeneralSettingsContent>
     }
   }
 
-  bool _hasSecondDisplay = false;
-
-  /// Platform: Android - Detects secondary display hardware for dual-screen devices (e.g. Retro consoles).
-  Future<void> _checkSecondDisplay() async {
-    if (Platform.isAndroid) {
-      try {
-        final displays = await SubScreenPlugin.getDisplays();
-        if (mounted) {
-          setState(() {
-            _hasSecondDisplay = displays.length > 1;
-          });
-        }
-      } catch (e) {
-        _log.e('Secondary display detection failed: $e');
-      }
-    }
-  }
-
   /// Platform: Android - Orchestrates the 'All Files Access' permission flow.
   Future<void> _handlePermissionToggle(SqliteConfigProvider provider) async {
     if (provider.hasAllFilesAccess) {
@@ -197,9 +177,7 @@ class GeneralSettingsContentState extends State<GeneralSettingsContent>
     if (Platform.isAndroid) {
       count++; // All Files Access
       count++; // Launcher
-      if (_hasSecondDisplay) {
-        count++; // Secondary Display Suppression
-      }
+      count++; // Secondary Display Suppression (always visible on Android)
     }
     if (!kIsWeb && (Platform.isWindows || Platform.isLinux)) {
       count++; // BarTOP Power Management
@@ -284,19 +262,15 @@ class GeneralSettingsContentState extends State<GeneralSettingsContent>
       }
       currentItemIndex++;
 
-      if (_hasSecondDisplay) {
-        if (index == currentItemIndex) {
-          final hideBottomScreen = configProvider.config.hideBottomScreen;
-          configProvider.updateHideBottomScreen(
-            !hideBottomScreen,
-            backgroundColor: Theme.of(
-              context,
-            ).scaffoldBackgroundColor.toARGB32(),
-          );
-          return;
-        }
-        currentItemIndex++;
+      if (index == currentItemIndex) {
+        final hideBottomScreen = configProvider.config.hideBottomScreen;
+        configProvider.updateHideBottomScreen(
+          !hideBottomScreen,
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor.toARGB32(),
+        );
+        return;
       }
+      currentItemIndex++;
     }
 
     // Protocol: BarTOP Power Management (System Shutdown).
@@ -1018,7 +992,7 @@ class GeneralSettingsContentState extends State<GeneralSettingsContent>
           ],
 
           // Setting: Secondary Display Suppression (Android Multi-Display).
-          if (Platform.isAndroid && _hasSecondDisplay) ...[
+          if (Platform.isAndroid) ...[
             () {
               final index = currentItemIdx++;
               return Container(

@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'dart:convert';
 import 'dart:typed_data';
-import 'package:sub_screen/sub_screen.dart';
 import 'package:sub_screen/shared_state_manager.dart';
 import 'package:neostation/services/logger_service.dart';
 
@@ -352,55 +351,52 @@ class SecondaryDisplayState extends SharedState<SecondaryDisplayStateData> {
     if (!Platform.isAndroid) return;
 
     try {
-      final displays = await SubScreenPlugin.getDisplays();
-      if (displays.length > 1) {
-        final current =
-            value ??
-            SecondaryDisplayStateData(systemName: systemName ?? 'WELCOME');
-        setState(
-          current.copyWith(
-            systemName: systemName,
-            gameFanart: gameFanart,
-            clearFanart: clearFanart,
-            gameScreenshot: gameScreenshot,
-            clearScreenshot: clearScreenshot,
-            gameWheel: gameWheel,
-            clearWheel: clearWheel,
-            gameVideo: gameVideo,
-            clearVideo: clearVideo,
-            gameImageBytes: gameImageBytes,
-            clearImageBytes: clearImageBytes,
-            isGameSelected: isGameSelected,
-            isVideoMuted: isVideoMuted,
-            hideBottomScreen: hideBottomScreen,
-            muteToggleTrigger: muteToggleTrigger,
-            backgroundColor: backgroundColor,
-            themeName: themeName,
-            isSecondaryActive: isSecondaryActive,
-            isGameLaunching: isGameLaunching,
-            gameId: gameId,
-            clearGameId: clearGameId,
-            isScraping: isScraping,
-            scrapeProgress: scrapeProgress,
-            clearScrapeProgress: clearScrapeProgress,
-            scrapeStatus: scrapeStatus,
-            clearScrapeStatus: clearScrapeStatus,
-            isScraperLoggedIn: isScraperLoggedIn,
-            scrapeTrigger: scrapeTrigger,
-            systemLogo: systemLogo,
-            clearSystemLogo: clearSystemLogo,
-            isLogoAsset: isLogoAsset,
-            systemBackground: systemBackground,
-            clearSystemBackground: clearSystemBackground,
-            isBackgroundAsset: isBackgroundAsset,
-            useShader: useShader,
-            shaderColor1: shaderColor1,
-            shaderColor2: shaderColor2,
-            useFluidShader: useFluidShader,
-            isOled: isOled,
-          ),
-        );
-      }
+      final current =
+          value ??
+          SecondaryDisplayStateData(systemName: systemName ?? 'WELCOME');
+      setState(
+        current.copyWith(
+          systemName: systemName,
+          gameFanart: gameFanart,
+          clearFanart: clearFanart,
+          gameScreenshot: gameScreenshot,
+          clearScreenshot: clearScreenshot,
+          gameWheel: gameWheel,
+          clearWheel: clearWheel,
+          gameVideo: gameVideo,
+          clearVideo: clearVideo,
+          gameImageBytes: gameImageBytes,
+          clearImageBytes: clearImageBytes,
+          isGameSelected: isGameSelected,
+          isVideoMuted: isVideoMuted,
+          hideBottomScreen: hideBottomScreen,
+          muteToggleTrigger: muteToggleTrigger,
+          backgroundColor: backgroundColor,
+          themeName: themeName,
+          isSecondaryActive: isSecondaryActive,
+          isGameLaunching: isGameLaunching,
+          gameId: gameId,
+          clearGameId: clearGameId,
+          isScraping: isScraping,
+          scrapeProgress: scrapeProgress,
+          clearScrapeProgress: clearScrapeProgress,
+          scrapeStatus: scrapeStatus,
+          clearScrapeStatus: clearScrapeStatus,
+          isScraperLoggedIn: isScraperLoggedIn,
+          scrapeTrigger: scrapeTrigger,
+          systemLogo: systemLogo,
+          clearSystemLogo: clearSystemLogo,
+          isLogoAsset: isLogoAsset,
+          systemBackground: systemBackground,
+          clearSystemBackground: clearSystemBackground,
+          isBackgroundAsset: isBackgroundAsset,
+          useShader: useShader,
+          shaderColor1: shaderColor1,
+          shaderColor2: shaderColor2,
+          useFluidShader: useFluidShader,
+          isOled: isOled,
+        ),
+      );
     } catch (e) {
       LoggerService.instance.w("Error updating secondary screen state: $e");
     }

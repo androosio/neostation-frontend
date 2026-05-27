@@ -122,11 +122,6 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
       // Also attempt direct update — works when secondary is already connected.
       _updateSecondaryScreenName();
     });
-    // Delayed retry for first-launch where getDisplays() may return <=1 on
-    // the initial post-frame tick but the secondary connects shortly after.
-    Future.delayed(const Duration(milliseconds: 600), () {
-      if (mounted) _updateSecondaryScreenName();
-    });
     _musicPlayerService.addListener(_handleMusicStateChanged);
     _handleMusicStateChanged();
   }
@@ -568,10 +563,7 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
     double offset =
         itemOffset - (screenWidth / 2) + (itemWidth / 2) + paddingOffset;
 
-    offset = offset.clamp(
-      0.0,
-      _scrollController.position.maxScrollExtent,
-    );
+    offset = offset.clamp(0.0, _scrollController.position.maxScrollExtent);
 
     _scrollController.jumpTo(offset);
   }
@@ -684,7 +676,7 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
     final hasActiveBg = activeBgPath != null && activeBgPath.isNotEmpty;
 
     return Positioned.fill(
-      child:  hasActiveBg
+      child: hasActiveBg
           ? Image.file(
               File(activeBgPath),
               key: ValueKey('${activeBgPath}_${system.imageVersion}'),
@@ -1115,12 +1107,12 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(32.r),
             boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.5),
-              blurRadius: 5.r,
-              offset: Offset(2.0.r, 2.0.r),
-            ),
-          ],
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.5),
+                blurRadius: 5.r,
+                offset: Offset(2.0.r, 2.0.r),
+              ),
+            ],
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(32.r),
@@ -1161,26 +1153,26 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
                     // Central Branding / Game Wheel Art.
                     if (!system.hideLogo || hasWheelFile)
                       hasWheelFile
-                            ? Image.file(
-                                wheelFile,
-                                isAntiAlias: true,
-                                filterQuality: FilterQuality.medium,
-                                height: 512.r,
-                                cacheWidth: 512,
-                                fit: BoxFit.contain,
-                                errorBuilder: (context, error, stackTrace) =>
-                                    SystemLogoFallback(
-                                      title: system.title,
-                                      shortName: system.isGame
-                                          ? null
-                                          : system.shortName,
-                                    ),
-                              )
-                            : _buildCarouselLogo(
-                                system: system,
-                                assetLogoPath: assetLogoPath,
-                                displayFolderName: displayFolderName,
-                              ),
+                          ? Image.file(
+                              wheelFile,
+                              isAntiAlias: true,
+                              filterQuality: FilterQuality.medium,
+                              height: 512.r,
+                              cacheWidth: 512,
+                              fit: BoxFit.contain,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  SystemLogoFallback(
+                                    title: system.title,
+                                    shortName: system.isGame
+                                        ? null
+                                        : system.shortName,
+                                  ),
+                            )
+                          : _buildCarouselLogo(
+                              system: system,
+                              assetLogoPath: assetLogoPath,
+                              displayFolderName: displayFolderName,
+                            ),
                   ],
                 ),
               ],

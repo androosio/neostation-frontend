@@ -1020,11 +1020,7 @@ class SqliteService {
       final appRoot = Directory(userDataPath).parent;
 
       final oldPathRoot = path.join(appRoot.path, _databaseName);
-      final oldPathDbDir = path.join(
-        appRoot.path,
-        'databases',
-        _databaseName,
-      );
+      final oldPathDbDir = path.join(appRoot.path, 'databases', _databaseName);
 
       if (await File(oldPathRoot).exists()) {
         await _attemptMigration(dbPath, File(oldPathRoot));

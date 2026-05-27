@@ -480,10 +480,10 @@ class _SystemCardState extends State<SystemCard> {
         ] else ...[
           // Centered branding for standard system cards.
           Center(
-              child: widget.info.hideLogo
-                  ? const SizedBox.shrink()
-                  : _buildSystemLogo(assetLogoPath),
-            ),
+            child: widget.info.hideLogo
+                ? const SizedBox.shrink()
+                : _buildSystemLogo(assetLogoPath),
+          ),
         ],
       ],
     );
