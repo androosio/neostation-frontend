@@ -410,6 +410,8 @@ const Map<String, dynamic> appLocaleRu = {
   AppLocale.hintFavorite: 'Избранное',
   AppLocale.hintRandom: 'Случайно',
   AppLocale.hintRefresh: 'Обновить',
+  AppLocale.hintViewMode: 'Режим',
+  AppLocale.hintScrape: 'Скрейп',
 
   AppLocale.error: 'Ошибка',
   AppLocale.loading: 'Загрузка...',
@@ -428,6 +430,7 @@ const Map<String, dynamic> appLocaleRu = {
   AppLocale.enter: 'Войти',
   AppLocale.beta: 'Бета',
   AppLocale.gridView: 'Плитка',
+  AppLocale.listView: 'Список',
   AppLocale.carouselView: 'Карусель',
   AppLocale.alphabetical: 'По алфавиту',
   AppLocale.releaseYear: 'Год выпуска',

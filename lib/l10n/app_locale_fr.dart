@@ -424,6 +424,8 @@ const Map<String, dynamic> appLocaleFr = {
   AppLocale.hintFavorite: 'Favori',
   AppLocale.hintRandom: 'Aléatoire',
   AppLocale.hintRefresh: 'Actualiser',
+  AppLocale.hintViewMode: 'Vue',
+  AppLocale.hintScrape: 'Scraper',
 
   AppLocale.error: 'Erreur',
   AppLocale.loading: 'Chargement...',
@@ -442,6 +444,7 @@ const Map<String, dynamic> appLocaleFr = {
   AppLocale.enter: 'Entrer',
   AppLocale.beta: 'Bêta',
   AppLocale.gridView: 'Vue Grille',
+  AppLocale.listView: 'Vue Liste',
   AppLocale.carouselView: 'Vue Carrousel',
   AppLocale.alphabetical: 'Alphabétique',
   AppLocale.releaseYear: 'Année de Sortie',

@@ -365,6 +365,8 @@ const Map<String, dynamic> appLocaleJa = {
   AppLocale.hintFavorite: 'お気に入り',
   AppLocale.hintRandom: 'ランダム',
   AppLocale.hintRefresh: '更新',
+  AppLocale.hintViewMode: '表示切替',
+  AppLocale.hintScrape: 'スクレイプ',
 
   AppLocale.error: 'エラー',
   AppLocale.loading: '読み込み中...',
@@ -383,6 +385,7 @@ const Map<String, dynamic> appLocaleJa = {
   AppLocale.enter: '入る',
   AppLocale.beta: 'ベータ',
   AppLocale.gridView: 'グリッド表示',
+  AppLocale.listView: 'リスト表示',
   AppLocale.carouselView: 'カルーセル表示',
   AppLocale.alphabetical: 'アルファベット順',
   AppLocale.releaseYear: '発売年',

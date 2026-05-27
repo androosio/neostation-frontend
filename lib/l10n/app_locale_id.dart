@@ -403,6 +403,8 @@ const Map<String, dynamic> appLocaleId = {
   AppLocale.hintFavorite: 'Favorit',
   AppLocale.hintRandom: 'Acak',
   AppLocale.hintRefresh: 'Segarkan',
+  AppLocale.hintViewMode: 'Tampilan',
+  AppLocale.hintScrape: 'Ambil',
 
   AppLocale.error: 'Kesalahan',
   AppLocale.loading: 'Memuat...',
@@ -421,6 +423,7 @@ const Map<String, dynamic> appLocaleId = {
   AppLocale.enter: 'Masuk',
   AppLocale.beta: 'Beta',
   AppLocale.gridView: 'Tampilan Kisi',
+  AppLocale.listView: 'Tampilan Daftar',
   AppLocale.carouselView: 'Tampilan Karusel',
   AppLocale.alphabetical: 'Alfabetis',
   AppLocale.releaseYear: 'Tahun Rilis',

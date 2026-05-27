@@ -34,6 +34,29 @@ class GamesFooter extends CoreFooter {
       ),
       SizedBox(width: 8.r),
       GamepadControl(
+        iconPath: 'assets/images/gamepad/Xbox_X_button.png',
+        label: AppLocale.hintViewMode.getString(context),
+        backgroundColor: theme.colorScheme.primary,
+        textColor: Colors.white,
+      ),
+      SizedBox(width: 8.r),
+      GamepadControl(
+        iconPath: 'assets/images/gamepad/Xbox_View_button.png',
+        label: AppLocale.hintScrape.getString(context),
+        backgroundColor: theme.colorScheme.tertiaryContainer,
+        textColor: theme.colorScheme.onTertiaryContainer,
+      ),
+      SizedBox(width: 8.r),
+      GamepadControl(
+        iconPath: 'assets/images/gamepad/Left Stick Click.png',
+        label: AppLocale.hintRandom.getString(context),
+        backgroundColor: theme.colorScheme.errorContainer.withValues(
+          alpha: 0.6,
+        ),
+        textColor: theme.colorScheme.onErrorContainer,
+      ),
+      SizedBox(width: 8.r),
+      GamepadControl(
         iconPath: 'assets/images/gamepad/Xbox_Menu_button.png',
         label: AppLocale.hintSettings.getString(context),
         backgroundColor: theme.colorScheme.tertiary,

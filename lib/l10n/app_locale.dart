@@ -425,6 +425,7 @@ mixin AppLocale {
   static const String beta = 'beta';
   static const String gridView = 'grid_view';
   static const String carouselView = 'carousel_view';
+  static const String listView = 'list_view';
   static const String alphabetical = 'alphabetical';
   static const String releaseYear = 'release_year';
   static const String manufacturer = 'manufacturer';
@@ -612,6 +613,8 @@ mixin AppLocale {
   static const String hintFavorite = 'hint_favorite';
   static const String hintRandom = 'hint_random';
   static const String hintRefresh = 'hint_refresh';
+  static const String hintViewMode = 'hint_view_mode';
+  static const String hintScrape = 'hint_scrape';
 
   // ---------------------------------------------------------------------------
   // Misc

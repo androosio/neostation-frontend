@@ -23,13 +23,13 @@ import '../../services/screenscraper_service.dart';
 import '../../utils/gamepad_nav.dart';
 import '../../utils/centered_scroll_controller.dart';
 import '../../providers/file_provider.dart';
-import '../../providers/neo_assets_provider.dart';
 import '../../providers/sqlite_config_provider.dart';
 import '../../providers/sqlite_database_provider.dart';
 import '../../models/system_model.dart';
 import '../../models/game_model.dart';
 import 'game_details_card/game_details_card_list.dart';
 import 'game_details_card/random_game_dialog.dart';
+import 'my_games_grid.dart';
 import 'music/music_list.dart';
 import 'music/music_player.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -37,7 +37,7 @@ import '../../utils/game_utils.dart';
 import '../../providers/system_background_provider.dart';
 import '../../widgets/marquee_text.dart';
 import '../../models/secondary_display_state.dart';
-import '../../widgets/system_logo_fallback.dart';
+import '../../widgets/game_view_mode_dropdown.dart';
 import '../../constants/system_folder_names.dart';
 
 /// Transfer object for background game save detection tasks.
@@ -272,6 +272,15 @@ class _SystemGamesListState extends State<SystemGamesList> {
     if (!mounted) return;
     final configProvider = context.read<SqliteConfigProvider>();
     final newShowInfo = configProvider.config.showGameInfo;
+    final gameViewMode = configProvider.config.gameViewMode;
+
+    try {
+      if (gameViewMode == 'grid') {
+        _gamepadNav.deactivate();
+      } else {
+        _gamepadNav.activate();
+      }
+    } catch (_) {}
 
     if (newShowInfo != _lastShowInfo) {
       _lastShowInfo = newShowInfo;
@@ -315,48 +324,6 @@ class _SystemGamesListState extends State<SystemGamesList> {
 
     if (_toggleInfoCallback != null) {
       _toggleInfoCallback!();
-    }
-  }
-
-  /// Maps the controller 'X' button to contextual actions (Loop for music, Info/Scrape for games).
-  void _handleXButton() {
-    if (widget.system.folderName == 'music') {
-      // Logic for track looping and playlist prioritization.
-      final service = MusicPlayerService();
-      final isLooping = service.isCurrentTrackLooping;
-
-      if (!isLooping) {
-        if (_selectedGame != null) {
-          setState(() {
-            _games.removeAt(_selectedGameIndex);
-            _games.insert(0, _selectedGame!);
-            _selectedGameIndex = 0;
-          });
-          service.setPlaylist(_games);
-          service.setLoop(true, trackPath: _selectedGame!.romPath);
-          _scrollToSelectedItem();
-          AppNotification.showNotification(
-            context,
-            AppLocale.loopActivated.getString(context),
-            type: NotificationType.success,
-          );
-        }
-      } else {
-        service.setLoop(false);
-        AppNotification.showNotification(
-          context,
-          AppLocale.loopDeactivated.getString(context),
-          type: NotificationType.info,
-        );
-      }
-      return;
-    }
-
-    // Default: Trigger overlay scrape or info toggle.
-    if (_secondaryOverlayAction != null) {
-      _secondaryOverlayAction!();
-    } else {
-      _openGameInfo();
     }
   }
 
@@ -416,11 +383,11 @@ class _SystemGamesListState extends State<SystemGamesList> {
       onSelectItem: _selectCurrentGame,
       onBack: _goBack,
       onFavorite: _toggleFavorite, // Button Y.
-      onXButton: _handleXButton, // Button X.
+      onXButton: () {
+        GameViewModeDropdown.globalKey.currentState?.showDropdown();
+      }, // Button X - View mode.
       onSettings: _handleStartButton, // Button Start.
-      onLeftTrigger: null,
-      onRightTrigger: null,
-      onSelectButton: () {
+      onLeftTrigger: () {
         if (widget.system.folderName == 'music') {
           final service = MusicPlayerService();
           service.toggleShuffle();
@@ -434,7 +401,44 @@ class _SystemGamesListState extends State<SystemGamesList> {
         } else {
           _showRandomGameDialog();
         }
-      },
+      }, // L3 - Random.
+      onRightTrigger: null,
+      onSelectButton: () {
+        if (widget.system.folderName == 'music') {
+          final service = MusicPlayerService();
+          final isLooping = service.isCurrentTrackLooping;
+          if (!isLooping) {
+            if (_selectedGame != null) {
+              setState(() {
+                _games.removeAt(_selectedGameIndex);
+                _games.insert(0, _selectedGame!);
+                _selectedGameIndex = 0;
+              });
+              service.setPlaylist(_games);
+              service.setLoop(true, trackPath: _selectedGame!.romPath);
+              _scrollToSelectedItem();
+              AppNotification.showNotification(
+                context,
+                AppLocale.loopActivated.getString(context),
+                type: NotificationType.success,
+              );
+            }
+          } else {
+            service.setLoop(false);
+            AppNotification.showNotification(
+              context,
+              AppLocale.loopDeactivated.getString(context),
+              type: NotificationType.info,
+            );
+          }
+          return;
+        }
+        if (_secondaryOverlayAction != null) {
+          _secondaryOverlayAction!();
+        } else {
+          _openGameInfo();
+        }
+      }, // Select - Scrape/Info.
       onLeftBumper: _handleLeftBumper,
       onRightBumper: _handleRightBumper,
       onPreviousTab: _handleLeftBumper, // Key Q.
@@ -971,7 +975,8 @@ class _SystemGamesListState extends State<SystemGamesList> {
     // Immediate resource termination.
     _stopVideoAndCleanup();
 
-    // Release current input layer.
+    // Release current input layers.
+    GamepadNavigationManager.popLayer('games_grid');
     GamepadNavigationManager.popLayer('system_games_list');
 
     // Restore secondary display to original system branding.
@@ -1918,12 +1923,20 @@ class _SystemGamesListState extends State<SystemGamesList> {
                     ? _buildLoadingState()
                     : _games.isEmpty
                     ? _buildEmptyState()
-                    : _buildGamesList(),
+                    : Consumer<SqliteConfigProvider>(
+                        builder: (context, configProvider, child) {
+                          if (configProvider.config.gameViewMode == 'grid') {
+                            return _buildGamesGrid();
+                          }
+                          return _buildGamesList();
+                        },
+                      ),
               ),
 
             // Navigation Layer: Visual alphabetical feedback for rapid scrolling.
             if (_currentLetter != null && !_isGameLaunching)
               _buildLetterIndicator(),
+            GameViewModeDropdown(),
           ],
         ),
       ),
@@ -2378,6 +2391,35 @@ class _SystemGamesListState extends State<SystemGamesList> {
           ],
         ),
       ),
+    );
+  }
+
+  /// Builds the game grid view with box-2d images.
+  Widget _buildGamesGrid() {
+    return GamesGrid(
+      system: widget.system,
+      games: _games,
+      selectedIndex: _selectedGameIndex,
+      fileProvider: _fileProvider,
+      onGameSelected: (game) {
+        setState(() {
+          _selectedGame = game;
+          _selectedGameIndex = _games.indexOf(game);
+        });
+        _performBackgroundOperationsForSelectedGame();
+      },
+      onBack: _goBack,
+      onPlay: _selectCurrentGame,
+      onFavorite: _toggleFavorite,
+      onRandom: _showRandomGameDialog,
+      onSettings: _handleStartButton,
+      onScrape: () {
+        if (_secondaryOverlayAction != null) {
+          _secondaryOverlayAction!();
+        } else {
+          _openGameInfo();
+        }
+      },
     );
   }
 
@@ -2955,7 +2997,8 @@ class _GameListViewState extends State<GameListView>
 
   /// System Branding Header: Dynamically resolves hardware logos.
   Widget _buildHeader() {
-    context.select<NeoAssetsProvider, String>((p) => p.activeThemeFolder);
+    final dropdownState = GameViewModeDropdown.globalKey.currentState;
+    final viewModeKey = GlobalKey();
 
     SystemModel displaySystem = widget.system;
 
@@ -2973,98 +3016,121 @@ class _GameListViewState extends State<GameListView>
       }
     }
 
-    final folderName = displaySystem.primaryFolderName;
-    final assetLogoPath = 'assets/images/systems/logos/$folderName.webp';
-    final customLogoPath = displaySystem.customLogoPath;
-    final hasCustomLogo = customLogoPath != null && customLogoPath.isNotEmpty;
-    final neoAssets = context.read<NeoAssetsProvider>();
-    final themeLogoPath = hasCustomLogo
-        ? null
-        : neoAssets.getLogoForSystemSync(folderName);
+    final shortName =
+        (displaySystem.shortName != null && displaySystem.shortName!.isNotEmpty)
+        ? displaySystem.shortName!
+        : displaySystem.realName;
 
     return Container(
-      height: 60.r,
-      margin: EdgeInsets.only(left: 8.r, right: 0.r, top: 8.r, bottom: 4.r),
-      child: Stack(
+      margin: EdgeInsets.only(left: 4.r, right: 4.r, top: 8.r),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Positioned.fill(
-            child: Center(
-              child: SizedBox(
-                height: 60.r,
-                child: _buildSystemHeaderLogo(
-                  displaySystem: displaySystem,
-                  assetLogoPath: assetLogoPath,
-                  customLogoPath: customLogoPath,
-                  themeLogoPath: themeLogoPath,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _buildIconButton(
+                iconPath: 'assets/images/gamepad/Xbox_B_button.png',
+                symbol: Symbols.arrow_back_rounded,
+                color: Theme.of(context).colorScheme.error,
+                onTap: widget.onBack,
+              ),
+              SizedBox(width: 6.r),
+              _buildIconButton(
+                key: viewModeKey,
+                iconPath: 'assets/images/gamepad/Xbox_X_button.png',
+                symbol: Symbols.grid_view_rounded,
+                color: Theme.of(context).colorScheme.primary,
+                onTap: () {
+                  SfxService().playNavSound();
+                  dropdownState?.showDropdownFrom(viewModeKey);
+                },
+              ),
+              SizedBox(width: 6.r),
+              _buildIconButton(
+                iconPath: 'assets/images/gamepad/Left Stick Click.png',
+                symbol: Symbols.casino_rounded,
+                color: Theme.of(context).colorScheme.tertiary,
+                onTap: widget.onRandom,
+              ),
+            ],
+          ),
+          SizedBox(height: 4.r),
+          Center(
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: 10.r, vertical: 3.r),
+              decoration: BoxDecoration(
+                color: Theme.of(
+                  context,
+                ).colorScheme.primary.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(12.r),
+                border: Border.all(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.primary.withValues(alpha: 0.4),
+                  width: 1.r,
                 ),
+              ),
+              child: Text(
+                shortName,
+                style: TextStyle(
+                  fontSize: 11.r,
+                  fontWeight: FontWeight.w700,
+                  color: Theme.of(context).colorScheme.primary,
+                  letterSpacing: 0.5.r,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ),
+          SizedBox(height: 4.r),
         ],
       ),
     );
   }
 
-  /// Image resolution logic for system logos: Custom > Theme > Asset > Fallback.
-  Widget _buildSystemHeaderLogo({
-    required SystemModel displaySystem,
-    required String assetLogoPath,
-    required String? customLogoPath,
-    required String? themeLogoPath,
+  Widget _buildIconButton({
+    Key? key,
+    required String iconPath,
+    required IconData symbol,
+    required Color color,
+    required VoidCallback onTap,
   }) {
-    Widget fallback() => Center(
-      child: SystemLogoFallback(
-        title: displaySystem.realName,
-        shortName: displaySystem.shortName,
-        height: 32.r,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        key: key,
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(6.r),
+        child: Container(
+          padding: EdgeInsets.symmetric(horizontal: 4.r, vertical: 3.r),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.85),
+            borderRadius: BorderRadius.circular(6.r),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.3),
+                blurRadius: 2.r,
+                offset: Offset(1.r, 1.r),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Image.asset(
+                iconPath,
+                width: 14.r,
+                height: 14.r,
+                color: Colors.white,
+                colorBlendMode: BlendMode.srcIn,
+              ),
+              SizedBox(width: 3.r),
+              Icon(symbol, size: 14.r, color: Colors.white),
+            ],
+          ),
+        ),
       ),
-    );
-
-    if (customLogoPath != null && customLogoPath.isNotEmpty) {
-      return Image.file(
-        File(customLogoPath),
-        key: ValueKey('${customLogoPath}_${displaySystem.imageVersion}'),
-        fit: BoxFit.contain,
-        filterQuality: FilterQuality.medium,
-        isAntiAlias: true,
-        cacheWidth: 256,
-        errorBuilder: (context, error, stackTrace) => Image.asset(
-          assetLogoPath,
-          fit: BoxFit.contain,
-          filterQuality: FilterQuality.medium,
-          isAntiAlias: true,
-          cacheWidth: 256,
-          errorBuilder: (context, error, stackTrace) => fallback(),
-        ),
-      );
-    }
-
-    if (themeLogoPath != null && themeLogoPath.isNotEmpty) {
-      return Image.file(
-        File(themeLogoPath),
-        key: ValueKey(themeLogoPath),
-        fit: BoxFit.contain,
-        filterQuality: FilterQuality.medium,
-        isAntiAlias: true,
-        cacheWidth: 256,
-        errorBuilder: (context, error, stackTrace) => Image.asset(
-          assetLogoPath,
-          fit: BoxFit.contain,
-          filterQuality: FilterQuality.medium,
-          isAntiAlias: true,
-          cacheWidth: 256,
-          errorBuilder: (context, error, stackTrace) => fallback(),
-        ),
-      );
-    }
-
-    return Image.asset(
-      assetLogoPath,
-      fit: BoxFit.contain,
-      filterQuality: FilterQuality.medium,
-      isAntiAlias: true,
-      cacheWidth: 256,
-      errorBuilder: (context, error, stackTrace) => fallback(),
     );
   }
 }

@@ -364,6 +364,8 @@ const Map<String, dynamic> appLocaleZhHant = {
   AppLocale.hintFavorite: '收藏',
   AppLocale.hintRandom: '隨機',
   AppLocale.hintRefresh: '重新整理',
+  AppLocale.hintViewMode: '檢視模式',
+  AppLocale.hintScrape: '刮削',
 
   AppLocale.error: '錯誤',
   AppLocale.loading: '正在載入...',
@@ -382,6 +384,7 @@ const Map<String, dynamic> appLocaleZhHant = {
   AppLocale.enter: '進入',
   AppLocale.beta: '測試版',
   AppLocale.gridView: '網格檢視',
+  AppLocale.listView: '列表檢視',
   AppLocale.carouselView: '輪播檢視',
   AppLocale.alphabetical: '按字母順序',
   AppLocale.releaseYear: '發行年份',

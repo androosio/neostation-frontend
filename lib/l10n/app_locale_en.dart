@@ -401,6 +401,8 @@ const Map<String, dynamic> appLocaleEn = {
   AppLocale.hintFavorite: 'Favorite',
   AppLocale.hintRandom: 'Random',
   AppLocale.hintRefresh: 'Refresh',
+  AppLocale.hintViewMode: 'View Mode',
+  AppLocale.hintScrape: 'Scrape',
 
   AppLocale.error: 'Error',
   AppLocale.loading: 'Loading...',
@@ -419,6 +421,7 @@ const Map<String, dynamic> appLocaleEn = {
   AppLocale.enter: 'Enter',
   AppLocale.beta: 'Beta',
   AppLocale.gridView: 'Grid View',
+  AppLocale.listView: 'List View',
   AppLocale.carouselView: 'Carousel View',
   AppLocale.alphabetical: 'Alphabetical',
   AppLocale.releaseYear: 'Release Year',
