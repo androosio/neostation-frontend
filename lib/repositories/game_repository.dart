@@ -218,4 +218,11 @@ class GameRepository {
     String romname,
     String systemId,
   ) => SqliteService.getLocalizedGameDescription(romname, systemId);
+
+  /// Updates the box2d aspect ratio for a specific game.
+  static Future<void> updateBox2dAspectRatio(
+    String systemId,
+    String filename,
+    String ratio,
+  ) => SqliteService.updateBox2dAspectRatio(systemId, filename, ratio);
 }

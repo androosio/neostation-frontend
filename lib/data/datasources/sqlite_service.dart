@@ -421,7 +421,7 @@ class SqliteService {
   SqliteService._internal();
 
   // Database configuration
-  static const int _databaseVersion = 86;
+  static const int _databaseVersion = 87;
   static const String _databaseName = 'data.sqlite';
 
   DatabaseAdapter? _database;
@@ -1619,6 +1619,7 @@ class SqliteService {
         publisher TEXT,
         genre TEXT,
         players TEXT,
+        box2d_aspect_ratio TEXT,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (app_system_id) REFERENCES app_systems(id) ON DELETE CASCADE,
@@ -3527,6 +3528,7 @@ class SqliteService {
         COALESCE(usm.publisher, CASE WHEN s.folder_name IN ('android') THEN ur.publisher END) as publisher,
         COALESCE(usm.genre, CASE WHEN s.folder_name IN ('android') THEN ur.genre END) as genre,
         COALESCE(usm.players, CASE WHEN s.folder_name IN ('android') THEN ur.players END) as players,
+        ur.box2d_aspect_ratio,
         usm.is_fully_scraped
       FROM user_roms ur
       JOIN app_systems s ON ur.app_system_id = s.id
@@ -3568,7 +3570,8 @@ class SqliteService {
         COALESCE(usm.developer, CASE WHEN s.folder_name IN ('android') THEN ur.developer END) as developer,
         COALESCE(usm.publisher, CASE WHEN s.folder_name IN ('android') THEN ur.publisher END) as publisher,
         COALESCE(usm.genre, CASE WHEN s.folder_name IN ('android') THEN ur.genre END) as genre,
-        COALESCE(usm.players, CASE WHEN s.folder_name IN ('android') THEN ur.players END) as players,
+        COALESCE(usm.players, CASE WHEN s.folder_name IN ('android') THEN ur.players END        ) as players,
+        ur.box2d_aspect_ratio,
         usm.is_fully_scraped
       FROM user_roms ur
       JOIN app_systems s ON ur.app_system_id = s.id
@@ -3599,7 +3602,8 @@ class SqliteService {
         COALESCE(usm.developer, CASE WHEN s.folder_name IN ('android') THEN ur.developer END) as developer,
         COALESCE(usm.publisher, CASE WHEN s.folder_name IN ('android') THEN ur.publisher END) as publisher,
         COALESCE(usm.genre, CASE WHEN s.folder_name IN ('android') THEN ur.genre END) as genre,
-        COALESCE(usm.players, CASE WHEN s.folder_name IN ('android') THEN ur.players END) as players,
+        COALESCE(usm.players, CASE WHEN s.folder_name IN ('android') THEN ur.players END        ) as players,
+        ur.box2d_aspect_ratio,
         usm.is_fully_scraped
       FROM user_roms ur
       JOIN app_systems s ON ur.app_system_id = s.id
@@ -3634,7 +3638,8 @@ class SqliteService {
         COALESCE(usm.developer, CASE WHEN s.folder_name IN ('android') THEN ur.developer END) as developer,
         COALESCE(usm.publisher, CASE WHEN s.folder_name IN ('android') THEN ur.publisher END) as publisher,
         COALESCE(usm.genre, CASE WHEN s.folder_name IN ('android') THEN ur.genre END) as genre,
-        COALESCE(usm.players, CASE WHEN s.folder_name IN ('android') THEN ur.players END) as players,
+        COALESCE(usm.players, CASE WHEN s.folder_name IN ('android') THEN ur.players END        ) as players,
+        ur.box2d_aspect_ratio,
         usm.is_fully_scraped
       FROM user_roms ur
       JOIN app_systems s ON ur.app_system_id = s.id
@@ -3844,6 +3849,7 @@ class SqliteService {
     bool isFavorite = false,
     DateTime? lastPlayed,
     int playTime = 0,
+    String? box2dAspectRatio,
   }) async {
     final db = await instance.database;
     final system = await getSystemByFolderName(systemFolderName);
@@ -3863,9 +3869,23 @@ class SqliteService {
       'is_favorite': isFavorite ? 1 : 0,
       'last_played': lastPlayed?.toIso8601String(),
       'play_time': playTime,
+      'box2d_aspect_ratio': box2dAspectRatio,
       'created_at': DateTime.now().toIso8601String(),
       'updated_at': DateTime.now().toIso8601String(),
     }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  /// Updates the box2d aspect ratio for a specific game.
+  static Future<void> updateBox2dAspectRatio(
+    String systemId,
+    String filename,
+    String ratio,
+  ) async {
+    final db = await instance.database;
+    await db.rawUpdate(
+      'UPDATE user_roms SET box2d_aspect_ratio = ? WHERE app_system_id = ? AND filename = ?',
+      [ratio, systemId, filename],
+    );
   }
 
   /// Retrieves the preferred language configured for game scraping operations.

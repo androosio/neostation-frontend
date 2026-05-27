@@ -88,6 +88,9 @@ class DatabaseGameModel {
   /// The standardized name provided by ScreenScraper (used if [realName] is null).
   final String? screenscraperRealName;
 
+  /// Box2D image aspect ratio (width/height) for grid display.
+  final String? box2dAspectRatio;
+
   DatabaseGameModel({
     this.appSystemId,
     required this.filename,
@@ -117,6 +120,7 @@ class DatabaseGameModel {
     this.titleId,
     this.titleName,
     this.screenscraperRealName,
+    this.box2dAspectRatio,
   });
 
   /// Internal helper to parse multi-language descriptions from raw JSON data.
@@ -214,6 +218,7 @@ class DatabaseGameModel {
       screenscraperRealName:
           json['ss_real_name']?.toString() ??
           json['screenscraper_real_name']?.toString(),
+      box2dAspectRatio: json['box2d_aspect_ratio']?.toString(),
     );
   }
 
@@ -249,6 +254,7 @@ class DatabaseGameModel {
       'titleId': titleId,
       'titleName': titleName,
       'screenscraper_real_name': screenscraperRealName,
+      'box2d_aspect_ratio': box2dAspectRatio,
     };
   }
 
@@ -282,6 +288,7 @@ class DatabaseGameModel {
     String? titleId,
     String? titleName,
     String? screenscraperRealName,
+    String? box2dAspectRatio,
   }) {
     return DatabaseGameModel(
       appSystemId: appSystemId ?? this.appSystemId,
@@ -313,6 +320,7 @@ class DatabaseGameModel {
       titleName: titleName ?? this.titleName,
       screenscraperRealName:
           screenscraperRealName ?? this.screenscraperRealName,
+      box2dAspectRatio: box2dAspectRatio ?? this.box2dAspectRatio,
     );
   }
 

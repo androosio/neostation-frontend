@@ -264,6 +264,9 @@ class SqliteMigrations {
       case 86:
         await _migrateToVersion86(db);
         break;
+      case 87:
+        await _migrateToVersion87(db);
+        break;
       default:
         _log.w('No migration defined for version $version');
     }
@@ -4451,6 +4454,24 @@ class SqliteMigrations {
       }
     } catch (e, stackTrace) {
       _log.e('Error in migration v86: $e');
+      _log.e('   StackTrace: $stackTrace');
+      rethrow;
+    }
+  }
+
+  static Future<void> _migrateToVersion87(Database db) async {
+    _log.i('Migration v87: Adding box2d_aspect_ratio to user_roms');
+    try {
+      final tableInfo = db.select('PRAGMA table_info(user_roms)');
+      final columns = tableInfo.map((c) => c['name'].toString()).toList();
+      if (!columns.contains('box2d_aspect_ratio')) {
+        db.execute("ALTER TABLE user_roms ADD COLUMN box2d_aspect_ratio TEXT");
+        _log.i('Column box2d_aspect_ratio added via v87');
+      } else {
+        _log.i('Column box2d_aspect_ratio already exists');
+      }
+    } catch (e, stackTrace) {
+      _log.e('Error in migration v87: $e');
       _log.e('   StackTrace: $stackTrace');
       rethrow;
     }

@@ -83,6 +83,9 @@ class GameModel {
   /// NeoSync: Whether cloud synchronization is active for this specific game's saves.
   final bool? cloudSyncEnabled;
 
+  /// Box2D image aspect ratio (width/height) for grid display.
+  final String? box2dAspectRatio;
+
   /// UI hint: Whether to display the [romname] as a subtitle in the details view.
   final bool showRomFileNameSubtitle;
 
@@ -112,6 +115,7 @@ class GameModel {
     this.cloudSyncEnabled,
     this.titleId,
     this.titleName,
+    this.box2dAspectRatio,
     this.showRomFileNameSubtitle = false,
   });
 
@@ -173,6 +177,7 @@ class GameModel {
       cloudSyncEnabled: db.cloudSyncEnabled,
       titleId: db.titleId,
       titleName: db.titleName,
+      box2dAspectRatio: db.box2dAspectRatio,
       showRomFileNameSubtitle: false,
     );
   }
@@ -221,6 +226,7 @@ class GameModel {
     bool? cloudSyncEnabled,
     String? titleId,
     String? titleName,
+    String? box2dAspectRatio,
     bool? showRomFileNameSubtitle,
   }) {
     return GameModel(
@@ -249,6 +255,7 @@ class GameModel {
       cloudSyncEnabled: cloudSyncEnabled ?? this.cloudSyncEnabled,
       titleId: titleId ?? this.titleId,
       titleName: titleName ?? this.titleName,
+      box2dAspectRatio: box2dAspectRatio ?? this.box2dAspectRatio,
       showRomFileNameSubtitle:
           showRomFileNameSubtitle ?? this.showRomFileNameSubtitle,
     );

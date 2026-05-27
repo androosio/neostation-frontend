@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -12,6 +13,7 @@ import 'package:neostation/utils/gamepad_nav.dart';
 import 'package:neostation/utils/game_utils.dart';
 import 'package:neostation/widgets/game_view_mode_dropdown.dart';
 import 'package:neostation/services/game_service.dart';
+import 'package:neostation/repositories/game_repository.dart';
 import 'package:neostation/l10n/app_locale.dart';
 import 'package:flutter_localization/flutter_localization.dart';
 
@@ -56,9 +58,189 @@ class _GamesGridState extends State<GamesGrid> {
   DateTime? _lastNavTime;
   static const Duration _fastNavThreshold = Duration(milliseconds: 150);
 
-  static const double _spX = 14; // horizontal spacing
-  static const double _spY = 18; // vertical spacing
-  static const double _cardAspect = 1.0 / 1.5;
+  static const double _spX = 12;
+  static const double _spY = 14;
+
+  // Layout
+  List<_CardRect> _cardRects = [];
+  double _contentHeight = 0;
+  double _cardWidth = 0;
+  double? _lastLayoutWidth;
+  int? _lastLayoutCols;
+  int? _lastLayoutGameCount;
+
+  // Image dimension cache
+  static final Map<String, Size?> _imageSizeCache = {};
+
+  // Visible index tracking for lazy dimension loading
+  final Set<int> _loadedDims = {};
+
+  // ---- Image size reading ----
+  static Size? _readImageSize(String path) {
+    if (_imageSizeCache.containsKey(path)) return _imageSizeCache[path];
+    try {
+      final file = File(path);
+      if (!file.existsSync()) {
+        _imageSizeCache[path] = null;
+        return null;
+      }
+      final raf = file.openSync();
+      try {
+        final header = Uint8List(24);
+        raf.readIntoSync(header);
+        if (header[0] == 0x89 &&
+            header[1] == 0x50 &&
+            header[2] == 0x4E &&
+            header[3] == 0x47) {
+          final w = _readInt32BE(header, 16);
+          final h = _readInt32BE(header, 20);
+          if (w > 0 && h > 0 && w < 10000 && h < 10000) {
+            final r = Size(w.toDouble(), h.toDouble());
+            _imageSizeCache[path] = r;
+            return r;
+          }
+        }
+        if (header[0] == 0xFF && header[1] == 0xD8) {
+          raf.setPositionSync(0);
+          final len = (raf.lengthSync()).clamp(0, 65536).toInt();
+          final buf = Uint8List(len);
+          raf.readIntoSync(buf);
+          int i = 2;
+          while (i < buf.length - 9) {
+            if (buf[i] != 0xFF) {
+              i++;
+              continue;
+            }
+            if (buf[i + 1] == 0xC0 || buf[i + 1] == 0xC2) {
+              final h = (buf[i + 5] << 8) | buf[i + 6];
+              final w = (buf[i + 7] << 8) | buf[i + 8];
+              if (w > 0 && h > 0 && w < 10000 && h < 10000) {
+                final r = Size(w.toDouble(), h.toDouble());
+                _imageSizeCache[path] = r;
+                return r;
+              }
+            }
+            i += ((buf[i + 2] << 8) | buf[i + 3]) + 2;
+          }
+        }
+      } finally {
+        raf.closeSync();
+      }
+    } catch (_) {}
+    _imageSizeCache[path] = null;
+    return null;
+  }
+
+  static int _readInt32BE(List<int> bytes, int offset) =>
+      (bytes[offset] << 24) |
+      (bytes[offset + 1] << 16) |
+      (bytes[offset + 2] << 8) |
+      bytes[offset + 3];
+
+  String _box2dPath(int index) => widget.games[index].getImagePath(
+    widget.system.primaryFolderName,
+    'box2d',
+    widget.fileProvider,
+  );
+
+  double _cardHeightFor(int index) {
+    final game = widget.games[index];
+    // 1. From DB
+    if (game.box2dAspectRatio != null && game.box2dAspectRatio!.isNotEmpty) {
+      final parts = game.box2dAspectRatio!.split('/');
+      if (parts.length == 2) {
+        final w = double.tryParse(parts[0]);
+        final h = double.tryParse(parts[1]);
+        if (w != null && h != null && w > 0 && h > 0) {
+          return _cardWidth / (w / h);
+        }
+      }
+    }
+    // 2. From file header
+    final path = _box2dPath(index);
+    final size = _readImageSize(path);
+    if (size != null && size.width > 0 && size.height > 0) {
+      // Save to DB for next time
+      final ratio = '${size.width.toInt()}/${size.height.toInt()}';
+      _scheduleAspectRatioSave(game, ratio);
+      return _cardWidth / (size.width / size.height);
+    }
+    return _cardWidth; // 1:1 fallback
+  }
+
+  final Set<String> _pendingSaves = {};
+  void _scheduleAspectRatioSave(GameModel game, String ratio) {
+    final key = '${game.systemId}_${game.romname}';
+    if (_pendingSaves.contains(key)) return;
+    _pendingSaves.add(key);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _pendingSaves.remove(key);
+      if (game.systemId != null) {
+        GameRepository.updateBox2dAspectRatio(
+          game.systemId!,
+          game.romname,
+          ratio,
+        );
+      }
+    });
+  }
+
+  // ---- Layout (computed once, cached) ----
+  bool _needsLayout(double w) =>
+      _lastLayoutWidth != w ||
+      _lastLayoutCols != _cols ||
+      _lastLayoutGameCount != widget.games.length;
+
+  void _computeLayout(double availableWidth) {
+    if (!_needsLayout(availableWidth)) return;
+    _lastLayoutWidth = availableWidth;
+    _lastLayoutCols = _cols;
+    _lastLayoutGameCount = widget.games.length;
+
+    final totalWidth = availableWidth - 16;
+    _cardWidth = (totalWidth - (_cols - 1) * _spX) / _cols;
+    final n = widget.games.length;
+    _cardRects = List.generate(
+      n,
+      (_) => _CardRect(left: 0, top: 0, width: _cardWidth, height: _cardWidth),
+    ); // placeholder
+    _loadedDims.clear();
+
+    // First pass: use the static cache to get known dimensions fast
+    double y = 0;
+    int i = 0;
+    while (i < n) {
+      double maxH = 0;
+      final end = (i + _cols).clamp(0, n);
+      for (int idx = i; idx < end; idx++) {
+        final h = _cardHeightFor(idx);
+        if (h > maxH) maxH = h;
+      }
+      for (int idx = i; idx < end; idx++) {
+        final col = idx % _cols;
+        final h = _cardHeightFor(idx);
+        _cardRects[idx] = _CardRect(
+          left: col * (_cardWidth + _spX),
+          top: y + (maxH - h) / 2,
+          width: _cardWidth,
+          height: h,
+        );
+        if (_imageSizeCache.containsKey(_box2dPath(idx))) _loadedDims.add(idx);
+      }
+      y += maxH + _spY;
+      i = end;
+    }
+    _contentHeight = y + 80;
+  }
+
+  // Lazy dimension loading for newly visible cards
+  void _ensureDims(int index) {
+    if (_loadedDims.contains(index)) return;
+    final path = _box2dPath(index);
+    _readImageSize(path); // touches cache, fills in dimension
+    _loadedDims.add(index);
+  }
 
   @override
   void initState() {
@@ -69,6 +251,7 @@ class _GamesGridState extends State<GamesGrid> {
     );
     _updateCrossAxisCount();
     _initializeGamepad();
+    _scrollController.addListener(_onScroll);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -82,6 +265,8 @@ class _GamesGridState extends State<GamesGrid> {
       }
     });
   }
+
+  void _onScroll() => setState(() {});
 
   void _updateCrossAxisCount() {
     try {
@@ -135,6 +320,7 @@ class _GamesGridState extends State<GamesGrid> {
 
   @override
   void dispose() {
+    _scrollController.removeListener(_onScroll);
     GamepadNavigationManager.popLayer('games_grid');
     _gamepadNav.dispose();
     _scrollController.dispose();
@@ -144,48 +330,35 @@ class _GamesGridState extends State<GamesGrid> {
   int get _cols => _crossAxisCount.clamp(1, 10);
 
   void _navigateUp() {
-    if (widget.games.isEmpty) return;
-    final c = _cols;
-    setState(() {
-      int ni = _selectedIndex - c;
-      if (ni < 0) {
-        final col = _selectedIndex % c;
-        final rows = (widget.games.length / c).ceil();
-        ni = (rows - 1) * c + col;
-        if (ni >= widget.games.length) ni -= c;
-        if (ni < 0) ni = _selectedIndex;
-      }
-      _selectedIndex = ni.clamp(0, widget.games.length - 1);
-      _updateFastNav();
-    });
-    _ensureSelectedVisible();
-    _onSelectionChanged();
-    SfxService().playNavSound();
+    _navDelta(-_cols);
   }
 
   void _navigateDown() {
-    if (widget.games.isEmpty) return;
-    final c = _cols;
-    setState(() {
-      int ni = _selectedIndex + c;
-      if (ni >= widget.games.length) ni = _selectedIndex % c;
-      _selectedIndex = ni.clamp(0, widget.games.length - 1);
-      _updateFastNav();
-    });
-    _ensureSelectedVisible();
-    _onSelectionChanged();
-    SfxService().playNavSound();
+    _navDelta(_cols);
   }
 
   void _navigateLeft() {
+    _navHoriz(-1);
+  }
+
+  void _navigateRight() {
+    _navHoriz(1);
+  }
+
+  void _navDelta(int delta) {
     if (widget.games.isEmpty) return;
+    final c = _cols;
     setState(() {
-      int ni;
-      if (_selectedIndex % _cols == 0) {
-        ni = (_selectedIndex ~/ _cols) * _cols + (_cols - 1);
-        if (ni >= widget.games.length) ni = widget.games.length - 1;
-      } else {
-        ni = _selectedIndex - 1;
+      int ni = _selectedIndex + delta;
+      if (delta < 0 && ni < 0) {
+        final col = _selectedIndex % c;
+        ni = ((widget.games.length / c).ceil() - 1) * c + col;
+        while (ni >= widget.games.length) {
+          ni -= c;
+        }
+        if (ni < 0) ni = _selectedIndex;
+      } else if (delta > 0 && ni >= widget.games.length) {
+        ni = _selectedIndex % c;
       }
       _selectedIndex = ni.clamp(0, widget.games.length - 1);
       _updateFastNav();
@@ -195,15 +368,22 @@ class _GamesGridState extends State<GamesGrid> {
     SfxService().playNavSound();
   }
 
-  void _navigateRight() {
+  void _navHoriz(int dir) {
     if (widget.games.isEmpty) return;
     setState(() {
       int ni;
-      if ((_selectedIndex + 1) % _cols == 0 ||
-          _selectedIndex == widget.games.length - 1) {
-        ni = (_selectedIndex ~/ _cols) * _cols;
+      if (dir < 0) {
+        final wrapRight = (_selectedIndex ~/ _cols) * _cols + _cols - 1;
+        ni = _selectedIndex % _cols == 0
+            ? (wrapRight < widget.games.length - 1
+                  ? wrapRight
+                  : widget.games.length - 1)
+            : _selectedIndex - 1;
       } else {
-        ni = _selectedIndex + 1;
+        final next = _selectedIndex + 1;
+        ni = (next % _cols == 0 || next >= widget.games.length)
+            ? (_selectedIndex ~/ _cols) * _cols
+            : next;
       }
       _selectedIndex = ni.clamp(0, widget.games.length - 1);
       _updateFastNav();
@@ -211,45 +391,33 @@ class _GamesGridState extends State<GamesGrid> {
     _ensureSelectedVisible();
     _onSelectionChanged();
     SfxService().playNavSound();
+  }
+
+  void _onSelectionChanged() {
+    if (_selectedIndex < widget.games.length)
+      widget.onGameSelected(widget.games[_selectedIndex]);
   }
 
   void _updateFastNav() {
     final now = DateTime.now();
-    if (_lastNavTime != null &&
-        now.difference(_lastNavTime!) < _fastNavThreshold) {
-      _isNavigatingFast = true;
-    } else {
-      _isNavigatingFast = false;
-    }
+    _isNavigatingFast =
+        _lastNavTime != null &&
+        now.difference(_lastNavTime!) < _fastNavThreshold;
     _lastNavTime = now;
   }
 
-  void _onSelectionChanged() {
-    if (_selectedIndex < widget.games.length) {
-      widget.onGameSelected(widget.games[_selectedIndex]);
-    }
-  }
-
   void _ensureSelectedVisible() {
-    if (!_scrollController.hasClients) return;
-    final row = _selectedIndex ~/ _cols;
+    if (!_scrollController.hasClients || _cardRects.isEmpty) return;
+    final rect = _cardRects[_selectedIndex.clamp(0, _cardRects.length - 1)];
     final screenHeight = MediaQuery.of(context).size.height;
-    final availableWidth = MediaQuery.of(context).size.width - 16;
-    final cardWidth = (availableWidth - (_cols - 1) * _spX) / _cols;
-    final cardHeight = cardWidth / _cardAspect;
-    final rowHeight = cardHeight + _spY;
-    final viewportHeight = screenHeight - 120;
-
-    final targetOffset = (row * rowHeight - viewportHeight / 2 + rowHeight / 2)
-        .clamp(0.0, _scrollController.position.maxScrollExtent);
-
-    final duration = _isNavigatingFast
-        ? const Duration(milliseconds: 80)
-        : const Duration(milliseconds: 200);
-
+    final viewportH = screenHeight - 120;
+    final target = (rect.top - viewportH / 2 + rect.height / 2).clamp(
+      0.0,
+      _scrollController.position.maxScrollExtent,
+    );
     _scrollController.animateTo(
-      targetOffset,
-      duration: duration,
+      target,
+      duration: Duration(milliseconds: _isNavigatingFast ? 80 : 200),
       curve: _isNavigatingFast ? Curves.linear : Curves.easeInOut,
     );
   }
@@ -289,48 +457,56 @@ class _GamesGridState extends State<GamesGrid> {
         Expanded(
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final totalWidth = constraints.maxWidth - 16;
-              final cardWidth = (totalWidth - (_cols - 1) * _spX) / _cols;
-              final cardHeight = cardWidth / _cardAspect;
-              final rowHeight = cardHeight + _spY;
-              final totalRows = (widget.games.length / _cols).ceil();
-              final contentHeight = totalRows * rowHeight + 80;
+              _computeLayout(constraints.maxWidth);
 
-              // Build highlight info
-              final selRow = _selectedIndex ~/ _cols;
-              final selCol = _selectedIndex % _cols;
-              final hlLeft = selCol * (cardWidth + _spX);
-              final hlTop = selRow * rowHeight;
+              final selRect = _selectedIndex < _cardRects.length
+                  ? _cardRects[_selectedIndex]
+                  : _cardRects.first;
               final hlDuration = Duration(
                 milliseconds: _isNavigatingFast ? 120 : 280,
               );
+              final theme = Theme.of(context);
+              final systemFolder = widget.system.primaryFolderName;
+              final fp = widget.fileProvider;
+              final targetWidth = (_cardWidth * 1.5).toInt();
+              final viewportH = constraints.maxHeight;
+              final startY = _scrollController.hasClients
+                  ? _scrollController.offset - 300
+                  : 0.0;
+              final endY = startY + viewportH + 600;
+
+              final visibleCards = <Widget>[];
+              for (int i = 0; i < _cardRects.length; i++) {
+                final r = _cardRects[i];
+                if (r.top + r.height >= startY && r.top <= endY) {
+                  _ensureDims(i);
+                  visibleCards.add(
+                    _buildCard(i, r, systemFolder, fp, targetWidth, theme),
+                  );
+                }
+              }
 
               return SingleChildScrollView(
                 controller: _scrollController,
                 padding: EdgeInsets.only(top: 4, bottom: 80, left: 8, right: 8),
                 child: SizedBox(
-                  height: contentHeight,
+                  height: _contentHeight,
                   child: Stack(
                     children: [
-                      // Cards
-                      for (int i = 0; i < widget.games.length; i++)
-                        _buildCard(i, cardWidth, cardHeight, rowHeight),
-                      // Highlight overlay
+                      ...visibleCards,
                       AnimatedPositioned(
                         duration: hlDuration,
                         curve: Curves.easeOutQuart,
-                        left: hlLeft,
-                        top: hlTop,
-                        width: cardWidth,
-                        height: cardHeight,
+                        left: selRect.left,
+                        top: selRect.top,
+                        width: selRect.width,
+                        height: selRect.height,
                         child: IgnorePointer(
                           child: RepaintBoundary(
                             child: Container(
                               decoration: BoxDecoration(
                                 border: Border.all(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.secondary,
+                                  color: theme.colorScheme.secondary,
                                   width: 2.6.r,
                                 ),
                                 borderRadius: BorderRadius.circular(6.r),
@@ -352,27 +528,21 @@ class _GamesGridState extends State<GamesGrid> {
 
   Widget _buildCard(
     int index,
-    double cardWidth,
-    double cardHeight,
-    double rowHeight,
+    _CardRect rect,
+    String systemFolder,
+    FileProvider fp,
+    int targetWidth,
+    ThemeData theme,
   ) {
     final game = widget.games[index];
-    final col = index % _cols;
-    final row = index ~/ _cols;
-    final left = col * (cardWidth + _spX);
-    final top = row * rowHeight;
-    final box2dPath = game.getImagePath(
-      widget.system.primaryFolderName,
-      'box2d',
-      widget.fileProvider,
-    );
-    final hasBox2d = File(box2dPath).existsSync();
+    final box2dPath = game.getImagePath(systemFolder, 'box2d', fp);
 
     return Positioned(
-      left: left,
-      top: top,
-      width: cardWidth,
-      height: cardHeight,
+      key: ValueKey('card_${game.romname}'),
+      left: rect.left,
+      top: rect.top,
+      width: rect.width,
+      height: rect.height,
       child: GestureDetector(
         onTap: () {
           setState(() => _selectedIndex = index);
@@ -384,23 +554,17 @@ class _GamesGridState extends State<GamesGrid> {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(6.r),
               border: Border.all(
-                color: Theme.of(
-                  context,
-                ).colorScheme.outline.withValues(alpha: 0.25),
+                color: theme.colorScheme.outline.withValues(alpha: 0.25),
                 width: 1.r,
               ),
             ),
             clipBehavior: Clip.antiAlias,
-            child: hasBox2d
-                ? Image.file(
-                    File(box2dPath),
-                    fit: BoxFit.contain,
-                    filterQuality: FilterQuality.medium,
-                    isAntiAlias: true,
-                    errorBuilder: (context, error, stackTrace) =>
-                        _buildPlaceholder(game),
-                  )
-                : _buildPlaceholder(game),
+            child: _GameCardImage(
+              key: ValueKey('img_${game.romname}'),
+              box2dPath: box2dPath,
+              game: game,
+              targetWidth: targetWidth,
+            ),
           ),
         ),
       ),
@@ -410,20 +574,16 @@ class _GamesGridState extends State<GamesGrid> {
   Widget _buildGridHeader() {
     final dropdownState = GameViewModeDropdown.globalKey.currentState;
     final viewModeKey = GlobalKey();
-
     final shortName =
         (widget.system.shortName != null && widget.system.shortName!.isNotEmpty)
         ? widget.system.shortName!
         : widget.system.realName;
-
-    final selectedGame = _selectedIndex < widget.games.length
+    final selGame = _selectedIndex < widget.games.length
         ? widget.games[_selectedIndex]
         : null;
-    final selectedName = selectedGame != null
+    final selName = selGame != null
         ? GameUtils.formatGameName(
-            selectedGame.name.isNotEmpty
-                ? selectedGame.name
-                : selectedGame.romname,
+            selGame.name.isNotEmpty ? selGame.name : selGame.romname,
           )
         : '';
 
@@ -480,17 +640,17 @@ class _GamesGridState extends State<GamesGrid> {
               ),
             ),
           ),
-          if (selectedName.isNotEmpty) ...[
+          if (selName.isNotEmpty) ...[
             SizedBox(width: 10.r),
             Expanded(
               child: Text(
-                selectedName,
+                selName,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: 12.r,
                   fontWeight: FontWeight.w600,
                   color: Theme.of(context).colorScheme.onSurface,
                 ),
-                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],
@@ -543,8 +703,92 @@ class _GamesGridState extends State<GamesGrid> {
       ),
     );
   }
+}
 
-  Widget _buildPlaceholder(GameModel game) {
+// ---- Card image with lazy loading ----
+class _GameCardImage extends StatefulWidget {
+  final String box2dPath;
+  final GameModel game;
+  final int targetWidth;
+  const _GameCardImage({
+    super.key,
+    required this.box2dPath,
+    required this.game,
+    required this.targetWidth,
+  });
+  @override
+  State<_GameCardImage> createState() => _GameCardImageState();
+}
+
+class _GameCardImageState extends State<_GameCardImage> {
+  ImageProvider? _imageProvider;
+  bool _exists = false;
+  bool _checked = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _resolve();
+  }
+
+  @override
+  void didUpdateWidget(covariant _GameCardImage old) {
+    super.didUpdateWidget(old);
+    if (old.box2dPath != widget.box2dPath ||
+        old.targetWidth != widget.targetWidth) {
+      _checked = false;
+      _exists = false;
+      _imageProvider = null;
+      _resolve();
+    }
+  }
+
+  void _resolve() {
+    if (_checked) return;
+    final exists = File(widget.box2dPath).existsSync();
+    if (!mounted) return;
+    setState(() {
+      _checked = true;
+      _exists = exists;
+      if (exists)
+        _imageProvider = ResizeImage(
+          FileImage(File(widget.box2dPath)),
+          width: widget.targetWidth,
+          allowUpscaling: false,
+        );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_checked) return const SizedBox.shrink();
+    if (_exists && _imageProvider != null) {
+      return Image(
+        image: _imageProvider!,
+        fit: BoxFit.contain,
+        filterQuality: FilterQuality.medium,
+        isAntiAlias: true,
+        frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+          if (wasSynchronouslyLoaded) return child;
+          return AnimatedOpacity(
+            opacity: frame == null ? 0 : 1,
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeIn,
+            child: child,
+          );
+        },
+        errorBuilder: (c, e, s) => _Placeholder(game: widget.game),
+      );
+    }
+    return _Placeholder(game: widget.game);
+  }
+}
+
+class _Placeholder extends StatelessWidget {
+  final GameModel game;
+  const _Placeholder({required this.game});
+  @override
+  Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.3),
@@ -584,4 +828,14 @@ class _GamesGridState extends State<GamesGrid> {
       ),
     );
   }
+}
+
+class _CardRect {
+  final double left, top, width, height;
+  const _CardRect({
+    required this.left,
+    required this.top,
+    required this.width,
+    required this.height,
+  });
 }

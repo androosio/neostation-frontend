@@ -921,7 +921,6 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
 
                           return GestureDetector(
                             onTap: () {
-                              SfxService().playNavSound();
                               _carouselKey.currentState?.animateToPage(index);
                             },
                             child: Container(
@@ -1093,7 +1092,6 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
     return GestureDetector(
       onTap: () {
         if (!isSelected) {
-          SfxService().playNavSound();
           _carouselKey.currentState?.animateToPage(index);
         } else {
           // Intentional No-op: If already selected, taps do not trigger
