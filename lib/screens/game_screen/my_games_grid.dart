@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:typed_data';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -71,6 +72,15 @@ class _GamesGridState extends State<GamesGrid> {
 
   // Visible index tracking for lazy dimension loading
   final Set<int> _loadedDims = {};
+
+  // Pinch gesture tracking
+  final Map<int, Offset> _activePointers = {};
+  double? _lastPinchDistance;
+  DateTime? _lastPinchTime;
+
+  // Card size label
+  final ValueNotifier<String?> _cardSizeLabel = ValueNotifier(null);
+  Timer? _cardSizeLabelTimer;
 
   // ---- Image size reading ----
   static Size? _readImageSize(String path) {
@@ -267,7 +277,7 @@ class _GamesGridState extends State<GamesGrid> {
   void _updateCrossAxisCount() {
     try {
       final config = context.read<SqliteConfigProvider>().config;
-      switch (config.systemGridColumns) {
+      switch (config.gameGridColumns) {
         case 'S':
           _crossAxisCount = 7;
           break;
@@ -294,10 +304,78 @@ class _GamesGridState extends State<GamesGrid> {
     _updateCrossAxisCount();
   }
 
+  void _adjustGameGridDensity(int delta) {
+    try {
+      final provider = context.read<SqliteConfigProvider>();
+      final sizes = ['S', 'M', 'L', 'XL'];
+      final currentIndex = sizes.indexOf(provider.config.gameGridColumns);
+      if (currentIndex == -1) return;
+      final newIndex = (currentIndex + delta).clamp(0, sizes.length - 1);
+      if (newIndex != currentIndex) {
+        final newSize = sizes[newIndex];
+        provider.updateGameGridColumns(newSize);
+        _updateCrossAxisCount();
+        _lastLayoutWidth = null;
+        _showCardSizeLabel(newSize);
+        setState(() {});
+      }
+    } catch (_) {}
+  }
+
+  void _showCardSizeLabel(String size) {
+    _cardSizeLabelTimer?.cancel();
+    _cardSizeLabel.value = size;
+    _cardSizeLabelTimer = Timer(const Duration(milliseconds: 1200), () {
+      _cardSizeLabel.value = null;
+    });
+  }
+
+  void _handlePointerDown(PointerDownEvent event) {
+    _activePointers[event.pointer] = event.position;
+  }
+
+  void _handlePointerMove(PointerMoveEvent event) {
+    _activePointers[event.pointer] = event.position;
+    if (_activePointers.length < 2) return;
+    final now = DateTime.now();
+    if (_lastPinchTime != null &&
+        now.difference(_lastPinchTime!).inMilliseconds < 120) {
+      return;
+    }
+    final positions = _activePointers.values.toList();
+    final distance = (positions[0] - positions[1]).distance;
+    if (_lastPinchDistance != null) {
+      final deltaDistance = distance - _lastPinchDistance!;
+      if (deltaDistance > 35) {
+        _adjustGameGridDensity(1);
+        _lastPinchDistance = distance;
+        _lastPinchTime = now;
+      } else if (deltaDistance < -35) {
+        _adjustGameGridDensity(-1);
+        _lastPinchDistance = distance;
+        _lastPinchTime = now;
+      }
+    } else {
+      _lastPinchDistance = distance;
+    }
+  }
+
+  void _handlePointerUp(PointerUpEvent event) {
+    _activePointers.remove(event.pointer);
+    if (_activePointers.length < 2) _lastPinchDistance = null;
+  }
+
+  void _handlePointerCancel(PointerCancelEvent event) {
+    _activePointers.remove(event.pointer);
+    if (_activePointers.length < 2) _lastPinchDistance = null;
+  }
+
   @override
   void didUpdateWidget(GamesGrid oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.games != oldWidget.games) {
+    final prevCols = _crossAxisCount;
+    _updateCrossAxisCount();
+    if (widget.games != oldWidget.games || _crossAxisCount != prevCols) {
       _lastLayoutWidth = null;
     }
   }
@@ -324,6 +402,8 @@ class _GamesGridState extends State<GamesGrid> {
 
   @override
   void dispose() {
+    _cardSizeLabelTimer?.cancel();
+    _cardSizeLabel.dispose();
     _scrollController.removeListener(_onScroll);
     GamepadNavigationManager.popLayer('games_grid');
     _gamepadNav.dispose();
@@ -491,37 +571,90 @@ class _GamesGridState extends State<GamesGrid> {
                 }
               }
 
-              return SingleChildScrollView(
-                controller: _scrollController,
-                padding: EdgeInsets.only(top: 4, bottom: 80, left: 8, right: 8),
-                child: SizedBox(
-                  height: _contentHeight,
-                  child: Stack(
-                    children: [
-                      ...visibleCards,
-                      AnimatedPositioned(
-                        duration: hlDuration,
-                        curve: Curves.easeOutQuart,
-                        left: selRect.left,
-                        top: selRect.top,
-                        width: selRect.width,
-                        height: selRect.height,
-                        child: IgnorePointer(
-                          child: RepaintBoundary(
-                            child: Container(
-                              decoration: BoxDecoration(
-                                border: Border.all(
-                                  color: theme.colorScheme.secondary,
-                                  width: 3.r,
+              return Listener(
+                onPointerDown: _handlePointerDown,
+                onPointerMove: _handlePointerMove,
+                onPointerUp: _handlePointerUp,
+                onPointerCancel: _handlePointerCancel,
+                behavior: HitTestBehavior.translucent,
+                child: Stack(
+                  children: [
+                    SingleChildScrollView(
+                      controller: _scrollController,
+                      padding: EdgeInsets.only(
+                        top: 4,
+                        bottom: 80,
+                        left: 8,
+                        right: 8,
+                      ),
+                      child: SizedBox(
+                        height: _contentHeight,
+                        child: Stack(
+                          children: [
+                            ...visibleCards,
+                            AnimatedPositioned(
+                              duration: hlDuration,
+                              curve: Curves.easeOutQuart,
+                              left: selRect.left,
+                              top: selRect.top,
+                              width: selRect.width,
+                              height: selRect.height,
+                              child: IgnorePointer(
+                                child: RepaintBoundary(
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      border: Border.all(
+                                        color: theme.colorScheme.secondary,
+                                        width: 3.r,
+                                      ),
+                                      borderRadius: BorderRadius.circular(8.r),
+                                    ),
+                                  ),
                                 ),
-                                borderRadius: BorderRadius.circular(8.r),
                               ),
                             ),
-                          ),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                    ValueListenableBuilder<String?>(
+                      valueListenable: _cardSizeLabel,
+                      builder: (context, label, child) {
+                        return AnimatedOpacity(
+                          opacity: label != null ? 1.0 : 0.0,
+                          duration: const Duration(milliseconds: 200),
+                          child: IgnorePointer(
+                            child: Center(
+                              child: label != null
+                                  ? Container(
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: 20.r,
+                                        vertical: 10.r,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: theme.colorScheme.primary
+                                            .withValues(alpha: 0.9),
+                                        borderRadius: BorderRadius.circular(
+                                          24.r,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        label,
+                                        style: TextStyle(
+                                          color: theme.colorScheme.onPrimary,
+                                          fontSize: 18.r,
+                                          fontWeight: FontWeight.w800,
+                                          letterSpacing: 2.r,
+                                        ),
+                                      ),
+                                    )
+                                  : const SizedBox.shrink(),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
                 ),
               );
             },

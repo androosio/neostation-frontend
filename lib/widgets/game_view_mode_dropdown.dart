@@ -48,7 +48,7 @@ class GameViewModeDropdownState extends State<GameViewModeDropdown> {
           opacity: animation,
           child: GameViewModeOverlay(
             offset: offset + Offset(0, size.height + 6.r),
-            width: 140.r,
+            width: 170.r,
           ),
         );
       },
@@ -60,6 +60,9 @@ class GameViewModeDropdownState extends State<GameViewModeDropdown> {
         await configProvider.updateGameViewMode('list');
       } else if (result == 'view_grid') {
         await configProvider.updateGameViewMode('grid');
+      } else if (result.startsWith('card_size_')) {
+        final newSize = result.substring('card_size_'.length);
+        await configProvider.updateGameGridColumns(newSize);
       }
     }
   }
@@ -74,7 +77,16 @@ class _DropdownOption {
   final String value;
   final String label;
   final IconData icon;
-  _DropdownOption(this.value, this.label, this.icon);
+  final String group;
+  final bool isCardSize;
+
+  _DropdownOption(
+    this.value,
+    this.label,
+    this.icon, {
+    required this.group,
+    this.isCardSize = false,
+  });
 }
 
 class GameViewModeOverlay extends StatefulWidget {
@@ -96,10 +108,16 @@ class _GameViewModeOverlayState extends State<GameViewModeOverlay> {
   int _selectedIndex = 0;
   final ScrollController _scrollController = ScrollController();
 
+  int _cardSizeIndex = 1;
+
   @override
   void initState() {
     super.initState();
     final config = context.read<SqliteConfigProvider>().config;
+    final sizes = ['S', 'M', 'L', 'XL'];
+    final idx = sizes.indexOf(config.gameGridColumns);
+    _cardSizeIndex = idx >= 0 ? idx : 1;
+
     _selectedIndex = config.gameViewMode == 'grid' ? 1 : 0;
 
     _gamepadNav = GamepadNavigation(
@@ -119,6 +137,8 @@ class _GameViewModeOverlayState extends State<GameViewModeOverlay> {
         _scrollToSelected();
         SfxService().playNavSound();
       },
+      onNavigateLeft: _handleNavigateLeft,
+      onNavigateRight: _handleNavigateRight,
       onSelectItem: _handleSelection,
       onBack: () => Navigator.pop(context),
     );
@@ -141,7 +161,15 @@ class _GameViewModeOverlayState extends State<GameViewModeOverlay> {
 
       double position = 8.r;
       for (int i = 0; i < _selectedIndex; i++) {
-        position += 28.r;
+        if (options[i].group != (i > 0 ? options[i - 1].group : null)) {
+          position += 16.r;
+          if (i > 0) position += 4.r;
+        }
+        position += options[i].isCardSize ? 32.r : 28.r;
+      }
+      if (_selectedIndex == 0 ||
+          options[_selectedIndex].group != options[_selectedIndex - 1].group) {
+        position += 16.r;
       }
 
       _scrollController.animateTo(
@@ -152,9 +180,50 @@ class _GameViewModeOverlayState extends State<GameViewModeOverlay> {
     });
   }
 
+  void _handleNavigateLeft() {
+    final options = _getOptions(context);
+    if (_selectedIndex < 0 || _selectedIndex >= options.length) return;
+    final opt = options[_selectedIndex];
+    if (opt.isCardSize) {
+      setState(() {
+        _cardSizeIndex = (_cardSizeIndex - 1 + 4) % 4;
+      });
+      SfxService().playNavSound();
+      _applyCardSize();
+    }
+  }
+
+  void _handleNavigateRight() {
+    final options = _getOptions(context);
+    if (_selectedIndex < 0 || _selectedIndex >= options.length) return;
+    final opt = options[_selectedIndex];
+    if (opt.isCardSize) {
+      setState(() {
+        _cardSizeIndex = (_cardSizeIndex + 1) % 4;
+      });
+      SfxService().playNavSound();
+      _applyCardSize();
+    }
+  }
+
+  void _applyCardSize() {
+    final sizes = ['S', 'M', 'L', 'XL'];
+    final size = sizes[_cardSizeIndex];
+    final configProvider = context.read<SqliteConfigProvider>();
+    configProvider.updateGameGridColumns(size);
+  }
+
   void _handleSelection() {
     final List<_DropdownOption> options = _getOptions(context);
     final opt = options[_selectedIndex];
+    if (opt.isCardSize) {
+      _applyCardSize();
+      Navigator.pop(
+        context,
+        'card_size_${['S', 'M', 'L', 'XL'][_cardSizeIndex]}',
+      );
+      return;
+    }
     Navigator.pop(context, opt.value);
   }
 
@@ -167,25 +236,41 @@ class _GameViewModeOverlayState extends State<GameViewModeOverlay> {
   }
 
   List<_DropdownOption> _getOptions(BuildContext context) {
-    return [
+    final config = context.read<SqliteConfigProvider>().config;
+    final List<_DropdownOption> options = [
       _DropdownOption(
         'view_list',
         AppLocale.listView.getString(context),
         Symbols.list_rounded,
+        group: AppLocale.viewModeGroup.getString(context),
       ),
       _DropdownOption(
         'view_grid',
         AppLocale.gridView.getString(context),
         Symbols.grid_view_rounded,
+        group: AppLocale.viewModeGroup.getString(context),
       ),
     ];
+
+    if (config.gameViewMode == 'grid') {
+      options.add(
+        _DropdownOption(
+          'card_size',
+          '',
+          Symbols.crop_free_rounded,
+          group: AppLocale.cardSizeGroup.getString(context),
+          isCardSize: true,
+        ),
+      );
+    }
+
+    return options;
   }
 
   @override
   Widget build(BuildContext context) {
     final configProvider = context.watch<SqliteConfigProvider>();
     final config = configProvider.config;
-    final options = _getOptions(context);
 
     return Stack(
       children: [
@@ -222,98 +307,7 @@ class _GameViewModeOverlayState extends State<GameViewModeOverlay> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: List.generate(options.length, (i) {
-                      final opt = options[i];
-                      final isSelected =
-                          (opt.value == 'view_list' &&
-                              config.gameViewMode == 'list') ||
-                          (opt.value == 'view_grid' &&
-                              config.gameViewMode == 'grid');
-                      final isFocused = i == _selectedIndex;
-
-                      return Container(
-                        height: 24.r,
-                        margin: EdgeInsets.symmetric(
-                          horizontal: 4.r,
-                          vertical: 2.r,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isFocused
-                              ? Theme.of(
-                                  context,
-                                ).colorScheme.primary.withValues(alpha: 0.15)
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(8.r),
-                          border: isFocused
-                              ? Border.all(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.primary.withValues(alpha: 0.3),
-                                  width: 1,
-                                )
-                              : null,
-                        ),
-                        child: InkWell(
-                          onTap: () {
-                            setState(() => _selectedIndex = i);
-                            _handleSelection();
-                          },
-                          onHover: (v) {
-                            if (v) {
-                              setState(() => _selectedIndex = i);
-                            }
-                          },
-                          focusColor: Colors.transparent,
-                          hoverColor: Colors.transparent,
-                          splashColor: Colors.transparent,
-                          highlightColor: Colors.transparent,
-                          borderRadius: BorderRadius.circular(8.r),
-                          child: Container(
-                            padding: EdgeInsets.symmetric(horizontal: 12.r),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  opt.icon,
-                                  size: 14.r,
-                                  color: isSelected
-                                      ? Theme.of(context).colorScheme.secondary
-                                      : Theme.of(context).colorScheme.onSurface
-                                            .withValues(alpha: 0.9),
-                                ),
-                                SizedBox(width: 8.r),
-                                Expanded(
-                                  child: Text(
-                                    opt.label,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontSize: 12.r,
-                                      color: isSelected
-                                          ? Theme.of(
-                                              context,
-                                            ).colorScheme.secondary
-                                          : Theme.of(
-                                              context,
-                                            ).colorScheme.onSurface,
-                                      fontWeight: isSelected
-                                          ? FontWeight.w700
-                                          : FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                                if (isSelected)
-                                  Icon(
-                                    Symbols.check_rounded,
-                                    size: 14.r,
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.secondary,
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      );
-                    }),
+                    children: _buildItems(config),
                   ),
                 ),
               ),
@@ -322,5 +316,233 @@ class _GameViewModeOverlayState extends State<GameViewModeOverlay> {
         ),
       ],
     );
+  }
+
+  List<Widget> _buildItems(dynamic config) {
+    final options = _getOptions(context);
+    List<Widget> children = [];
+    String? currentGroup;
+
+    for (int i = 0; i < options.length; i++) {
+      final opt = options[i];
+      if (opt.group != currentGroup) {
+        if (currentGroup != null) {
+          children.add(
+            Divider(
+              height: 4.r,
+              thickness: 1,
+              color: Theme.of(
+                context,
+              ).colorScheme.outline.withValues(alpha: 0.1),
+            ),
+          );
+        }
+        children.add(
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.r, vertical: 6.r),
+            child: Text(
+              opt.group,
+              style: TextStyle(
+                fontSize: 10.r,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.r,
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withValues(alpha: 0.5),
+              ),
+            ),
+          ),
+        );
+        currentGroup = opt.group;
+      }
+
+      if (opt.isCardSize) {
+        final sizes = ['S', 'M', 'L', 'XL'];
+        final configInfo = context.read<SqliteConfigProvider>().config;
+        final currentSizeIndex = sizes.indexOf(configInfo.gameGridColumns);
+        final isFocused = i == _selectedIndex;
+
+        children.add(
+          InkWell(
+            onTap: () {
+              setState(() => _selectedIndex = i);
+            },
+            focusColor: Colors.transparent,
+            hoverColor: Colors.transparent,
+            splashColor: Colors.transparent,
+            highlightColor: Colors.transparent,
+            borderRadius: BorderRadius.circular(8.r),
+            child: Container(
+              height: 28.r,
+              margin: EdgeInsets.symmetric(horizontal: 4.r, vertical: 2.r),
+              padding: EdgeInsets.symmetric(horizontal: 12.r),
+              decoration: BoxDecoration(
+                color: isFocused
+                    ? Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: 0.15)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(8.r),
+                border: isFocused
+                    ? Border.all(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.primary.withValues(alpha: 0.3),
+                        width: 1,
+                      )
+                    : null,
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Symbols.crop_free_rounded,
+                    size: 14.r,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withValues(alpha: 0.9),
+                  ),
+                  SizedBox(width: 8.r),
+                  Expanded(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: sizes.asMap().entries.map((entry) {
+                        final idx = entry.key;
+                        final label = entry.value;
+                        final isSelected =
+                            (isFocused && idx == _cardSizeIndex) ||
+                            (!isFocused && idx == currentSizeIndex);
+                        return InkWell(
+                          onTap: () {
+                            setState(() {
+                              _selectedIndex = i;
+                              _cardSizeIndex = idx;
+                            });
+                            SfxService().playNavSound();
+                            _applyCardSize();
+                          },
+                          focusColor: Colors.transparent,
+                          hoverColor: Colors.transparent,
+                          splashColor: Colors.transparent,
+                          highlightColor: Colors.transparent,
+                          borderRadius: BorderRadius.circular(4.r),
+                          child: Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 6.r,
+                              vertical: 2.r,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? Theme.of(context).colorScheme.secondary
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(4.r),
+                            ),
+                            child: Text(
+                              label,
+                              style: TextStyle(
+                                fontSize: 11.r,
+                                fontWeight: FontWeight.w700,
+                                color: isSelected
+                                    ? Theme.of(context).colorScheme.onSecondary
+                                    : Theme.of(context).colorScheme.onSurface,
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+        continue;
+      }
+
+      bool isSelected = false;
+      if (opt.value == 'view_list') {
+        isSelected = config.gameViewMode == 'list';
+      } else if (opt.value == 'view_grid') {
+        isSelected = config.gameViewMode == 'grid';
+      }
+
+      final bool itemIsFocused = i == _selectedIndex;
+
+      children.add(
+        Container(
+          height: 24.r,
+          margin: EdgeInsets.symmetric(horizontal: 4.r, vertical: 2.r),
+          decoration: BoxDecoration(
+            color: itemIsFocused
+                ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.15)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(8.r),
+            border: itemIsFocused
+                ? Border.all(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.3),
+                    width: 1,
+                  )
+                : null,
+          ),
+          child: InkWell(
+            onTap: () {
+              setState(() => _selectedIndex = i);
+              _handleSelection();
+            },
+            onHover: (v) {
+              if (v) {
+                setState(() => _selectedIndex = i);
+              }
+            },
+            focusColor: Colors.transparent,
+            hoverColor: Colors.transparent,
+            splashColor: Colors.transparent,
+            highlightColor: Colors.transparent,
+            borderRadius: BorderRadius.circular(8.r),
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: 12.r),
+              child: Row(
+                children: [
+                  Icon(
+                    opt.icon,
+                    size: 14.r,
+                    color: isSelected
+                        ? Theme.of(context).colorScheme.secondary
+                        : Theme.of(
+                            context,
+                          ).colorScheme.onSurface.withValues(alpha: 0.9),
+                  ),
+                  SizedBox(width: 8.r),
+                  Expanded(
+                    child: Text(
+                      opt.label,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12.r,
+                        color: isSelected
+                            ? Theme.of(context).colorScheme.secondary
+                            : Theme.of(context).colorScheme.onSurface,
+                        fontWeight: isSelected
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  if (isSelected)
+                    Icon(
+                      Symbols.check_rounded,
+                      size: 14.r,
+                      color: Theme.of(context).colorScheme.secondary,
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+    return children;
   }
 }

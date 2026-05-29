@@ -735,6 +735,10 @@ class _SystemCardGridViewState extends State<SystemCardGridView> {
   /// Orchestrator for hardware input.
   late GamepadNavigation _gamepadNav;
 
+  /// Effective column count — synced from widget on parent rebuild,
+  /// updated immediately on pinch for real-time responsiveness.
+  late int _cols;
+
   /// Throttling mechanism for pointer-based navigation events.
   DateTime? _lastNavigationTime;
 
@@ -784,6 +788,7 @@ class _SystemCardGridViewState extends State<SystemCardGridView> {
   void initState() {
     super.initState();
     _systemCards = _toSystemCards(widget.systems);
+    _cols = widget.crossAxisCount;
     _initializeGamepad();
 
     if (Platform.isAndroid) {
@@ -1005,6 +1010,7 @@ class _SystemCardGridViewState extends State<SystemCardGridView> {
   @override
   void didUpdateWidget(SystemCardGridView oldWidget) {
     super.didUpdateWidget(oldWidget);
+    _cols = widget.crossAxisCount;
     if (oldWidget.systems != widget.systems ||
         oldWidget.crossAxisCount != widget.crossAxisCount) {
       _cachedVirtualGrid = null;
@@ -1163,7 +1169,7 @@ class _SystemCardGridViewState extends State<SystemCardGridView> {
   /// Resolve the next focused index based on the virtual spatial grid.
   void _navigateVirtual(String direction) {
     final cards = _systemCards;
-    final cols = widget.crossAxisCount;
+    final cols = _cols;
     final current = widget.selectedIndex;
 
     final grid = _buildVirtualGrid(cards, cols);
@@ -1275,9 +1281,9 @@ class _SystemCardGridViewState extends State<SystemCardGridView> {
     final crossAxisSpacing = 6.0.r;
     final mainAxisSpacing = 6.0.r;
 
-    final totalSpacing = crossAxisSpacing * (widget.crossAxisCount - 1);
+    final totalSpacing = crossAxisSpacing * (_cols - 1);
     final availableWidth = screenWidth - totalSpacing;
-    final itemWidth = availableWidth / widget.crossAxisCount;
+    final itemWidth = availableWidth / _cols;
 
     final itemHeight = itemWidth / widget.childAspectRatio;
     final rowHeight = itemHeight + mainAxisSpacing;
@@ -1296,7 +1302,7 @@ class _SystemCardGridViewState extends State<SystemCardGridView> {
     if (!_scrollController.hasClients || widget.systems.isEmpty) return;
 
     final cards = _systemCards;
-    final cols = widget.crossAxisCount;
+    final cols = _cols;
     final grid = _buildVirtualGrid(cards, cols);
 
     int selectedRow = -1;
@@ -1549,7 +1555,11 @@ class _SystemCardGridViewState extends State<SystemCardGridView> {
       if (newIndex != currentIndex) {
         final newSize = sizes[newIndex];
         provider.updateSystemGridColumns(newSize);
+        _cols = Responsive.getSystemsCrossAxisCountFromSize(newSize);
+        _cachedVirtualGrid = null;
+        _cachedGridCols = null;
         _showCardSizeLabel(newSize);
+        setState(() {});
       }
     } catch (_) {}
   }
@@ -1567,7 +1577,7 @@ class _SystemCardGridViewState extends State<SystemCardGridView> {
     BuildContext context,
     List<SystemInfo> systemCards,
   ) {
-    final cols = widget.crossAxisCount;
+    final cols = _cols;
     final grid = _buildVirtualGrid(systemCards, cols);
 
     return LayoutBuilder(

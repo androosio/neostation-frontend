@@ -74,6 +74,9 @@ class ConfigModel {
   /// Preferred grid column density for the systems grid ('S', 'M', 'L', 'XL').
   final String systemGridColumns;
 
+  /// Preferred grid column density for the games grid ('S', 'M', 'L', 'XL').
+  final String gameGridColumns;
+
   const ConfigModel({
     this.romFolders = const [],
     this.detectedSystems = const [],
@@ -99,6 +102,7 @@ class ConfigModel {
     this.autoUpdateApp = true,
     this.autoUpdateSystems = true,
     this.systemGridColumns = 'M',
+    this.gameGridColumns = 'M',
   });
 
   /// Convenience getter that returns the primary ROM folder, if any are configured.
@@ -200,6 +204,9 @@ class ConfigModel {
       systemGridColumns:
           (json['systemGridColumns'] ?? json['system_grid_columns'] ?? 'M')
               .toString(),
+      gameGridColumns:
+          (json['gameGridColumns'] ?? json['game_grid_columns'] ?? 'M')
+              .toString(),
     );
   }
 
@@ -263,6 +270,7 @@ class ConfigModel {
     bool? autoUpdateApp,
     bool? autoUpdateSystems,
     String? systemGridColumns,
+    String? gameGridColumns,
   }) {
     return ConfigModel(
       romFolders: romFolders ?? this.romFolders,
@@ -289,6 +297,7 @@ class ConfigModel {
       autoUpdateApp: autoUpdateApp ?? this.autoUpdateApp,
       autoUpdateSystems: autoUpdateSystems ?? this.autoUpdateSystems,
       systemGridColumns: systemGridColumns ?? this.systemGridColumns,
+      gameGridColumns: gameGridColumns ?? this.gameGridColumns,
     );
   }
 

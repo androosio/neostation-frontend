@@ -267,6 +267,12 @@ class SqliteMigrations {
       case 87:
         await _migrateToVersion87(db);
         break;
+      case 88:
+        await _migrateToVersion88(db);
+        break;
+      case 89:
+        await _migrateToVersion89(db);
+        break;
       default:
         _log.w('No migration defined for version $version');
     }
@@ -4472,6 +4478,46 @@ class SqliteMigrations {
       }
     } catch (e, stackTrace) {
       _log.e('Error in migration v87: $e');
+      _log.e('   StackTrace: $stackTrace');
+      rethrow;
+    }
+  }
+
+  static Future<void> _migrateToVersion88(Database db) async {
+    _log.i('Migration v88: Adding game_grid_columns to user_config');
+    try {
+      final tableInfo = db.select('PRAGMA table_info(user_config)');
+      final columns = tableInfo.map((c) => c['name'].toString()).toList();
+      if (!columns.contains('game_grid_columns')) {
+        db.execute(
+          "ALTER TABLE user_config ADD COLUMN game_grid_columns TEXT DEFAULT 'M'",
+        );
+        _log.i('Column game_grid_columns added via v88');
+      } else {
+        _log.i('Column game_grid_columns already exists');
+      }
+    } catch (e, stackTrace) {
+      _log.e('Error in migration v88: $e');
+      _log.e('   StackTrace: $stackTrace');
+      rethrow;
+    }
+  }
+
+  static Future<void> _migrateToVersion89(Database db) async {
+    _log.i('Migration v89: Ensuring game_grid_columns in user_config');
+    try {
+      final tableInfo = db.select('PRAGMA table_info(user_config)');
+      final columns = tableInfo.map((c) => c['name'].toString()).toList();
+      if (!columns.contains('game_grid_columns')) {
+        db.execute(
+          "ALTER TABLE user_config ADD COLUMN game_grid_columns TEXT DEFAULT 'M'",
+        );
+        _log.i('Column game_grid_columns added via v89');
+      } else {
+        _log.i('Column game_grid_columns already exists');
+      }
+    } catch (e, stackTrace) {
+      _log.e('Error in migration v89: $e');
       _log.e('   StackTrace: $stackTrace');
       rethrow;
     }

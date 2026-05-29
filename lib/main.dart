@@ -36,6 +36,7 @@ import 'package:fvp/fvp.dart';
 import 'package:fullscreen_window/fullscreen_window.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:neostation/screens/secondary_screen/secondary_screen.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 
 // Política personalizada para deshabilitar navegación por teclado
 class NoFocusTraversalPolicy extends FocusTraversalPolicy {
@@ -121,20 +122,61 @@ class ToggleFullscreenAction extends Action<ToggleFullscreenIntent> {
   }
 }
 
+/// Configures the Flutter [ImageCache] based on platform and available RAM.
+///
+/// Android: reads total memory via [DeviceInfoPlugin] and applies tiered limits.
+/// Desktop (Windows/macOS/Linux): applies generous defaults.
+Future<void> _configureImageCache() async {
+  try {
+    if (Platform.isAndroid) {
+      final info = await DeviceInfoPlugin().androidInfo;
+      LoggerService.instance.i(
+        'Android device detected: ${info.model}, RAM: ${info.physicalRamSize} MB',
+      );
+      final ramGb = info.physicalRamSize ~/ 1024;
+      LoggerService.instance.i(
+        'Configuring image cache for Android device with $ramGb GB RAM',
+      );
+      int maxBytes;
+      int maxSize;
+
+      if (ramGb <= 2) {
+        maxBytes = 40 * 1024 * 1024;
+        maxSize = 300;
+      } else if (ramGb <= 4) {
+        maxBytes = 80 * 1024 * 1024;
+        maxSize = 600;
+      } else if (ramGb <= 8) {
+        maxBytes = 200 * 1024 * 1024;
+        maxSize = 1000;
+      } else {
+        maxBytes = 400 * 1024 * 1024;
+        maxSize = 1500;
+      }
+
+      LoggerService.instance.i(
+        'Setting image cache limits: maxSize=$maxSize, maxBytes=${maxBytes ~/ (1024 * 1024)} MB',
+      );
+
+      PaintingBinding.instance.imageCache.maximumSize = maxSize;
+      PaintingBinding.instance.imageCache.maximumSizeBytes = maxBytes;
+    } else if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
+      PaintingBinding.instance.imageCache.maximumSize = 2000;
+      PaintingBinding.instance.imageCache.maximumSizeBytes = 400 * 1024 * 1024;
+    } else {
+      PaintingBinding.instance.imageCache.maximumSize = 1000;
+      PaintingBinding.instance.imageCache.maximumSizeBytes = 100 * 1024 * 1024;
+    }
+  } catch (_) {
+    PaintingBinding.instance.imageCache.maximumSize = 1000;
+    PaintingBinding.instance.imageCache.maximumSizeBytes = 100 * 1024 * 1024;
+  }
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Increase image cache to prevent system card images from being evicted
-  // when navigating to game lists that load many thumbnails.
-  // Desktop gets more headroom; Android stays conservative for RAM-constrained devices.
-  PaintingBinding.instance.imageCache.maximumSize =
-      (Platform.isAndroid || Platform.isIOS) ? 1500 : 3000;
-  PaintingBinding.instance.imageCache.maximumSizeBytes =
-      (Platform.isAndroid || Platform.isIOS)
-      ? 256 *
-            1024 *
-            1024 // 256 MB
-      : 1024 * 1024 * 1024; // 1024 MB — desktop has ample RAM
+  await _configureImageCache();
 
   final log = LoggerService.instance;
   await log.init();

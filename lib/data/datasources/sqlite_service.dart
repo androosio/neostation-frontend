@@ -421,7 +421,7 @@ class SqliteService {
   SqliteService._internal();
 
   // Database configuration
-  static const int _databaseVersion = 87;
+  static const int _databaseVersion = 89;
   static const String _databaseName = 'data.sqlite';
 
   DatabaseAdapter? _database;
@@ -1564,7 +1564,8 @@ class SqliteService {
         neostation_app_version TEXT DEFAULT '',
         auto_update_app INTEGER DEFAULT 1,
         auto_update_systems INTEGER DEFAULT 1,
-        system_grid_columns TEXT DEFAULT 'M'
+        system_grid_columns TEXT DEFAULT 'M',
+        game_grid_columns TEXT DEFAULT 'M'
       );
       ''',
       '''
@@ -2268,6 +2269,7 @@ class SqliteService {
     int? autoUpdateApp,
     int? autoUpdateSystems,
     String? systemGridColumns,
+    String? gameGridColumns,
   }) async {
     final db = await instance.database;
 
@@ -2342,6 +2344,9 @@ class SqliteService {
     }
     if (systemGridColumns != null) {
       newConfig['system_grid_columns'] = systemGridColumns;
+    }
+    if (gameGridColumns != null) {
+      newConfig['game_grid_columns'] = gameGridColumns;
     }
 
     await db.insert(
