@@ -23,20 +23,12 @@ cleanup:
 modules:
   - name: neostation
     buildsystem: simple
-    build-options:
-      build-args:
-        - --share=network
     build-commands:
-      - export PATH=$PWD/flutter-sdk/bin:$PATH
-      - flutter config --no-analytics
-      - flutter precache --linux --no-android --no-web --no-ios --no-macos --no-windows
-      - flutter pub get
-      - flutter build linux --release
-      - mkdir -p /app/bin
-      - cp -r build/linux/x64/release/bundle/* /app/bin/
+      - mkdir -p /app/bin /app/data
+      - cp -r neostation-bundle/* /app/bin/
       - chmod +x /app/bin/neostation
-      - install -Dm644 linux/flatpak/com.neogamelab.neostation.desktop /app/share/applications/com.neogamelab.neostation.desktop
-      - install -Dm644 linux/flatpak/com.neogamelab.neostation.metainfo.xml /app/share/metainfo/com.neogamelab.neostation.metainfo.xml
+      - install -Dm644 com.neogamelab.neostation.desktop /app/share/applications/com.neogamelab.neostation.desktop
+      - install -Dm644 com.neogamelab.neostation.metainfo.xml /app/share/metainfo/com.neogamelab.neostation.metainfo.xml
       - |
         for size in 64 128 256; do
           mkdir -p /app/share/icons/hicolor/${size}x${size}/apps
@@ -44,9 +36,12 @@ modules:
         done
     sources:
       - type: dir
-        path: .
-      - type: archive
-        url: https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.44.0-stable.tar.xz
-        sha256: PLACEHOLDER_RUN_get-flutter-sha256.sh
-        dest: flutter-sdk
-        strip-components: 1
+        path: build/linux/x64/release/bundle
+        dest: neostation-bundle
+      - type: file
+        path: linux/flatpak/com.neogamelab.neostation.desktop
+      - type: file
+        path: linux/flatpak/com.neogamelab.neostation.metainfo.xml
+      - type: file
+        path: assets/images/logo.png
+        dest: assets/images
