@@ -283,10 +283,8 @@ class HeaderState extends State<Header> {
                     vertical: 4.r,
                   ),
                   decoration: BoxDecoration(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.surface.withValues(alpha: 0.75),
-                    borderRadius: BorderRadius.circular(12.r),
+                    color: Theme.of(context).colorScheme.surface,
+                    borderRadius: BorderRadius.circular(24.r),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,

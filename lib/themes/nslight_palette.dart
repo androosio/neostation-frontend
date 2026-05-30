@@ -2,29 +2,29 @@ import 'package:flutter/material.dart';
 
 const Color _primaryColor = Color(0xFF7273AC);
 const Color _onPrimaryColor = Color(0xFFFFFFFF);
-const Color _secondaryColor = Color(0xFF26A780);
+const Color _secondaryColor = Color(0xFF32BB92);
 const Color _onSecondaryColor = Color(0xFFFFFFFF);
-const Color _tertiaryColor = Color(0xFF575463);
-const Color _onTertiaryColor = Color(0xFF625875);
+const Color _tertiaryColor = Color(0xFF464158);
+const Color _onTertiaryColor = Color(0xFFc2c0d5);
 final Color _surfaceColor = HSLColor.fromColor(
   const Color(0xFFDFDDE4),
-).withLightness(0.9).toColor();
+).withLightness(0.85).toColor();
 const Color _onSurfaceColor = Color(0xFF5A5875);
 const Color _errorColor = Color(0xFFFF5252);
 const Color _onErrorColor = Color(0xFFFFFFFF);
 const Color _outlineColor = Color(0xFFE0E0E0);
 const Color _shadowColor = Color(0x1A000000);
 
-const Color _backgroundColor = Color(0xFFDFDDE4);
+const Color _backgroundColor = Color(0xFFc2c0d5);
 
-const Color _batteryFull = Color(0xFF26A780);
+const Color _batteryFull = Color(0xFF32BB92);
 const Color _batteryMedium = Color(0xFFD16003);
 const Color _batteryLow = Color(0xFFDC2626);
 const Color _batteryPower = Color(0xFF0284C7);
 
 const Color _warningColor = Color(0xFFD16003);
 const Color _onWarningColor = Color(0xFFFFFFFF);
-const Color _successColor = Color(0xFF26A780);
+const Color _successColor = Color(0xFF32BB92);
 const Color _onSuccessColor = Color(0xFFFFFFFF);
 const Color _infoColor = Color(0xFF0284C7);
 const Color _onInfoColor = Color(0xFFFFFFFF);

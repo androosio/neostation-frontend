@@ -4,7 +4,7 @@ const Color _primaryColor = Color(0xFF8183C9);
 const Color _onPrimaryColor = Color(0xFF252029);
 const Color _secondaryColor = Color(0xFF30D1A1);
 const Color _onSecondaryColor = Color(0xFF252029);
-const Color _tertiaryColor = Color(0xFFE0E5FF);
+const Color _tertiaryColor = Color(0xFFCCD3F7);
 const Color _onTertiaryColor = Color(0xFF252029);
 final Color _surfaceColor = HSLColor.fromColor(
   const Color(0xFF232030),

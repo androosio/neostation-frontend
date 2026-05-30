@@ -35,12 +35,8 @@ class SystemsGridFooter extends CoreFooter {
       child: Container(
         padding: EdgeInsets.symmetric(horizontal: 10.r, vertical: 4.r),
         decoration: BoxDecoration(
-          color: theme.colorScheme.onSurface.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(8.r),
-          border: Border.all(
-            color: theme.colorScheme.outline.withValues(alpha: 0.05),
-            width: 0.5.r,
-          ),
+          color: theme.colorScheme.primary,
+          borderRadius: BorderRadius.circular(24.r),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -51,7 +47,7 @@ class SystemsGridFooter extends CoreFooter {
                     ? "${AppLocale.lastPlayed.getString(context)}: ${system.title}"
                     : system.title ?? "",
                 style: TextStyle(
-                  color: theme.colorScheme.onSurface,
+                  color: theme.colorScheme.onPrimary,
                   fontSize: 14.r,
                   fontWeight: FontWeight.bold,
                   overflow: TextOverflow.ellipsis,
@@ -107,7 +103,7 @@ class SystemsGridFooter extends CoreFooter {
           iconPath: 'assets/images/gamepad/Xbox_Menu_button.png',
           onTap: onSettings,
           backgroundColor: theme.colorScheme.tertiary,
-          textColor: theme.colorScheme.surface,
+          textColor: theme.colorScheme.onTertiary,
         ),
       if (!system.isGame) SizedBox(width: 8.r),
       // Enter/Play button

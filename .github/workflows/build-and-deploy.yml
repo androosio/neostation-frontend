@@ -148,6 +148,28 @@ jobs:
         if: matrix.target == 'linux-arm'
         run: bash build-utils/build-linuxarm.sh
 
+      - name: Package Flatpak bundle (Linux x64)
+        if: matrix.target == 'linux-x64'
+        run: |
+          VERSION=$(grep '^version:' pubspec.yaml | head -1 | awk '{print $2}' | tr -d '\r')
+          BUNDLE_DIR=build/linux/x64/release/bundle
+          TARBALL=release/neostation-flatpak-x86_64-${VERSION}.tar.xz
+          mkdir -p release
+          tar -cJf "$TARBALL" -C "$BUNDLE_DIR" .
+          sha256sum "$TARBALL" | tee release/neostation-flatpak-x86_64.sha256
+          echo "Flatpak bundle: $TARBALL ($(du -h "$TARBALL" | cut -f1))"
+
+      - name: Package Flatpak bundle (Linux ARM)
+        if: matrix.target == 'linux-arm'
+        run: |
+          VERSION=$(grep '^version:' pubspec.yaml | head -1 | awk '{print $2}' | tr -d '\r')
+          BUNDLE_DIR=build/linux/arm64/release/bundle
+          TARBALL=release/neostation-flatpak-arm64-${VERSION}.tar.xz
+          mkdir -p release
+          tar -cJf "$TARBALL" -C "$BUNDLE_DIR" .
+          sha256sum "$TARBALL" | tee release/neostation-flatpak-arm64.sha256
+          echo "Flatpak bundle: $TARBALL ($(du -h "$TARBALL" | cut -f1))"
+
       - name: Upload Artifacts
         uses: actions/upload-artifact@v7
         with:

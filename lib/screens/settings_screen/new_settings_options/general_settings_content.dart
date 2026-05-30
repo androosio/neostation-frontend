@@ -328,7 +328,7 @@ class GeneralSettingsContentState extends State<GeneralSettingsContent>
                 bottom: 6.r,
               ),
               decoration: BoxDecoration(
-                color: theme.cardColor.withValues(alpha: 0.25),
+                color: theme.colorScheme.surface.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(8.r),
                 border: Border.all(
                   color:
@@ -398,7 +398,7 @@ class GeneralSettingsContentState extends State<GeneralSettingsContent>
                 bottom: 6.r,
               ),
               decoration: BoxDecoration(
-                color: theme.cardColor.withValues(alpha: 0.25),
+                color: theme.colorScheme.surface.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(8.r),
                 border: Border.all(
                   color:
@@ -470,7 +470,7 @@ class GeneralSettingsContentState extends State<GeneralSettingsContent>
                 bottom: 6.r,
               ),
               decoration: BoxDecoration(
-                color: theme.cardColor.withValues(alpha: 0.25),
+                color: theme.colorScheme.surface.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(8.r),
                 border: Border.all(
                   color:
@@ -540,7 +540,7 @@ class GeneralSettingsContentState extends State<GeneralSettingsContent>
                 bottom: 6.r,
               ),
               decoration: BoxDecoration(
-                color: theme.cardColor.withValues(alpha: 0.25),
+                color: theme.colorScheme.surface.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(8.r),
                 border: Border.all(
                   color:
@@ -612,7 +612,7 @@ class GeneralSettingsContentState extends State<GeneralSettingsContent>
                 bottom: 6.r,
               ),
               decoration: BoxDecoration(
-                color: theme.cardColor.withValues(alpha: 0.25),
+                color: theme.colorScheme.surface.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(8.r),
                 border: Border.all(
                   color:
@@ -682,7 +682,7 @@ class GeneralSettingsContentState extends State<GeneralSettingsContent>
                 bottom: 6.r,
               ),
               decoration: BoxDecoration(
-                color: theme.cardColor.withValues(alpha: 0.25),
+                color: theme.colorScheme.surface.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(8.r),
                 border: Border.all(
                   color:
@@ -786,7 +786,7 @@ class GeneralSettingsContentState extends State<GeneralSettingsContent>
                   bottom: 6.r,
                 ),
                 decoration: BoxDecoration(
-                  color: theme.cardColor.withValues(alpha: 0.25),
+                  color: theme.colorScheme.surface.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(8.r),
                   border: Border.all(
                     color:
@@ -852,7 +852,7 @@ class GeneralSettingsContentState extends State<GeneralSettingsContent>
                   bottom: 6.r,
                 ),
                 decoration: BoxDecoration(
-                  color: theme.cardColor.withValues(alpha: 0.25),
+                  color: theme.colorScheme.surface.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(8.r),
                   border: Border.all(
                     color:
@@ -932,7 +932,7 @@ class GeneralSettingsContentState extends State<GeneralSettingsContent>
                   bottom: 6.r,
                 ),
                 decoration: BoxDecoration(
-                  color: theme.cardColor.withValues(alpha: 0.25),
+                  color: theme.colorScheme.surface.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(8.r),
                   border: Border.all(
                     color:
@@ -1004,7 +1004,7 @@ class GeneralSettingsContentState extends State<GeneralSettingsContent>
                   bottom: 6.r,
                 ),
                 decoration: BoxDecoration(
-                  color: theme.cardColor.withValues(alpha: 0.25),
+                  color: theme.colorScheme.surface.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(8.r),
                   border: Border.all(
                     color:
@@ -1080,7 +1080,7 @@ class GeneralSettingsContentState extends State<GeneralSettingsContent>
                   bottom: 6.r,
                 ),
                 decoration: BoxDecoration(
-                  color: theme.cardColor.withValues(alpha: 0.25),
+                  color: theme.colorScheme.surface.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(8.r),
                   border: Border.all(
                     color:

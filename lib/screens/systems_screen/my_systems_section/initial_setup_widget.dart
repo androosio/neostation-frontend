@@ -67,7 +67,7 @@ class InitialSetupWidget extends StatelessWidget {
         constraints: const BoxConstraints(maxWidth: 420),
         padding: const EdgeInsets.all(32.0),
         decoration: BoxDecoration(
-          color: theme.colorScheme.surface.withValues(alpha: 0.1),
+          color: theme.colorScheme.surface,
           borderRadius: BorderRadius.circular(32),
           border: Border.all(
             color: theme.colorScheme.primary.withValues(alpha: 0.2),
@@ -346,7 +346,7 @@ class InitialSetupWidget extends StatelessWidget {
       elevation: 0,
       color: Theme.of(
         context,
-      ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+      ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.666),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: SingleChildScrollView(
