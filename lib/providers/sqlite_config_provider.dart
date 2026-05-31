@@ -971,6 +971,13 @@ class SqliteConfigProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Updates the preferred card style for the game carousel ('fanart' or 'box').
+  Future<void> updateGameCarouselCardStyle(String cardStyle) async {
+    _config = _config.copyWith(gameCarouselCardStyle: cardStyle);
+    await SqliteConfigService.saveConfig(_config);
+    notifyListeners();
+  }
+
   /// Toggles the application's fullscreen state.
   Future<void> updateIsFullscreen(bool value) async {
     _config = _config.copyWith(isFullscreen: value);

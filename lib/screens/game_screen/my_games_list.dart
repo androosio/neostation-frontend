@@ -30,6 +30,7 @@ import '../../models/game_model.dart';
 import 'game_details_card/game_details_card_list.dart';
 import 'game_details_card/random_game_dialog.dart';
 import 'my_games_grid.dart';
+import 'my_games_carousel.dart';
 import 'music/music_list.dart';
 import 'music/music_player.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -275,7 +276,7 @@ class _SystemGamesListState extends State<SystemGamesList> {
     final gameViewMode = configProvider.config.gameViewMode;
 
     try {
-      if (gameViewMode == 'grid') {
+      if (gameViewMode == 'grid' || gameViewMode == 'carousel') {
         _gamepadNav.deactivate();
       } else {
         _gamepadNav.activate();
@@ -1927,6 +1928,9 @@ class _SystemGamesListState extends State<SystemGamesList> {
                         builder: (context, configProvider, child) {
                           if (configProvider.config.gameViewMode == 'grid') {
                             return _buildGamesGrid();
+                          } else if (configProvider.config.gameViewMode ==
+                              'carousel') {
+                            return _buildGamesCarousel();
                           }
                           return _buildGamesList();
                         },
@@ -2394,9 +2398,35 @@ class _SystemGamesListState extends State<SystemGamesList> {
     );
   }
 
+  /// Builds the game carousel view with letter-based navigation.
+  Widget _buildGamesCarousel() {
+    return GamesCarousel(
+      system: widget.system,
+      games: _games,
+      selectedIndex: _selectedGameIndex,
+      fileProvider: _fileProvider,
+      onGameSelected: (game) {
+        setState(() {
+          _selectedGame = game;
+          _selectedGameIndex = _games.indexOf(game);
+        });
+        _performBackgroundOperationsForSelectedGame();
+      },
+      onBack: _goBack,
+      onPlay: _selectCurrentGame,
+      onRandom: _showRandomGameDialog,
+      onSettings: _handleStartButton,
+    );
+  }
+
   /// Builds the game grid view with box-2d images.
   Widget _buildGamesGrid() {
+    final cardStyle = context
+        .read<SqliteConfigProvider>()
+        .config
+        .gameCarouselCardStyle;
     return GamesGrid(
+      key: ValueKey('games_grid_$cardStyle'),
       system: widget.system,
       games: _games,
       selectedIndex: _selectedGameIndex,

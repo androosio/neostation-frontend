@@ -77,6 +77,9 @@ class ConfigModel {
   /// Preferred grid column density for the games grid ('S', 'M', 'L', 'XL').
   final String gameGridColumns;
 
+  /// Preferred card style for the game carousel ('fanart' or 'box').
+  final String gameCarouselCardStyle;
+
   const ConfigModel({
     this.romFolders = const [],
     this.detectedSystems = const [],
@@ -103,6 +106,7 @@ class ConfigModel {
     this.autoUpdateSystems = true,
     this.systemGridColumns = 'M',
     this.gameGridColumns = 'M',
+    this.gameCarouselCardStyle = 'fanart',
   });
 
   /// Convenience getter that returns the primary ROM folder, if any are configured.
@@ -207,6 +211,11 @@ class ConfigModel {
       gameGridColumns:
           (json['gameGridColumns'] ?? json['game_grid_columns'] ?? 'M')
               .toString(),
+      gameCarouselCardStyle:
+          (json['gameCarouselCardStyle'] ??
+                  json['game_carousel_card_style'] ??
+                  'fanart')
+              .toString(),
     );
   }
 
@@ -241,6 +250,9 @@ class ConfigModel {
       'activeSyncProvider': activeSyncProvider,
       'autoUpdateApp': autoUpdateApp,
       'autoUpdateSystems': autoUpdateSystems,
+      'systemGridColumns': systemGridColumns,
+      'gameGridColumns': gameGridColumns,
+      'gameCarouselCardStyle': gameCarouselCardStyle,
     };
   }
 
@@ -271,6 +283,7 @@ class ConfigModel {
     bool? autoUpdateSystems,
     String? systemGridColumns,
     String? gameGridColumns,
+    String? gameCarouselCardStyle,
   }) {
     return ConfigModel(
       romFolders: romFolders ?? this.romFolders,
@@ -298,6 +311,8 @@ class ConfigModel {
       autoUpdateSystems: autoUpdateSystems ?? this.autoUpdateSystems,
       systemGridColumns: systemGridColumns ?? this.systemGridColumns,
       gameGridColumns: gameGridColumns ?? this.gameGridColumns,
+      gameCarouselCardStyle:
+          gameCarouselCardStyle ?? this.gameCarouselCardStyle,
     );
   }
 

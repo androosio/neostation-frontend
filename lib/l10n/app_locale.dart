@@ -436,6 +436,9 @@ mixin AppLocale {
   static const String sortByGroup = 'sort_by_group';
   static const String orderGroup = 'order_group';
   static const String cardSizeGroup = 'card_size_group';
+  static const String cardStyleGroup = 'card_style_group';
+  static const String fanartCard = 'fanart_card';
+  static const String boxCard = 'box_card';
   static const String synced = 'synced';
   static const String syncing = 'syncing';
   static const String conflict = 'conflict';

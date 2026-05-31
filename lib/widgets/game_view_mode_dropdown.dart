@@ -60,9 +60,14 @@ class GameViewModeDropdownState extends State<GameViewModeDropdown> {
         await configProvider.updateGameViewMode('list');
       } else if (result == 'view_grid') {
         await configProvider.updateGameViewMode('grid');
+      } else if (result == 'view_carousel') {
+        await configProvider.updateGameViewMode('carousel');
       } else if (result.startsWith('card_size_')) {
         final newSize = result.substring('card_size_'.length);
         await configProvider.updateGameGridColumns(newSize);
+      } else if (result.startsWith('card_style_')) {
+        final style = result.substring('card_style_'.length);
+        await configProvider.updateGameCarouselCardStyle(style);
       }
     }
   }
@@ -79,6 +84,7 @@ class _DropdownOption {
   final IconData icon;
   final String group;
   final bool isCardSize;
+  final bool isCardStyle;
 
   _DropdownOption(
     this.value,
@@ -86,6 +92,7 @@ class _DropdownOption {
     this.icon, {
     required this.group,
     this.isCardSize = false,
+    this.isCardStyle = false,
   });
 }
 
@@ -109,6 +116,7 @@ class _GameViewModeOverlayState extends State<GameViewModeOverlay> {
   final ScrollController _scrollController = ScrollController();
 
   int _cardSizeIndex = 1;
+  int _cardStyleIndex = 0;
 
   @override
   void initState() {
@@ -118,7 +126,17 @@ class _GameViewModeOverlayState extends State<GameViewModeOverlay> {
     final idx = sizes.indexOf(config.gameGridColumns);
     _cardSizeIndex = idx >= 0 ? idx : 1;
 
-    _selectedIndex = config.gameViewMode == 'grid' ? 1 : 0;
+    final cardStyles = ['fanart', 'box'];
+    final styleIdx = cardStyles.indexOf(config.gameCarouselCardStyle);
+    _cardStyleIndex = styleIdx >= 0 ? styleIdx : 0;
+
+    if (config.gameViewMode == 'carousel') {
+      _selectedIndex = 2;
+    } else if (config.gameViewMode == 'grid') {
+      _selectedIndex = 1;
+    } else {
+      _selectedIndex = 0;
+    }
 
     _gamepadNav = GamepadNavigation(
       onNavigateUp: () {
@@ -190,6 +208,12 @@ class _GameViewModeOverlayState extends State<GameViewModeOverlay> {
       });
       SfxService().playNavSound();
       _applyCardSize();
+    } else if (opt.isCardStyle) {
+      setState(() {
+        _cardStyleIndex = (_cardStyleIndex - 1 + 2) % 2;
+      });
+      SfxService().playNavSound();
+      _applyCardStyle();
     }
   }
 
@@ -203,6 +227,12 @@ class _GameViewModeOverlayState extends State<GameViewModeOverlay> {
       });
       SfxService().playNavSound();
       _applyCardSize();
+    } else if (opt.isCardStyle) {
+      setState(() {
+        _cardStyleIndex = (_cardStyleIndex + 1) % 2;
+      });
+      SfxService().playNavSound();
+      _applyCardStyle();
     }
   }
 
@@ -213,6 +243,13 @@ class _GameViewModeOverlayState extends State<GameViewModeOverlay> {
     configProvider.updateGameGridColumns(size);
   }
 
+  void _applyCardStyle() {
+    final styles = ['fanart', 'box'];
+    final style = styles[_cardStyleIndex];
+    final configProvider = context.read<SqliteConfigProvider>();
+    configProvider.updateGameCarouselCardStyle(style);
+  }
+
   void _handleSelection() {
     final List<_DropdownOption> options = _getOptions(context);
     final opt = options[_selectedIndex];
@@ -221,6 +258,14 @@ class _GameViewModeOverlayState extends State<GameViewModeOverlay> {
       Navigator.pop(
         context,
         'card_size_${['S', 'M', 'L', 'XL'][_cardSizeIndex]}',
+      );
+      return;
+    }
+    if (opt.isCardStyle) {
+      _applyCardStyle();
+      Navigator.pop(
+        context,
+        'card_style_${['fanart', 'box'][_cardStyleIndex]}',
       );
       return;
     }
@@ -250,6 +295,12 @@ class _GameViewModeOverlayState extends State<GameViewModeOverlay> {
         Symbols.grid_view_rounded,
         group: AppLocale.viewModeGroup.getString(context),
       ),
+      _DropdownOption(
+        'view_carousel',
+        AppLocale.carouselView.getString(context),
+        Symbols.view_carousel_rounded,
+        group: AppLocale.viewModeGroup.getString(context),
+      ),
     ];
 
     if (config.gameViewMode == 'grid') {
@@ -260,6 +311,18 @@ class _GameViewModeOverlayState extends State<GameViewModeOverlay> {
           Symbols.crop_free_rounded,
           group: AppLocale.cardSizeGroup.getString(context),
           isCardSize: true,
+        ),
+      );
+    }
+
+    if (config.gameViewMode == 'grid' || config.gameViewMode == 'carousel') {
+      options.add(
+        _DropdownOption(
+          'card_style',
+          '',
+          Symbols.style_rounded,
+          group: AppLocale.cardStyleGroup.getString(context),
+          isCardStyle: true,
         ),
       );
     }
@@ -356,10 +419,22 @@ class _GameViewModeOverlayState extends State<GameViewModeOverlay> {
         currentGroup = opt.group;
       }
 
-      if (opt.isCardSize) {
+      if (opt.isCardSize || opt.isCardStyle) {
+        final isSize = opt.isCardSize;
         final sizes = ['S', 'M', 'L', 'XL'];
+        final styles = ['fanart', 'box'];
+        final styleLabels = [
+          AppLocale.fanartCard.getString(context),
+          AppLocale.boxCard.getString(context),
+        ];
         final configInfo = context.read<SqliteConfigProvider>().config;
         final currentSizeIndex = sizes.indexOf(configInfo.gameGridColumns);
+        final currentStyleIndex = styles.indexOf(
+          configInfo.gameCarouselCardStyle,
+        );
+        final items = isSize ? sizes : styleLabels;
+        final currentIdx = isSize ? currentSizeIndex : currentStyleIndex;
+        final selectedIdx = isSize ? _cardSizeIndex : _cardStyleIndex;
         final isFocused = i == _selectedIndex;
 
         children.add(
@@ -395,7 +470,7 @@ class _GameViewModeOverlayState extends State<GameViewModeOverlay> {
               child: Row(
                 children: [
                   Icon(
-                    Symbols.crop_free_rounded,
+                    opt.icon,
                     size: 14.r,
                     color: Theme.of(
                       context,
@@ -405,20 +480,28 @@ class _GameViewModeOverlayState extends State<GameViewModeOverlay> {
                   Expanded(
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: sizes.asMap().entries.map((entry) {
+                      children: items.asMap().entries.map((entry) {
                         final idx = entry.key;
                         final label = entry.value;
                         final isSelected =
-                            (isFocused && idx == _cardSizeIndex) ||
-                            (!isFocused && idx == currentSizeIndex);
+                            (isFocused && idx == selectedIdx) ||
+                            (!isFocused && idx == currentIdx);
                         return InkWell(
                           onTap: () {
                             setState(() {
                               _selectedIndex = i;
-                              _cardSizeIndex = idx;
+                              if (isSize) {
+                                _cardSizeIndex = idx;
+                              } else {
+                                _cardStyleIndex = idx;
+                              }
                             });
                             SfxService().playNavSound();
-                            _applyCardSize();
+                            if (isSize) {
+                              _applyCardSize();
+                            } else {
+                              _applyCardStyle();
+                            }
                           },
                           focusColor: Colors.transparent,
                           hoverColor: Colors.transparent,
@@ -464,6 +547,8 @@ class _GameViewModeOverlayState extends State<GameViewModeOverlay> {
         isSelected = config.gameViewMode == 'list';
       } else if (opt.value == 'view_grid') {
         isSelected = config.gameViewMode == 'grid';
+      } else if (opt.value == 'view_carousel') {
+        isSelected = config.gameViewMode == 'carousel';
       }
 
       final bool itemIsFocused = i == _selectedIndex;

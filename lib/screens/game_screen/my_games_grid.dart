@@ -146,7 +146,30 @@ class _GamesGridState extends State<GamesGrid> {
     widget.fileProvider,
   );
 
+  String _fanartPath(int index) => widget.games[index].getImagePath(
+    widget.system.primaryFolderName,
+    'fanarts',
+    widget.fileProvider,
+  );
+
+  String _wheelsPath(int index) => widget.games[index].getImagePath(
+    widget.system.primaryFolderName,
+    'wheels',
+    widget.fileProvider,
+  );
+
+  String _screenshotPath(int index) => widget.games[index].getScreenshotPath(
+    widget.system.primaryFolderName,
+    widget.fileProvider,
+  );
+
+  bool get _isFanart =>
+      context.read<SqliteConfigProvider>().config.gameCarouselCardStyle ==
+      'fanart';
+
   double _cardHeightFor(int index) {
+    if (_isFanart) return _cardWidth;
+
     final game = widget.games[index];
     // 1. From DB
     if (game.box2dAspectRatio != null && game.box2dAspectRatio!.isNotEmpty) {
@@ -201,10 +224,10 @@ class _GamesGridState extends State<GamesGrid> {
     _lastLayoutCols = _cols;
     _lastLayoutGameCount = widget.games.length;
 
-    final spX = availableWidth * 0.022;
-    final spY = availableWidth * 0.022;
+    final spX = availableWidth * 0.016;
+    final spY = availableWidth * 0.016;
 
-    final totalWidth = availableWidth - 16;
+    final totalWidth = availableWidth - 32;
     _cardWidth = (totalWidth - (_cols - 1) * spX) / _cols;
     final n = widget.games.length;
     _cardRects = List.generate(
@@ -212,6 +235,26 @@ class _GamesGridState extends State<GamesGrid> {
       (_) => _CardRect(left: 0, top: 0, width: _cardWidth, height: _cardWidth),
     ); // placeholder
     _loadedDims.clear();
+
+    if (_isFanart) {
+      double y = 0;
+      final spY = availableWidth * 0.016;
+      for (int i = 0; i < n; i += _cols) {
+        final end = (i + _cols).clamp(0, n);
+        for (int idx = i; idx < end; idx++) {
+          final col = idx % _cols;
+          _cardRects[idx] = _CardRect(
+            left: col * (_cardWidth + spX),
+            top: y,
+            width: _cardWidth,
+            height: _cardWidth,
+          );
+        }
+        y += _cardWidth + spY;
+      }
+      _contentHeight = y + 80;
+      return;
+    }
 
     // First pass: use the static cache to get known dimensions fast
     double y = 0;
@@ -242,6 +285,7 @@ class _GamesGridState extends State<GamesGrid> {
 
   // Lazy dimension loading for newly visible cards
   void _ensureDims(int index) {
+    if (_isFanart) return;
     if (_loadedDims.contains(index)) return;
     final path = _box2dPath(index);
     _readImageSize(path); // touches cache, fills in dimension
@@ -582,10 +626,10 @@ class _GamesGridState extends State<GamesGrid> {
                     SingleChildScrollView(
                       controller: _scrollController,
                       padding: EdgeInsets.only(
-                        top: 4,
+                        top: 12,
                         bottom: 80,
-                        left: 8,
-                        right: 8,
+                        left: 16,
+                        right: 16,
                       ),
                       child: SizedBox(
                         height: _contentHeight,
@@ -605,9 +649,11 @@ class _GamesGridState extends State<GamesGrid> {
                                     decoration: BoxDecoration(
                                       border: Border.all(
                                         color: theme.colorScheme.secondary,
-                                        width: 3.r,
+                                        width: 4.r,
+                                        strokeAlign:
+                                            BorderSide.strokeAlignCenter,
                                       ),
-                                      borderRadius: BorderRadius.circular(8.r),
+                                      borderRadius: BorderRadius.circular(12.r),
                                     ),
                                   ),
                                 ),
@@ -673,6 +719,11 @@ class _GamesGridState extends State<GamesGrid> {
     ThemeData theme,
   ) {
     final game = widget.games[index];
+
+    if (_isFanart) {
+      return _buildFanartGridCard(index, rect, game, theme);
+    }
+
     final box2dPath = game.getImagePath(systemFolder, 'box2d', fp);
 
     return Positioned(
@@ -693,8 +744,8 @@ class _GamesGridState extends State<GamesGrid> {
               borderRadius: BorderRadius.circular(8.r),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.3),
-                  blurRadius: 4.r,
+                  color: Colors.black.withValues(alpha: 0.25),
+                  blurRadius: 2.r,
                   offset: Offset(2.r, 2.r),
                 ),
               ],
@@ -707,6 +758,121 @@ class _GamesGridState extends State<GamesGrid> {
               targetWidth: targetWidth,
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFanartGridCard(
+    int index,
+    _CardRect rect,
+    GameModel game,
+    ThemeData theme,
+  ) {
+    final fanartPath = _fanartPath(index);
+    final screenshotPath = _screenshotPath(index);
+    final wheelsPath = _wheelsPath(index);
+    final hasFanart = File(fanartPath).existsSync();
+    final hasScreenshot = !hasFanart && File(screenshotPath).existsSync();
+    final hasWheel = File(wheelsPath).existsSync();
+    final bgPath = hasFanart
+        ? fanartPath
+        : (hasScreenshot ? screenshotPath : '');
+
+    return Positioned(
+      key: ValueKey('fanart_${game.romname}'),
+      left: rect.left,
+      top: rect.top,
+      width: rect.width,
+      height: rect.height,
+      child: GestureDetector(
+        onTap: () {
+          setState(() => _selectedIndex = index);
+          widget.onGameSelected(game);
+          SfxService().playNavSound();
+        },
+        child: RepaintBoundary(
+          child: Container(
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12.r),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.25),
+                  blurRadius: 2.r,
+                  offset: Offset(2.r, 2.r),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12.r),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (bgPath.isNotEmpty)
+                    Image.file(
+                      File(bgPath),
+                      key: ValueKey('fanart_bg_${game.romname}'),
+                      fit: BoxFit.cover,
+                      filterQuality: FilterQuality.medium,
+                      cacheWidth: 512,
+                      errorBuilder: (ctx, e, s) => _fanartFallback(theme),
+                    )
+                  else
+                    _fanartFallback(theme),
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withValues(alpha: 0.333),
+                          Colors.black.withValues(alpha: 0.666),
+                        ],
+                        stops: const [0.5, 0.75, 1.0],
+                      ),
+                    ),
+                  ),
+                  if (hasWheel)
+                    Positioned(
+                      left: 10.r,
+                      right: 10.r,
+                      bottom: 5.r,
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 6.r,
+                          vertical: 4.r,
+                        ),
+                        child: Image.file(
+                          File(wheelsPath),
+                          key: ValueKey('wheel_${game.romname}'),
+                          fit: BoxFit.contain,
+                          filterQuality: FilterQuality.medium,
+                          cacheWidth: 512,
+                          errorBuilder: (ctx, e, s) => const SizedBox.shrink(),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _fanartFallback(ThemeData theme) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            theme.colorScheme.surfaceContainerHighest,
+            theme.colorScheme.surface,
+          ],
         ),
       ),
     );
