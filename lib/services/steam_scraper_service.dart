@@ -158,24 +158,29 @@ class SteamScraperService {
         : filename;
 
     // Steam API Mapping to NeoStation Media Convention:
-    // - background_raw -> fanarts/ (Background art)
+    // - Static URL based on AppID -> fanarts/ (Background art)
+    // - Static URL based on AppID -> box2D/ (Box art)
     // - Static URL based on AppID -> wheels/ (Transparent Logo)
     // - screenshots[0] -> screenshots/ (In-game thumbnail)
 
-    final fanartUrl = gameData['background_raw']?.toString();
+    final fanartUrl =
+        'https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/$appId/library_hero.jpg';
+    final box2dUrl =
+        'https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/$appId/library_600x900.jpg';
     final wheelUrl =
         'https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/$appId/logo.png';
     final ssUrl = (gameData['screenshots'] as List?)?.first?['path_thumbnail']
         ?.toString();
 
-    if (fanartUrl != null) {
-      await _downloadFile(
-        fanartUrl,
-        path.join(mediaDir, systemFolder, 'fanarts', '$romBaseName.jpg'),
-      );
-    } else {
-      _log.w('SteamScraper: Background art URL missing for $romBaseName');
-    }
+    await _downloadFile(
+      fanartUrl,
+      path.join(mediaDir, systemFolder, 'fanarts', '$romBaseName.jpg'),
+    );
+
+    await _downloadFile(
+      box2dUrl,
+      path.join(mediaDir, systemFolder, 'box2D', '$romBaseName.jpg'),
+    );
 
     // Standardize logos to PNG format; perform cleanup of legacy JPG assets.
     final oldJpgWheel = File(
@@ -236,6 +241,7 @@ class SteamScraperService {
     // Define the core media requirements for a 'complete' entry.
     final imageConfigs = [
       {'folder': 'fanarts', 'ext': 'jpg'},
+      {'folder': 'box2D', 'ext': 'jpg'},
       {'folder': 'wheels', 'ext': 'png'},
       {'folder': 'screenshots', 'ext': 'jpg'},
     ];
