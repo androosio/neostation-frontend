@@ -122,8 +122,6 @@ class _AndroidAppCardState extends State<AndroidAppCard> {
             _iconBytes!,
             height: iconSize,
             width: iconSize,
-            filterQuality: FilterQuality.medium,
-            isAntiAlias: true,
             fit: BoxFit.contain,
           )
         else

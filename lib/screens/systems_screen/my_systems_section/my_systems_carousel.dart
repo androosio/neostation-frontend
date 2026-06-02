@@ -668,9 +668,7 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
               File(activeBgPath),
               key: ValueKey('${activeBgPath}_${system.imageVersion}'),
               fit: BoxFit.cover,
-              filterQuality: FilterQuality.medium,
-              isAntiAlias: true,
-              cacheWidth: 1024,
+              cacheWidth: 512,
               errorBuilder: (context, error, stackTrace) => Stack(
                 children: [
                   Container(color: Theme.of(context).colorScheme.surface),
@@ -1000,17 +998,11 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
       return Image.file(
         File(customLogoPath),
         key: ValueKey('${customLogoPath}_${system.imageVersion}'),
-        isAntiAlias: true,
-        height: 1024.r,
-        filterQuality: FilterQuality.medium,
-        cacheWidth: 1024,
+        cacheWidth: 512,
         fit: BoxFit.contain,
         errorBuilder: (context, error, stackTrace) => Image.asset(
           assetLogoPath,
-          isAntiAlias: true,
-          height: 1024.r,
-          filterQuality: FilterQuality.medium,
-          cacheWidth: 1024,
+          cacheWidth: 512,
           fit: BoxFit.contain,
           errorBuilder: (context, e2, st2) => fallback,
         ),
@@ -1023,17 +1015,11 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
       return Image.file(
         File(themeLogoPath),
         key: ValueKey(themeLogoPath),
-        isAntiAlias: true,
-        height: 1024.r,
-        filterQuality: FilterQuality.medium,
-        cacheWidth: 1024,
+        cacheWidth: 512,
         fit: BoxFit.contain,
         errorBuilder: (context, error, stackTrace) => Image.asset(
           assetLogoPath,
-          isAntiAlias: true,
-          height: 1024.r,
-          filterQuality: FilterQuality.medium,
-          cacheWidth: 1024,
+          cacheWidth: 512,
           fit: BoxFit.contain,
           errorBuilder: (context, e2, st2) => fallback,
         ),
@@ -1043,10 +1029,7 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
     // 3. Fallback: Bundled internal asset.
     return Image.asset(
       assetLogoPath,
-      isAntiAlias: true,
-      height: 1024.r,
-      filterQuality: FilterQuality.medium,
-      cacheWidth: 1024,
+      cacheWidth: 512,
       fit: BoxFit.contain,
       errorBuilder: (context, error, stackTrace) => fallback,
     );
@@ -1140,8 +1123,6 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
                       hasWheelFile
                           ? Image.file(
                               wheelFile,
-                              isAntiAlias: true,
-                              filterQuality: FilterQuality.medium,
                               height: 512.r,
                               cacheWidth: 512,
                               fit: BoxFit.contain,

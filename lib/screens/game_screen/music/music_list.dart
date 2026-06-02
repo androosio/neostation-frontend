@@ -311,14 +311,10 @@ class _MusicListState extends State<MusicList> with TickerProviderStateMixin {
         File(customLogoPath),
         key: ValueKey('${customLogoPath}_${widget.system.imageVersion}'),
         fit: BoxFit.contain,
-        filterQuality: FilterQuality.medium,
-        isAntiAlias: true,
         cacheWidth: 256,
         errorBuilder: (context, error, stackTrace) => Image.asset(
           assetLogoPath,
           fit: BoxFit.contain,
-          filterQuality: FilterQuality.medium,
-          isAntiAlias: true,
           cacheWidth: 256,
           errorBuilder: (context, error, stackTrace) => fallback(),
         ),
@@ -328,14 +324,10 @@ class _MusicListState extends State<MusicList> with TickerProviderStateMixin {
         File(themeLogoPath),
         key: ValueKey(themeLogoPath),
         fit: BoxFit.contain,
-        filterQuality: FilterQuality.medium,
-        isAntiAlias: true,
         cacheWidth: 256,
         errorBuilder: (context, error, stackTrace) => Image.asset(
           assetLogoPath,
           fit: BoxFit.contain,
-          filterQuality: FilterQuality.medium,
-          isAntiAlias: true,
           cacheWidth: 256,
           errorBuilder: (context, error, stackTrace) => fallback(),
         ),
@@ -344,8 +336,6 @@ class _MusicListState extends State<MusicList> with TickerProviderStateMixin {
       logoWidget = Image.asset(
         assetLogoPath,
         fit: BoxFit.contain,
-        filterQuality: FilterQuality.medium,
-        isAntiAlias: true,
         cacheWidth: 256,
         errorBuilder: (context, error, stackTrace) => fallback(),
       );

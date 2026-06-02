@@ -949,11 +949,7 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
                   file,
                   key: ValueKey('${file.path}_$_imageVersion'),
                   fit: BoxFit.cover,
-                  width: double.infinity,
-                  height: double.infinity,
                   cacheWidth: 1920,
-                  filterQuality: FilterQuality.medium,
-                  isAntiAlias: true,
                   errorBuilder: (_, _, _) => const SizedBox.shrink(),
                 );
               }

@@ -443,9 +443,7 @@ class _GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
                   Image.file(
                     File(screenshotPath),
                     height: double.infinity,
-                    cacheHeight: 720,
-                    filterQuality: FilterQuality.medium,
-                    isAntiAlias: true,
+                    cacheHeight: 640,
                     key: ValueKey(
                       '${screenshotPath}_fg_${widget.imageVersion}',
                     ),

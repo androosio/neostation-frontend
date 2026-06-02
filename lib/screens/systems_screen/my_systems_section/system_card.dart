@@ -311,9 +311,7 @@ class _SystemCardState extends State<SystemCard> {
                 File(activeBgPath),
                 key: ValueKey('${activeBgPath}_${widget.info.imageVersion}'),
                 fit: BoxFit.cover,
-                filterQuality: FilterQuality.medium,
-                cacheWidth: widget.info.isGame ? 1024 : 512,
-                isAntiAlias: true,
+                cacheWidth: widget.info.isGame ? 1024 : 256,
                 errorBuilder: (context, error, stackTrace) => Stack(
                   children: [
                     Container(color: Theme.of(context).colorScheme.surface),
@@ -358,17 +356,13 @@ class _SystemCardState extends State<SystemCard> {
       return Image.file(
         File(customLogoPath),
         key: ValueKey('${customLogoPath}_${widget.info.imageVersion}'),
-        height: 512.r,
-        filterQuality: FilterQuality.medium,
-        isAntiAlias: true,
-        cacheWidth: 512,
+        height: 128.r,
+        cacheWidth: 384,
         fit: BoxFit.contain,
         errorBuilder: (context, error, stackTrace) => Image.asset(
           assetLogoPath,
-          height: 512.r,
-          filterQuality: FilterQuality.medium,
-          isAntiAlias: true,
-          cacheWidth: 512,
+          height: 128.r,
+          cacheWidth: 384,
           fit: BoxFit.contain,
           errorBuilder: (context, error, stackTrace) => SystemLogoFallback(
             title: widget.info.title,
@@ -384,17 +378,13 @@ class _SystemCardState extends State<SystemCard> {
       return Image.file(
         File(themeLogoPath),
         key: ValueKey(themeLogoPath),
-        height: 512.r,
-        filterQuality: FilterQuality.medium,
-        isAntiAlias: true,
-        cacheWidth: 512,
+        height: 128.r,
+        cacheWidth: 384,
         fit: BoxFit.contain,
         errorBuilder: (context, error, stackTrace) => Image.asset(
           assetLogoPath,
-          height: 512.r,
-          filterQuality: FilterQuality.medium,
-          isAntiAlias: true,
-          cacheWidth: 512,
+          height: 128.r,
+          cacheWidth: 384,
           fit: BoxFit.contain,
           errorBuilder: (context, error2, stackTrace2) => SystemLogoFallback(
             title: widget.info.title,
@@ -407,10 +397,8 @@ class _SystemCardState extends State<SystemCard> {
 
     return Image.asset(
       assetLogoPath,
-      height: 512.r,
-      filterQuality: FilterQuality.medium,
-      isAntiAlias: true,
-      cacheWidth: 512,
+      height: 128.r,
+      cacheWidth: 384,
       fit: BoxFit.contain,
       errorBuilder: (context, error, stackTrace) => SystemLogoFallback(
         title: widget.info.title,
@@ -468,10 +456,9 @@ class _SystemCardState extends State<SystemCard> {
                   ? const SizedBox.shrink()
                   : Image.file(
                       _cachedWheelFile!,
+                      height: 128.r,
                       fit: BoxFit.contain,
-                      filterQuality: FilterQuality.medium,
-                      cacheWidth: 256,
-                      isAntiAlias: true,
+                      cacheWidth: 512,
                       errorBuilder: (context, error, stackTrace) =>
                           const SizedBox.shrink(),
                     ),

@@ -542,7 +542,6 @@ class _GamesCarouselState extends State<GamesCarousel> {
                 File(bgPath),
                 key: ValueKey(bgPath),
                 fit: BoxFit.cover,
-                filterQuality: FilterQuality.medium,
                 cacheWidth: 1024,
                 errorBuilder: (ctx, e, s) => _buildFallbackBg(game, theme),
               )
@@ -655,7 +654,6 @@ class _GamesCarouselState extends State<GamesCarousel> {
                 File(boxPath),
                 key: ValueKey(boxPath),
                 fit: BoxFit.cover,
-                filterQuality: FilterQuality.medium,
                 cacheWidth: 1024,
                 errorBuilder: (ctx, e, s) => _buildBoxFallback(game, theme),
               ),

@@ -867,8 +867,7 @@ class _GamesGridState extends State<GamesGrid> {
                     File(bgPath),
                     key: ValueKey('fanart_bg_${game.romname}'),
                     fit: BoxFit.cover,
-                    filterQuality: FilterQuality.medium,
-                    cacheWidth: 512,
+                    cacheWidth: 388,
                     errorBuilder: (ctx, e, s) => _fanartFallback(theme),
                   )
                 else
@@ -901,8 +900,7 @@ class _GamesGridState extends State<GamesGrid> {
                         File(wheelsPath),
                         key: ValueKey('wheel_${game.romname}'),
                         fit: BoxFit.contain,
-                        filterQuality: FilterQuality.medium,
-                        cacheWidth: 512,
+                        cacheWidth: 388,
                         errorBuilder: (ctx, e, s) => const SizedBox.shrink(),
                       ),
                     ),
@@ -1126,8 +1124,6 @@ class _GameCardImageState extends State<_GameCardImage> {
       return Image(
         image: _imageProvider!,
         fit: BoxFit.contain,
-        filterQuality: FilterQuality.medium,
-        isAntiAlias: true,
         frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
           if (wasSynchronouslyLoaded) return child;
           return AnimatedOpacity(
