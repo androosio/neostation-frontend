@@ -3063,6 +3063,7 @@ class _GameListViewState extends State<GameListView>
                 iconPath: 'assets/images/gamepad/Xbox_B_button.png',
                 symbol: Symbols.arrow_back_rounded,
                 color: Theme.of(context).colorScheme.error,
+                foregroundColor: Theme.of(context).colorScheme.onError,
                 onTap: widget.onBack,
               ),
               SizedBox(width: 6.r),
@@ -3070,7 +3071,8 @@ class _GameListViewState extends State<GameListView>
                 key: viewModeKey,
                 iconPath: 'assets/images/gamepad/Xbox_X_button.png',
                 symbol: Symbols.grid_view_rounded,
-                color: Theme.of(context).colorScheme.primary,
+                color: Theme.of(context).colorScheme.tertiary,
+                foregroundColor: Theme.of(context).colorScheme.onPrimary,
                 onTap: () {
                   SfxService().playNavSound();
                   dropdownState?.showDropdownFrom(viewModeKey);
@@ -3081,6 +3083,7 @@ class _GameListViewState extends State<GameListView>
                 iconPath: 'assets/images/gamepad/Left Stick Click.png',
                 symbol: Symbols.casino_rounded,
                 color: Theme.of(context).colorScheme.tertiary,
+                foregroundColor: Theme.of(context).colorScheme.onPrimary,
                 onTap: widget.onRandom,
               ),
             ],
@@ -3124,8 +3127,10 @@ class _GameListViewState extends State<GameListView>
     required String iconPath,
     required IconData symbol,
     required Color color,
+    Color? foregroundColor,
     required VoidCallback onTap,
   }) {
+    final fg = foregroundColor ?? Colors.white;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -3152,11 +3157,11 @@ class _GameListViewState extends State<GameListView>
                 iconPath,
                 width: 14.r,
                 height: 14.r,
-                color: Colors.white,
+                color: fg,
                 colorBlendMode: BlendMode.srcIn,
               ),
               SizedBox(width: 3.r),
-              Icon(symbol, size: 14.r, color: Colors.white),
+              Icon(symbol, size: 14.r, color: fg),
             ],
           ),
         ),
