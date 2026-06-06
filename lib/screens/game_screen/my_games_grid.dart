@@ -798,24 +798,46 @@ class _GamesGridState extends State<GamesGrid> {
         SfxService().playNavSound();
       },
       child: RepaintBoundary(
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12.r),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.25),
-                blurRadius: 2.r,
-                offset: Offset(2.r, 2.r),
+        child: Stack(
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12.r),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.25),
+                    blurRadius: 2.r,
+                    offset: Offset(2.r, 2.r),
+                  ),
+                ],
               ),
-            ],
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: _GameCardImage(
-            key: ValueKey('img_${game.romname}'),
-            box2dPath: box2dPath,
-            game: game,
-            targetWidth: targetWidth,
-          ),
+              clipBehavior: Clip.antiAlias,
+              child: _GameCardImage(
+                key: ValueKey('img_${game.romname}'),
+                box2dPath: box2dPath,
+                game: game,
+                targetWidth: targetWidth,
+              ),
+            ),
+            if (game.isFavorite == true)
+              Positioned(
+                top: 6.r,
+                right: 6.r,
+                child: Container(
+                  width: 22.r,
+                  height: 22.r,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.45),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Symbols.favorite_rounded,
+                    size: 12.r,
+                    color: Colors.redAccent,
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );
@@ -902,6 +924,24 @@ class _GamesGridState extends State<GamesGrid> {
                         fit: BoxFit.contain,
                         cacheWidth: 388,
                         errorBuilder: (ctx, e, s) => const SizedBox.shrink(),
+                      ),
+                    ),
+                  ),
+                if (game.isFavorite == true)
+                  Positioned(
+                    top: 6.r,
+                    right: 6.r,
+                    child: Container(
+                      width: 22.r,
+                      height: 22.r,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.45),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Symbols.favorite_rounded,
+                        size: 12.r,
+                        color: Colors.redAccent,
                       ),
                     ),
                   ),

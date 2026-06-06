@@ -568,6 +568,24 @@ class _GamesCarouselState extends State<GamesCarousel> {
               bottom: 0,
               child: _buildWheelOverlay(game),
             ),
+            if (game.isFavorite == true)
+              Positioned(
+                top: 8.r,
+                right: 8.r,
+                child: Container(
+                  width: 32.r,
+                  height: 32.r,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.45),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Symbols.favorite_rounded,
+                    size: 18.r,
+                    color: Colors.redAccent,
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -614,7 +632,31 @@ class _GamesCarouselState extends State<GamesCarousel> {
     final ratio = _boxAspectRatio(game) ?? 1.0;
 
     if (!hasBox) {
-      return Center(child: _buildBoxFallback(game, theme));
+      return Center(
+        child: Stack(
+          children: [
+            _buildBoxFallback(game, theme),
+            if (game.isFavorite == true)
+              Positioned(
+                top: 8.r,
+                right: 8.r,
+                child: Container(
+                  width: 32.r,
+                  height: 32.r,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.45),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Symbols.favorite_rounded,
+                    size: 18.r,
+                    color: Colors.redAccent,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      );
     }
 
     return LayoutBuilder(
@@ -650,12 +692,35 @@ class _GamesCarouselState extends State<GamesCarousel> {
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(8.r),
-              child: Image.file(
-                File(boxPath),
-                key: ValueKey(boxPath),
-                fit: BoxFit.cover,
-                cacheWidth: 1024,
-                errorBuilder: (ctx, e, s) => _buildBoxFallback(game, theme),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.file(
+                    File(boxPath),
+                    key: ValueKey(boxPath),
+                    fit: BoxFit.cover,
+                    cacheWidth: 1024,
+                    errorBuilder: (ctx, e, s) => _buildBoxFallback(game, theme),
+                  ),
+                  if (game.isFavorite == true)
+                    Positioned(
+                      top: 8.r,
+                      right: 8.r,
+                      child: Container(
+                        width: 32.r,
+                        height: 32.r,
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.45),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Symbols.favorite_rounded,
+                          size: 18.r,
+                          color: Colors.redAccent,
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
           ),
