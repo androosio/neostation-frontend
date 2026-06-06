@@ -17,6 +17,7 @@ import 'package:neostation/services/game_service.dart';
 import 'package:neostation/repositories/game_repository.dart';
 import 'package:neostation/l10n/app_locale.dart';
 import 'package:flutter_localization/flutter_localization.dart';
+import 'package:neostation/widgets/game_view_footer.dart';
 
 class GamesGrid extends StatefulWidget {
   final SystemModel system;
@@ -759,6 +760,10 @@ class _GamesGridState extends State<GamesGrid> {
               );
             },
           ),
+        ),
+        GameViewFooter(
+          game: widget.games[_selectedIndex.clamp(0, widget.games.length - 1)],
+          onPlay: widget.onPlay,
         ),
       ],
     );

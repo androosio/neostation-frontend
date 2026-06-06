@@ -16,6 +16,8 @@ import 'package:neostation/utils/gamepad_nav.dart';
 import 'package:neostation/screens/app_screen.dart';
 import 'package:neostation/widgets/game_view_mode_dropdown.dart';
 import 'package:neostation/widgets/native_carousel.dart';
+import 'package:neostation/widgets/game_view_footer.dart';
+import 'package:neostation/l10n/app_locale.dart';
 
 class GamesCarousel extends StatefulWidget {
   final SystemModel system;
@@ -878,6 +880,10 @@ class _GamesCarouselState extends State<GamesCarousel> {
               ],
             ),
           ),
+        ),
+        GameViewFooter(
+          game: currentGame,
+          onPlay: widget.onPlay,
         ),
         SizedBox(height: 8.r),
       ],
