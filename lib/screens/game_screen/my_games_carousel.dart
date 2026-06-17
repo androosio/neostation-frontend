@@ -388,7 +388,8 @@ class _GamesCarouselState extends State<GamesCarousel> {
   }
 
   String _folderForGame(GameModel game) {
-    if (widget.system.folderName == SystemFolderNames.favorites &&
+    if ((widget.system.folderName == SystemFolderNames.all ||
+            widget.system.folderName == SystemFolderNames.favorites) &&
         game.systemFolderName != null) {
       return game.systemFolderName!;
     }

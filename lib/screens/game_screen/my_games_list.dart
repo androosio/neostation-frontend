@@ -342,7 +342,7 @@ class _SystemGamesListState extends State<SystemGamesList> {
 
     // Resolve the actual system (not favorites virtual system).
     SystemModel targetSystem = widget.system;
-    if ((widget.system.folderName == 'all' ||
+    if ((widget.system.folderName == SystemFolderNames.all ||
             widget.system.folderName == SystemFolderNames.favorites) &&
         game.systemFolderName != null) {
       final original = await SystemRepository.getSystemByFolderName(
