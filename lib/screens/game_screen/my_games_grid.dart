@@ -1085,6 +1085,14 @@ class _GamesGridState extends State<GamesGrid> {
             foregroundColor: Theme.of(context).colorScheme.onPrimary,
             onTap: () => widget.onScrape?.call(),
           ),
+          SizedBox(width: 6.r),
+          _buildIconButton(
+            iconPath: 'assets/images/gamepad/Xbox_Y_button.png',
+            symbol: Symbols.favorite_rounded,
+            color: Theme.of(context).colorScheme.tertiary,
+            foregroundColor: Theme.of(context).colorScheme.onPrimary,
+            onTap: widget.onFavorite,
+          ),
           SizedBox(width: 10.r),
           Container(
             padding: EdgeInsets.symmetric(horizontal: 8.r, vertical: 4.r),
