@@ -20,6 +20,7 @@ import '../models/secondary_display_state.dart';
 import 'package:flutter/services.dart';
 import '../widgets/tv_directory_picker.dart';
 import '../constants/system_folder_names.dart';
+import '../services/game_session_persistence.dart';
 
 /// Provider responsible for managing application configuration and system detection using SQLite as the backend.
 ///
@@ -547,12 +548,14 @@ class SqliteConfigProvider extends ChangeNotifier {
         _detectedSystems = combinedMap.values.toList();
       }
 
-      // Initialize progress for ROM scanning
-      _totalSystemsToScan = _detectedSystems.length;
-      _scanStatus = 'Scanning ROMs...';
-
-      // Scan ROMs in background
-      await _scanRomsInBackground();
+      // If app was killed by OS while an emulator was running, skip ROM
+      // scanning so the user can return to the system browser without delay.
+      final skipScan = await GameSessionPersistence.consumeSkipStartupScan();
+      if (!skipScan) {
+        _totalSystemsToScan = _detectedSystems.length;
+        _scanStatus = 'Scanning ROMs...';
+        await _scanRomsInBackground();
+      }
 
       // Apply preferred order
       _sortDetectedSystems();
