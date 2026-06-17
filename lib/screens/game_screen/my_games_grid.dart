@@ -73,6 +73,7 @@ class _GamesGridState extends State<GamesGrid> {
   double? _lastLayoutWidth;
   int? _lastLayoutCols;
   int? _lastLayoutGameCount;
+  bool? _lastIsFanart;
 
   // Image dimension cache
   static final Map<String, Size?> _imageSizeCache = {};
@@ -226,6 +227,7 @@ class _GamesGridState extends State<GamesGrid> {
       _lastLayoutWidth != w ||
       _lastLayoutCols != _cols ||
       _lastLayoutGameCount != widget.games.length ||
+      _lastIsFanart != _isFanart ||
       _needsDimReload;
 
   void _computeLayout(double availableWidth) {
@@ -233,6 +235,7 @@ class _GamesGridState extends State<GamesGrid> {
     _lastLayoutWidth = availableWidth;
     _lastLayoutCols = _cols;
     _lastLayoutGameCount = widget.games.length;
+    _lastIsFanart = _isFanart;
     _needsDimReload = false;
 
     final spX = 6.0.r;
