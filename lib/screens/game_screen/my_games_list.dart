@@ -143,7 +143,6 @@ class _SystemGamesListState extends State<SystemGamesList> {
 
   // Integration callbacks for GameDetailsCardList.
   VoidCallback? _refreshAchievementsCallback;
-  VoidCallback? _toggleInfoCallback;
 
   // Overlay interaction delegates.
   bool Function()? _isAchievementsOpen;
@@ -321,15 +320,6 @@ class _SystemGamesListState extends State<SystemGamesList> {
     }
 
     _updateSecondaryDisplay(_selectedGame!);
-  }
-
-  /// Opens the detailed game information overlay.
-  void _openGameInfo() {
-    if (_selectedGame == null) return;
-
-    if (_toggleInfoCallback != null) {
-      _toggleInfoCallback!();
-    }
   }
 
   void _onScrapeCurrentGame() async {
@@ -528,12 +518,11 @@ class _SystemGamesListState extends State<SystemGamesList> {
           }
           return;
         }
-        if (_secondaryOverlayAction != null) {
-          _secondaryOverlayAction!();
-        } else {
-          _openGameInfo();
-        }
-      }, // Select - Scrape/Info.
+        // Scrape the selected game directly, matching the grid/carousel views.
+        // Routing through the details card's secondary action early-returns when
+        // the secondary display is active (e.g. AYN Thor), so scraping never ran.
+        _onScrapeCurrentGame();
+      }, // Select - Scrape.
       onLeftBumper: _handleLeftBumper,
       onRightBumper: _handleRightBumper,
       onPreviousTab: _handleLeftBumper, // Key Q.
@@ -2709,7 +2698,6 @@ class _SystemGamesListState extends State<SystemGamesList> {
             _secondaryDisplayState?.value?.isSecondaryActive ?? false,
         onDeactivateNavigation: () => _gamepadNav.deactivate(),
         onReactivateNavigation: () => _gamepadNav.activate(),
-        onToggleInfo: (callback) => _toggleInfoCallback = callback,
         onRegisterOverlayState: (isOverlayOpen, isAchievementsOpen) {
           _isAchievementsOpen = isAchievementsOpen;
         },
