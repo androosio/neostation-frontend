@@ -421,7 +421,7 @@ class SqliteService {
   SqliteService._internal();
 
   // Database configuration
-  static const int _databaseVersion = 89;
+  static const int _databaseVersion = 90;
   static const String _databaseName = 'data.sqlite';
 
   DatabaseAdapter? _database;
@@ -1185,15 +1185,6 @@ class SqliteService {
     // FIX: Ensure user_screenscraper_config columns are up to date (v29).
     await _ensureScreenScraperConfigColumns(db);
 
-    // FIX: Ensure user_config includes the 12-hour clock column.
-    if (tableNames.contains('user_config')) {
-      try {
-        await _ensureUserConfigColumns(db);
-      } catch (e) {
-        _log.e('Minor fix for user_config columns failed: $e');
-      }
-    }
-
     // FIX: Resolve inconsistencies in default emulator assignments.
     if (tableNames.contains('app_systems') &&
         tableNames.contains('app_emulators')) {
@@ -1246,17 +1237,6 @@ class SqliteService {
       CREATE INDEX IF NOT EXISTS idx_neo_sync_state_file_path 
       ON app_neo_sync_state(file_path);
     ''');
-  }
-
-  /// Ensures the user_config table has columns added after its initial schema.
-  Future<void> _ensureUserConfigColumns(DatabaseAdapter db) async {
-    final tableInfo = await db.rawQuery('PRAGMA table_info(user_config)');
-    final columns = tableInfo.map((c) => c['name'].toString()).toList();
-    if (!columns.contains('use_12_hour_clock')) {
-      await db.execute(
-        'ALTER TABLE user_config ADD COLUMN use_12_hour_clock INTEGER DEFAULT 0',
-      );
-    }
   }
 
   /// Ensures the unique_identifier column exists in app_emulators.
