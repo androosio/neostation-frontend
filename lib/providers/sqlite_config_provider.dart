@@ -1225,6 +1225,17 @@ class SqliteConfigProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Updates the UI font family and applies it immediately.
+  ///
+  /// The change is picked up by the global theme on the next rebuild via
+  /// [notifyListeners]; no restart is required.
+  Future<void> updateAppFont(String fontKey) async {
+    if (_config.appFont == fontKey) return;
+    _config = _config.copyWith(appFont: fontKey);
+    await SqliteConfigService.saveConfig(_config);
+    notifyListeners();
+  }
+
   /// Updates whether UI navigation SFX sounds are enabled
   Future<void> updateSfxEnabled(bool value) async {
     _config = _config.copyWith(sfxEnabled: value);

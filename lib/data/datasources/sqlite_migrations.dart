@@ -276,6 +276,9 @@ class SqliteMigrations {
       case 90:
         await _migrateToVersion90(db);
         break;
+      case 91:
+        await _migrateToVersion91(db);
+        break;
       default:
         _log.w('No migration defined for version $version');
     }
@@ -4541,6 +4544,26 @@ class SqliteMigrations {
       }
     } catch (e, stackTrace) {
       _log.e('Error in migration v90: $e');
+      _log.e('   StackTrace: $stackTrace');
+      rethrow;
+    }
+  }
+
+  static Future<void> _migrateToVersion91(Database db) async {
+    _log.i('Migration v91: Adding app_font to user_config');
+    try {
+      final tableInfo = db.select('PRAGMA table_info(user_config)');
+      final columns = tableInfo.map((c) => c['name'].toString()).toList();
+      if (!columns.contains('app_font')) {
+        db.execute(
+          "ALTER TABLE user_config ADD COLUMN app_font TEXT DEFAULT 'default'",
+        );
+        _log.i('Column app_font added via v91');
+      } else {
+        _log.i('Column app_font already exists');
+      }
+    } catch (e, stackTrace) {
+      _log.e('Error in migration v91: $e');
       _log.e('   StackTrace: $stackTrace');
       rethrow;
     }

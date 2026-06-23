@@ -421,7 +421,7 @@ class SqliteService {
   SqliteService._internal();
 
   // Database configuration
-  static const int _databaseVersion = 90;
+  static const int _databaseVersion = 91;
   static const String _databaseName = 'data.sqlite';
 
   DatabaseAdapter? _database;
@@ -1566,7 +1566,8 @@ class SqliteService {
         auto_update_systems INTEGER DEFAULT 1,
         system_grid_columns TEXT DEFAULT 'M',
         game_grid_columns TEXT DEFAULT 'M',
-        use_12_hour_clock INTEGER DEFAULT 0
+        use_12_hour_clock INTEGER DEFAULT 0,
+        app_font TEXT DEFAULT 'default'
       );
       ''',
       '''
@@ -2272,6 +2273,7 @@ class SqliteService {
     int? autoUpdateSystems,
     String? systemGridColumns,
     String? gameGridColumns,
+    String? appFont,
   }) async {
     final db = await instance.database;
 
@@ -2352,6 +2354,9 @@ class SqliteService {
     }
     if (gameGridColumns != null) {
       newConfig['game_grid_columns'] = gameGridColumns;
+    }
+    if (appFont != null) {
+      newConfig['app_font'] = appFont;
     }
 
     await db.insert(

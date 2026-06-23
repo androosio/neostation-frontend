@@ -13,6 +13,7 @@ import 'package:neostation/services/logger_service.dart';
 import 'package:neostation/services/sfx_service.dart';
 import 'package:neostation/services/game_service.dart';
 import 'package:neostation/utils/gamepad_nav.dart';
+import 'package:neostation/utils/app_fonts.dart';
 import '../../../providers/sqlite_config_provider.dart';
 import '../../../widgets/custom_toggle_switch.dart';
 import 'settings_title.dart';
@@ -171,6 +172,7 @@ class GeneralSettingsContentState extends State<GeneralSettingsContent>
     count++; // SFX Sounds
     count++; // 12-Hour Clock
     count++; // Language
+    count++; // Font
     if (!kIsWeb &&
         (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
       count++; // Fullscreen
@@ -243,6 +245,13 @@ class GeneralSettingsContentState extends State<GeneralSettingsContent>
     // Protocol: Localization Selection.
     if (index == currentItemIndex) {
       _showLanguagePicker(context, _itemKeys[currentItemIndex]);
+      return;
+    }
+    currentItemIndex++;
+
+    // Protocol: Font Selection.
+    if (index == currentItemIndex) {
+      _showFontPicker(context, _itemKeys[currentItemIndex]);
       return;
     }
     currentItemIndex++;
@@ -851,6 +860,107 @@ class GeneralSettingsContentState extends State<GeneralSettingsContent>
             );
           }(),
 
+          // Setting: UI Font.
+          SizedBox(height: 12.r),
+          () {
+            final index = currentItemIdx++;
+            return Container(
+              key: _itemKeys[index],
+              padding: EdgeInsets.only(
+                left: 12.r,
+                right: 12.r,
+                top: 6.r,
+                bottom: 6.r,
+              ),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surface.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(8.r),
+                border: Border.all(
+                  color:
+                      widget.isContentFocused &&
+                          widget.selectedContentIndex == index
+                      ? theme.colorScheme.primary
+                      : Colors.transparent,
+                  width: 2,
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          AppLocale.appFont.getString(context),
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                            fontSize: 12.r,
+                            fontWeight: FontWeight.w500,
+                            color:
+                                widget.isContentFocused &&
+                                    widget.selectedContentIndex == index
+                                ? theme.colorScheme.primary
+                                : theme.colorScheme.onSurface,
+                          ),
+                        ),
+                        SizedBox(height: 4.r),
+                        Text(
+                          AppLocale.appFontSubtitle.getString(context),
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontSize: 9.r,
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.6,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => _showFontPicker(context, _itemKeys[index]),
+                    child: Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 10.r,
+                        vertical: 6.r,
+                      ),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primary.withValues(
+                          alpha: 0.15,
+                        ),
+                        borderRadius: BorderRadius.circular(6.r),
+                        border: Border.all(
+                          color: theme.colorScheme.primary.withValues(
+                            alpha: 0.4,
+                          ),
+                          width: 0.5.r,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            AppFonts.labelFor(config.appFont),
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontSize: 9.r,
+                              fontWeight: FontWeight.w400,
+                              color: theme.colorScheme.primary,
+                            ),
+                          ),
+                          SizedBox(width: 2.r),
+                          Icon(
+                            Symbols.arrow_drop_down_rounded,
+                            size: 14.r,
+                            color: theme.colorScheme.primary,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }(),
+
           // Setting: Native Fullscreen (Desktop Platforms).
           if (!kIsWeb &&
               (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) ...[
@@ -1253,6 +1363,37 @@ class GeneralSettingsContentState extends State<GeneralSettingsContent>
       context.read<SqliteConfigProvider>().updateAppLanguage(result);
     }
   }
+
+  /// Displays an autonomous overlay for selecting the UI font.
+  void _showFontPicker(BuildContext ctx, GlobalKey rowKey) async {
+    final RenderBox? box =
+        rowKey.currentContext?.findRenderObject() as RenderBox?;
+    final Offset offset = box?.localToGlobal(Offset.zero) ?? const Offset(0, 0);
+    final Size size = box?.size ?? Size.zero;
+
+    final configProvider = ctx.read<SqliteConfigProvider>();
+    final currentFont = configProvider.config.appFont;
+
+    final result = await showGeneralDialog<String>(
+      context: ctx,
+      barrierDismissible: true,
+      barrierLabel: 'Font Picker',
+      barrierColor: Colors.transparent,
+      pageBuilder: (context, animation, _) {
+        return FadeTransition(
+          opacity: animation,
+          child: _FontPickerOverlay(
+            anchorOffset: offset + Offset(size.width, size.height / 2),
+            currentFont: currentFont,
+          ),
+        );
+      },
+    );
+
+    if (result != null && mounted) {
+      context.read<SqliteConfigProvider>().updateAppFont(result);
+    }
+  }
 }
 
 /// An autonomous gamepad-navigable overlay for language selection.
@@ -1448,6 +1589,230 @@ class _LanguagePickerOverlayState extends State<_LanguagePickerOverlay> {
                                 Expanded(
                                   child: Text(
                                     lang.$2,
+                                    style: TextStyle(
+                                      fontSize: 10.r,
+                                      color: isSelected
+                                          ? theme.colorScheme.secondary
+                                          : theme.colorScheme.onSurface,
+                                      fontWeight: isSelected
+                                          ? FontWeight.w600
+                                          : FontWeight.w400,
+                                    ),
+                                  ),
+                                ),
+                                if (isSelected)
+                                  Icon(
+                                    Symbols.check_rounded,
+                                    size: 12.r,
+                                    color: theme.colorScheme.secondary,
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// An autonomous gamepad-navigable overlay for UI font selection.
+class _FontPickerOverlay extends StatefulWidget {
+  final Offset anchorOffset;
+  final String currentFont;
+
+  const _FontPickerOverlay({
+    required this.anchorOffset,
+    required this.currentFont,
+  });
+
+  @override
+  State<_FontPickerOverlay> createState() => _FontPickerOverlayState();
+}
+
+class _FontPickerOverlayState extends State<_FontPickerOverlay> {
+  late GamepadNavigation _gamepadNav;
+  int _selectedIndex = 0;
+
+  static final _fonts = AppFonts.options;
+
+  final List<GlobalKey> _itemKeys = List.generate(
+    AppFonts.options.length,
+    (_) => GlobalKey(),
+  );
+  final GlobalKey _colKey = GlobalKey();
+  double _indicatorTop = -1;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedIndex = _fonts.indexWhere((f) => f.key == widget.currentFont);
+    if (_selectedIndex < 0) _selectedIndex = 0;
+
+    _gamepadNav = GamepadNavigation(
+      onNavigateUp: () {
+        setState(() {
+          _selectedIndex = (_selectedIndex - 1 + _fonts.length) % _fonts.length;
+        });
+        _updateIndicator();
+        SfxService().playNavSound();
+      },
+      onNavigateDown: () {
+        setState(() {
+          _selectedIndex = (_selectedIndex + 1) % _fonts.length;
+        });
+        _updateIndicator();
+        SfxService().playNavSound();
+      },
+      onSelectItem: _handleSelection,
+      onBack: () => Navigator.pop(context),
+    );
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _gamepadNav.initialize();
+      GamepadNavigationManager.pushLayer(
+        'font_picker_overlay',
+        onActivate: () => _gamepadNav.activate(),
+        onDeactivate: () => _gamepadNav.deactivate(),
+      );
+      _updateIndicator();
+    });
+  }
+
+  @override
+  void dispose() {
+    GamepadNavigationManager.popLayer('font_picker_overlay');
+    _gamepadNav.dispose();
+    super.dispose();
+  }
+
+  /// Calculates the visual position of the selection indicator.
+  void _updateIndicator() {
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final key = _itemKeys[_selectedIndex];
+      final RenderBox? box =
+          key.currentContext?.findRenderObject() as RenderBox?;
+      final RenderBox? colBox =
+          _colKey.currentContext?.findRenderObject() as RenderBox?;
+      if (box != null && colBox != null) {
+        final pos = box.localToGlobal(Offset.zero, ancestor: colBox);
+        setState(() => _indicatorTop = pos.dy);
+      }
+    });
+  }
+
+  void _handleSelection() {
+    SfxService().playEnterSound();
+    Navigator.pop(context, _fonts[_selectedIndex].key);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final screenSize = MediaQuery.of(context).size;
+    final overlayWidth = 180.r;
+    final itemHeight = 24;
+    final overlayHeight = itemHeight * _fonts.length + 16;
+
+    // Anchor: Right-aligned relative to the trigger button, clamped to viewport boundaries.
+    double left = widget.anchorOffset.dx - overlayWidth;
+    double top = widget.anchorOffset.dy - overlayHeight.r / 1.5;
+    left = left.clamp(8.0, screenSize.width - overlayWidth - 8);
+    top = top.clamp(8.0, screenSize.height - overlayHeight - 8);
+
+    return Stack(
+      children: [
+        Positioned(
+          left: left,
+          top: top,
+          width: overlayWidth,
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              padding: EdgeInsets.symmetric(vertical: 8.r),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surface,
+                borderRadius: BorderRadius.circular(12.r),
+                border: Border.all(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.2),
+                  width: 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.25),
+                    blurRadius: 15,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
+              ),
+              child: Stack(
+                key: _colKey,
+                children: [
+                  if (_indicatorTop >= 0)
+                    AnimatedPositioned(
+                      duration: const Duration(milliseconds: 150),
+                      curve: Curves.easeInOut,
+                      top: _indicatorTop,
+                      left: 6.r,
+                      right: 4.r,
+                      height: itemHeight.r,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primary.withValues(
+                            alpha: 0.15,
+                          ),
+                          borderRadius: BorderRadius.circular(8.r),
+                          border: Border.all(
+                            color: theme.colorScheme.primary.withValues(
+                              alpha: 0.3,
+                            ),
+                            width: 0.5.r,
+                          ),
+                        ),
+                      ),
+                    ),
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: _fonts.asMap().entries.map((entry) {
+                      final i = entry.key;
+                      final font = entry.value;
+                      final isSelected = font.key == widget.currentFont;
+                      return SizedBox(
+                        key: _itemKeys[i],
+                        height: itemHeight.r,
+                        child: InkWell(
+                          onTap: () {
+                            setState(() => _selectedIndex = i);
+                            _handleSelection();
+                          },
+                          onHover: (v) {
+                            if (v) {
+                              setState(() => _selectedIndex = i);
+                              _updateIndicator();
+                            }
+                          },
+                          focusColor: Colors.transparent,
+                          hoverColor: Colors.transparent,
+                          splashColor: Colors.transparent,
+                          highlightColor: Colors.transparent,
+                          borderRadius: BorderRadius.circular(8.r),
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 12.r),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    font.label,
                                     style: TextStyle(
                                       fontSize: 10.r,
                                       color: isSelected

@@ -116,6 +116,8 @@ const Map<String, dynamic> appLocalePt = {
   AppLocale.sfxSounds: 'Sons de Interface',
   AppLocale.sfxSoundsSubtitle:
       'Reproduz sons para navegação por controle, teclado e toque',
+  AppLocale.appFont: 'Fonte',
+  AppLocale.appFontSubtitle: 'Escolha a fonte usada em toda a interface',
   AppLocale.use12HourClock: 'Relógio de 12 horas',
   AppLocale.use12HourClockSubtitle:
       'Mostrar o relógio no formato de 12 horas com AM/PM em vez de 24 horas',

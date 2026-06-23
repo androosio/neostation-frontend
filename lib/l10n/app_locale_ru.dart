@@ -114,6 +114,8 @@ const Map<String, dynamic> appLocaleRu = {
   AppLocale.sfxSounds: 'Звуки навигации UI',
   AppLocale.sfxSoundsSubtitle:
       'Воспроизводить звуковые эффекты для геймпада, клавиатуры и сенсорной навигации',
+  AppLocale.appFont: 'Шрифт',
+  AppLocale.appFontSubtitle: 'Выберите шрифт интерфейса',
   AppLocale.use12HourClock: '12-часовой формат',
   AppLocale.use12HourClockSubtitle:
       'Показывать время в 12-часовом формате с AM/PM вместо 24-часового',

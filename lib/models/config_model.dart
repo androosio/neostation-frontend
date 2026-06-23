@@ -83,6 +83,9 @@ class ConfigModel {
   /// Preferred card style for the game carousel ('fanart' or 'box').
   final String gameCarouselCardStyle;
 
+  /// Identifier of the UI font family ('default', 'chakra_petch', 'orbitron', 'rajdhani').
+  final String appFont;
+
   const ConfigModel({
     this.romFolders = const [],
     this.detectedSystems = const [],
@@ -111,6 +114,7 @@ class ConfigModel {
     this.systemGridColumns = 'M',
     this.gameGridColumns = 'M',
     this.gameCarouselCardStyle = 'fanart',
+    this.appFont = 'default',
   });
 
   /// Convenience getter that returns the primary ROM folder, if any are configured.
@@ -225,6 +229,7 @@ class ConfigModel {
                   json['game_carousel_card_style'] ??
                   'fanart')
               .toString(),
+      appFont: (json['appFont'] ?? json['app_font'] ?? 'default').toString(),
     );
   }
 
@@ -263,6 +268,7 @@ class ConfigModel {
       'systemGridColumns': systemGridColumns,
       'gameGridColumns': gameGridColumns,
       'gameCarouselCardStyle': gameCarouselCardStyle,
+      'appFont': appFont,
     };
   }
 
@@ -295,6 +301,7 @@ class ConfigModel {
     String? systemGridColumns,
     String? gameGridColumns,
     String? gameCarouselCardStyle,
+    String? appFont,
   }) {
     return ConfigModel(
       romFolders: romFolders ?? this.romFolders,
@@ -325,6 +332,7 @@ class ConfigModel {
       gameGridColumns: gameGridColumns ?? this.gameGridColumns,
       gameCarouselCardStyle:
           gameCarouselCardStyle ?? this.gameCarouselCardStyle,
+      appFont: appFont ?? this.appFont,
     );
   }
 

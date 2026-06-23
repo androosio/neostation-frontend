@@ -29,7 +29,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:neostation/utils/app_fonts.dart';
 import 'package:provider/provider.dart';
 import 'dart:io';
 import 'package:fvp/fvp.dart';
@@ -457,8 +457,8 @@ class _MyAppState extends State<MyApp> {
           create: (context) => NeoAssetsProvider()..init(),
         ),
       ],
-      child: Consumer<PaletteProvider>(
-        builder: (context, paletteProvider, child) {
+      child: Consumer2<PaletteProvider, SqliteConfigProvider>(
+        builder: (context, paletteProvider, configProvider, child) {
           return ScreenUtilInit(
             designSize: const Size(640, 480),
             minTextAdapt: true,
@@ -502,7 +502,8 @@ class _MyAppState extends State<MyApp> {
                         );
                       },
                       theme: paletteProvider.currentPalette.copyWith(
-                        textTheme: GoogleFonts.antaTextTheme(
+                        textTheme: AppFonts.apply(
+                          configProvider.config.appFont,
                           paletteProvider.currentPalette.textTheme,
                         ),
                         iconTheme: const IconThemeData(fill: 1.0),

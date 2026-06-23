@@ -97,6 +97,8 @@ const Map<String, dynamic> appLocaleZh = {
   AppLocale.autoUpdateSystemsSubtitle: '启动时检查系统和模拟器配置更新',
   AppLocale.sfxSounds: '界面导航音效',
   AppLocale.sfxSoundsSubtitle: '播放手柄、键盘和触摸导航的音效',
+  AppLocale.appFont: '字体',
+  AppLocale.appFontSubtitle: '选择界面使用的字体',
   AppLocale.use12HourClock: '12小时制',
   AppLocale.use12HourClockSubtitle: '以 12 小时制（AM/PM）显示时间，而非 24 小时制',
   AppLocale.fullscreenMode: '全屏模式',

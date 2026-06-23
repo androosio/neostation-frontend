@@ -166,6 +166,7 @@ class SqliteConfigService {
         systemGridColumns:
             userConfig?['system_grid_columns']?.toString() ?? 'M',
         gameGridColumns: userConfig?['game_grid_columns']?.toString() ?? 'M',
+        appFont: userConfig?['app_font']?.toString() ?? 'default',
       );
     } catch (e) {
       _log.e('Error applying configuration in loadConfig: $e');
@@ -203,6 +204,7 @@ class SqliteConfigService {
         autoUpdateSystems: config.autoUpdateSystems ? 1 : 0,
         systemGridColumns: config.systemGridColumns,
         gameGridColumns: config.gameGridColumns,
+        appFont: config.appFont,
       );
 
       await SqliteService.saveUserRomFolders(config.romFolders);
