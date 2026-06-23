@@ -126,6 +126,26 @@ class SecondaryDisplayStateData {
   /// highlight/celebrate fresh unlocks when the user returns from the emulator.
   final List<int>? newlyEarnedIds;
 
+  /// Whether an in-game session is active, gating the paged "Now Playing" /
+  /// achievements container on the secondary display. Independent of
+  /// [showAchievementPanel]: it is true for every launched game, even ones
+  /// without a RetroAchievements set.
+  final bool nowPlayingActive;
+
+  /// Display title of the launched game (real [GameModel.name]; the RA title
+  /// may differ or be null for non-RA games).
+  final String? gameTitle;
+
+  /// Absolute local path to the launched game's boxart, or null when missing.
+  final String? gameBoxart;
+
+  /// Total accumulated play time for the launched game, in seconds.
+  final int? playTimeSeconds;
+
+  /// When the launched game was last played, as milliseconds since epoch
+  /// ([DateTime] does not survive the JSON bridge), or null if never played.
+  final int? lastPlayedMillis;
+
   SecondaryDisplayStateData({
     required this.systemName,
     this.gameFanart,
@@ -165,6 +185,11 @@ class SecondaryDisplayStateData {
     this.raCompletionPct,
     this.raGameTitle,
     this.newlyEarnedIds,
+    this.nowPlayingActive = false,
+    this.gameTitle,
+    this.gameBoxart,
+    this.playTimeSeconds,
+    this.lastPlayedMillis,
   });
 
   /// Returns a new instance with the specified properties updated.
@@ -221,6 +246,15 @@ class SecondaryDisplayStateData {
     bool clearRaGameTitle = false,
     List<int>? newlyEarnedIds,
     bool clearNewlyEarnedIds = false,
+    bool? nowPlayingActive,
+    String? gameTitle,
+    bool clearGameTitle = false,
+    String? gameBoxart,
+    bool clearGameBoxart = false,
+    int? playTimeSeconds,
+    bool clearPlayTimeSeconds = false,
+    int? lastPlayedMillis,
+    bool clearLastPlayed = false,
   }) {
     return SecondaryDisplayStateData(
       systemName: systemName ?? this.systemName,
@@ -277,6 +311,15 @@ class SecondaryDisplayStateData {
       newlyEarnedIds: clearNewlyEarnedIds
           ? null
           : (newlyEarnedIds ?? this.newlyEarnedIds),
+      nowPlayingActive: nowPlayingActive ?? this.nowPlayingActive,
+      gameTitle: clearGameTitle ? null : (gameTitle ?? this.gameTitle),
+      gameBoxart: clearGameBoxart ? null : (gameBoxart ?? this.gameBoxart),
+      playTimeSeconds: clearPlayTimeSeconds
+          ? null
+          : (playTimeSeconds ?? this.playTimeSeconds),
+      lastPlayedMillis: clearLastPlayed
+          ? null
+          : (lastPlayedMillis ?? this.lastPlayedMillis),
     );
   }
 
@@ -335,6 +378,11 @@ class SecondaryDisplayStateData {
                 .map((e) => (e as num).toInt())
                 .toList()
           : null,
+      nowPlayingActive: json['nowPlayingActive'] as bool? ?? false,
+      gameTitle: json['gameTitle'] as String?,
+      gameBoxart: json['gameBoxart'] as String?,
+      playTimeSeconds: (json['playTimeSeconds'] as num?)?.toInt(),
+      lastPlayedMillis: (json['lastPlayedMillis'] as num?)?.toInt(),
     );
   }
 
@@ -381,6 +429,11 @@ class SecondaryDisplayStateData {
       'raCompletionPct': raCompletionPct,
       'raGameTitle': raGameTitle,
       'newlyEarnedIds': newlyEarnedIds,
+      'nowPlayingActive': nowPlayingActive,
+      'gameTitle': gameTitle,
+      'gameBoxart': gameBoxart,
+      'playTimeSeconds': playTimeSeconds,
+      'lastPlayedMillis': lastPlayedMillis,
     };
   }
 }
@@ -456,6 +509,15 @@ class SecondaryDisplayState extends SharedState<SecondaryDisplayStateData> {
     bool clearRaGameTitle = false,
     List<int>? newlyEarnedIds,
     bool clearNewlyEarnedIds = false,
+    bool? nowPlayingActive,
+    String? gameTitle,
+    bool clearGameTitle = false,
+    String? gameBoxart,
+    bool clearGameBoxart = false,
+    int? playTimeSeconds,
+    bool clearPlayTimeSeconds = false,
+    int? lastPlayedMillis,
+    bool clearLastPlayed = false,
   }) async {
     if (!Platform.isAndroid) return;
 
@@ -517,6 +579,15 @@ class SecondaryDisplayState extends SharedState<SecondaryDisplayStateData> {
           clearRaGameTitle: clearRaGameTitle,
           newlyEarnedIds: newlyEarnedIds,
           clearNewlyEarnedIds: clearNewlyEarnedIds,
+          nowPlayingActive: nowPlayingActive,
+          gameTitle: gameTitle,
+          clearGameTitle: clearGameTitle,
+          gameBoxart: gameBoxart,
+          clearGameBoxart: clearGameBoxart,
+          playTimeSeconds: playTimeSeconds,
+          clearPlayTimeSeconds: clearPlayTimeSeconds,
+          lastPlayedMillis: lastPlayedMillis,
+          clearLastPlayed: clearLastPlayed,
         ),
       );
     } catch (e) {
