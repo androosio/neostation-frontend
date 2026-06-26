@@ -18,7 +18,9 @@
       "retroachievements": null
     },
     "folders": [
-      "windows"
+      "windows",
+      "windows3x",
+      "windows9x"
     ],
     "colors": [
       "#0078D4",

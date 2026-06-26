@@ -15,7 +15,10 @@
     },
     "folders": [
       "amiga",
-      "Commodore Amiga"
+      "Commodore Amiga",
+      "amiga600",
+      "amiga1200",
+      "amigacd32"
     ],
     "colors": [
       "#E57373",
