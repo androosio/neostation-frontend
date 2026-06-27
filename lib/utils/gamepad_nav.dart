@@ -58,8 +58,8 @@ class GamepadNavigation {
   final VoidCallback? onFavorite;
   final VoidCallback? onSettings;
   final VoidCallback? onXButton;
-  final VoidCallback? onLeftTrigger;
-  final VoidCallback? onRightTrigger;
+  final VoidCallback? onLeftStickClick;
+  final VoidCallback? onRightStickClick;
   final VoidCallback? onSelectButton;
   final VoidCallback? onLeftBumper;
   final VoidCallback? onRightBumper;
@@ -128,8 +128,8 @@ class GamepadNavigation {
     this.onFavorite,
     this.onSettings,
     this.onXButton,
-    this.onLeftTrigger,
-    this.onRightTrigger,
+    this.onLeftStickClick,
+    this.onRightStickClick,
     this.onSelectButton,
     this.onLeftBumper,
     this.onRightBumper,
@@ -613,14 +613,15 @@ class GamepadNavigation {
         }
         break;
 
-      case GamepadInputType.buttonLT:
+      // L3 (left stick click) only — the UI hint shows the Left-Stick-Click
+      // icon for this action. The physical L2 trigger (buttonLT) deliberately
+      // does NOT fire it.
       case GamepadInputType.leftStickButton:
-        onLeftTrigger?.call();
+        onLeftStickClick?.call();
         break;
 
-      case GamepadInputType.buttonRT:
       case GamepadInputType.rightStickButton:
-        onRightTrigger?.call();
+        onRightStickClick?.call();
         break;
 
       default:
