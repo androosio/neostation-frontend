@@ -330,6 +330,13 @@ class _SystemGamesListState extends State<SystemGamesList> {
     if (romPath == null) return;
     if (_scrapingGameRomnames.contains(romname)) return;
 
+    // Claim the lock synchronously, before any await, so rapid repeated
+    // presses (the scrape button or the Select shortcut) can't slip past the
+    // guard above and queue duplicate scrapes for the same game.
+    _scrapingGameRomnames.add(romname);
+    _scrapeProgress[romname] = 0.0;
+    setState(() {});
+
     // Resolve the actual system (not favorites virtual system).
     SystemModel targetSystem = widget.system;
     if ((widget.system.folderName == SystemFolderNames.all ||
@@ -344,11 +351,12 @@ class _SystemGamesListState extends State<SystemGamesList> {
     }
 
     final systemId = targetSystem.id;
-    if (systemId == null) return;
-
-    _scrapingGameRomnames.add(romname);
-    _scrapeProgress[romname] = 0.0;
-    setState(() {});
+    if (systemId == null) {
+      _scrapingGameRomnames.remove(romname);
+      _scrapeProgress.remove(romname);
+      if (mounted) setState(() {});
+      return;
+    }
 
     ScreenScraperService.scrapeSingleGame(
           appSystemId: systemId,
