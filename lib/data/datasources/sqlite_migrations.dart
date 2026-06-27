@@ -606,7 +606,7 @@ class SqliteMigrations {
       },
       {
         'system_id': 45,
-        'folders': ['apple2', 'apple2gs'],
+        'folders': ['apple2'],
       },
       {
         'system_id': 50,
@@ -1756,7 +1756,7 @@ class SqliteMigrations {
       },
       {
         'system_id': 45,
-        'folders': ['apple2', 'apple2gs', 'Apple II'],
+        'folders': ['apple2', 'Apple II'],
       },
       {
         'system_id': 46,
