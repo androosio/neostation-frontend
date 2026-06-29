@@ -23,6 +23,7 @@ class _SecondaryScreenState extends State<SecondaryScreen> {
   Timer? _videoTimer;
   bool _showVideo = false;
   String? _currentVideoPath;
+  int _lastMediaRevision = 0;
 
   @override
   void initState() {
@@ -42,6 +43,20 @@ class _SecondaryScreenState extends State<SecondaryScreen> {
   void _onStateChanged() {
     final state = _secondaryDisplayState?.value;
     if (state == null) return;
+
+    // A re-scrape rewrites the art at the same path, so this engine's image
+    // cache still holds the old bitmap. When the producer bumps mediaRevision,
+    // clear the cache so the rebuild (its ValueKey also carries the revision)
+    // re-decodes the fresh bytes from disk. The secondary engine only ever
+    // shows one game's art, so a full clear is cheap — and it correctly drops
+    // the wheel's ResizeImage-wrapped entries, which a bare FileImage.evict
+    // would miss.
+    if (state.mediaRevision != _lastMediaRevision) {
+      _lastMediaRevision = state.mediaRevision;
+      final imageCache = PaintingBinding.instance.imageCache;
+      imageCache.clear();
+      imageCache.clearLiveImages();
+    }
 
     if (state.isGameLaunching) {
       _stopVideo();
@@ -195,7 +210,7 @@ class _SecondaryScreenState extends State<SecondaryScreen> {
                                     ),
                                 child: Stack(
                                   key: ValueKey(
-                                    'game_content_${value.systemName}_${value.gameId}_${value.gameScreenshot ?? 'none'}_${value.gameFanart ?? 'none'}_${value.gameWheel ?? 'none'}_${value.gameImageBytes != null ? value.gameImageBytes.hashCode : 'none'}',
+                                    'game_content_${value.systemName}_${value.gameId}_${value.gameScreenshot ?? 'none'}_${value.gameFanart ?? 'none'}_${value.gameWheel ?? 'none'}_${value.gameImageBytes != null ? value.gameImageBytes.hashCode : 'none'}_${value.mediaRevision}',
                                   ),
                                   fit: StackFit.expand,
                                   children: [
