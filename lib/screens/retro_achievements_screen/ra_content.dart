@@ -36,6 +36,28 @@ class _RAContentState extends State<RAContent> {
   void initState() {
     super.initState();
     _initTvMode();
+    _prefillUsername();
+    // Fetch the Game of the Week once on mount. Driving this from build()
+    // caused an infinite retry loop when offline: the fetch fails, gotwLoaded
+    // stays false, so every rebuild re-fired it and the Connect button
+    // flickered continuously as isLoading toggled.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final raProvider = context.read<RetroAchievementsProvider>();
+      if (!raProvider.gotwLoaded && !raProvider.isLoading) {
+        raProvider.fetchGOTW();
+      }
+    });
+  }
+
+  /// Pre-populates the username field with the last saved user so the form is
+  /// not blank after a failed auto-login (e.g. when the device is offline).
+  Future<void> _prefillUsername() async {
+    final saved = await RetroAchievementsRepository.getRAUser();
+    if (!mounted || saved == null || saved.isEmpty) return;
+    if (_usernameController.text.isEmpty) {
+      _usernameController.text = saved;
+    }
   }
 
   Future<void> _initTvMode() async {
@@ -116,13 +138,8 @@ class _RAContentState extends State<RAContent> {
   Widget build(BuildContext context) {
     return Consumer<RetroAchievementsProvider>(
       builder: (context, raProvider, child) {
-        // Trigger fetch achievement of the week if not loaded
-        if (!raProvider.gotwLoaded && !raProvider.isLoading) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            raProvider.fetchGOTW();
-          });
-        }
-
+        // GOTW is fetched once from initState — see the note there. Do NOT
+        // re-trigger it from build(); offline that spins an infinite loop.
         return Responsive(
           handheldXS: _buildLandscapeLayout(context, raProvider),
           handheldSmall: _buildLandscapeLayout(context, raProvider),

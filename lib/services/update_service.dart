@@ -37,7 +37,12 @@ class UpdateService {
       final currentVersion = await _getAppVersion();
 
       // 2. Poll GitHub API for the latest release metadata.
-      final response = await http.get(Uri.parse(_githubApiUrl));
+      // Bounded timeout so an offline/unreachable network fails fast instead of
+      // blocking the startup sequence (which defers the ROM scan until after the
+      // update checks complete).
+      final response = await http
+          .get(Uri.parse(_githubApiUrl))
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode != 200) {
         _log.e('UpdateService: API failure (Status: ${response.statusCode})');

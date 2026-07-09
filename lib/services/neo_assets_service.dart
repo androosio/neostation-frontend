@@ -161,12 +161,14 @@ class NeoAssetsService {
     if (_cachedThemes != null) return _cachedThemes!;
 
     try {
-      final response = await http.get(Uri.parse(_manifestUrl));
+      final response = await http
+          .get(Uri.parse(_manifestUrl))
+          .timeout(const Duration(seconds: 10));
       if (response.statusCode != 200) {
         _log.w(
           'Failed to fetch neostation-assets manifest: ${response.statusCode}',
         );
-        return [];
+        return _loadLocalThemes();
       }
       final json = jsonDecode(response.body) as Map<String, dynamic>;
       final baseList = (json['themes'] as List? ?? [])
@@ -185,7 +187,61 @@ class NeoAssetsService {
       _cachedThemes = list;
       return list;
     } catch (e) {
+      // Offline / unreachable manifest: fall back to themes already downloaded
+      // to the local cache so previously-installed themes stay selectable
+      // instead of the list collapsing to just "none". Not cached in
+      // _cachedThemes so a later online refresh in the same session still runs.
       _log.e('Error fetching themes: $e');
+      return _loadLocalThemes();
+    }
+  }
+
+  /// Enumerates themes already downloaded to the local cache directory.
+  ///
+  /// Used as an offline fallback for [fetchThemes]: each installed theme has a
+  /// `theme.json` written at download time, so any cache subdirectory
+  /// containing one is a usable theme even with no network connection.
+  static Future<List<NeoAssetsTheme>> _loadLocalThemes() async {
+    try {
+      final dir = Directory(await _cacheDir());
+      if (!await dir.exists()) return [];
+
+      final themes = <NeoAssetsTheme>[];
+      await for (final entity in dir.list()) {
+        if (entity is! Directory) continue;
+        final folder = path.basename(entity.path);
+        final metadataFile = File(path.join(entity.path, 'theme.json'));
+        if (!await metadataFile.exists()) continue;
+
+        Map<String, dynamic>? metadata;
+        try {
+          final decoded = jsonDecode(await metadataFile.readAsString());
+          if (decoded is Map<String, dynamic>) metadata = decoded;
+        } catch (_) {
+          // Corrupt metadata — still surface the folder as a selectable theme.
+        }
+
+        final name = metadata?['name']?.toString().trim();
+        themes.add(
+          NeoAssetsTheme(
+            name: (name != null && name.isNotEmpty) ? name : folder,
+            folder: folder,
+            previewUrl: '',
+            previewSource: '',
+            isAi: NeoAssetsTheme._parseAi(metadata?['ai']),
+          ),
+        );
+      }
+
+      themes.sort(
+        (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+      );
+      if (themes.isNotEmpty) {
+        _log.i('Loaded ${themes.length} theme(s) from local cache (offline)');
+      }
+      return themes;
+    } catch (e) {
+      _log.w('Error enumerating local themes: $e');
       return [];
     }
   }
@@ -391,11 +447,7 @@ class NeoAssetsService {
     int missing = 0;
     for (final system in systemFolderNames) {
       final bgWebp = await backgroundCachePath(themeFolder, system);
-      final bgGif = await backgroundCachePath(
-        themeFolder,
-        system,
-        ext: 'gif',
-      );
+      final bgGif = await backgroundCachePath(themeFolder, system, ext: 'gif');
       if (!await File(bgWebp).exists() && !await File(bgGif).exists()) {
         missing++;
       }
@@ -504,11 +556,7 @@ class NeoAssetsService {
     int done = 0;
     for (final system in systemFolderNames) {
       final bgWebp = await backgroundCachePath(themeFolder, system);
-      final bgGif = await backgroundCachePath(
-        themeFolder,
-        system,
-        ext: 'gif',
-      );
+      final bgGif = await backgroundCachePath(themeFolder, system, ext: 'gif');
       if (!await File(bgWebp).exists() && !await File(bgGif).exists()) {
         final bgUrl = getBackgroundUrl(themeFolder, system);
         var result = await downloadAndCacheAsset(bgUrl, bgWebp);
