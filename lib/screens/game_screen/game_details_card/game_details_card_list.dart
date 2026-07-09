@@ -85,6 +85,7 @@ class GameDetailsCardList extends StatefulWidget {
   final VoidCallback? onShowRandomGame;
   final VoidCallback? onGameUpdated;
   final VoidCallback? onFavoriteToggled;
+  final void Function(String romname)? onGameDeleted;
 
   /// Callback to register the primary trigger action (standard Gamepad A).
   final Function(VoidCallback)? onRegisterTriggerAction;
@@ -132,6 +133,7 @@ class GameDetailsCardList extends StatefulWidget {
     this.onShowRandomGame,
     this.onGameUpdated,
     this.onFavoriteToggled,
+    this.onGameDeleted,
     this.onRegisterTriggerAction,
     this.onRegisterSecondaryAction,
     this.onRegisterIsPlayingGameBlocked,
@@ -379,8 +381,7 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
   void _onRAProviderChanged() {
     if (!mounted || _isLoadingAchievements || _currentGameInfo != null) return;
     if (!_hasRetroAchievements) return;
-    if (widget.retroAchievementsProvider.isConnected &&
-        widget.retroAchievementsProvider.userSummary != null) {
+    if (widget.retroAchievementsProvider.isConnected) {
       _loadAchievementsForGame();
     }
   }
@@ -538,8 +539,7 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
     });
 
     try {
-      if (!widget.retroAchievementsProvider.isConnected ||
-          widget.retroAchievementsProvider.userSummary == null) {
+      if (!widget.retroAchievementsProvider.isConnected) {
         if (mounted) {
           setState(() {
             _currentGameInfo = null;
@@ -549,7 +549,7 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
         return;
       }
 
-      final summary = widget.retroAchievementsProvider.userSummary!;
+      final summary = widget.retroAchievementsProvider.userSummary;
 
       // Identify if the hardware system requires a specialized hash generation algorithm.
       final hasSpecificGenerator =
@@ -753,7 +753,7 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
           .trim()
           .toLowerCase();
 
-      for (final recentlyPlayed in summary.recentlyPlayed) {
+      for (final recentlyPlayed in summary?.recentlyPlayed ?? const []) {
         final raGameName = recentlyPlayed.title.toLowerCase();
         final normalizedRA = raGameName
             .replaceAll(RegExp(r'[^\w\s]'), '')
@@ -866,6 +866,7 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
                 syncProvider: widget.syncProvider,
                 isAllMode: widget.isAllMode,
                 onGameUpdated: widget.onGameUpdated,
+                onGameDeleted: widget.onGameDeleted,
               ),
             if (_currentTab == DetailTab.achievements)
               GameDetailsAchievementsTab(

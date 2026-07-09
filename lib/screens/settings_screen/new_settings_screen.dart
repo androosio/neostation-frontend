@@ -5,7 +5,9 @@ import 'package:flutter_localization/flutter_localization.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:neostation/l10n/app_locale.dart';
 import 'package:neostation/services/sfx_service.dart';
+import 'package:neostation/utils/adaptive_scroll.dart';
 import 'new_settings_options/general_settings_content.dart';
+import 'new_settings_options/secondary_settings_content.dart';
 import 'new_settings_options/directories_settings_content.dart';
 import 'new_settings_options/systems_settings_content.dart';
 import 'new_settings_options/launcher_settings_content.dart';
@@ -29,8 +31,10 @@ class NewSettingsScreen extends StatefulWidget {
   State<NewSettingsScreen> createState() => _NewSettingsScreenState();
 
   // Static Bridge: Provides delegation targets for external input managers.
-  static void navigateUp() => _currentInstance?._navigateUp();
-  static void navigateDown() => _currentInstance?._navigateDown();
+  /// Returns whether the selection moved (false when repeating at a list edge),
+  /// so callers can gate the nav sound.
+  static bool navigateUp() => _currentInstance?._navigateUp() ?? true;
+  static bool navigateDown() => _currentInstance?._navigateDown() ?? true;
   static void navigateLeft() => _currentInstance?._navigateLeft();
   static void navigateRight() => _currentInstance?._navigateRight();
   static void selectCurrent() => _currentInstance?._selectItem();
@@ -49,9 +53,27 @@ class _NewSettingsScreenState extends State<NewSettingsScreen> {
 
   final List<SettingsMenuItem> _menuItems = [];
 
+  /// Key attached to the currently-selected left-menu item, so it can be
+  /// scrolled into view (e.g. the bottom "Exit" entry on small displays).
+  final GlobalKey _selectedMenuItemKey = GlobalKey();
+
+  /// Snaps during rapid D-pad navigation, animates on a single move.
+  final AdaptiveScroller _menuScroller = AdaptiveScroller();
+
+  /// Brings the selected category menu item into view after the next frame.
+  void _scrollMenuToSelected() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ctx = _selectedMenuItemKey.currentContext;
+      if (ctx == null) return;
+      _menuScroller.ensureVisible(ctx);
+    });
+  }
+
   // Content Keys: Used for cross-component communication and scrolling orchestration.
   final GlobalKey<GeneralSettingsContentState> _generalSettingsKey =
       GlobalKey<GeneralSettingsContentState>();
+  final GlobalKey<SecondarySettingsContentState> _secondarySettingsKey =
+      GlobalKey<SecondarySettingsContentState>();
   final GlobalKey<PaletteSettingsContentState> _paletteSettingsKey =
       GlobalKey<PaletteSettingsContentState>();
   final GlobalKey<ThemesSettingsContentState> _themesSettingsKey =
@@ -83,9 +105,17 @@ class _NewSettingsScreenState extends State<NewSettingsScreen> {
     super.dispose();
   }
 
-  /// Populates the configuration categories for the side menu.
+  /// Tracks whether the menu currently includes the Secondary Display category,
+  /// so [build] can rebuild the menu when the secondary connection changes.
+  bool _menuIncludesSecondary = false;
+
+  /// Populates the configuration categories for the side menu. The Secondary
+  /// Display category is included only while a secondary display is active.
   void _initializeMenuItems() {
     _menuItems.clear();
+    _menuIncludesSecondary = context
+        .read<SqliteConfigProvider>()
+        .isSecondaryActive;
 
     _menuItems.add(
       SettingsMenuItem(
@@ -104,6 +134,17 @@ class _NewSettingsScreenState extends State<NewSettingsScreen> {
         isVisible: true,
       ),
     );
+
+    if (_menuIncludesSecondary) {
+      _menuItems.add(
+        SettingsMenuItem(
+          title: '',
+          localeKey: AppLocale.secondaryDisplay,
+          icon: Symbols.cast_rounded,
+          isVisible: true,
+        ),
+      );
+    }
 
     _menuItems.add(
       SettingsMenuItem(
@@ -167,27 +208,32 @@ class _NewSettingsScreenState extends State<NewSettingsScreen> {
   }
 
   /// Vertical Navigation Protocol: Handles wrap-around menu scrolling and content list progression.
-  void _navigateUp() {
+  ///
+  /// Returns whether the selection actually moved, so the caller can suppress
+  /// the nav sound when repeating against the start/end of a list.
+  bool _navigateUp() {
     if (_focusOnMenu) {
       setState(() {
         _selectedMenuIndex =
             (_selectedMenuIndex - 1 + _menuItems.length) % _menuItems.length;
       });
-      return;
+      _scrollMenuToSelected();
+      return true;
     }
 
     // Content-Specific Navigation Overrides.
     final selectedKey = _menuItems[_selectedMenuIndex].localeKey;
     if (selectedKey == AppLocale.palettes) {
       _paletteSettingsKey.currentState?.navigateUp();
-      return;
+      return true;
     }
     if (selectedKey == AppLocale.neoThemes) {
       _themesSettingsKey.currentState?.navigateUp();
-      return;
+      return true;
     }
 
     // Generic linear navigation within content lists.
+    final previousIndex = _selectedContentIndex;
     setState(() {
       _selectedContentIndex = (_selectedContentIndex - 1).clamp(
         0,
@@ -195,6 +241,7 @@ class _NewSettingsScreenState extends State<NewSettingsScreen> {
       );
     });
     _triggerContentScroll();
+    return _selectedContentIndex != previousIndex;
   }
 
   /// Orchestrates visual alignment in content views to maintain visibility of the focused item.
@@ -202,6 +249,8 @@ class _NewSettingsScreenState extends State<NewSettingsScreen> {
     final selectedKey = _menuItems[_selectedMenuIndex].localeKey;
     if (selectedKey == AppLocale.general) {
       _generalSettingsKey.currentState?.scrollToIndex(_selectedContentIndex);
+    } else if (selectedKey == AppLocale.secondaryDisplay) {
+      _secondarySettingsKey.currentState?.scrollToIndex(_selectedContentIndex);
     } else if (selectedKey == AppLocale.directories) {
       _directoriesSettingsKey.currentState?.scrollToIndex(
         _selectedContentIndex,
@@ -213,24 +262,26 @@ class _NewSettingsScreenState extends State<NewSettingsScreen> {
     }
   }
 
-  void _navigateDown() {
+  bool _navigateDown() {
     if (_focusOnMenu) {
       setState(() {
         _selectedMenuIndex = (_selectedMenuIndex + 1) % _menuItems.length;
       });
-      return;
+      _scrollMenuToSelected();
+      return true;
     }
 
     final selectedKey = _menuItems[_selectedMenuIndex].localeKey;
     if (selectedKey == AppLocale.palettes) {
       _paletteSettingsKey.currentState?.navigateDown();
-      return;
+      return true;
     }
     if (selectedKey == AppLocale.neoThemes) {
       _themesSettingsKey.currentState?.navigateDown();
-      return;
+      return true;
     }
 
+    final previousIndex = _selectedContentIndex;
     setState(() {
       _selectedContentIndex = (_selectedContentIndex + 1).clamp(
         0,
@@ -238,6 +289,7 @@ class _NewSettingsScreenState extends State<NewSettingsScreen> {
       );
     });
     _triggerContentScroll();
+    return _selectedContentIndex != previousIndex;
   }
 
   /// Leftward Navigation Protocol: Returns focus to the master menu from the detail panel.
@@ -304,6 +356,8 @@ class _NewSettingsScreenState extends State<NewSettingsScreen> {
     final selectedKey = _menuItems[_selectedMenuIndex].localeKey;
     if (selectedKey == AppLocale.general) {
       return _generalSettingsKey.currentState?.getItemCount() ?? 0;
+    } else if (selectedKey == AppLocale.secondaryDisplay) {
+      return _secondarySettingsKey.currentState?.getItemCount() ?? 0;
     } else if (selectedKey == AppLocale.palettes) {
       return _paletteSettingsKey.currentState?.getItemCount(context) ?? 0;
     } else if (selectedKey == AppLocale.neoThemes) {
@@ -333,6 +387,8 @@ class _NewSettingsScreenState extends State<NewSettingsScreen> {
       _themesSettingsKey.currentState?.selectItem(_selectedContentIndex);
     } else if (selectedKey == AppLocale.directories) {
       _directoriesSettingsKey.currentState?.selectItem(_selectedContentIndex);
+    } else if (selectedKey == AppLocale.secondaryDisplay) {
+      _secondarySettingsKey.currentState?.selectItem(_selectedContentIndex);
     } else if (selectedKey == AppLocale.systemsSettings) {
       final provider = context.read<SqliteConfigProvider>();
       _systemsSettingsKey.currentState?.selectItem(
@@ -373,6 +429,17 @@ class _NewSettingsScreenState extends State<NewSettingsScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
+    // Rebuild the side menu when the secondary connection changes so the
+    // Secondary Display category appears/disappears with it. Clamp the menu
+    // cursor in case the list shrank under it.
+    final secondaryActive = context
+        .watch<SqliteConfigProvider>()
+        .isSecondaryActive;
+    if (secondaryActive != _menuIncludesSecondary) {
+      _initializeMenuItems();
+      _selectedMenuIndex = _selectedMenuIndex.clamp(0, _menuItems.length - 1);
+    }
+
     return Container(
       color: Colors.transparent,
       padding: EdgeInsets.only(top: 46.r),
@@ -410,6 +477,7 @@ class _NewSettingsScreenState extends State<NewSettingsScreen> {
           final isSelected = _selectedMenuIndex == index;
 
           return Material(
+            key: isSelected ? _selectedMenuItemKey : null,
             color: Colors.transparent,
             child: InkWell(
               onTap: () {
@@ -494,6 +562,12 @@ class _NewSettingsScreenState extends State<NewSettingsScreen> {
     } else if (selectedKey == AppLocale.directories) {
       return DirectoriesSettingsContent(
         key: _directoriesSettingsKey,
+        isContentFocused: !_focusOnMenu,
+        selectedContentIndex: _selectedContentIndex,
+      );
+    } else if (selectedKey == AppLocale.secondaryDisplay) {
+      return SecondarySettingsContent(
+        key: _secondarySettingsKey,
         isContentFocused: !_focusOnMenu,
         selectedContentIndex: _selectedContentIndex,
       );

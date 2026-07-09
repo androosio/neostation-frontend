@@ -59,7 +59,7 @@ class AppNavigation {
   }
 }
 
-class AppScreenState extends State<AppScreen> {
+class AppScreenState extends State<AppScreen> with WidgetsBindingObserver {
   static final _log = LoggerService.instance;
 
   /// Currently active top-level navigation tab index.
@@ -89,6 +89,7 @@ class AppScreenState extends State<AppScreen> {
   void initState() {
     super.initState();
     _currentInstance = this;
+    WidgetsBinding.instance.addObserver(this);
 
     _tabContents = [
       SystemContent(), // Tab 0: Game Systems
@@ -150,41 +151,56 @@ class AppScreenState extends State<AppScreen> {
   Future<void> _performUpdateSequence(
     SqliteConfigProvider configProvider,
   ) async {
-    bool systemsUpdated = false;
+    // Fire the deferred startup scan IMMEDIATELY — it must never be gated behind
+    // the network update checks below. On a freshly rebooted device the network
+    // is often not up yet, so awaiting those checks (each guarded by ~10s
+    // timeouts) left the Systems tab completely blank until they timed out. The
+    // scan flips isScanning/isLoading, so the user sees a spinner then content.
+    final startupScanPending = configProvider.consumeStartupScan();
+    Future<void>? initialScan;
+    if (startupScanPending && configProvider.hasRomFolder && mounted) {
+      initialScan = configProvider.scanSystems();
+    }
 
+    unawaited(_fixRetroarchAndroidDefault());
+
+    // App update check (network) — runs alongside the scan, no longer blocking it.
     if (configProvider.config.autoUpdateApp) {
       final appUpdateResult = await _checkAndShowAppUpdate();
       if (appUpdateResult == true) {
-        // User chose Update Now — consume scan flag but don't scan now.
-        // User will restart after updating.
-        configProvider.consumeStartupScan();
+        // User chose Update Now and will restart; nothing more to do here.
         return;
       }
     }
 
+    // Systems/emulator config update check (network).
     if (configProvider.config.autoUpdateSystems) {
-      systemsUpdated = await _checkAndShowSystemsUpdate(configProvider);
+      final systemsUpdated = await _checkAndShowSystemsUpdate(configProvider);
+      if (systemsUpdated && mounted) {
+        // New definitions were applied — re-scan to reflect them. Wait for the
+        // initial scan to settle first, since scanSystems ignores concurrent calls.
+        await initialScan;
+        if (mounted) configProvider.scanSystems();
+      }
     }
-
-    final startupScanPending = configProvider.consumeStartupScan();
-    if ((systemsUpdated || startupScanPending) &&
-        configProvider.hasRomFolder &&
-        mounted) {
-      configProvider.scanSystems();
-    }
-
-    unawaited(_fixRetroarchAndroidDefault());
   }
 
   /// Detects which RetroArch variant the user has installed on Android and sets
   /// it as the default package for all systems. Priority order:
   ///   com.retroarch.aarch64 > com.retroarch > com.retroarch.ra32
+  ///
+  /// If no RetroArch is installed, clears RetroArch defaults so standalone
+  /// defaults (marked with [default_standalone] in JSON) take effect.
   Future<void> _fixRetroarchAndroidDefault() async {
     if (!Platform.isAndroid) return;
 
     try {
       final packages = await EmulatorRepository.getAndroidRetroArchPackages();
-      if (packages.isEmpty) return;
+      if (packages.isEmpty) {
+        await EmulatorRepository.clearRetroArchDefaultsForAndroid();
+        _log.i('Android: No RetroArch found, cleared RetroArch defaults');
+        return;
+      }
 
       const priorityOrder = [
         'com.retroarch.aarch64',
@@ -259,10 +275,30 @@ class AppScreenState extends State<AppScreen> {
   @override
   void dispose() {
     _currentInstance = null;
+    WidgetsBinding.instance.removeObserver(this);
     _themeProvider?.removeListener(_onThemeChanged);
     GamepadNavigationManager.popLayer('app_screen');
     _gamepadNav.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    // When NeoStation's own UI regains focus and no game is actually running,
+    // clear any stale Now Playing state left over from quitting mid-game. Use
+    // isGameLaunchInProgress (not isGameLaunched) so a transient resume during
+    // the launch dialog/handoff window — before _registerGameLaunch flips
+    // isGameLaunched ~2s in — can't clobber the Now Playing state we just
+    // pushed. This was the PSX/GameCube "no Now Playing" race.
+    if (state == AppLifecycleState.resumed &&
+        Platform.isAndroid &&
+        !GameService.isGameLaunchInProgress) {
+      Provider.of<SqliteConfigProvider>(
+        context,
+        listen: false,
+      ).resetSecondaryInGameState();
+    }
   }
 
   /// Synchronizes visual state with secondary display hardware (Android OEM targets).
@@ -338,28 +374,36 @@ class AppScreenState extends State<AppScreen> {
     }
   }
 
-  void _navigateContentDown() {
-    if (_selectedTabIndex == 0) return;
+  /// Returns whether the selection moved, so the gamepad handler can suppress
+  /// the nav sound when repeating against the start/end of a list.
+  bool _navigateContentDown() {
+    if (_selectedTabIndex == 0) return true;
+    if (_selectedTabIndex == 2) {
+      return RAContent.navigateDown();
+    }
     if (_selectedTabIndex == 3) {
       NewScraperOptionsScreen.navigateDown();
-      return;
+      return true;
     }
     if (_selectedTabIndex == 4) {
-      NewSettingsScreen.navigateDown();
-      return;
+      return NewSettingsScreen.navigateDown();
     }
+    return true;
   }
 
-  void _navigateContentUp() {
-    if (_selectedTabIndex == 0) return;
+  bool _navigateContentUp() {
+    if (_selectedTabIndex == 0) return true;
+    if (_selectedTabIndex == 2) {
+      return RAContent.navigateUp();
+    }
     if (_selectedTabIndex == 3) {
       NewScraperOptionsScreen.navigateUp();
-      return;
+      return true;
     }
     if (_selectedTabIndex == 4) {
-      NewSettingsScreen.navigateUp();
-      return;
+      return NewSettingsScreen.navigateUp();
     }
+    return true;
   }
 
   void _handleSettings() {

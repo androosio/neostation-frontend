@@ -21,6 +21,7 @@ import '../../services/music_player_service.dart';
 import '../../repositories/system_repository.dart';
 import '../../repositories/game_repository.dart';
 import '../../services/screenscraper_service.dart';
+import '../../services/secondary_achievements_controller.dart';
 import '../../utils/gamepad_nav.dart';
 import '../../utils/centered_scroll_controller.dart';
 import '../../providers/file_provider.dart';
@@ -115,11 +116,13 @@ Future<String?> loadLocalizedDescriptionInBackground(
 class SystemGamesList extends StatefulWidget {
   final SystemModel system;
   final FileProvider fileProvider;
+  final String? initialRomPath;
 
   const SystemGamesList({
     super.key,
     required this.system,
     required this.fileProvider,
+    this.initialRomPath,
   });
 
   @override
@@ -160,6 +163,12 @@ class _SystemGamesListState extends State<SystemGamesList> {
 
   // Secondary display hardware management (OEM support).
   SecondaryDisplayState? _secondaryDisplayState;
+
+  /// Drives the live RetroAchievements panel on the secondary display for the
+  /// duration of a launched game (push at launch, poll during play, stop on
+  /// return). Shared with the systems carousel/grid "Recent Games" launches.
+  final SecondaryAchievementsController _achievementsController =
+      SecondaryAchievementsController();
 
   bool _canPop = false;
 
@@ -238,13 +247,8 @@ class _SystemGamesListState extends State<SystemGamesList> {
     MusicPlayerService().addListener(_onMusicPlayerStateChanged);
 
     if (Platform.isAndroid) {
-      _secondaryDisplayState = SecondaryDisplayState();
-      _secondaryDisplayState!.addListener(() {
-        if (mounted) {
-          setState(() {});
-          _updateMusicDucking();
-        }
-      });
+      _secondaryDisplayState = SecondaryDisplayState.instance;
+      _secondaryDisplayState!.addListener(_onSecondaryDisplayChanged);
     }
   }
 
@@ -258,6 +262,13 @@ class _SystemGamesListState extends State<SystemGamesList> {
     _letterIndicatorTextShadow = primary;
   }
 
+  void _onSecondaryDisplayChanged() {
+    if (mounted) {
+      setState(() {});
+      _updateMusicDucking();
+    }
+  }
+
   @override
   void dispose() {
     // Detach listeners before disposal.
@@ -265,7 +276,9 @@ class _SystemGamesListState extends State<SystemGamesList> {
     _databaseProvider.removeListener(_onDatabaseUpdated);
     MusicPlayerService().removeListener(_onMusicPlayerStateChanged);
 
-    _secondaryDisplayState?.dispose();
+    // Shared singleton — detach our listener, never dispose the instance.
+    _secondaryDisplayState?.removeListener(_onSecondaryDisplayChanged);
+    _achievementsController.dispose();
 
     _cleanupResources();
     _backButtonFocusNode.dispose();
@@ -330,6 +343,11 @@ class _SystemGamesListState extends State<SystemGamesList> {
     final romPath = game.romPath;
     if (romPath == null) return;
     if (_scrapingGameRomnames.contains(romname)) return;
+
+    // Audible feedback when a scrape is initiated. The on-screen scrape
+    // button plays this via its own onTap, but the Select shortcut routes
+    // here directly, so play it here to keep both paths consistent.
+    SfxService().playNavSound();
 
     // Claim the lock synchronously, before any await, so rapid repeated
     // presses (the scrape button or the Select shortcut) can't slip past the
@@ -404,6 +422,14 @@ class _SystemGamesListState extends State<SystemGamesList> {
               // off whether a description is present).
               if (_selectedGame?.romname == romname) {
                 _loadLocalizedDescription();
+                // Push the freshly-scraped media to the secondary screen and
+                // the main background right away. The main list rebuilds from
+                // _selectedGame via setState, but the secondary window is a
+                // separate engine fed only through _updateSecondaryDisplay —
+                // without this it stays stale until the selection changes.
+                _updateBackground(updatedGame);
+                _updateSecondaryDisplay(updatedGame, forceMediaRefresh: true);
+                _updateSecondaryDisplayVideo(updatedGame);
               }
             }
           }
@@ -761,7 +787,16 @@ class _SystemGamesListState extends State<SystemGamesList> {
   }
 
   /// Synchronizes selection metadata and assets with secondary hardware displays.
-  void _updateSecondaryDisplay(GameModel game) async {
+  ///
+  /// [forceMediaRefresh] forces a push even when every media path is unchanged
+  /// and bumps [SecondaryDisplayStateData.mediaRevision]. Use it after a
+  /// re-scrape (forceOverwrite) rewrites the art in place: the paths stay the
+  /// same, so the dedup below would otherwise skip the update and the secondary
+  /// engine would keep showing the stale cached bitmap.
+  Future<void> _updateSecondaryDisplay(
+    GameModel game, {
+    bool forceMediaRefresh = false,
+  }) async {
     if (_secondaryDisplayState == null || _isNavigatingBack) return;
 
     final systemFolderName =
@@ -783,6 +818,12 @@ class _SystemGamesListState extends State<SystemGamesList> {
       _fileProvider,
     );
 
+    final wheelPath = game.getImagePath(
+      systemFolderName,
+      'wheels',
+      _fileProvider,
+    );
+
     final videoPath = _getVideoPath(game);
     final videoExists = await _fileProvider.fileExists(videoPath);
 
@@ -794,9 +835,12 @@ class _SystemGamesListState extends State<SystemGamesList> {
 
     final isMusicSystem = widget.system.folderName == 'music';
 
-    // State optimization: Skip updates if metadata remains identical.
+    // State optimization: Skip updates if metadata remains identical. A forced
+    // media refresh (post re-scrape) always pushes — the paths are unchanged
+    // but their bytes are not, so the secondary engine must be told to re-decode.
     final currentState = _secondaryDisplayState?.value;
     final bool shouldUpdate =
+        forceMediaRefresh ||
         currentState == null ||
         currentState.systemName != widget.system.realName ||
         currentState.gameId !=
@@ -815,6 +859,10 @@ class _SystemGamesListState extends State<SystemGamesList> {
                       : null)) ||
         currentState.gameVideo !=
             (isMusicSystem ? null : (videoExists ? videoPath : null)) ||
+        currentState.gameWheel !=
+            (isMusicSystem
+                ? null
+                : (File(wheelPath).existsSync() ? wheelPath : null)) ||
         currentState.isVideoMuted != isVideoMuted ||
         currentState.isGameLaunching != _isGameLaunching;
 
@@ -822,6 +870,7 @@ class _SystemGamesListState extends State<SystemGamesList> {
       final bool hasFanart = !isMusicSystem && File(fanartPath).existsSync();
       final bool hasScreenshot =
           !isMusicSystem && File(screenshotPath).existsSync();
+      final bool hasWheel = !isMusicSystem && File(wheelPath).existsSync();
 
       // ignore: unawaited_futures
       _secondaryDisplayState?.updateState(
@@ -830,8 +879,8 @@ class _SystemGamesListState extends State<SystemGamesList> {
         gameScreenshot: hasScreenshot ? screenshotPath : null,
         clearFanart: !hasFanart,
         clearScreenshot: !hasScreenshot,
-        gameWheel: null,
-        clearWheel: true,
+        gameWheel: hasWheel ? wheelPath : null,
+        clearWheel: !hasWheel,
         gameVideo: null, // Reset video state during active scrolling.
         clearVideo: true,
         gameImageBytes: null,
@@ -848,6 +897,14 @@ class _SystemGamesListState extends State<SystemGamesList> {
             ? MusicPlayerService().activeTrack?.romPath
             : game.romPath,
         isScraperLoggedIn: isScraperLoggedIn,
+        // Bump the revision on a forced refresh so the secondary engine evicts
+        // its now-stale cached bitmaps and re-decodes the same paths from disk.
+        mediaRevision: forceMediaRefresh
+            ? (currentState?.mediaRevision ?? 0) + 1
+            : null,
+        // Panel is shown only by the launch push / live poll; browsing and
+        // returning from a game hide it (it fades out on the secondary screen).
+        showAchievementPanel: false,
       );
     }
 
@@ -984,7 +1041,7 @@ class _SystemGamesListState extends State<SystemGamesList> {
           ? game.systemFolderName!
           : widget.system.id;
       final path =
-          'assets/images/systems/logos/$sysId.webp'; // Correcting to logo fallback for grid consistency.
+          'assets/images/logos/$sysId.webp'; // Correcting to logo fallback for grid consistency.
       imageProvider = AssetImage(path);
       imagePath = path;
     }
@@ -1083,19 +1140,15 @@ class _SystemGamesListState extends State<SystemGamesList> {
     // → bundled asset, themed background when present) so themed systems don't
     // flash the default logo here before the grid re-asserts its state on pop.
     final configProvider = context.read<SqliteConfigProvider>();
-    final neoAssets = context.read<NeoAssetsProvider>();
     final folder = widget.system.primaryFolderName;
 
     final String? customLogo = widget.system.customLogoPath?.isNotEmpty == true
         ? widget.system.customLogoPath
         : null;
-    final String? themeLogo = customLogo == null
-        ? neoAssets.getLogoForSystemSync(folder)
-        : null;
-    final systemLogo =
-        customLogo ?? themeLogo ?? 'assets/images/systems/logos/$folder.webp';
-    final bool isLogoAsset = customLogo == null && themeLogo == null;
+    final systemLogo = customLogo ?? 'assets/images/logos/$folder.webp';
+    final bool isLogoAsset = customLogo == null;
 
+    final neoAssets = context.read<NeoAssetsProvider>();
     final String? customBg = widget.system.customBackgroundPath;
     final bool hasCustomBg = customBg != null && customBg.isNotEmpty;
     final String? themeBg = hasCustomBg
@@ -1159,13 +1212,48 @@ class _SystemGamesListState extends State<SystemGamesList> {
   }
 
   /// Restores UI state and input focus after an external emulator process terminates.
+  /// Resolves the effective system folder name for a game, accounting for the
+  /// aggregate "all"/favorites views where each game carries its own system.
+  String _resolveSystemFolderName(GameModel game) {
+    return (widget.system.folderName == 'all' ||
+                widget.system.folderName == SystemFolderNames.favorites) &&
+            game.systemFolderName != null
+        ? game.systemFolderName!
+        : widget.system.primaryFolderName;
+  }
+
+  /// Resolves and pushes the launched game's achievement panel to the secondary
+  /// display, then keeps it live for the session. Delegates to the shared
+  /// [SecondaryAchievementsController]; no-op when there is no active secondary
+  /// display, RA is disconnected, or the game has no achievement set.
+  Future<void> _pushAchievementsForLaunch(GameModel game) {
+    final systemFolderName = _resolveSystemFolderName(game);
+    return _achievementsController.pushForLaunch(
+      state: _secondaryDisplayState,
+      provider: _retroAchievementsProvider,
+      game: game,
+      systemFolderName: systemFolderName,
+      boxartPath: SecondaryAchievementsController.resolveBoxart(
+        game,
+        systemFolderName,
+        _fileProvider,
+      ),
+    );
+  }
+
   void _reactivateGamepadNavigation() async {
     if (!mounted) return;
+
+    // Host re-pushes full game art below (hidePanel: false), which carries the
+    // panel-off flag, so the panel fades back to the art on return.
+    _achievementsController.stop();
 
     if (mounted) {
       setState(() {
         _isGameLaunching = false;
       });
+      // Returning from the game: hide the panel so it fades back to game art.
+      // Any unlocks were already surfaced live during play.
       if (_selectedGame != null) _updateSecondaryDisplay(_selectedGame!);
     }
 
@@ -1196,9 +1284,12 @@ class _SystemGamesListState extends State<SystemGamesList> {
       _log.e('Error refreshing game data after gameplay: $e');
     }
 
-    if (_refreshAchievementsCallback != null) {
-      _refreshAchievementsCallback!();
-    }
+    // Defer to after the games-list reload settles and the details card has
+    // re-registered its callback, otherwise this fires against the old/unmounted
+    // card and no-ops — which is why a manual refresh was previously needed.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _refreshAchievementsCallback?.call();
+    });
 
     // Trigger sync after returning from game so local save gets uploaded.
     if (_selectedGame != null && mounted) {
@@ -1409,7 +1500,21 @@ class _SystemGamesListState extends State<SystemGamesList> {
 
     // Resource termination and UI synchronization prior to process handoff.
     _stopVideoAndCleanup();
-    _updateSecondaryDisplay(_selectedGame!);
+    // NOTE: do NOT push a separate _updateSecondaryDisplay here. The game's
+    // media is already in the shared state from browsing, and a separate launch
+    // snapshot (carrying nowPlayingActive=false + isGameLaunching=true) can be
+    // delivered to the secondary engine AFTER the Now Playing push below and
+    // clobber it — the cross-engine transport gives no ordering guarantee. The
+    // launch push (_pushAchievementsForLaunch) now carries isGameLaunching
+    // itself, so it is the single authoritative launch write.
+    if (!mounted) return;
+
+    // Push the in-game RetroAchievements panel. Fired without awaiting so it
+    // never blocks the emulator handoff; it lands during launchGameWithDialog's
+    // ~2s foreground window, giving the secondary engine time to paint the
+    // panel and load badge art before the activity is backgrounded.
+    // ignore: unawaited_futures
+    _pushAchievementsForLaunch(_selectedGame!);
 
     // CRITICAL: Deactivate local input to avoid conflicts with external processes.
     _gamepadNav.deactivate();
@@ -1815,8 +1920,21 @@ class _SystemGamesListState extends State<SystemGamesList> {
           }
         }
 
-        // Persistent Selection Logic: Retain current index if the game still exists post-reload.
-        if (_selectedGame != null && widget.system.folderName != 'music') {
+        if (widget.initialRomPath != null &&
+            widget.initialRomPath!.isNotEmpty) {
+          final initialIndex = games.indexWhere(
+            (game) => game.romPath == widget.initialRomPath,
+          );
+          if (initialIndex != -1) {
+            _selectedGameIndex = initialIndex;
+            _selectedGame = games[initialIndex];
+          } else {
+            _selectedGameIndex = 0;
+            _selectedGame = games.isNotEmpty ? games.first : null;
+          }
+        } else if (_selectedGame != null &&
+            widget.system.folderName != 'music') {
+          // Persistent Selection Logic: Retain current index if the game still exists post-reload.
           final selectedIndex = games.indexWhere(
             (game) => game.romname == _selectedGame!.romname,
           );
@@ -2769,6 +2887,7 @@ class _SystemGamesListState extends State<SystemGamesList> {
         onBack: _goBack,
         onGameUpdated: _handleGameUpdated, // Sync UI after metadata edits.
         onFavoriteToggled: _handleFavoriteToggledFromCard,
+        onGameDeleted: _handleGameDeleted,
       ),
     );
   }
@@ -2790,6 +2909,42 @@ class _SystemGamesListState extends State<SystemGamesList> {
       }
     });
     _reorderGamesListKeepingVisualPosition();
+  }
+
+  /// Called after a game is permanently deleted. Removes it from the list and
+  /// selects the previous game (or the next one if at the start).
+  void _handleGameDeleted(String romname) {
+    if (_games.isEmpty) return;
+
+    _resetVideoState();
+
+    final deletedIndex = _games.indexWhere((g) => g.romname == romname);
+    if (deletedIndex == -1) return;
+
+    final previousIndex = deletedIndex > 0 ? deletedIndex - 1 : 0;
+
+    setState(() {
+      _games.removeWhere((g) => g.romname == romname);
+      _gameIndexMap = {for (int i = 0; i < _games.length; i++) _games[i]: i};
+
+      if (_games.isEmpty) {
+        _selectedGame = null;
+        _selectedGameIndex = 0;
+      } else {
+        final newIndex = previousIndex.clamp(0, _games.length - 1);
+        _selectedGame = _games[newIndex];
+        _selectedGameIndex = newIndex;
+      }
+    });
+
+    if (_games.isNotEmpty && _selectedGame != null) {
+      // The list view's didUpdateWidget already recenters the new selection
+      // when [_selectedGameIndex] changes, so an explicit scroll here is
+      // redundant and can cause conflicting animations.
+      _updateSecondaryDisplay(_selectedGame!);
+      _updateBackground(_selectedGame!);
+      _startVideoTimer();
+    }
   }
 
   /// Synchronizes the selected game's metadata and refreshes the list sorting.
@@ -2891,6 +3046,12 @@ class _GameListViewState extends State<GameListView>
       duration: duration,
       curve: curve,
     );
+  }
+
+  /// Immediately jumps to center on the item at [index] without animation.
+  /// Unlike [scrollToIndex], this executes synchronously.
+  void jumpToIndex(int index) {
+    _centeredScrollController.jumpToIndex(index);
   }
 
   @override
@@ -3011,6 +3172,7 @@ class _GameListViewState extends State<GameListView>
     final theme = Theme.of(context);
     final itemHeight = _itemHeightBase.r;
     final totalItemHeight = itemHeight;
+    _centeredScrollController.setItemExtent(totalItemHeight, paddingTop: 2.r);
 
     return Column(
       children: [

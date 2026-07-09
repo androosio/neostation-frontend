@@ -276,6 +276,21 @@ class SqliteMigrations {
       case 90:
         await _migrateToVersion90(db);
         break;
+      case 91:
+        await _migrateToVersion91(db);
+        break;
+      case 92:
+        await _migrateToVersion92(db);
+        break;
+      case 93:
+        await _migrateToVersion93(db);
+        break;
+      case 94:
+        await _migrateToVersion94(db);
+        break;
+      case 95:
+        await _migrateToVersion95(db);
+        break;
       default:
         _log.w('No migration defined for version $version');
     }
@@ -4541,6 +4556,140 @@ class SqliteMigrations {
       }
     } catch (e, stackTrace) {
       _log.e('Error in migration v90: $e');
+      _log.e('   StackTrace: $stackTrace');
+      rethrow;
+    }
+  }
+
+  /// Migration v91: Adds the secondary-display app-dock columns to user_config
+  /// (dock apps payload, enable flag, and slot count).
+  static Future<void> _migrateToVersion91(Database db) async {
+    _log.i('Migration v91: Adding dock columns to user_config');
+    try {
+      final tableInfo = db.select('PRAGMA table_info(user_config)');
+      final columns = tableInfo.map((c) => c['name'].toString()).toList();
+
+      if (!columns.contains('dock_apps')) {
+        db.execute('ALTER TABLE user_config ADD COLUMN dock_apps TEXT');
+        _log.i('Column dock_apps added via v91');
+      }
+      if (!columns.contains('dock_enabled')) {
+        db.execute(
+          'ALTER TABLE user_config ADD COLUMN dock_enabled INTEGER DEFAULT 1',
+        );
+        _log.i('Column dock_enabled added via v91');
+      }
+      if (!columns.contains('dock_slot_count')) {
+        db.execute(
+          'ALTER TABLE user_config ADD COLUMN dock_slot_count INTEGER DEFAULT 3',
+        );
+        _log.i('Column dock_slot_count added via v91');
+      }
+    } catch (e, stackTrace) {
+      _log.e('Error in migration v91: $e');
+      _log.e('   StackTrace: $stackTrace');
+      rethrow;
+    }
+  }
+
+  /// Migration v92: Adds the secondary Now Playing dim columns to user_config
+  /// (dim delay, dim darkness, and fanart dim level).
+  static Future<void> _migrateToVersion92(Database db) async {
+    _log.i('Migration v92: Adding dim columns to user_config');
+    try {
+      final tableInfo = db.select('PRAGMA table_info(user_config)');
+      final columns = tableInfo.map((c) => c['name'].toString()).toList();
+
+      if (!columns.contains('now_playing_dim_delay')) {
+        db.execute(
+          'ALTER TABLE user_config ADD COLUMN now_playing_dim_delay INTEGER DEFAULT 3',
+        );
+        _log.i('Column now_playing_dim_delay added via v92');
+      }
+      if (!columns.contains('now_playing_dim_level')) {
+        db.execute(
+          'ALTER TABLE user_config ADD COLUMN now_playing_dim_level INTEGER DEFAULT 100',
+        );
+        _log.i('Column now_playing_dim_level added via v92');
+      }
+      if (!columns.contains('fanart_dim_level')) {
+        db.execute(
+          'ALTER TABLE user_config ADD COLUMN fanart_dim_level INTEGER DEFAULT 25',
+        );
+        _log.i('Column fanart_dim_level added via v92');
+      }
+    } catch (e, stackTrace) {
+      _log.e('Error in migration v92: $e');
+      _log.e('   StackTrace: $stackTrace');
+      rethrow;
+    }
+  }
+
+  /// Migration v93: Adds `is_default_core` column to `app_emulators` to mark
+  /// which RetroArch core is the recommended default per variant (RA, RA32, RA64).
+  static Future<void> _migrateToVersion93(Database db) async {
+    _log.i('Migration v93: Adding is_default_core to app_emulators');
+    try {
+      final tableInfo = db.select('PRAGMA table_info(app_emulators)');
+      final columns = tableInfo.map((c) => c['name'].toString()).toList();
+
+      if (!columns.contains('is_default_core')) {
+        db.execute(
+          'ALTER TABLE app_emulators ADD COLUMN is_default_core INTEGER NOT NULL DEFAULT 0',
+        );
+        _log.i('Column is_default_core added via v93');
+      } else {
+        _log.i('Column is_default_core already exists');
+      }
+    } catch (e, stackTrace) {
+      _log.e('Error in migration v93: $e');
+      _log.e('   StackTrace: $stackTrace');
+      rethrow;
+    }
+  }
+
+  static Future<void> _migrateToVersion94(Database db) async {
+    // The RetroAchievements overhaul requires each user to supply their own
+    // username AND personal web API key. Older builds let users connect with a
+    // username alone (riding on the bundled build-time key), so any existing
+    // session must be invalidated on upgrade to force a fresh login. Clearing
+    // ra_user is sufficient: auto-login is skipped when no username is stored.
+    _log.i(
+      'Migration v94: Clearing saved RetroAchievements user to force '
+      're-login with a personal API key',
+    );
+    try {
+      final tableInfo = db.select('PRAGMA table_info(user_config)');
+      final columns = tableInfo.map((c) => c['name'].toString()).toList();
+
+      if (columns.contains('ra_user')) {
+        db.execute('UPDATE user_config SET ra_user = NULL');
+        _log.i('Cleared ra_user via v94');
+      } else {
+        _log.i('user_config has no ra_user column; nothing to clear in v94');
+      }
+    } catch (e, stackTrace) {
+      _log.e('Error in migration v94: $e');
+      _log.e('   StackTrace: $stackTrace');
+      rethrow;
+    }
+  }
+
+  static Future<void> _migrateToVersion95(Database db) async {
+    _log.i('Migration v95: Adding game_carousel_card_style to user_config');
+    try {
+      final tableInfo = db.select('PRAGMA table_info(user_config)');
+      final columns = tableInfo.map((c) => c['name'].toString()).toList();
+      if (!columns.contains('game_carousel_card_style')) {
+        db.execute(
+          "ALTER TABLE user_config ADD COLUMN game_carousel_card_style TEXT DEFAULT 'fanart'",
+        );
+        _log.i('Column game_carousel_card_style added via v95');
+      } else {
+        _log.i('Column game_carousel_card_style already exists');
+      }
+    } catch (e, stackTrace) {
+      _log.e('Error in migration v95: $e');
       _log.e('   StackTrace: $stackTrace');
       rethrow;
     }

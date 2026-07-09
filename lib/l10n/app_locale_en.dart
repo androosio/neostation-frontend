@@ -33,6 +33,7 @@ const Map<String, dynamic> appLocaleEn = {
 
   AppLocale.settings: 'Settings',
   AppLocale.general: 'General',
+  AppLocale.secondaryDisplay: 'Secondary Screen',
   AppLocale.directories: 'Directories',
   AppLocale.palettes: 'Palettes',
   AppLocale.neoThemes: 'Themes',
@@ -96,6 +97,28 @@ const Map<String, dynamic> appLocaleEn = {
   AppLocale.errorConfiguringRetroArchPath:
       'Error configuring RetroArch path: {error}',
   AppLocale.scanOnStartup: 'Scan folders on Startup',
+  AppLocale.nowPlayingDimAfter: 'Dim Now Playing after',
+  AppLocale.nowPlayingDimAfterSubtitle:
+      'Inactivity before the in-game panel dims on the secondary screen',
+  AppLocale.nowPlayingDimDarkness: 'Dim darkness',
+  AppLocale.nowPlayingDimDarknessSubtitle:
+      'How dark the in-game panel goes when it dims',
+  AppLocale.nowPlayingDimNever: 'Never',
+  AppLocale.nowPlayingDockEnabled: 'App dock',
+  AppLocale.nowPlayingDockEnabledSubtitle:
+      'Show the app dock on the secondary Now Playing panel',
+  AppLocale.nowPlayingDockSlots: 'Dock slots',
+  AppLocale.nowPlayingDockSlotsSubtitle:
+      'How many app slots the dock shows (1-5)',
+  AppLocale.nowPlayingFanartDim: 'Dim fanart',
+  AppLocale.nowPlayingFanartDimSubtitle:
+      'Darken the background art behind the logo so a busy fanart does not clash with it',
+  AppLocale.nowPlayingDimOff: 'Off',
+  AppLocale.secondarySectionNowPlaying: 'Now Playing panel',
+  AppLocale.secondarySectionDock: 'App dock',
+  AppLocale.screenshotAccess: 'Screen return & screenshots',
+  AppLocale.screenshotAccessSubtitle:
+      'Restores the Now Playing screen when you close an app opened from the dock, and lets the screenshot button capture the screen (opens Android accessibility settings)',
   AppLocale.scanOnStartupSubtitle:
       'Automatically scan ROM folders when the application starts',
   AppLocale.ignoreHiddenFiles: 'Ignore hidden items',
@@ -527,6 +550,10 @@ const Map<String, dynamic> appLocaleEn = {
   AppLocale.storagePermission: 'Storage Permission',
   AppLocale.storagePermissionDesc:
       'NeoStation needs "All Files Access" to manage your RetroArch configurations and sync your game saves correctly.\n\nPlease grant this permission in the next screen.',
+  AppLocale.screenReturnAccess: 'Screen Return Access',
+  AppLocale.screenReturnAccessDesc:
+      'Brings the Now Playing screen back when you close an app opened from the dock, and enables system screenshots. Only the foreground app name is read \u2014 no screen content is collected.',
+  AppLocale.screenReturnAccessHint: 'Turn on NeoStation, then tap Allow',
   AppLocale.selectRomFolder: 'Select ROM Folder',
   AppLocale.romFolderSelected: 'ROM folder selected!',
   AppLocale.chooseRomFolderDesc:
@@ -745,6 +772,16 @@ const Map<String, dynamic> appLocaleEn = {
       'Choose where scraped media, themes, and app data are stored',
   AppLocale.userDataLocationDefault: 'Default location',
   AppLocale.selectUserDataFolder: 'Select User Data Folder',
+  AppLocale.folderNotEmptyTitle: 'Folder Not Empty',
+  AppLocale.folderNotEmptyBody:
+      'This folder already contains {count} item(s). NeoStation will store its own data here, alongside the existing contents.',
+  AppLocale.folderNotEmptyUseAnyway: 'Use Anyway',
+  AppLocale.moveUserDataTitle: 'Move User Data?',
+  AppLocale.moveUserDataBody:
+      'NeoStation will move its own data — database, scraped media, and settings — from the current folder to the new one. Files not created by NeoStation are left untouched.',
+  AppLocale.moveUserDataDestNotEmpty:
+      'The new folder already contains {count} item(s). NeoStation data will be added alongside them.',
+  AppLocale.moveUserDataConfirm: 'Move Data',
   AppLocale.migratingUserData: 'Moving User Data',
   AppLocale.migratingUserDataComplete: 'Migration complete',
   AppLocale.migratingUserDataError: 'Migration failed',
@@ -757,4 +794,50 @@ const Map<String, dynamic> appLocaleEn = {
   AppLocale.romDirectories: 'ROM Directories',
   AppLocale.addRomFolder: 'Add ROM Folder',
   AppLocale.removeRomFolder: 'Remove',
+  AppLocale.resetPlayTimeConfirm: 'Reset Play Time',
+  AppLocale.resetPlayTimeConfirmBody:
+      'This will permanently reset the recorded play time for this game to zero. This cannot be undone.',
+  AppLocale.removeRomFolderConfirmBody:
+      'This will remove this ROM folder from your library sources. Your files on disk are not deleted.',
+  AppLocale.disconnectRaConfirm: 'Disconnect RetroAchievements',
+  AppLocale.disconnectRaConfirmBody:
+      'This will sign you out and remove your saved RetroAchievements credentials from this device.',
+  AppLocale.neoSyncLogoutConfirmBody:
+      'This will sign you out of your NeoSync account on this device.',
+
+  AppLocale.deleteGame: 'Delete Game',
+  AppLocale.deleteGameConfirm: 'Delete Forever',
+  AppLocale.deleteGameConfirmBody:
+      'This will permanently delete the game ROM, its scraped data, and media files. This action cannot be undone.',
+  AppLocale.deleteGameSubtitle: 'Permanently removes the ROM file from disk',
+  AppLocale.raCompletionsLabel: 'Completions',
+  AppLocale.raMasteriesLabel: 'Masteries',
+  AppLocale.raEarned: 'Earned',
+  AppLocale.raOwned: 'Owned',
+  AppLocale.raPointsAbbrev: 'pts',
+  AppLocale.raAlreadyEarned: 'You already earned this achievement',
+  AppLocale.raTapToOpenLocalGame: 'Tap to open local game details',
+  AppLocale.raRecentUnlocks: 'Recent Unlocks',
+  AppLocale.raRecentCompletions: 'Recent Completions',
+  AppLocale.raRecentMasteries: 'Recent Masteries',
+  AppLocale.raNoCompletionsYet: 'No completions yet',
+  AppLocale.raNoMasteriesYet: 'No masteries yet',
+  AppLocale.raTrackedGames: 'tracked games',
+  AppLocale.raCompletionLabel: 'Completion',
+  AppLocale.raMasteryLabel: 'Mastery',
+  AppLocale.raCouldNotResolveLocalSystem:
+      'Could not resolve the local system for this game',
+  AppLocale.raMissable: 'MISSABLE',
+  AppLocale.raComments: 'COMMENTS',
+  AppLocale.raCommentsCouldNotLoad: 'Comments could not be loaded.',
+  AppLocale.raNoCommentsYet: 'No comments yet.',
+  AppLocale.raOlderCommentsAvailable: 'Older comments are available.',
+  AppLocale.raLoadMore: 'LOAD MORE',
+  AppLocale.raRateLimited:
+      'RetroAchievements is busy right now. Please wait a moment and try again.',
+  AppLocale.raApiKey: 'API Key',
+  AppLocale.raEnterApiKey: 'Enter your API key',
+  AppLocale.raNoRecentUnlocks: 'No recent unlocks in the last 30 days',
+  AppLocale.raRecentlyPlayedTitle: 'Recently Played',
+  AppLocale.raNoRecentlyPlayed: 'No recently played games',
 };

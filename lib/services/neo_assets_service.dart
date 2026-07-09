@@ -451,9 +451,6 @@ class NeoAssetsService {
       if (!await File(bgWebp).exists() && !await File(bgGif).exists()) {
         missing++;
       }
-
-      final logoPath = await logoCachePath(themeFolder, system);
-      if (!await File(logoPath).exists()) missing++;
     }
     return missing;
   }
@@ -475,7 +472,7 @@ class NeoAssetsService {
         localVersion != remoteVersion;
 
     final totalAssetsToDownload = forceRedownload
-        ? systemFolderNames.length * 2
+        ? systemFolderNames.length
         : await countMissingThemeAssets(themeFolder, systemFolderNames);
 
     return ThemeDownloadPlan(
@@ -532,13 +529,10 @@ class NeoAssetsService {
       await clearThemeCache(themeFolder);
     }
 
-    final total = systemFolderNames.length * 2;
+    final total = systemFolderNames.length;
     int done = 0;
     for (final system in systemFolderNames) {
       await getCachedBackground(themeFolder, system);
-      done++;
-      onProgress?.call(done, total);
-      await getCachedLogo(themeFolder, system);
       done++;
       onProgress?.call(done, total);
     }
@@ -564,14 +558,6 @@ class NeoAssetsService {
           final gifUrl = getBackgroundUrl(themeFolder, system, ext: 'gif');
           await downloadAndCacheAsset(gifUrl, bgGif);
         }
-        done++;
-        onProgress?.call(done, missingTotal);
-      }
-
-      final logoPath = await logoCachePath(themeFolder, system);
-      if (!await File(logoPath).exists()) {
-        final logoUrl = getLogoUrl(themeFolder, system);
-        await downloadAndCacheAsset(logoUrl, logoPath);
         done++;
         onProgress?.call(done, missingTotal);
       }

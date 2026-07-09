@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_localization/flutter_localization.dart';
 import 'package:neostation/services/logger_service.dart';
+import 'package:neostation/services/screenshot_service.dart';
 import 'package:neostation/services/sfx_service.dart';
 import '../models/system_model.dart';
 import '../models/config_model.dart';
@@ -47,6 +48,8 @@ class SqliteConfigProvider extends ChangeNotifier {
   bool _initialized = false;
   SecondaryDisplayState? _secondaryDisplayState;
   int _lastMuteToggleTrigger = 0;
+  int _lastScreenshotTrigger = 0;
+  int _lastDockEditTrigger = 0;
   bool _hasAllFilesAccess = false;
   Set<String> _hiddenSystems = {};
 
@@ -85,7 +88,10 @@ class SqliteConfigProvider extends ChangeNotifier {
       .toList();
   List<SystemModel> get availableSystems => _availableSystems;
   Map<String, EmulatorModel> get availableEmulators => _availableEmulators;
-  bool get isLoading => _isLoading;
+  // Treat a deferred startup scan as a loading state so the home screen shows a
+  // spinner — not a blank screen — between initialization completing and the
+  // scan actually starting (see fix/cold-boot-empty-home).
+  bool get isLoading => _isLoading || _pendingStartupScan;
   bool get isScanning => _isScanning;
   String? get error => _error;
   bool get isScanningRoms => _isScanningRoms;
@@ -93,6 +99,11 @@ class SqliteConfigProvider extends ChangeNotifier {
 
   /// The shared secondary display state instance (null on non-Android platforms).
   SecondaryDisplayState? get secondaryDisplayState => _secondaryDisplayState;
+
+  /// True when a secondary display is currently active (connected and not
+  /// hidden). Drives visibility of secondary-only settings.
+  bool get isSecondaryActive =>
+      _secondaryDisplayState?.value?.isSecondaryActive ?? false;
 
   /// True when a startup scan was requested but deferred for update checks.
   bool get pendingStartupScan => _pendingStartupScan;
@@ -176,7 +187,12 @@ class SqliteConfigProvider extends ChangeNotifier {
       _initialized = true;
 
       if (Platform.isAndroid) {
-        _secondaryDisplayState = SecondaryDisplayState();
+        _secondaryDisplayState = SecondaryDisplayState.instance;
+        // Idempotent: reinitialize() can re-run initialize() (first-launch
+        // custom data dir). Since the state is now a shared singleton that is
+        // never disposed, remove any prior registration before re-adding so a
+        // second init can't accumulate a duplicate listener.
+        _secondaryDisplayState!.removeListener(_onSecondaryStateChanged);
         _secondaryDisplayState!.addListener(_onSecondaryStateChanged);
 
         _secondaryDisplayChannel.setMethodCallHandler(
@@ -185,6 +201,33 @@ class SqliteConfigProvider extends ChangeNotifier {
 
         // Initial permission check
         await refreshAllFilesAccess();
+        // Seed the secondary display with the current screenshot-access state so
+        // its in-game screenshot button shows from a cold start (not just after
+        // visiting settings or reconnecting the display).
+        await refreshSecondaryScreenshotAccess();
+        // The main engine can restart while the secondary engine persists (its
+        // cached engine group survives), leaving a stale Now Playing panel from
+        // a game that was running at quit. Clear it once the state is synced so
+        // we overwrite (not race) the retained shared state. No game is active
+        // at startup. A null value means the sync is still pending (initialSync
+        // is only assigned in that case, so it's safe to await).
+        if (_secondaryDisplayState!.value == null) {
+          await _secondaryDisplayState!.initialSync;
+        }
+        resetSecondaryInGameState();
+        // Seed the app-dock slots and the dim settings so the dock and the
+        // fanart/Now Playing dimming render from a cold start. The secondary's
+        // display-connect event doesn't fire when the panel is already attached
+        // at boot, so without this seed the state keeps its defaults and the
+        // persisted dim levels never reach the second screen.
+        _secondaryDisplayState!.updateState(
+          dockApps: _config.dockApps,
+          dockEnabled: _config.dockEnabled,
+          dockSlotCount: _config.dockSlotCount,
+          nowPlayingDimDelay: _config.nowPlayingDimDelay,
+          nowPlayingDimLevel: _config.nowPlayingDimLevel,
+          fanartDimLevel: _config.fanartDimLevel,
+        );
       }
 
       // Automatically scan if there are ROM folders configured AND we have permissions
@@ -1278,6 +1321,69 @@ class SqliteConfigProvider extends ChangeNotifier {
     await updateVideoSound(!_config.videoSound);
   }
 
+  /// Sets the inactivity delay (seconds) before the secondary Now Playing panel
+  /// dims; `0` disables dimming. Persists and pushes the value to the secondary
+  /// display.
+  Future<void> updateNowPlayingDimDelay(int seconds) async {
+    _config = _config.copyWith(nowPlayingDimDelay: seconds);
+    await SqliteConfigService.saveConfig(_config);
+    _secondaryDisplayState?.updateState(nowPlayingDimDelay: seconds);
+    notifyListeners();
+  }
+
+  /// Sets how dark the secondary Now Playing panel goes when dimmed (0–100%).
+  /// Persists and pushes the value to the secondary display.
+  Future<void> updateNowPlayingDimLevel(int percent) async {
+    final clamped = percent.clamp(0, 100);
+    _config = _config.copyWith(nowPlayingDimLevel: clamped);
+    await SqliteConfigService.saveConfig(_config);
+    _secondaryDisplayState?.updateState(nowPlayingDimLevel: clamped);
+    notifyListeners();
+  }
+
+  /// Sets how much the game fanart/background art is dimmed behind the logo on
+  /// the secondary screen (percentage 0–100, 0 = off). Persists and pushes it.
+  Future<void> updateFanartDimLevel(int percent) async {
+    final clamped = percent.clamp(0, 100);
+    _config = _config.copyWith(fanartDimLevel: clamped);
+    await SqliteConfigService.saveConfig(_config);
+    _secondaryDisplayState?.updateState(fanartDimLevel: clamped);
+    notifyListeners();
+  }
+
+  /// Persists the secondary app-dock slot assignments (one package name per
+  /// slot, empty string = free) and pushes them to the secondary display.
+  Future<void> updateDockApps(List<String> apps) async {
+    final normalized = ConfigModel.normalizeDock(apps);
+    _config = _config.copyWith(dockApps: normalized);
+    await SqliteConfigService.saveConfig(_config);
+    _secondaryDisplayState?.updateState(dockApps: normalized);
+    notifyListeners();
+  }
+
+  /// Enables or disables the secondary Now Playing app dock. Persists and
+  /// pushes the value to the secondary display.
+  Future<void> updateDockEnabled(bool enabled) async {
+    _config = _config.copyWith(dockEnabled: enabled);
+    await SqliteConfigService.saveConfig(_config);
+    _secondaryDisplayState?.updateState(dockEnabled: enabled);
+    notifyListeners();
+  }
+
+  /// Sets how many secondary dock slots are visible, clamped to
+  /// [ConfigModel.dockMinSlotCount]–[ConfigModel.dockMaxSlotCount]. Persists and
+  /// pushes the value to the secondary display.
+  Future<void> updateDockSlotCount(int count) async {
+    final clamped = count.clamp(
+      ConfigModel.dockMinSlotCount,
+      ConfigModel.dockMaxSlotCount,
+    );
+    _config = _config.copyWith(dockSlotCount: clamped);
+    await SqliteConfigService.saveConfig(_config);
+    _secondaryDisplayState?.updateState(dockSlotCount: clamped);
+    notifyListeners();
+  }
+
   /// Marks the initial application onboarding as completed.
   Future<void> completeSetup() async {
     _config = _config.copyWith(setupCompleted: true);
@@ -1306,8 +1412,15 @@ class SqliteConfigProvider extends ChangeNotifier {
           hideBottomScreen: value,
           backgroundColor: backgroundColor ?? current.backgroundColor,
           muteToggleTrigger: current.muteToggleTrigger,
-          isSecondaryActive: value ? false : current.isSecondaryActive,
+          // Hiding deactivates the secondary; un-hiding reactivates it. Mirror
+          // the toggle directly — preserving the prior value would leave it
+          // stuck inactive, since hiding has already forced it false.
+          isSecondaryActive: !value,
         );
+        if (!value) {
+          // ignore: unawaited_futures
+          refreshSecondaryScreenshotAccess();
+        }
       }
     }
 
@@ -1337,6 +1450,14 @@ class SqliteConfigProvider extends ChangeNotifier {
         _log.i('Secondary display disconnected');
         _onSecondaryDisplayChanged(connected: false);
         break;
+      case 'onAccessibilityConnected':
+        // The user just enabled the Screen Return service (e.g. via the in-game
+        // launcher nudge). Re-push access state so the secondary display clears
+        // the launcher warning badge and reveals the screenshot button — this
+        // fires even while a game keeps the main engine backgrounded.
+        // ignore: unawaited_futures
+        refreshSecondaryScreenshotAccess();
+        break;
     }
   }
 
@@ -1345,7 +1466,17 @@ class SqliteConfigProvider extends ChangeNotifier {
     if (_secondaryDisplayState == null) return;
 
     if (connected && !_config.hideBottomScreen) {
-      _secondaryDisplayState!.updateState(isSecondaryActive: true);
+      _secondaryDisplayState!.updateState(
+        isSecondaryActive: true,
+        nowPlayingDimDelay: _config.nowPlayingDimDelay,
+        nowPlayingDimLevel: _config.nowPlayingDimLevel,
+        fanartDimLevel: _config.fanartDimLevel,
+        dockApps: _config.dockApps,
+        dockEnabled: _config.dockEnabled,
+        dockSlotCount: _config.dockSlotCount,
+      );
+      // ignore: unawaited_futures
+      refreshSecondaryScreenshotAccess();
     } else {
       _secondaryDisplayState!.updateState(isSecondaryActive: false);
     }
@@ -1378,7 +1509,52 @@ class SqliteConfigProvider extends ChangeNotifier {
         // ignore: unawaited_futures
         toggleVideoSound();
       }
+      if (state.screenshotTrigger > _lastScreenshotTrigger) {
+        _lastScreenshotTrigger = state.screenshotTrigger;
+        // ignore: unawaited_futures
+        _handleSecondaryScreenshotRequest();
+      }
+      if (state.dockEditTrigger > _lastDockEditTrigger) {
+        _lastDockEditTrigger = state.dockEditTrigger;
+        // The secondary already shows the new layout; persist it on the main
+        // engine (the source of truth for SQLite).
+        // ignore: unawaited_futures
+        updateDockApps(state.dockApps);
+      }
     }
+  }
+
+  /// Responds to a screenshot request from the secondary display: fires a system
+  /// screenshot of the main screen, or opens accessibility settings if the user
+  /// hasn't granted screenshot access yet.
+  Future<void> _handleSecondaryScreenshotRequest() async {
+    final taken = await ScreenshotService.takeScreenshot();
+    if (!taken) {
+      await ScreenshotService.openAccessSettings();
+    }
+  }
+
+  /// Clears any stale in-game state on the secondary display. Used when the app
+  /// regains focus without an active game (e.g. after quitting mid-game and
+  /// relaunching), so the Now Playing panel doesn't linger.
+  void resetSecondaryInGameState() {
+    _secondaryDisplayState?.updateState(
+      nowPlayingActive: false,
+      showAchievementPanel: false,
+    );
+  }
+
+  /// Pushes a known screenshot-access state to the secondary display so it can
+  /// show or hide the in-game screenshot button.
+  void pushScreenshotAccess(bool enabled) {
+    _secondaryDisplayState?.updateState(screenshotAccessEnabled: enabled);
+  }
+
+  /// Checks current screenshot access and pushes it to the secondary display.
+  Future<void> refreshSecondaryScreenshotAccess() async {
+    if (_secondaryDisplayState == null) return;
+    final enabled = await ScreenshotService.isAccessEnabled();
+    _secondaryDisplayState!.updateState(screenshotAccessEnabled: enabled);
   }
 
   /// Re-applies the persisted secondary display visibility setting to the native
@@ -1437,7 +1613,12 @@ class SqliteConfigProvider extends ChangeNotifier {
     final isAsc = _config.systemSortOrder == 'asc';
 
     // Map priority folders that should NEVER be sorted
-    final priorityMap = <String, int>{'all': 1, 'music': 2, 'android': 3};
+    final priorityMap = <String, int>{
+      'all': 1,
+      'favorites': 2,
+      'music': 3,
+      'android': 4,
+    };
 
     _detectedSystems.sort((a, b) {
       final pA = priorityMap[a.folderName] ?? 999;

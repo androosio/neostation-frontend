@@ -56,6 +56,7 @@ mixin AppLocale {
   // ---------------------------------------------------------------------------
   static const String settings = 'settings';
   static const String general = 'general';
+  static const String secondaryDisplay = 'secondary_display';
   static const String directories = 'directories';
   static const String palettes = 'palettes';
   static const String neoThemes = 'neo_themes';
@@ -117,6 +118,28 @@ mixin AppLocale {
       'error_configuring_retroarch_path';
   static const String scanOnStartup = 'scan_on_startup';
   static const String scanOnStartupSubtitle = 'scan_on_startup_subtitle';
+  static const String nowPlayingDimAfter = 'now_playing_dim_after';
+  static const String nowPlayingDimAfterSubtitle =
+      'now_playing_dim_after_subtitle';
+  static const String nowPlayingDimDarkness = 'now_playing_dim_darkness';
+  static const String nowPlayingDimDarknessSubtitle =
+      'now_playing_dim_darkness_subtitle';
+  static const String nowPlayingDimNever = 'now_playing_dim_never';
+  static const String nowPlayingDockEnabled = 'now_playing_dock_enabled';
+  static const String nowPlayingDockEnabledSubtitle =
+      'now_playing_dock_enabled_subtitle';
+  static const String nowPlayingDockSlots = 'now_playing_dock_slots';
+  static const String nowPlayingDockSlotsSubtitle =
+      'now_playing_dock_slots_subtitle';
+  static const String nowPlayingFanartDim = 'now_playing_fanart_dim';
+  static const String nowPlayingFanartDimSubtitle =
+      'now_playing_fanart_dim_subtitle';
+  static const String nowPlayingDimOff = 'now_playing_dim_off';
+  static const String secondarySectionNowPlaying =
+      'secondary_section_now_playing';
+  static const String secondarySectionDock = 'secondary_section_dock';
+  static const String screenshotAccess = 'screenshot_access';
+  static const String screenshotAccessSubtitle = 'screenshot_access_subtitle';
   static const String ignoreHiddenFiles = 'ignore_hidden_files';
   static const String ignoreHiddenFilesSubtitle =
       'ignore_hidden_files_subtitle';
@@ -523,6 +546,9 @@ mixin AppLocale {
   static const String letsGetSetup = 'lets_get_setup';
   static const String storagePermission = 'storage_permission';
   static const String storagePermissionDesc = 'storage_permission_desc';
+  static const String screenReturnAccess = 'screen_return_access';
+  static const String screenReturnAccessDesc = 'screen_return_access_desc';
+  static const String screenReturnAccessHint = 'screen_return_access_hint';
   static const String selectRomFolder = 'select_rom_folder';
   static const String romFolderSelected = 'rom_folder_selected';
   static const String chooseRomFolderDesc = 'choose_rom_folder_desc';
@@ -773,11 +799,23 @@ mixin AppLocale {
   static const String userDataLocationSubtitle = 'user_data_location_subtitle';
   static const String userDataLocationDefault = 'user_data_location_default';
   static const String selectUserDataFolder = 'select_user_data_folder';
+  static const String folderNotEmptyTitle = 'folder_not_empty_title';
+  static const String folderNotEmptyBody = 'folder_not_empty_body';
+  static const String folderNotEmptyUseAnyway = 'folder_not_empty_use_anyway';
+  static const String moveUserDataTitle = 'move_user_data_title';
+  static const String moveUserDataBody = 'move_user_data_body';
+  static const String moveUserDataDestNotEmpty =
+      'move_user_data_dest_not_empty';
+  static const String moveUserDataConfirm = 'move_user_data_confirm';
   static const String migratingUserData = 'migrating_user_data';
   static const String migratingUserDataComplete =
       'migrating_user_data_complete';
   static const String migratingUserDataError = 'migrating_user_data_error';
   static const String migratingFiles = 'migrating_files';
+  static const String deleteGame = 'delete_game';
+  static const String deleteGameConfirm = 'delete_game_confirm';
+  static const String deleteGameConfirmBody = 'delete_game_confirm_body';
+  static const String deleteGameSubtitle = 'delete_game_subtitle';
   static const String restartRequired = 'restart_required';
   static const String restartRequiredBody = 'restart_required_body';
   static const String userDataLocationUpdated = 'user_data_location_updated';
@@ -785,6 +823,45 @@ mixin AppLocale {
   static const String romDirectories = 'rom_directories';
   static const String addRomFolder = 'add_rom_folder';
   static const String removeRomFolder = 'remove_rom_folder';
+
+  // Destructive-action confirmation prompts
+  static const String resetPlayTimeConfirm = 'reset_play_time_confirm';
+  static const String resetPlayTimeConfirmBody = 'reset_play_time_confirm_body';
+  static const String removeRomFolderConfirmBody = 'remove_rom_folder_confirm_body';
+  static const String disconnectRaConfirm = 'disconnect_ra_confirm';
+  static const String disconnectRaConfirmBody = 'disconnect_ra_confirm_body';
+  static const String neoSyncLogoutConfirmBody = 'neo_sync_logout_confirm_body';
+
+  // RetroAchievements dashboard & achievement comments
+  static const String raCompletionsLabel = 'ra_completions_label';
+  static const String raMasteriesLabel = 'ra_masteries_label';
+  static const String raEarned = 'ra_earned';
+  static const String raOwned = 'ra_owned';
+  static const String raPointsAbbrev = 'ra_points_abbrev';
+  static const String raAlreadyEarned = 'ra_already_earned';
+  static const String raTapToOpenLocalGame = 'ra_tap_to_open_local_game';
+  static const String raRecentUnlocks = 'ra_recent_unlocks';
+  static const String raRecentCompletions = 'ra_recent_completions';
+  static const String raRecentMasteries = 'ra_recent_masteries';
+  static const String raNoCompletionsYet = 'ra_no_completions_yet';
+  static const String raNoMasteriesYet = 'ra_no_masteries_yet';
+  static const String raTrackedGames = 'ra_tracked_games';
+  static const String raCompletionLabel = 'ra_completion_label';
+  static const String raMasteryLabel = 'ra_mastery_label';
+  static const String raCouldNotResolveLocalSystem =
+      'ra_could_not_resolve_local_system';
+  static const String raMissable = 'ra_missable';
+  static const String raComments = 'ra_comments';
+  static const String raCommentsCouldNotLoad = 'ra_comments_could_not_load';
+  static const String raNoCommentsYet = 'ra_no_comments_yet';
+  static const String raOlderCommentsAvailable = 'ra_older_comments_available';
+  static const String raLoadMore = 'ra_load_more';
+  static const String raRateLimited = 'ra_rate_limited';
+  static const String raApiKey = 'ra_api_key';
+  static const String raEnterApiKey = 'ra_enter_api_key';
+  static const String raNoRecentUnlocks = 'ra_no_recent_unlocks';
+  static const String raRecentlyPlayedTitle = 'ra_recently_played_title';
+  static const String raNoRecentlyPlayed = 'ra_no_recently_played';
 
   // ==========================================================================
   // Localization Maps

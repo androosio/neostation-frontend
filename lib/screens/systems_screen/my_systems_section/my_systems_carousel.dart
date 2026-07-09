@@ -22,6 +22,8 @@ import '../../game_screen/android_apps/android_apps_grid.dart';
 import 'package:neostation/sync/sync_manager.dart';
 import 'package:neostation/providers/neo_assets_provider.dart';
 import 'package:neostation/providers/palette_provider.dart';
+import 'package:neostation/providers/retro_achievements_provider.dart';
+import 'package:neostation/services/secondary_achievements_controller.dart';
 import '../../game_screen/my_games_list.dart';
 import '../../../widgets/shaders/shader_gif_widget.dart';
 import '../../../widgets/shaders/music_card_shader_background.dart';
@@ -62,6 +64,11 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
   /// Active selection index within the carousel.
   int _currentIndex = 0;
 
+  /// Fractional carousel page position, updated continuously while scrolling.
+  /// Drives the bottom indicator cursor so it tracks the carousel image in
+  /// lock-step instead of lagging until the page settles.
+  final ValueNotifier<double> _pageOffsetNotifier = ValueNotifier(0.0);
+
   /// Hardware navigation manager for this specific view layer.
   late GamepadNavigation _gamepadNav;
 
@@ -76,6 +83,11 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
 
   SecondaryDisplayState? _secondaryDisplayState;
 
+  /// Drives the live RetroAchievements panel on the secondary display for games
+  /// launched directly from the "Recent Games" cards.
+  final SecondaryAchievementsController _achievementsController =
+      SecondaryAchievementsController();
+
   /// In-memory cache for resolved ID3v2 album art.
   Uint8List? _resolvedMusicCoverBytes;
   bool _isResolvingMusicCover = false;
@@ -84,7 +96,6 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
 
   /// Asset mapping caches for the active theme.
   final Map<String, String?> _themeBackgrounds = {};
-  final Map<String, String?> _themeLogos = {};
   String _lastThemeFolder = '';
   final bool _loadingThemeAssets = false;
 
@@ -98,14 +109,21 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
   /// firing redundant postFrameCallbacks on every build.
   int _lastBackgroundBuildIndex = -1;
 
+  /// Cached systems list and indicator-label widths from the last build.
+  /// The continuous scroll handler (fired every frame while swiping) reads
+  /// these instead of rebuilding the list + re-measuring text every frame.
+  List<SystemInfo>? _cachedSystems;
+  List<double>? _cachedWidths;
+
   @override
   void initState() {
     super.initState();
     _currentIndex = widget.selectedIndex;
+    _pageOffsetNotifier.value = _currentIndex.toDouble();
     _initializeGamepad();
 
     if (Platform.isAndroid) {
-      _secondaryDisplayState = SecondaryDisplayState();
+      _secondaryDisplayState = SecondaryDisplayState.instance;
       _secondaryDisplayState!.addListener(_onSecondaryStateChanged);
     }
 
@@ -131,10 +149,15 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
   void _onSecondaryStateChanged() {
     if (!mounted) return;
     final isActive = _secondaryDisplayState?.value?.isSecondaryActive ?? false;
-    if (isActive && !_prevIsSecondaryActive) {
+    final wasActive = _prevIsSecondaryActive;
+    // Update the guard BEFORE calling _updateSecondaryScreenName(): that call
+    // writes secondary state synchronously, which re-enters this listener. If
+    // the flag were still false on re-entry the guard would pass again, looping
+    // until the stack overflows. Setting it first makes the re-entry a no-op.
+    _prevIsSecondaryActive = isActive;
+    if (isActive && !wasActive) {
       _updateSecondaryScreenName();
     }
-    _prevIsSecondaryActive = isActive;
   }
 
   @override
@@ -155,10 +178,12 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
   @override
   void dispose() {
     _musicPlayerService.removeListener(_handleMusicStateChanged);
+    // Shared singleton — detach our listener, never dispose the instance.
     _secondaryDisplayState?.removeListener(_onSecondaryStateChanged);
     _cleanupGamepad();
+    _pageOffsetNotifier.dispose();
     _scrollController.dispose();
-    _secondaryDisplayState?.dispose();
+    _achievementsController.dispose();
     super.dispose();
   }
 
@@ -359,6 +384,24 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
 
         final syncProvider = context.read<SyncManager>().active!;
 
+        // Push the in-game RetroAchievements panel to the secondary display.
+        // Fired without awaiting so it never blocks the emulator handoff; it
+        // lands during launchGameWithDialog's foreground window, overlaying the
+        // recent game's art until the game exits.
+        final boxartPath = SecondaryAchievementsController.resolveBoxart(
+          systemInfo.gameModel!,
+          gameSystemModel.primaryFolderName,
+          fileProvider,
+        );
+        // ignore: unawaited_futures
+        _achievementsController.pushForLaunch(
+          state: _secondaryDisplayState,
+          provider: context.read<RetroAchievementsProvider>(),
+          game: systemInfo.gameModel!,
+          systemFolderName: gameSystemModel.primaryFolderName,
+          boxartPath: boxartPath,
+        );
+
         await launchGameWithDialog(
           context: context,
           game: systemInfo.gameModel!,
@@ -366,6 +409,8 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
           fileProvider: fileProvider,
           syncProvider: syncProvider,
           onGameClosed: () {
+            // Stop the poll and hide the panel so it fades back to the art.
+            _achievementsController.stop(hidePanel: true);
             if (mounted) setState(() => _isGameLaunching = false);
             _gamepadNav.activate();
             Provider.of<SqliteDatabaseProvider>(
@@ -374,6 +419,7 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
             ).refresh();
           },
           onLaunchFailed: (ctx, r) async {
+            _achievementsController.stop(hidePanel: true);
             if (mounted) setState(() => _isGameLaunching = false);
             _gamepadNav.activate();
           },
@@ -523,20 +569,49 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
     return offset;
   }
 
-  /// Centrally aligns the selected item in the scrollable secondary indicator list.
-  void _scrollToIndex(int index) {
-    _scrollToPage(index.toDouble());
+  /// Interpolated (left, width) for the sliding indicator cursor at a
+  /// fractional carousel page, so the cursor tracks the carousel image
+  /// continuously rather than jumping only once the page settles.
+  (double, double) _cursorRect(double page, List<double> widths) {
+    if (widths.isEmpty) return (0, 0);
+    final maxIndex = widths.length - 1;
+    final clampedPage = page.clamp(0.0, maxIndex.toDouble());
+    final fromIndex = clampedPage.floor();
+    final toIndex = clampedPage.ceil();
+    final fraction = clampedPage - fromIndex;
+
+    final fromOffset = _getItemOffset(fromIndex, widths);
+    final toOffset = _getItemOffset(toIndex, widths);
+    final left = fromOffset + (toOffset - fromOffset) * fraction;
+    final width =
+        widths[fromIndex] + (widths[toIndex] - widths[fromIndex]) * fraction;
+    return (left, width);
   }
 
-  /// Continuously aligns the scroll bar to a fractional page position.
-  void _scrollToPage(double page) {
+  /// Centrally aligns the selected item in the scrollable secondary indicator list.
+  void _scrollToIndex(int index) {
+    _scrollToPage(index.toDouble(), animate: true);
+  }
+
+  /// Aligns the bottom indicator bar to a fractional page position.
+  ///
+  /// [animate] should be false for the continuous per-frame updates driven by
+  /// carousel scrolling — it uses [ScrollController.jumpTo] so the bar tracks
+  /// the finger/animation in lock-step instead of chasing a fresh 200ms
+  /// [ScrollController.animateTo] on every frame (which thrashes the ticker and
+  /// drops frames). Discrete jumps (first layout, taps) pass animate: true.
+  void _scrollToPage(double page, {bool animate = false}) {
     if (!_scrollController.hasClients) return;
 
-    final allSystems = _getSystemsList();
+    // Reuse the list + measured widths from the last build; only rebuild if the
+    // cache hasn't been populated yet. Rebuilding here every frame ran DB
+    // queries and TextPainter layout on the hot scroll path.
+    final allSystems = _cachedSystems ?? _getSystemsList();
     final textStyle = TextStyle(fontSize: 10.r, fontWeight: FontWeight.bold);
-    final widths = allSystems
-        .map((s) => _calculateItemWidth(s, textStyle))
-        .toList();
+    final widths =
+        _cachedWidths ??
+        allSystems.map((s) => _calculateItemWidth(s, textStyle)).toList();
+    if (widths.isEmpty) return;
     final screenWidth = MediaQuery.of(context).size.width;
 
     final fromIndex = page.floor();
@@ -558,11 +633,15 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
     offset = offset.clamp(0.0, _scrollController.position.maxScrollExtent);
 
     if (_scrollController.position.maxScrollExtent > 0) {
-      _scrollController.animateTo(
-        offset,
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOutCubic,
-      );
+      if (animate) {
+        _scrollController.animateTo(
+          offset,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOutCubic,
+        );
+      } else {
+        _scrollController.jumpTo(offset);
+      }
     }
   }
 
@@ -614,10 +693,9 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
     _lastThemeFolder = themeFolder;
 
     if (themeFolder.isEmpty) {
-      if (_themeBackgrounds.isNotEmpty || _themeLogos.isNotEmpty) {
+      if (_themeBackgrounds.isNotEmpty) {
         setState(() {
           _themeBackgrounds.clear();
-          _themeLogos.clear();
         });
       }
       return;
@@ -631,20 +709,15 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
         .toSet();
 
     final Map<String, String?> newBgs = {};
-    final Map<String, String?> newLogos = {};
 
     for (final folder in folderNames) {
       newBgs[folder] = neoAssets.getBackgroundForSystemSync(folder);
-      newLogos[folder] = neoAssets.getLogoForSystemSync(folder);
     }
 
     setState(() {
       _themeBackgrounds
         ..clear()
         ..addAll(newBgs);
-      _themeLogos
-        ..clear()
-        ..addAll(newLogos);
       _itemWidthCache.clear();
     });
   }
@@ -811,6 +884,11 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
               .map((s) => _calculateItemWidth(s, selectedTextStyle))
               .toList();
 
+          // Cache for the hot scroll path (_scrollToPage) so it doesn't rebuild
+          // the list or re-measure text on every frame while scrolling.
+          _cachedSystems = allSystems;
+          _cachedWidths = widths;
+
           Widget content = Column(
             children: [
               // Primary Horizontal Carousel.
@@ -876,6 +954,7 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
                             );
                           },
                           onPageScrolled: (page) {
+                            _pageOffsetNotifier.value = page;
                             _scrollToPage(page);
                           },
                           onPageChanged: (index, reason) {
@@ -905,61 +984,86 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
                   padding: EdgeInsets.symmetric(vertical: 6.r, horizontal: 4.r),
                   child: Stack(
                     children: [
-                      // Focused item sliding indicator.
-                      AnimatedPositioned(
-                        duration: const Duration(milliseconds: 120),
-                        curve: Curves.easeInOut,
-                        left: _getItemOffset(_currentIndex, widths),
-                        top: 0,
-                        bottom: 0,
-                        width: widths[_currentIndex],
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.secondary,
-                            borderRadius: BorderRadius.circular(12.r),
-                          ),
+                      // Focused item sliding indicator. Driven by the
+                      // fractional carousel page so it tracks the carousel
+                      // image in lock-step while scrolling.
+                      Positioned.fill(
+                        child: ValueListenableBuilder<double>(
+                          valueListenable: _pageOffsetNotifier,
+                          builder: (context, page, _) {
+                            final (left, width) = _cursorRect(page, widths);
+                            return Stack(
+                              children: [
+                                Positioned(
+                                  left: left,
+                                  top: 0,
+                                  bottom: 0,
+                                  width: width,
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: theme.colorScheme.secondary,
+                                      borderRadius: BorderRadius.circular(12.r),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
                         ),
                       ),
 
-                      // Label track.
-                      Row(
-                        children: allSystems.asMap().entries.map((entry) {
-                          final index = entry.key;
-                          final system = entry.value;
-                          final isSelected = index == _currentIndex;
-                          final itemWidth = widths[index];
+                      // Label track. Selection color flips in sync with the
+                      // sliding cursor (driven by the fractional carousel page)
+                      // so the highlighted label never lags under the pill.
+                      ValueListenableBuilder<double>(
+                        valueListenable: _pageOffsetNotifier,
+                        builder: (context, page, _) {
+                          final selectedIndex = page
+                              .round()
+                              .clamp(0, allSystems.length - 1);
+                          return Row(
+                            children: allSystems.asMap().entries.map((entry) {
+                              final index = entry.key;
+                              final system = entry.value;
+                              final isSelected = index == selectedIndex;
+                              final itemWidth = widths[index];
 
-                          return GestureDetector(
-                            onTap: () {
-                              SfxService().playNavSound();
-                              _carouselKey.currentState?.animateToPage(index);
-                            },
-                            child: Container(
-                              width: itemWidth,
-                              height: 32.r,
-                              margin: EdgeInsets.only(right: 4.r),
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.primary.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(12.r),
-                              ),
-                              child: Text(
-                                (system.shortName ??
-                                        system.title ??
-                                        AppLocale.unknown.getString(context))
-                                    .toUpperCase(),
-                                textAlign: TextAlign.center,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: isSelected
-                                    ? selectedTextStyle
-                                    : textStyle,
-                              ),
-                            ),
+                              return GestureDetector(
+                                onTap: () {
+                                  SfxService().playNavSound();
+                                  _carouselKey.currentState?.animateToPage(
+                                    index,
+                                  );
+                                },
+                                child: Container(
+                                  width: itemWidth,
+                                  height: 32.r,
+                                  margin: EdgeInsets.only(right: 4.r),
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).colorScheme.primary
+                                        .withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(12.r),
+                                  ),
+                                  child: Text(
+                                    (system.shortName ??
+                                            system.title ??
+                                            AppLocale.unknown.getString(
+                                              context,
+                                            ))
+                                        .toUpperCase(),
+                                    textAlign: TextAlign.center,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: isSelected
+                                        ? selectedTextStyle
+                                        : textStyle,
+                                  ),
+                                ),
+                              );
+                            }).toList(),
                           );
-                        }).toList(),
+                        },
                       ),
                     ],
                   ),
@@ -1033,24 +1137,7 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
       );
     }
 
-    // 2. Active Theme branding (resolved from local theme directory).
-    final themeLogoPath = _themeLogos[displayFolderName ?? ''];
-    if (themeLogoPath != null && themeLogoPath.isNotEmpty) {
-      return Image.file(
-        File(themeLogoPath),
-        key: ValueKey(themeLogoPath),
-        cacheWidth: 512,
-        fit: BoxFit.contain,
-        errorBuilder: (context, error, stackTrace) => Image.asset(
-          assetLogoPath,
-          cacheWidth: 512,
-          fit: BoxFit.contain,
-          errorBuilder: (context, e2, st2) => fallback,
-        ),
-      );
-    }
-
-    // 3. Fallback: Bundled internal asset.
+    // 2. Fallback: Bundled internal asset.
     return Image.asset(
       assetLogoPath,
       cacheWidth: 512,
@@ -1071,7 +1158,7 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
         : (system.folderName?.isNotEmpty == true ? system.folderName! : 'all');
 
     // Primary identification asset resolution.
-    final assetLogoPath = 'assets/images/systems/logos/$displayFolderName.webp';
+    final assetLogoPath = 'assets/images/logos/$displayFolderName.webp';
     final customWheelPath = system.customWheelImage;
     final wheelFile =
         (system.isGame && customWheelPath != null && customWheelPath.isNotEmpty)
@@ -1190,14 +1277,10 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
       final String? customLogo = system.customLogoPath?.isNotEmpty == true
           ? system.customLogoPath
           : null;
-      final String? themeLogo = customLogo == null ? _themeLogos[folder] : null;
       final String? systemLogo = system.isGame
           ? system.customWheelImage
-          : (customLogo ??
-                themeLogo ??
-                'assets/images/systems/logos/$folder.webp');
-      final bool isLogoAsset =
-          !system.isGame && customLogo == null && themeLogo == null;
+          : (customLogo ?? 'assets/images/logos/$folder.webp');
+      final bool isLogoAsset = !system.isGame && customLogo == null;
 
       // Background resolution for secondary display.
       final String? customBg = system.customBackgroundPath;

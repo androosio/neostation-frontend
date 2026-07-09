@@ -421,7 +421,7 @@ class SqliteService {
   SqliteService._internal();
 
   // Database configuration
-  static const int _databaseVersion = 90;
+  static const int _databaseVersion = 95;
   static const String _databaseName = 'data.sqlite';
 
   DatabaseAdapter? _database;
@@ -793,8 +793,18 @@ class SqliteService {
         }
 
         // Determine if we should apply default from JSON
+        final bool isDefaultCore = emuDef.isDefaultCore;
+        final bool isDefaultStandalone = emuDef.isDefaultStandalone;
+        // On Android, skip setting is_default for RetroArch cores here;
+        // RA detection (_fixRetroarchAndroidDefault) handles that separately.
+        final bool isAndroidTarget = osName == 'android';
+        final bool isRetroArchCore = isDefaultCore && !isStandalone;
+        final bool skipCoreDefault = isAndroidTarget && isRetroArchCore;
         final bool applyJsonDefault =
-            !hasDefaultInDB && !defaultSetInLoop && emuDef.isDefault;
+            !hasDefaultInDB &&
+            !defaultSetInLoop &&
+            !skipCoreDefault &&
+            (isDefaultCore || isDefaultStandalone);
 
         if (applyJsonDefault) {
           defaultSetInLoop = true;
@@ -826,6 +836,9 @@ class SqliteService {
           if (applyJsonDefault) {
             updateData['is_default'] = 1;
           }
+          if (isDefaultCore) {
+            updateData['is_default_core'] = 1;
+          }
 
           await txn.update(
             'app_emulators',
@@ -844,16 +857,21 @@ class SqliteService {
           );
 
           if (existingByName.isNotEmpty) {
-            // Update old record to add unique_identifier
+            // Prepare update map
+            final Map<String, Object?> updateData = {
+              'unique_identifier': emuDef.uniqueId,
+              'is_standalone': isStandalone ? 1 : 0,
+              'core_filename': coreFilename,
+              'android_package_name': packageName,
+              'is_ra_compatible': retroAchievementsCompatible ? 1 : 0,
+            };
+            if (isDefaultCore) {
+              updateData['is_default_core'] = 1;
+            }
+
             await txn.update(
               'app_emulators',
-              {
-                'unique_identifier': emuDef.uniqueId,
-                'is_standalone': isStandalone ? 1 : 0,
-                'core_filename': coreFilename,
-                'android_package_name': packageName,
-                'is_ra_compatible': retroAchievementsCompatible ? 1 : 0,
-              },
+              updateData,
               where:
                   'system_id = ? AND os_id = ? AND name = ? AND unique_identifier IS NULL',
               whereArgs: [systemId, osId, dbName],
@@ -861,7 +879,7 @@ class SqliteService {
             processedUniqueIds.add(emuDef.uniqueId);
           } else {
             // New emulator
-            await txn.insert('app_emulators', {
+            final Map<String, Object?> insertData = {
               'system_id': systemId,
               'os_id': osId,
               'name': dbName,
@@ -871,7 +889,12 @@ class SqliteService {
               'android_package_name': packageName,
               'is_default': applyJsonDefault ? 1 : 0,
               'is_ra_compatible': retroAchievementsCompatible ? 1 : 0,
-            });
+            };
+            if (isDefaultCore) {
+              insertData['is_default_core'] = 1;
+            }
+
+            await txn.insert('app_emulators', insertData);
             processedUniqueIds.add(emuDef.uniqueId);
           }
         }
@@ -1222,6 +1245,15 @@ class SqliteService {
       }
     }
 
+    // FIX: Ensure is_default_core column in app_emulators.
+    if (tableNames.contains('app_emulators')) {
+      try {
+        await _ensureEmulatorDefaultCoreColumn(db);
+      } catch (e) {
+        _log.e('Minor fix for emulator default core column failed: $e');
+      }
+    }
+
     // FIX: Ensure app_neo_sync_state exists (legacy support for v58).
     await db.execute('''
       CREATE TABLE IF NOT EXISTS app_neo_sync_state (
@@ -1251,6 +1283,22 @@ class SqliteService {
       }
     } catch (e) {
       _log.e('Minor fix ensuring emulator unique identifier failed: $e');
+      rethrow;
+    }
+  }
+
+  /// Ensures the is_default_core column exists in app_emulators.
+  Future<void> _ensureEmulatorDefaultCoreColumn(DatabaseAdapter db) async {
+    try {
+      final tableInfo = await db.rawQuery('PRAGMA table_info(app_emulators)');
+      final columns = tableInfo.map((c) => c['name'].toString()).toList();
+      if (!columns.contains('is_default_core')) {
+        await db.execute(
+          'ALTER TABLE app_emulators ADD COLUMN is_default_core INTEGER NOT NULL DEFAULT 0',
+        );
+      }
+    } catch (e) {
+      _log.e('Minor fix ensuring emulator default core column failed: $e');
       rethrow;
     }
   }
@@ -1519,6 +1567,7 @@ class SqliteService {
           is_standalone INTEGER NOT NULL DEFAULT 0,
           core_filename TEXT,
           is_default INTEGER NOT NULL DEFAULT 0,
+          is_default_core INTEGER NOT NULL DEFAULT 0,
           is_ra_compatible INTEGER NOT NULL DEFAULT 0,
           android_package_name TEXT,
           android_activity_name TEXT,
@@ -1566,7 +1615,14 @@ class SqliteService {
         auto_update_systems INTEGER DEFAULT 1,
         system_grid_columns TEXT DEFAULT 'M',
         game_grid_columns TEXT DEFAULT 'M',
-        use_12_hour_clock INTEGER DEFAULT 0
+        game_carousel_card_style TEXT DEFAULT 'fanart',
+        use_12_hour_clock INTEGER DEFAULT 0,
+        dock_apps TEXT,
+        dock_enabled INTEGER DEFAULT 1,
+        dock_slot_count INTEGER DEFAULT 3,
+        now_playing_dim_delay INTEGER DEFAULT 3,
+        now_playing_dim_level INTEGER DEFAULT 100,
+        fanart_dim_level INTEGER DEFAULT 25
       );
       ''',
       '''
@@ -2244,6 +2300,21 @@ class SqliteService {
     );
   }
 
+  /// Permanently deletes a single game and its metadata from the database.
+  static Future<void> deleteGame(String appSystemId, String filename) async {
+    final db = await instance.database;
+    await db.delete(
+      'user_screenscraper_metadata',
+      where: 'app_system_id = ? AND filename = ?',
+      whereArgs: [appSystemId, filename],
+    );
+    await db.delete(
+      'user_roms',
+      where: 'app_system_id = ? AND filename = ?',
+      whereArgs: [appSystemId, filename],
+    );
+  }
+
   static Future<void> saveUserConfig({
     String? lastScan,
     String? gameViewMode,
@@ -2272,6 +2343,13 @@ class SqliteService {
     int? autoUpdateSystems,
     String? systemGridColumns,
     String? gameGridColumns,
+    String? gameCarouselCardStyle,
+    String? dockApps,
+    int? dockEnabled,
+    int? dockSlotCount,
+    int? nowPlayingDimDelay,
+    int? nowPlayingDimLevel,
+    int? fanartDimLevel,
   }) async {
     final db = await instance.database;
 
@@ -2352,6 +2430,27 @@ class SqliteService {
     }
     if (gameGridColumns != null) {
       newConfig['game_grid_columns'] = gameGridColumns;
+    }
+    if (gameCarouselCardStyle != null) {
+      newConfig['game_carousel_card_style'] = gameCarouselCardStyle;
+    }
+    if (dockApps != null) {
+      newConfig['dock_apps'] = dockApps;
+    }
+    if (dockEnabled != null) {
+      newConfig['dock_enabled'] = dockEnabled;
+    }
+    if (dockSlotCount != null) {
+      newConfig['dock_slot_count'] = dockSlotCount;
+    }
+    if (nowPlayingDimDelay != null) {
+      newConfig['now_playing_dim_delay'] = nowPlayingDimDelay;
+    }
+    if (nowPlayingDimLevel != null) {
+      newConfig['now_playing_dim_level'] = nowPlayingDimLevel;
+    }
+    if (fanartDimLevel != null) {
+      newConfig['fanart_dim_level'] = fanartDimLevel;
     }
 
     await db.insert(
@@ -3237,6 +3336,34 @@ class SqliteService {
         where: 'os_id = ? AND unique_identifier = ?',
         whereArgs: [osId, uniqueIdentifier],
       );
+
+      // Track user selection in user_emulator_config so RA auto-detection
+      // does not override it on subsequent startups.
+      final existing = await txn.query(
+        'user_emulator_config',
+        columns: ['emulator_unique_id'],
+        where: 'emulator_unique_id = ?',
+        whereArgs: [uniqueIdentifier],
+      );
+      if (existing.isNotEmpty) {
+        await txn.update(
+          'user_emulator_config',
+          {
+            'is_user_default': 1,
+            'updated_at': DateTime.now().toIso8601String(),
+          },
+          where: 'emulator_unique_id = ?',
+          whereArgs: [uniqueIdentifier],
+        );
+      } else {
+        await txn.insert('user_emulator_config', {
+          'emulator_unique_id': uniqueIdentifier,
+          'emulator_path': '',
+          'is_user_default': 1,
+          'created_at': DateTime.now().toIso8601String(),
+          'updated_at': DateTime.now().toIso8601String(),
+        });
+      }
     });
 
     // Enforce disk persistence via WAL checkpoint.
@@ -3419,9 +3546,26 @@ class SqliteService {
             [systemId],
           );
         }
-        // FALLBACK: Assign the first available core if no default exists.
+        // FALLBACK: Assign the first available default_core, then standalone, then any core.
         else if (!hasCoreDefault && !hasStandaloneDefault) {
-          if (cores.isNotEmpty) {
+          // Prefer the core marked as default_core in JSON
+          final defaultCore = cores.firstWhere(
+            (c) => c['is_default_core'] == 1,
+            orElse: () => {},
+          );
+          if (defaultCore.isNotEmpty) {
+            await db.rawUpdate(
+              'UPDATE app_emulators SET is_default = 1 WHERE unique_identifier = ? AND os_id = ?',
+              [defaultCore['unique_identifier'], defaultCore['os_id']],
+            );
+          } else if (standalones.isNotEmpty) {
+            // Fall back to the first standalone
+            await db.rawUpdate(
+              'UPDATE user_emulator_config SET is_user_default = 1 WHERE emulator_unique_id = ?',
+              [standalones.first['unique_identifier']],
+            );
+          } else if (cores.isNotEmpty) {
+            // Absolute fallback: any core
             await db.rawUpdate(
               'UPDATE app_emulators SET is_default = 1 WHERE unique_identifier = ? AND os_id = ?',
               [cores.first['unique_identifier'], cores.first['os_id']],
@@ -4141,13 +4285,29 @@ class SqliteService {
         .toList();
   }
 
-  /// Updates [is_default] across all systems so that [preferredPackage] is the
-  /// active RetroArch variant on Android. Resets all other RetroArch packages
-  /// to non-default, then sets [preferredPackage] as the default.
+  /// Updates [is_default] so that [preferredPackage] is the active RetroArch
+  /// variant on Android. Skips entirely if the user has made any custom
+  /// emulator selections (tracked in [user_emulator_config]). Sets only the
+  /// entries marked as [is_default_core] for the preferred package, and
+  /// clears conflicting standalone defaults.
   static Future<void> fixRetroArchDefaultForAndroid(
     String preferredPackage,
   ) async {
     final db = await instance.database;
+
+    // If user has made any emulator selections, respect them and skip
+    final userChoices = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM user_emulator_config WHERE is_user_default = 1',
+    );
+    final userChoiceCount = userChoices.isNotEmpty
+        ? (int.tryParse(userChoices.first['count']?.toString() ?? '0') ?? 0)
+        : 0;
+    if (userChoiceCount > 0) {
+      _log.i(
+        'Android: User has custom emulator choices ($userChoiceCount), skipping RA defaults',
+      );
+      return;
+    }
 
     final osResult = await db.query(
       'app_os',
@@ -4158,15 +4318,28 @@ class SqliteService {
     final osId = int.tryParse(osResult.first['id']?.toString() ?? '0') ?? 0;
 
     await db.transaction((txn) async {
+      // Clear all RetroArch core defaults
       await txn.rawUpdate(
         'UPDATE app_emulators SET is_default = 0 '
         'WHERE os_id = ? AND android_package_name LIKE ?',
         [osId, 'com.retroarch%'],
       );
+
+      // Set default only for entries with default_core marker
       await txn.rawUpdate(
         'UPDATE app_emulators SET is_default = 1 '
-        'WHERE os_id = ? AND android_package_name = ?',
+        'WHERE os_id = ? AND android_package_name = ? AND is_default_core = 1',
         [osId, preferredPackage],
+      );
+
+      // Clear standalone defaults for systems that now have an RA core default
+      await txn.rawUpdate(
+        'UPDATE app_emulators SET is_default = 0 '
+        'WHERE os_id = ? AND is_standalone = 1 AND system_id IN ('
+        'SELECT DISTINCT system_id FROM app_emulators '
+        'WHERE os_id = ? AND android_package_name = ? AND is_default_core = 1 AND is_default = 1'
+        ')',
+        [osId, osId, preferredPackage],
       );
     });
 
@@ -4175,6 +4348,68 @@ class SqliteService {
     } catch (e) {
       _log.e(
         'Failed to finalize RetroArch default fix via WAL checkpoint',
+        error: e,
+      );
+    }
+  }
+
+  /// Clears all RetroArch core defaults on Android when no RetroArch variant
+  /// is installed. Skips entirely if the user has made custom selections.
+  /// For systems that lose their default, falls back to the first available
+  /// standalone emulator.
+  static Future<void> clearRetroArchDefaultsForAndroid() async {
+    final db = await instance.database;
+
+    // If user has made any emulator selections, respect them and skip
+    final userChoices = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM user_emulator_config WHERE is_user_default = 1',
+    );
+    final userChoiceCount = userChoices.isNotEmpty
+        ? (int.tryParse(userChoices.first['count']?.toString() ?? '0') ?? 0)
+        : 0;
+    if (userChoiceCount > 0) {
+      _log.i(
+        'Android: User has custom emulator choices ($userChoiceCount), skipping RA default clear',
+      );
+      return;
+    }
+
+    final osResult = await db.query(
+      'app_os',
+      where: 'name = ?',
+      whereArgs: ['android'],
+    );
+    if (osResult.isEmpty) return;
+    final osId = int.tryParse(osResult.first['id']?.toString() ?? '0') ?? 0;
+
+    await db.transaction((txn) async {
+      // Reset all RetroArch core defaults
+      await txn.rawUpdate(
+        'UPDATE app_emulators SET is_default = 0 '
+        'WHERE os_id = ? AND android_package_name LIKE ?',
+        [osId, 'com.retroarch%'],
+      );
+
+      // For systems with no default after clearing RA, fall back to standalone
+      // Only set standalone as default if it has is_default = 0 AND the system has no other default
+      await txn.rawUpdate(
+        'UPDATE app_emulators SET is_default = 1 '
+        'WHERE os_id = ? AND is_standalone = 1 AND is_default = 0 AND system_id IN ('
+        'SELECT DISTINCT e.system_id FROM app_emulators e '
+        'WHERE e.os_id = ? AND e.android_package_name LIKE ? AND e.is_default = 0'
+        ') AND NOT EXISTS ('
+        'SELECT 1 FROM app_emulators e2 '
+        'WHERE e2.system_id = app_emulators.system_id AND e2.os_id = ? AND e2.is_default = 1'
+        ')',
+        [osId, osId, 'com.retroarch%', osId],
+      );
+    });
+
+    try {
+      await db.execute('PRAGMA wal_checkpoint(FULL)');
+    } catch (e) {
+      _log.e(
+        'Failed to finalize RetroArch default clear via WAL checkpoint',
         error: e,
       );
     }

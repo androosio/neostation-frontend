@@ -33,6 +33,7 @@ const Map<String, dynamic> appLocaleId = {
 
   AppLocale.settings: 'Pengaturan',
   AppLocale.general: 'Umum',
+  AppLocale.secondaryDisplay: 'Layar Sekunder',
   AppLocale.directories: 'Direktori',
   AppLocale.palettes: 'Palet',
   AppLocale.neoThemes: 'Tema',
@@ -100,6 +101,27 @@ const Map<String, dynamic> appLocaleId = {
   AppLocale.errorConfiguringRetroArchPath:
       'Kesalahan saat mengonfigurasi jalur RetroArch: {error}',
   AppLocale.scanOnStartup: 'Pindai folder saat mulai',
+  AppLocale.nowPlayingDimAfter: 'Redupkan Now Playing setelah',
+  AppLocale.nowPlayingDimAfterSubtitle:
+      'Waktu tidak aktif sebelum panel meredup di layar sekunder',
+  AppLocale.nowPlayingDimDarkness: 'Gelapnya peredupan',
+  AppLocale.nowPlayingDimDarknessSubtitle: 'Seberapa gelap panel saat meredup',
+  AppLocale.nowPlayingDimNever: 'Jangan Pernah',
+  AppLocale.nowPlayingDockEnabled: 'Dock aplikasi',
+  AppLocale.nowPlayingDockEnabledSubtitle:
+      'Tampilkan dock aplikasi di panel Now Playing sekunder',
+  AppLocale.nowPlayingDockSlots: 'Slot dock',
+  AppLocale.nowPlayingDockSlotsSubtitle:
+      'Berapa banyak slot aplikasi yang ditampilkan dock (1-5)',
+  AppLocale.nowPlayingFanartDim: 'Redupkan fanart',
+  AppLocale.nowPlayingFanartDimSubtitle:
+      'Gelapkan seni latar belakang di belakang logo agar fanart yang ramai tidak bertabrakan',
+  AppLocale.nowPlayingDimOff: 'Mati',
+  AppLocale.secondarySectionNowPlaying: 'Panel Now Playing',
+  AppLocale.secondarySectionDock: 'Dock aplikasi',
+  AppLocale.screenshotAccess: 'Screen return & screenshots',
+  AppLocale.screenshotAccessSubtitle:
+      'Restores the Now Playing screen when you close an app opened from the dock, and lets the screenshot button capture the screen (opens Android accessibility settings)',
   AppLocale.scanOnStartupSubtitle:
       'Pindai folder ROM secara otomatis saat membuka aplikasi',
   AppLocale.ignoreHiddenFiles: 'Abaikan item tersembunyi',
@@ -530,6 +552,10 @@ const Map<String, dynamic> appLocaleId = {
   AppLocale.storagePermission: 'Izin Penyimpanan',
   AppLocale.storagePermissionDesc:
       'NeoStation memerlukan "Akses Semua File" untuk mengelola konfigurasi RetroArch dan menyinkronkan simpanan Anda dengan benar.\n\nHarap berikan izin ini di layar berikutnya.',
+  AppLocale.screenReturnAccess: 'Screen Return Access',
+  AppLocale.screenReturnAccessDesc:
+      'Brings the Now Playing screen back when you close an app opened from the dock, and enables system screenshots. Only the foreground app name is read \u2014 no screen content is collected.',
+  AppLocale.screenReturnAccessHint: 'Turn on NeoStation, then tap Allow',
   AppLocale.selectRomFolder: 'Pilih Folder ROM',
   AppLocale.romFolderSelected: 'Folder ROM dipilih!',
   AppLocale.chooseRomFolderDesc:
@@ -582,7 +608,7 @@ const Map<String, dynamic> appLocaleId = {
       'Setiap folder sistem akan dianalisis untuk menghitung file ROM Anda.',
   AppLocale.step4ReadyToPlay: '4. Siap Bermain',
   AppLocale.step4Desc:
-      'Starte Spiele direkt aus deiner organisierten Bibliothek.',
+      'Luncurkan game langsung dari perpustakaan yang terorganisir.',
   AppLocale.timePlayedLabel: 'Waktu dimainkan: {time}',
   AppLocale.hour: 'jam',
   AppLocale.minute: 'menit',
@@ -748,6 +774,16 @@ const Map<String, dynamic> appLocaleId = {
       'Pilih di mana media, tema, dan data aplikasi disimpan',
   AppLocale.userDataLocationDefault: 'Lokasi default',
   AppLocale.selectUserDataFolder: 'Pilih Folder Data',
+  AppLocale.folderNotEmptyTitle: 'Folder Tidak Kosong',
+  AppLocale.folderNotEmptyBody:
+      'Folder ini sudah berisi {count} item. NeoStation akan menyimpan datanya sendiri di sini, bersama konten yang sudah ada.',
+  AppLocale.folderNotEmptyUseAnyway: 'Tetap Gunakan',
+  AppLocale.moveUserDataTitle: 'Pindahkan Data Pengguna?',
+  AppLocale.moveUserDataBody:
+      'NeoStation akan memindahkan datanya sendiri — basis data, media hasil scrape, dan pengaturan — dari folder saat ini ke folder baru. Berkas yang tidak dibuat oleh NeoStation tidak akan diubah.',
+  AppLocale.moveUserDataDestNotEmpty:
+      'Folder baru sudah berisi {count} item. Data NeoStation akan ditambahkan di sampingnya.',
+  AppLocale.moveUserDataConfirm: 'Pindahkan Data',
   AppLocale.migratingUserData: 'Memindahkan Data',
   AppLocale.migratingUserDataComplete: 'Migrasi selesai',
   AppLocale.migratingUserDataError: 'Migrasi gagal',
@@ -760,4 +796,52 @@ const Map<String, dynamic> appLocaleId = {
   AppLocale.romDirectories: 'Direktori ROM',
   AppLocale.addRomFolder: 'Tambah Folder ROM',
   AppLocale.removeRomFolder: 'Hapus',
+  AppLocale.resetPlayTimeConfirm: 'Atur Ulang Waktu Bermain',
+  AppLocale.resetPlayTimeConfirmBody:
+      'Ini akan mengatur ulang waktu bermain yang tercatat untuk game ini menjadi nol secara permanen. Tindakan ini tidak dapat dibatalkan.',
+  AppLocale.removeRomFolderConfirmBody:
+      'Ini akan menghapus folder ROM ini dari sumber pustaka Anda. File Anda di disk tidak akan dihapus.',
+  AppLocale.disconnectRaConfirm: 'Putuskan RetroAchievements',
+  AppLocale.disconnectRaConfirmBody:
+      'Ini akan mengeluarkan Anda dan menghapus kredensial RetroAchievements yang tersimpan dari perangkat ini.',
+  AppLocale.neoSyncLogoutConfirmBody:
+      'Ini akan mengeluarkan Anda dari akun NeoSync di perangkat ini.',
+
+  AppLocale.deleteGame: 'Hapus Game',
+  AppLocale.deleteGameConfirm: 'Hapus Secara Permanen',
+  AppLocale.deleteGameConfirmBody:
+      'Ini akan menghapus permanen ROM game, data scraping, dan file media. Tindakan ini tidak dapat dibatalkan.',
+  AppLocale.deleteGameSubtitle: 'Menghapus permanen file ROM dari disk',
+
+  AppLocale.raCompletionsLabel: 'Penyelesaian',
+  AppLocale.raMasteriesLabel: 'Penguasaan',
+  AppLocale.raEarned: 'Diperoleh',
+  AppLocale.raOwned: 'Dimiliki',
+  AppLocale.raPointsAbbrev: 'poin',
+  AppLocale.raAlreadyEarned: 'Anda sudah memperoleh pencapaian ini',
+  AppLocale.raTapToOpenLocalGame: 'Ketuk untuk membuka detail game lokal',
+  AppLocale.raRecentUnlocks: 'Terbuka Baru-baru Ini',
+  AppLocale.raRecentCompletions: 'Penyelesaian Terbaru',
+  AppLocale.raRecentMasteries: 'Penguasaan Terbaru',
+  AppLocale.raNoCompletionsYet: 'Belum ada penyelesaian',
+  AppLocale.raNoMasteriesYet: 'Belum ada penguasaan',
+  AppLocale.raTrackedGames: 'game terlacak',
+  AppLocale.raCompletionLabel: 'Penyelesaian',
+  AppLocale.raMasteryLabel: 'Penguasaan',
+  AppLocale.raCouldNotResolveLocalSystem:
+      'Tidak dapat menemukan sistem lokal untuk game ini',
+  AppLocale.raMissable: 'BISA TERLEWAT',
+  AppLocale.raComments: 'KOMENTAR',
+  AppLocale.raCommentsCouldNotLoad: 'Komentar tidak dapat dimuat.',
+  AppLocale.raNoCommentsYet: 'Belum ada komentar.',
+  AppLocale.raOlderCommentsAvailable: 'Komentar lama tersedia.',
+  AppLocale.raLoadMore: 'MUAT LEBIH BANYAK',
+  AppLocale.raRateLimited:
+      'RetroAchievements sedang sibuk saat ini. Tunggu sebentar lalu coba lagi.',
+  AppLocale.raApiKey: 'Kunci API',
+  AppLocale.raEnterApiKey: 'Masukkan kunci API Anda',
+  AppLocale.raNoRecentUnlocks:
+      'Tidak ada pembukaan baru dalam 30 hari terakhir',
+  AppLocale.raRecentlyPlayedTitle: 'Baru Dimainkan',
+  AppLocale.raNoRecentlyPlayed: 'Tidak ada game yang baru dimainkan',
 };
