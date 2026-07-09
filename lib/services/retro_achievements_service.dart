@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:neostation/services/logger_service.dart';
+import 'retro_achievements_cache.dart';
 import '../models/retro_achievements_user.dart';
 import '../models/retro_achievements_summary.dart';
 import '../models/retro_achievements_game_info.dart';
@@ -28,6 +29,44 @@ class RetroAchievementsService {
 
   static final _log = LoggerService.instance;
 
+  /// Runs a cache-aware GET.
+  ///
+  /// On a successful (200) response the decoded body is stored under
+  /// [cacheKey] and parsed via [parse]. If the request throws (offline) or
+  /// returns a non-200, the last cached body for [cacheKey] is replayed
+  /// through [parse] instead; only when there is no cache at all does
+  /// [onMiss] run to produce the caller's normal "nothing here" result
+  /// (return null, throw, etc.). A bounded [timeout] keeps an unreachable
+  /// network from stalling the caller.
+  static Future<T> _fetchWithCache<T>({
+    required String cacheKey,
+    required Future<http.Response> Function() send,
+    required T Function(dynamic decoded) parse,
+    required T Function() onMiss,
+    Duration timeout = const Duration(seconds: 10),
+  }) async {
+    try {
+      final response = await send().timeout(timeout);
+      if (response.statusCode == 200) {
+        final decoded = json.decode(response.body);
+        await RetroAchievementsCache.save(cacheKey, decoded);
+        RetroAchievementsCache.markServedLive();
+        return parse(decoded);
+      }
+      _log.w('RA[$cacheKey] HTTP ${response.statusCode}; trying offline cache');
+    } catch (e) {
+      _log.w('RA[$cacheKey] request failed ($e); trying offline cache');
+    }
+
+    final cached = await RetroAchievementsCache.load(cacheKey);
+    if (cached != null) {
+      _log.i('RA[$cacheKey] served from offline cache');
+      RetroAchievementsCache.markServedFromCache();
+      return parse(cached);
+    }
+    return onMiss();
+  }
+
   /// Fetches the "Achievement of the Week" (GOTW) data.
   ///
   /// Optionally takes a [username] to include user-specific progress toward the achievement.
@@ -44,25 +83,25 @@ class RetroAchievementsService {
       '$_baseUrl/API_GetAchievementOfTheWeek.php',
     ).replace(queryParameters: {'y': effectiveApiKey});
 
-    final response = await http.get(
-      url,
-      headers: {'User-Agent': 'NeoStation/1.0', 'Accept': 'application/json'},
+    return _fetchWithCache<RetroAchievementsGOTW?>(
+      cacheKey: 'gotw',
+      send: () => http.get(
+        url,
+        headers: {'User-Agent': 'NeoStation/1.0', 'Accept': 'application/json'},
+      ),
+      parse: (data) {
+        if (data != null && data['Achievement'] != null) {
+          return RetroAchievementsGOTW.fromJson(data);
+        }
+        if (data != null && data['Error'] != null) {
+          _log.e('API Error: ${data['Error']}');
+        }
+        return null;
+      },
+      onMiss: () => throw const HttpException(
+        'RetroAchievements achievement of the week request failed',
+      ),
     );
-
-    if (response.statusCode != 200) {
-      throw HttpException(
-        'RetroAchievements achievement of the week request failed (${response.statusCode})',
-      );
-    }
-
-    final data = json.decode(response.body);
-    if (data != null && data['Achievement'] != null) {
-      return RetroAchievementsGOTW.fromJson(data);
-    }
-    if (data != null && data['Error'] != null) {
-      _log.e('API Error: ${data['Error']}');
-    }
-    return null;
   }
 
   /// Mapping of NeoStation system identifiers to RetroAchievements console IDs.
@@ -103,33 +142,25 @@ class RetroAchievementsService {
     String username, {
     String? apiKey,
   }) async {
-    try {
-      final url = Uri.parse(
-        '$_baseUrl/API_GetUserProfile.php',
-      ).replace(queryParameters: {'u': username, 'y': resolveApiKey(apiKey)});
+    final url = Uri.parse(
+      '$_baseUrl/API_GetUserProfile.php',
+    ).replace(queryParameters: {'u': username, 'y': resolveApiKey(apiKey)});
 
-      final response = await http.get(
+    return _fetchWithCache<RetroAchievementsUser?>(
+      cacheKey: 'profile_$username',
+      send: () => http.get(
         url,
         headers: {'User-Agent': 'NeoStation/1.0', 'Accept': 'application/json'},
-      );
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-
-        if (data['User'] != null) {
+      ),
+      parse: (data) {
+        if (data != null && data['User'] != null) {
           return RetroAchievementsUser.fromJson(data);
-        } else {
-          _log.e('User not found: $username');
-          return null;
         }
-      } else {
-        _log.e('HTTP error ${response.statusCode}: ${response.body}');
+        _log.e('User not found: $username');
         return null;
-      }
-    } catch (e) {
-      _log.e('Error getting user profile: $e');
-      return null;
-    }
+      },
+      onMiss: () => null,
+    );
   }
 
   /// Checks if a username is registered on RetroAchievements.
@@ -145,19 +176,20 @@ class RetroAchievementsService {
     String username, {
     String? apiKey,
   }) async {
-    try {
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final url = Uri.parse('$_baseUrl/API_GetUserSummary.php').replace(
-        queryParameters: {
-          'u': username,
-          'g': '1', // Include recent games
-          'a': '2', // Include recent achievements
-          'y': resolveApiKey(apiKey),
-          '_t': timestamp.toString(),
-        },
-      );
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final url = Uri.parse('$_baseUrl/API_GetUserSummary.php').replace(
+      queryParameters: {
+        'u': username,
+        'g': '1', // Include recent games
+        'a': '2', // Include recent achievements
+        'y': resolveApiKey(apiKey),
+        '_t': timestamp.toString(),
+      },
+    );
 
-      final response = await http.get(
+    return _fetchWithCache<RetroAchievementsUserSummary?>(
+      cacheKey: 'summary_$username',
+      send: () => http.get(
         url,
         headers: {
           'User-Agent': 'NeoStation/1.0',
@@ -166,11 +198,8 @@ class RetroAchievementsService {
           'Pragma': 'no-cache',
           'Expires': '0',
         },
-      );
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-
+      ),
+      parse: (data) {
         if (data is Map && data['User'] != null) {
           return RetroAchievementsUserSummary.fromJson(
             data as Map<String, dynamic>,
@@ -184,18 +213,12 @@ class RetroAchievementsService {
           }
           _log.e('Unexpected response: list without valid data');
           return null;
-        } else {
-          _log.e('User not found or invalid response: $username');
-          return null;
         }
-      } else {
-        _log.e('HTTP error ${response.statusCode}: ${response.body}');
+        _log.e('User not found or invalid response: $username');
         return null;
-      }
-    } catch (e) {
-      _log.e('Error getting user summary: $e');
-      return null;
-    }
+      },
+      onMiss: () => null,
+    );
   }
 
   /// Retrieves detailed information for a specific game and the user's progress.
@@ -337,30 +360,30 @@ class RetroAchievementsService {
       'User-Agent': 'NeoStation/1.0',
       'Accept': 'application/json',
     };
-    final response = client == null
-        ? await http.get(url, headers: headers)
-        : await client.get(url, headers: headers);
 
-    if (response.statusCode != 200) {
-      throw HttpException(
-        'RetroAchievements recent achievements request failed (${response.statusCode})',
-      );
-    }
-
-    final decoded = json.decode(response.body);
-    if (decoded is! List) {
-      throw const FormatException(
-        'Invalid RetroAchievements recent achievements response',
-      );
-    }
-
-    return decoded
-        .map(
-          (item) => RetroAchievementRecentUnlockItem.fromJson(
-            Map<String, dynamic>.from(item as Map),
-          ),
-        )
-        .toList();
+    return _fetchWithCache<List<RetroAchievementRecentUnlockItem>>(
+      cacheKey: 'recent_unlocks_$username',
+      send: () => client == null
+          ? http.get(url, headers: headers)
+          : client.get(url, headers: headers),
+      parse: (decoded) {
+        if (decoded is! List) {
+          throw const FormatException(
+            'Invalid RetroAchievements recent achievements response',
+          );
+        }
+        return decoded
+            .map(
+              (item) => RetroAchievementRecentUnlockItem.fromJson(
+                Map<String, dynamic>.from(item as Map),
+              ),
+            )
+            .toList();
+      },
+      onMiss: () => throw const HttpException(
+        'RetroAchievements recent achievements request failed',
+      ),
+    );
   }
 
   static Future<List<RetroAchievementRecentlyPlayedGameItem>>
@@ -385,30 +408,30 @@ class RetroAchievementsService {
       'User-Agent': 'NeoStation/1.0',
       'Accept': 'application/json',
     };
-    final response = client == null
-        ? await http.get(url, headers: headers)
-        : await client.get(url, headers: headers);
 
-    if (response.statusCode != 200) {
-      throw HttpException(
-        'RetroAchievements recently played request failed (${response.statusCode})',
-      );
-    }
-
-    final decoded = json.decode(response.body);
-    if (decoded is! List) {
-      throw const FormatException(
-        'Invalid RetroAchievements recently played response',
-      );
-    }
-
-    return decoded
-        .map(
-          (item) => RetroAchievementRecentlyPlayedGameItem.fromJson(
-            Map<String, dynamic>.from(item as Map),
-          ),
-        )
-        .toList();
+    return _fetchWithCache<List<RetroAchievementRecentlyPlayedGameItem>>(
+      cacheKey: 'recently_played_$username',
+      send: () => client == null
+          ? http.get(url, headers: headers)
+          : client.get(url, headers: headers),
+      parse: (decoded) {
+        if (decoded is! List) {
+          throw const FormatException(
+            'Invalid RetroAchievements recently played response',
+          );
+        }
+        return decoded
+            .map(
+              (item) => RetroAchievementRecentlyPlayedGameItem.fromJson(
+                Map<String, dynamic>.from(item as Map),
+              ),
+            )
+            .toList();
+      },
+      onMiss: () => throw const HttpException(
+        'RetroAchievements recently played request failed',
+      ),
+    );
   }
 
   static Future<RetroAchievementCompletionProgressSummary>
@@ -433,25 +456,25 @@ class RetroAchievementsService {
       'User-Agent': 'NeoStation/1.0',
       'Accept': 'application/json',
     };
-    final response = client == null
-        ? await http.get(url, headers: headers)
-        : await client.get(url, headers: headers);
 
-    if (response.statusCode != 200) {
-      throw HttpException(
-        'RetroAchievements completion progress request failed (${response.statusCode})',
-      );
-    }
-
-    final decoded = json.decode(response.body);
-    if (decoded is! Map) {
-      throw const FormatException(
-        'Invalid RetroAchievements completion progress response',
-      );
-    }
-
-    return RetroAchievementCompletionProgressSummary.fromJson(
-      Map<String, dynamic>.from(decoded),
+    return _fetchWithCache<RetroAchievementCompletionProgressSummary>(
+      cacheKey: 'completion_$username',
+      send: () => client == null
+          ? http.get(url, headers: headers)
+          : client.get(url, headers: headers),
+      parse: (decoded) {
+        if (decoded is! Map) {
+          throw const FormatException(
+            'Invalid RetroAchievements completion progress response',
+          );
+        }
+        return RetroAchievementCompletionProgressSummary.fromJson(
+          Map<String, dynamic>.from(decoded),
+        );
+      },
+      onMiss: () => throw const HttpException(
+        'RetroAchievements completion progress request failed',
+      ),
     );
   }
 
@@ -474,25 +497,23 @@ class RetroAchievementsService {
       },
     );
 
-    final response = await http.get(
-      url,
-      headers: {
-        'User-Agent': 'NeoStation/1.0',
-        'Accept': 'application/json',
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0',
-      },
+    return _fetchWithCache<Map<String, dynamic>?>(
+      cacheKey: 'awards_$username',
+      send: () => http.get(
+        url,
+        headers: {
+          'User-Agent': 'NeoStation/1.0',
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        },
+      ),
+      parse: (data) => data as Map<String, dynamic>,
+      onMiss: () => throw const HttpException(
+        'RetroAchievements user awards request failed',
+      ),
     );
-
-    if (response.statusCode != 200) {
-      throw HttpException(
-        'RetroAchievements user awards request failed (${response.statusCode})',
-      );
-    }
-
-    final data = json.decode(response.body);
-    return data as Map<String, dynamic>;
   }
 
   /// Searches for games by name within a specific console category.

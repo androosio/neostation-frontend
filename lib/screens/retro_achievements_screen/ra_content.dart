@@ -247,6 +247,7 @@ class _RAContentState extends State<RAContent> {
               ),
             ),
           ] else ...[
+            if (raProvider.isOffline) _buildOfflineBanner(context),
             Expanded(
               child: RADashboardHub(
                 scrollController: _dashboardScrollController,
@@ -486,6 +487,43 @@ class _RAContentState extends State<RAContent> {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Slim banner shown above the dashboard when signed in from cached data
+  /// because the network was unreachable at launch.
+  Widget _buildOfflineBanner(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      margin: EdgeInsets.only(bottom: 8.r),
+      padding: EdgeInsets.symmetric(horizontal: 12.r, vertical: 8.r),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.secondaryContainer.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(10.r),
+        border: Border.all(
+          color: theme.colorScheme.secondary.withValues(alpha: 0.3),
+          width: 1.r,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Symbols.cloud_off_rounded,
+            color: theme.colorScheme.secondary,
+            size: 18.r,
+          ),
+          SizedBox(width: 10.r),
+          Expanded(
+            child: Text(
+              'Offline — showing your last synced achievements',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSecondaryContainer,
+                fontSize: 12.r,
               ),
             ),
           ),

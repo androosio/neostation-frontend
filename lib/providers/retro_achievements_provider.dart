@@ -5,6 +5,7 @@ import 'package:neostation/services/logger_service.dart';
 import '../models/retro_achievements_user.dart';
 import '../models/retro_achievements_summary.dart';
 import '../services/retro_achievements_service.dart';
+import '../services/retro_achievements_cache.dart';
 import '../repositories/retro_achievements_repository.dart';
 import '../models/retro_achievements_dashboard_models.dart';
 import '../models/retro_achievements_game_info.dart';
@@ -31,6 +32,11 @@ class RetroAchievementsProvider extends ChangeNotifier {
 
   /// Whether a successful connection has been established with the API.
   bool _isConnected = false;
+
+  /// True when the session is signed in from cached data because the network
+  /// was unreachable at auto-login. The dashboard is populated but stale; the
+  /// UI surfaces an offline banner and a live refresh re-clears this.
+  bool _isOffline = false;
 
   /// Last error message encountered during API interactions.
   String? _error;
@@ -122,6 +128,7 @@ class RetroAchievementsProvider extends ChangeNotifier {
   RetroAchievementsUser? get user => _user;
   bool get isLoading => _isLoading;
   bool get isConnected => _isConnected;
+  bool get isOffline => _isOffline;
   String? get error => _error;
   String get username => _username;
   String get apiKey => _apiKey;
@@ -225,6 +232,9 @@ class RetroAchievementsProvider extends ChangeNotifier {
       if (userProfile != null) {
         _user = userProfile;
         _isConnected = true;
+        // The profile came from the offline cache iff the service could not
+        // reach the live API; mirror that into offline mode for the UI.
+        _isOffline = RetroAchievementsCache.lastServedFromCache;
 
         await _saveRAUserToConfig(_username);
         await _saveRAApiKeyToConfig(_apiKey);
@@ -501,6 +511,7 @@ class RetroAchievementsProvider extends ChangeNotifier {
   void disconnect({bool clearSavedUser = true}) {
     _user = null;
     _isConnected = false;
+    _isOffline = false;
     _username = '';
     _apiKey = '';
     _error = null;
@@ -531,6 +542,8 @@ class RetroAchievementsProvider extends ChangeNotifier {
     if (clearSavedUser) {
       _clearRAUserFromConfig();
       _clearRAApiKeyFromConfig();
+      // Drop cached API payloads so a different user can't see stale data.
+      unawaited(RetroAchievementsCache.clear());
     }
 
     notifyListeners();
