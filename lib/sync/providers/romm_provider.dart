@@ -252,6 +252,19 @@ class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
     return parts.sublist(1, parts.length - 1).join('/');
   }
 
+  /// A `403` that reaches the provider is a *persistent* permission denial: the
+  /// service layer ([RommService._sendWithAuthRetry]) already re-authenticated
+  /// and retried once, so a stale/empty-scope token would have recovered. What
+  /// remains is a genuine authorization failure — e.g. a RomM 5.0 account that
+  /// lacks `assets.write` under the granular per-user permission system.
+  ///
+  /// These must abort the sync with an error status; swallowing them to a
+  /// `false` (no-op) return would make a dropped save look like a clean,
+  /// up-to-date sync — silently losing the user's progress.
+  @visibleForTesting
+  static bool isPermissionDenied(Object e) =>
+      e is RommException && e.statusCode == 403;
+
   Future<bool> _upload(int romId, LocalSaveFile local, bool isState) async {
     try {
       final file = File(local.filePath);
@@ -274,6 +287,7 @@ class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
       );
       return true;
     } catch (e) {
+      if (isPermissionDenied(e)) rethrow;
       _log.e('RomM upload failed (${local.filePath}): $e');
       return false;
     }
@@ -356,12 +370,28 @@ class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
       }
       return wroteAny;
     } catch (e) {
+      if (isPermissionDenied(e)) rethrow;
       _log.e('RomM download failed (${asset.fileName}): $e');
       return false;
     }
   }
 
   // ── Game-specific sync operations (interface) ───────────────────────────────
+
+  /// Records [game] as failed in the visible sync state and returns the matching
+  /// fail result. Used by every per-game sync entry point so a hard failure
+  /// (notably a RomM 5.0 permission denial that [isPermissionDenied] let bubble
+  /// up) surfaces as an error state instead of leaving stale state that would
+  /// read as a clean, up-to-date sync.
+  SyncResult _failGame(GameModel game, Object error) {
+    _gameSyncStates[game.romname] = _buildState(
+      game,
+      GameSyncStatus.error,
+      errorMessage: error.toString(),
+    );
+    notifyListeners();
+    return SyncResult.fail(SyncError.unknown, message: error.toString());
+  }
 
   @override
   Future<SyncResult> detectGameSaveFiles(GameModel game) async {
@@ -371,13 +401,7 @@ class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
       notifyListeners();
       return SyncResult.ok();
     } catch (e) {
-      _gameSyncStates[game.romname] = _buildState(
-        game,
-        GameSyncStatus.error,
-        errorMessage: e.toString(),
-      );
-      notifyListeners();
-      return SyncResult.fail(SyncError.unknown, message: e.toString());
+      return _failGame(game, e);
     }
   }
 
@@ -393,7 +417,10 @@ class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
       await _syncGame(game, downloadOnly: true, deadline: deadline);
       return SyncResult.ok();
     } catch (e) {
-      return SyncResult.fail(SyncError.unknown, message: e.toString());
+      // Surface a permission denial (or any hard failure) as an error state so a
+      // dropped pre-launch download isn't invisible; without this the UI would
+      // keep whatever state it had and read as a clean sync.
+      return _failGame(game, e);
     }
   }
 
