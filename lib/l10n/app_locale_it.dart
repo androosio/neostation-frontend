@@ -60,6 +60,12 @@ const Map<String, dynamic> appLocaleIt = {
       'Mostra la scheda dei giochi recenti nella griglia',
   AppLocale.themesSubtitle: "Personalizza l'aspetto di NeoStation",
   AppLocale.systemTheme: 'Tema di Sistema',
+  AppLocale.importTheme: 'Importa tema',
+  AppLocale.importThemeSuccess: 'Tema "%s" importato',
+  AppLocale.importThemeExists: 'Il tema "%s" è già importato',
+  AppLocale.importThemeError: 'Impossibile importare il tema — file non valido',
+  AppLocale.deleteThemeTitle: 'Eliminare il tema?',
+  AppLocale.deleteThemeConfirm: 'Rimuovere il tema importato "%s"?',
 
   AppLocale.generalSettings: 'Impostazioni Generali',
   AppLocale.alwaysShowRomName: 'Mostra sempre il nome della ROM',
@@ -113,7 +119,7 @@ const Map<String, dynamic> appLocaleIt = {
   AppLocale.nowPlayingDimNever: 'Mai',
   AppLocale.nowPlayingDockEnabled: 'Dock app',
   AppLocale.nowPlayingDockEnabledSubtitle:
-      'Mostra il dock app sul panel Now Playing secondario',
+      'Mostra il dock app sullo schermo secondario',
   AppLocale.nowPlayingDockSlots: 'Posti dock',
   AppLocale.nowPlayingDockSlotsSubtitle:
       'Quanti posti app mostra il dock (1-5)',
@@ -934,6 +940,8 @@ const Map<String, dynamic> appLocaleIt = {
   AppLocale.esdeResetSubtitle:
       'Remove imported metadata and media links so the import can be re-run',
   AppLocale.esdeResetComplete: 'ES-DE import reset',
+  AppLocale.esdeResetConfirmBody:
+      'This removes all imported ES-DE metadata and media links and clears the selected folder. Your games and ROM files are not affected.',
   AppLocale.esdeImportNotEsdeFolder:
       'This folder is not an ES-DE installation (no gamelists found)',
   AppLocale.esdeImportNothingFound:
@@ -946,4 +954,24 @@ const Map<String, dynamic> appLocaleIt = {
   AppLocale.esdeSummaryStatsUpdated: 'Preferiti / statistiche aggiornati',
   AppLocale.esdeSummaryGames: 'giochi',
   AppLocale.esdeSummarySystems: 'sistemi',
+  AppLocale.wizardScanComplete: 'Scansione completata',
+  AppLocale.wizardTapNextToContinue: 'Tocca Avanti per continuare',
+  AppLocale.wizardEsdeStepTitle: 'Importa da ES-DE',
+  AppLocale.wizardEsdeStepDesc:
+      'Usi già ES-DE? Importa i metadati e le immagini dei tuoi giochi. '
+      'Seleziona la cartella principale di ES-DE che contiene le cartelle '
+      '"gamelists" e "downloaded_media". Facoltativo; puoi eseguirlo più tardi '
+      'dalle Impostazioni.',
+  AppLocale.wizardArtPackTitle: 'Ottieni il pacchetto grafico NeoStation',
+  AppLocale.wizardArtPackDesc:
+      'Consigliamo vivamente di scaricare il pacchetto grafico dei sistemi '
+      'NeoStation per splendidi sfondi delle console in tutta la tua libreria. '
+      'Può essere modificato in seguito nelle Impostazioni.',
+  AppLocale.wizardDownloadArtPack: 'Scarica pacchetto grafico',
+  AppLocale.wizardArtPackInstalled:
+      'Pacchetto grafico installato! Puoi esplorare altri temi in seguito nelle '
+      'Impostazioni.',
+  AppLocale.wizardArtPackUnavailable:
+      'Al momento non è stato possibile raggiungere il pacchetto grafico. Puoi '
+      'installarlo in seguito dalle Impostazioni una volta online.',
 };

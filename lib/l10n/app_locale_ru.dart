@@ -60,6 +60,12 @@ const Map<String, dynamic> appLocaleRu = {
       'Показать карточку недавних игр в сетке систем',
   AppLocale.themesSubtitle: 'Персонализируйте внешний вид вашей NeoStation',
   AppLocale.systemTheme: 'Системная',
+  AppLocale.importTheme: 'Импорт темы',
+  AppLocale.importThemeSuccess: 'Тема «%s» импортирована',
+  AppLocale.importThemeExists: 'Тема «%s» уже импортирована',
+  AppLocale.importThemeError: 'Не удалось импортировать тему — неверный файл',
+  AppLocale.deleteThemeTitle: 'Удалить тему?',
+  AppLocale.deleteThemeConfirm: 'Удалить импортированную тему «%s»?',
 
   AppLocale.generalSettings: 'Общие настройки',
   AppLocale.alwaysShowRomName: 'Всегда показывать имя файла ROM',
@@ -111,7 +117,7 @@ const Map<String, dynamic> appLocaleRu = {
   AppLocale.nowPlayingDimNever: 'Никогда',
   AppLocale.nowPlayingDockEnabled: 'Док приложений',
   AppLocale.nowPlayingDockEnabledSubtitle:
-      'Показывать док приложений на панели Now Playing второго экрана',
+      'Показывать док приложений на втором экране',
   AppLocale.nowPlayingDockSlots: 'Слоты дока',
   AppLocale.nowPlayingDockSlotsSubtitle:
       'Сколько слотов приложений показывает док (1-5)',
@@ -912,6 +918,8 @@ const Map<String, dynamic> appLocaleRu = {
   AppLocale.esdeResetSubtitle:
       'Remove imported metadata and media links so the import can be re-run',
   AppLocale.esdeResetComplete: 'ES-DE import reset',
+  AppLocale.esdeResetConfirmBody:
+      'This removes all imported ES-DE metadata and media links and clears the selected folder. Your games and ROM files are not affected.',
   AppLocale.esdeImportNotEsdeFolder:
       'This folder is not an ES-DE installation (no gamelists found)',
   AppLocale.esdeImportNothingFound:
@@ -924,4 +932,24 @@ const Map<String, dynamic> appLocaleRu = {
   AppLocale.esdeSummaryStatsUpdated: 'Избранное / статистика обновлены',
   AppLocale.esdeSummaryGames: 'игр',
   AppLocale.esdeSummarySystems: 'систем',
+  AppLocale.wizardScanComplete: 'Сканирование завершено',
+  AppLocale.wizardTapNextToContinue: 'Нажмите «Далее», чтобы продолжить',
+  AppLocale.wizardEsdeStepTitle: 'Импорт из ES-DE',
+  AppLocale.wizardEsdeStepDesc:
+      'Уже пользуетесь ES-DE? Импортируйте метаданные и обложки ваших игр. '
+      'Выберите основную папку ES-DE, содержащую папки "gamelists" и '
+      '"downloaded_media". Необязательно; вы можете сделать это позже в '
+      'Настройках.',
+  AppLocale.wizardArtPackTitle: 'Получите набор обложек NeoStation',
+  AppLocale.wizardArtPackDesc:
+      'Мы настоятельно рекомендуем загрузить набор системных обложек NeoStation '
+      'для красивых фонов консолей по всей вашей библиотеке. Его можно изменить '
+      'позже в Настройках.',
+  AppLocale.wizardDownloadArtPack: 'Загрузить набор обложек',
+  AppLocale.wizardArtPackInstalled:
+      'Набор обложек установлен! Другие темы можно посмотреть позже в '
+      'Настройках.',
+  AppLocale.wizardArtPackUnavailable:
+      'Сейчас не удалось получить набор обложек. Вы можете установить его позже '
+      'в Настройках, когда будете онлайн.',
 };

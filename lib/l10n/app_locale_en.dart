@@ -59,6 +59,12 @@ const Map<String, dynamic> appLocaleEn = {
       'Show the recently played card in the systems grid',
   AppLocale.themesSubtitle: 'Personalize the appearance of your NeoStation',
   AppLocale.systemTheme: 'System',
+  AppLocale.importTheme: 'Import Theme',
+  AppLocale.importThemeSuccess: 'Imported "%s"',
+  AppLocale.importThemeExists: 'Theme "%s" is already imported',
+  AppLocale.importThemeError: 'Couldn\'t import theme — invalid file',
+  AppLocale.deleteThemeTitle: 'Delete Theme?',
+  AppLocale.deleteThemeConfirm: 'Remove the imported theme "%s"?',
 
   AppLocale.generalSettings: 'General Settings',
   AppLocale.alwaysShowRomName: 'Always show ROM file name',
@@ -107,7 +113,7 @@ const Map<String, dynamic> appLocaleEn = {
   AppLocale.nowPlayingDimNever: 'Never',
   AppLocale.nowPlayingDockEnabled: 'App dock',
   AppLocale.nowPlayingDockEnabledSubtitle:
-      'Show the app dock on the secondary Now Playing panel',
+      'Show the app dock on the secondary screen',
   AppLocale.nowPlayingDockSlots: 'Dock slots',
   AppLocale.nowPlayingDockSlotsSubtitle:
       'How many app slots the dock shows (1-5)',
@@ -912,6 +918,8 @@ const Map<String, dynamic> appLocaleEn = {
   AppLocale.esdeResetSubtitle:
       'Remove imported metadata and media links so the import can be re-run',
   AppLocale.esdeResetComplete: 'ES-DE import reset',
+  AppLocale.esdeResetConfirmBody:
+      'This removes all imported ES-DE metadata and media links and clears the selected folder. Your games and ROM files are not affected.',
   AppLocale.esdeImportNotEsdeFolder:
       'This folder is not an ES-DE installation (no gamelists found)',
   AppLocale.esdeImportNothingFound:
@@ -924,4 +932,22 @@ const Map<String, dynamic> appLocaleEn = {
   AppLocale.esdeSummaryStatsUpdated: 'Favorites / stats updated',
   AppLocale.esdeSummaryGames: 'games',
   AppLocale.esdeSummarySystems: 'systems',
+  AppLocale.wizardScanComplete: 'Scan complete',
+  AppLocale.wizardTapNextToContinue: 'Tap Next to continue',
+  AppLocale.wizardEsdeStepTitle: 'Import from ES-DE',
+  AppLocale.wizardEsdeStepDesc:
+      'Already using ES-DE? Import your game metadata and artwork. Select the '
+      'main ES-DE folder containing your "gamelists" and "downloaded_media" '
+      'folders. Optional; you can run it later from Settings.',
+  AppLocale.wizardArtPackTitle: 'Get the NeoStation Art Pack',
+  AppLocale.wizardArtPackDesc:
+      'We strongly recommend downloading the NeoStation system art pack for '
+      'beautiful console backgrounds across your library. It can be changed '
+      'later in Settings.',
+  AppLocale.wizardDownloadArtPack: 'Download Art Pack',
+  AppLocale.wizardArtPackInstalled:
+      'Art pack installed! You can explore more themes later in Settings.',
+  AppLocale.wizardArtPackUnavailable:
+      'The art pack couldn\'t be reached right now. You can install it later '
+      'from Settings once you\'re online.',
 };

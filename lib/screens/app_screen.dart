@@ -133,6 +133,7 @@ class AppScreenState extends State<AppScreen> with WidgetsBindingObserver {
       onSelectItem: _selectCurrentItem,
       onSettings: _handleSettings,
       onBack: _handleBackNavigation,
+      onXButton: _handleXButton,
     );
 
     // Asynchronous initialization of navigation and update checking.
@@ -467,6 +468,14 @@ class AppScreenState extends State<AppScreen> with WidgetsBindingObserver {
       NewScraperOptionsScreen.selectCurrent();
     } else if (_selectedTabIndex == _settingsTabIndex) {
       NewSettingsScreen.selectCurrent();
+    }
+  }
+
+  /// X button: on the Settings tab this deletes the focused item (used to remove
+  /// imported themes). No-op elsewhere.
+  void _handleXButton() {
+    if (_selectedTabIndex == 4) {
+      NewSettingsScreen.deleteCurrent();
     }
   }
 

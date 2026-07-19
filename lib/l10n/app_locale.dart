@@ -13,6 +13,7 @@ part 'app_locale_de.dart';
 part 'app_locale_it.dart';
 part 'app_locale_id.dart';
 part 'app_locale_ja.dart';
+part 'app_locale_ko.dart';
 
 mixin AppLocale {
   // ---------------------------------------------------------------------------
@@ -73,6 +74,12 @@ mixin AppLocale {
   static const String launcher = 'launcher';
   static const String themesSubtitle = 'themes_subtitle';
   static const String systemTheme = 'system_theme';
+  static const String importTheme = 'import_theme';
+  static const String importThemeSuccess = 'import_theme_success';
+  static const String importThemeExists = 'import_theme_exists';
+  static const String importThemeError = 'import_theme_error';
+  static const String deleteThemeTitle = 'delete_theme_title';
+  static const String deleteThemeConfirm = 'delete_theme_confirm';
   static const String emulators = 'emulators';
   static const String appearance = 'appearance';
   static const String systemsSettings = 'systems_settings';
@@ -828,6 +835,7 @@ mixin AppLocale {
   static const String esdeReset = 'esde_reset';
   static const String esdeResetSubtitle = 'esde_reset_subtitle';
   static const String esdeResetComplete = 'esde_reset_complete';
+  static const String esdeResetConfirmBody = 'esde_reset_confirm_body';
   static const String esdeImportNotEsdeFolder = 'esde_import_not_esde_folder';
   static const String esdeImportNothingFound = 'esde_import_nothing_found';
   static const String esdeSummarySystemsMatched =
@@ -839,6 +847,16 @@ mixin AppLocale {
   static const String esdeSummaryStatsUpdated = 'esde_summary_stats_updated';
   static const String esdeSummaryGames = 'esde_summary_games';
   static const String esdeSummarySystems = 'esde_summary_systems';
+  // Setup wizard: ES-DE import & system art pack steps.
+  static const String wizardScanComplete = 'wizard_scan_complete';
+  static const String wizardTapNextToContinue = 'wizard_tap_next_to_continue';
+  static const String wizardEsdeStepTitle = 'wizard_esde_step_title';
+  static const String wizardEsdeStepDesc = 'wizard_esde_step_desc';
+  static const String wizardArtPackTitle = 'wizard_art_pack_title';
+  static const String wizardArtPackDesc = 'wizard_art_pack_desc';
+  static const String wizardDownloadArtPack = 'wizard_download_art_pack';
+  static const String wizardArtPackInstalled = 'wizard_art_pack_installed';
+  static const String wizardArtPackUnavailable = 'wizard_art_pack_unavailable';
   static const String userDataLocationDefault = 'user_data_location_default';
   static const String selectUserDataFolder = 'select_user_data_folder';
   static const String folderNotEmptyTitle = 'folder_not_empty_title';
@@ -958,6 +976,7 @@ mixin AppLocale {
   static const Map<String, dynamic> it = appLocaleIt;
   static const Map<String, dynamic> id = appLocaleId;
   static const Map<String, dynamic> ja = appLocaleJa;
+  static const Map<String, dynamic> ko = appLocaleKo;
 
   /// Map of supported languages: code -> display name
   static const Map<String, String> supportedLanguages = {
@@ -972,5 +991,6 @@ mixin AppLocale {
     'it': 'Italiano',
     'id': 'Bahasa Indonesia',
     'ja': '日本語',
+    'ko': '한국어',
   };
 }

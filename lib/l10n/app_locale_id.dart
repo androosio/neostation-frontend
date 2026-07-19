@@ -60,6 +60,12 @@ const Map<String, dynamic> appLocaleId = {
       'Tampilkan kartu game terbaru di grid sistem',
   AppLocale.themesSubtitle: 'Personalisasi tampilan NeoStation',
   AppLocale.systemTheme: 'Tema Sistem',
+  AppLocale.importTheme: 'Impor Tema',
+  AppLocale.importThemeSuccess: 'Tema "%s" diimpor',
+  AppLocale.importThemeExists: 'Tema "%s" sudah diimpor',
+  AppLocale.importThemeError: 'Tidak dapat mengimpor tema — file tidak valid',
+  AppLocale.deleteThemeTitle: 'Hapus Tema?',
+  AppLocale.deleteThemeConfirm: 'Hapus tema impor "%s"?',
 
   AppLocale.generalSettings: 'Pengaturan Umum',
   AppLocale.alwaysShowRomName: 'Selalu tampilkan nama ROM',
@@ -110,7 +116,7 @@ const Map<String, dynamic> appLocaleId = {
   AppLocale.nowPlayingDimNever: 'Jangan Pernah',
   AppLocale.nowPlayingDockEnabled: 'Dock aplikasi',
   AppLocale.nowPlayingDockEnabledSubtitle:
-      'Tampilkan dock aplikasi di panel Now Playing sekunder',
+      'Tampilkan dock aplikasi di layar sekunder',
   AppLocale.nowPlayingDockSlots: 'Slot dock',
   AppLocale.nowPlayingDockSlotsSubtitle:
       'Berapa banyak slot aplikasi yang ditampilkan dock (1-5)',
@@ -915,6 +921,8 @@ const Map<String, dynamic> appLocaleId = {
   AppLocale.esdeResetSubtitle:
       'Remove imported metadata and media links so the import can be re-run',
   AppLocale.esdeResetComplete: 'ES-DE import reset',
+  AppLocale.esdeResetConfirmBody:
+      'This removes all imported ES-DE metadata and media links and clears the selected folder. Your games and ROM files are not affected.',
   AppLocale.esdeImportNotEsdeFolder:
       'This folder is not an ES-DE installation (no gamelists found)',
   AppLocale.esdeImportNothingFound:
@@ -927,4 +935,23 @@ const Map<String, dynamic> appLocaleId = {
   AppLocale.esdeSummaryStatsUpdated: 'Favorit / statistik diperbarui',
   AppLocale.esdeSummaryGames: 'gim',
   AppLocale.esdeSummarySystems: 'sistem',
+  AppLocale.wizardScanComplete: 'Pemindaian selesai',
+  AppLocale.wizardTapNextToContinue: 'Ketuk Berikutnya untuk melanjutkan',
+  AppLocale.wizardEsdeStepTitle: 'Impor dari ES-DE',
+  AppLocale.wizardEsdeStepDesc:
+      'Sudah menggunakan ES-DE? Impor metadata dan gambar game Anda. Pilih '
+      'folder utama ES-DE yang berisi folder "gamelists" dan "downloaded_media" '
+      'Anda. Opsional; Anda dapat menjalankannya nanti dari Pengaturan.',
+  AppLocale.wizardArtPackTitle: 'Dapatkan Paket Gambar NeoStation',
+  AppLocale.wizardArtPackDesc:
+      'Kami sangat menyarankan untuk mengunduh paket gambar sistem NeoStation '
+      'agar latar belakang konsol tampil indah di seluruh koleksi Anda. Ini '
+      'dapat diubah nanti di Pengaturan.',
+  AppLocale.wizardDownloadArtPack: 'Unduh Paket Gambar',
+  AppLocale.wizardArtPackInstalled:
+      'Paket gambar terpasang! Anda dapat menjelajahi lebih banyak tema nanti '
+      'di Pengaturan.',
+  AppLocale.wizardArtPackUnavailable:
+      'Paket gambar tidak dapat dijangkau saat ini. Anda dapat memasangnya '
+      'nanti dari Pengaturan setelah online.',
 };

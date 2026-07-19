@@ -57,6 +57,12 @@ const Map<String, dynamic> appLocaleJa = {
   AppLocale.hideRecentCardSubtitle: 'システムグリッドに最近プレイしたカードを表示する',
   AppLocale.themesSubtitle: 'NeoStationの外観をカスタマイズ',
   AppLocale.systemTheme: 'システムテーマ',
+  AppLocale.importTheme: 'テーマをインポート',
+  AppLocale.importThemeSuccess: 'テーマ「%s」をインポートしました',
+  AppLocale.importThemeExists: 'テーマ「%s」はすでにインポートされています',
+  AppLocale.importThemeError: 'テーマをインポートできませんでした — 無効なファイルです',
+  AppLocale.deleteThemeTitle: 'テーマを削除しますか？',
+  AppLocale.deleteThemeConfirm: 'インポートしたテーマ「%s」を削除しますか？',
 
   AppLocale.generalSettings: '全般設定',
   AppLocale.alwaysShowRomName: '常にROM名を表示',
@@ -97,7 +103,7 @@ const Map<String, dynamic> appLocaleJa = {
   AppLocale.nowPlayingDimDarknessSubtitle: 'パネルが暗くなるときの明るさのレベル',
   AppLocale.nowPlayingDimNever: 'なし',
   AppLocale.nowPlayingDockEnabled: 'アプリドック',
-  AppLocale.nowPlayingDockEnabledSubtitle: 'セカンダリのNow Playingパネルにアプリドックを表示',
+  AppLocale.nowPlayingDockEnabledSubtitle: 'セカンダリ画面にアプリドックを表示',
   AppLocale.nowPlayingDockSlots: 'ドックスロット',
   AppLocale.nowPlayingDockSlotsSubtitle: 'ドックに表示するアプリスロット数 (1-5)',
   AppLocale.nowPlayingFanartDim: 'ファンアートを暗くする',
@@ -837,6 +843,8 @@ const Map<String, dynamic> appLocaleJa = {
   AppLocale.esdeResetSubtitle:
       'Remove imported metadata and media links so the import can be re-run',
   AppLocale.esdeResetComplete: 'ES-DE import reset',
+  AppLocale.esdeResetConfirmBody:
+      'This removes all imported ES-DE metadata and media links and clears the selected folder. Your games and ROM files are not affected.',
   AppLocale.esdeImportNotEsdeFolder:
       'This folder is not an ES-DE installation (no gamelists found)',
   AppLocale.esdeImportNothingFound:
@@ -849,4 +857,23 @@ const Map<String, dynamic> appLocaleJa = {
   AppLocale.esdeSummaryStatsUpdated: 'お気に入り／統計を更新',
   AppLocale.esdeSummaryGames: 'ゲーム',
   AppLocale.esdeSummarySystems: 'システム',
+  AppLocale.wizardScanComplete: 'スキャン完了',
+  AppLocale.wizardTapNextToContinue: '「次へ」をタップして続行',
+  AppLocale.wizardEsdeStepTitle: 'ES-DE からインポート',
+  AppLocale.wizardEsdeStepDesc:
+      'すでに ES-DE をお使いですか？ゲームのメタデータとアートワークを'
+      'インポートできます。「gamelists」と「downloaded_media」フォルダーが含まれる '
+      'ES-DE のメインフォルダーを選択してください。任意です。後で設定から'
+      '実行できます。',
+  AppLocale.wizardArtPackTitle: 'NeoStation アートパックを入手',
+  AppLocale.wizardArtPackDesc:
+      'ライブラリ全体で美しいコンソール背景を表示するために、NeoStation '
+      'システムアートパックのダウンロードを強くおすすめします。後で設定から'
+      '変更できます。',
+  AppLocale.wizardDownloadArtPack: 'アートパックをダウンロード',
+  AppLocale.wizardArtPackInstalled:
+      'アートパックをインストールしました！他のテーマは後で設定から確認できます。',
+  AppLocale.wizardArtPackUnavailable:
+      '現在アートパックにアクセスできませんでした。オンラインになったら、後で'
+      '設定からインストールできます。',
 };
