@@ -15,6 +15,7 @@ import '../../services/game_service.dart';
 import '../../services/romm_service.dart';
 import '../../utils/gamepad_nav.dart';
 import '../../widgets/custom_notification.dart';
+import '../app_screen.dart';
 
 /// Gamepad/touch-navigable browser for a connected RomM server.
 ///
@@ -23,7 +24,11 @@ import '../../widgets/custom_notification.dart';
 /// the mapped system subfolder, after which the normal scan indexes them so they
 /// become launchable.
 class RommBrowseScreen extends StatefulWidget {
-  const RommBrowseScreen({super.key});
+  /// Optional hook to open the RomM server/account panel from the source menu.
+  /// When null (e.g. used as a standalone route), the entry is hidden.
+  final VoidCallback? onOpenSettings;
+
+  const RommBrowseScreen({super.key, this.onOpenSettings});
 
   @override
   State<RommBrowseScreen> createState() => _RommBrowseScreenState();
@@ -43,6 +48,14 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
     _BrowseView.platforms,
   ];
   int _sourceIndex = 0;
+
+  /// Whether the source menu shows a trailing "server settings" entry. Present
+  /// only when the host tab passes [RommBrowseScreen.onOpenSettings].
+  bool get _hasSettingsEntry => widget.onOpenSettings != null;
+
+  /// Total selectable rows in the source menu (source lists + optional settings).
+  int get _sourceCount => _sourceItems.length + (_hasSettingsEntry ? 1 : 0);
+
   int _collectionIndex = 0;
 
   // Captured in initState so it's usable from dispose() (context is defunct by
@@ -91,6 +104,10 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
       onNavigateRight: _navigateRight,
       onSelectItem: _confirmSelection,
       onBack: _handleBack,
+      onPreviousTab: AppNavigation.previousTab,
+      onNextTab: AppNavigation.nextTab,
+      onLeftBumper: AppNavigation.previousTab,
+      onRightBumper: AppNavigation.nextTab,
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _gamepadNav.initialize();
@@ -277,7 +294,7 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
   void _moveListSelection(int delta) {
     switch (_view) {
       case _BrowseView.source:
-        final n = _sourceItems.length;
+        final n = _sourceCount;
         setState(() => _sourceIndex = (_sourceIndex + delta + n) % n);
         break;
       case _BrowseView.platforms:
@@ -304,7 +321,11 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
     }
     switch (_view) {
       case _BrowseView.source:
-        _openSource(_sourceItems[_sourceIndex]);
+        if (_sourceIndex >= _sourceItems.length) {
+          widget.onOpenSettings?.call();
+        } else {
+          _openSource(_sourceItems[_sourceIndex]);
+        }
         break;
       case _BrowseView.platforms:
         final platforms = _rommProvider.platforms;
@@ -481,7 +502,32 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
       children: [
         for (var i = 0; i < _sourceItems.length; i++)
           _sourceTile(theme, i, _sourceItems[i]),
+        if (_hasSettingsEntry) _settingsTile(theme, _sourceItems.length),
       ],
+    );
+  }
+
+  Widget _settingsTile(ThemeData theme, int index) {
+    final scheme = theme.colorScheme;
+    final isFocused = _sourceIndex == index;
+    return Container(
+      margin: EdgeInsets.symmetric(vertical: 4.r),
+      decoration: _rommFocusDecoration(scheme, isFocused),
+      child: ListTile(
+        leading: Icon(Symbols.dns_rounded, color: scheme.primary, size: 28.r),
+        title: Text(
+          AppLocale.settings.getString(context),
+          style: TextStyle(fontSize: 14.r, fontWeight: FontWeight.w600),
+        ),
+        trailing: Icon(
+          Symbols.chevron_right_rounded,
+          color: isFocused ? scheme.primary : null,
+        ),
+        onTap: () {
+          setState(() => _sourceIndex = index);
+          widget.onOpenSettings?.call();
+        },
+      ),
     );
   }
 

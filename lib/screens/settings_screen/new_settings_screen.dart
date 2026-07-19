@@ -15,7 +15,6 @@ import 'new_settings_options/launcher_settings_content.dart';
 import 'new_settings_options/about_settings_content.dart';
 import 'new_settings_options/exit_settings_content.dart';
 import 'new_settings_options/themes_settings_content.dart';
-import 'new_settings_options/romm_settings_content.dart';
 import 'new_settings_options/system_art_settings_content.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -40,19 +39,6 @@ class NewSettingsScreen extends StatefulWidget {
   static void navigateLeft() => _currentInstance?._navigateLeft();
   static void navigateRight() => _currentInstance?._navigateRight();
   static void selectCurrent() => _currentInstance?._selectItem();
-
-  /// Opens the RomM settings section. Safe to call before the settings tab has
-  /// mounted: the request is stashed and consumed once the screen is active
-  /// (used by the Cloud Sync tab's RomM provider card).
-  static void openRommSection() => _openSection(AppLocale.romm);
-
-  static void _openSection(String localeKey) {
-    _pendingSectionKey = localeKey;
-    _currentInstance?._consumePendingSection();
-  }
-
-  /// Locale key of a section to open as soon as the screen is active, or null.
-  static String? _pendingSectionKey;
 
   static _NewSettingsScreenState? _currentInstance;
 }
@@ -101,8 +87,6 @@ class _NewSettingsScreenState extends State<NewSettingsScreen> {
       GlobalKey<SystemsSettingsContentState>();
   final GlobalKey<AboutSettingsContentState> _aboutSettingsKey =
       GlobalKey<AboutSettingsContentState>();
-  final GlobalKey<RommSettingsContentState> _rommSettingsKey =
-      GlobalKey<RommSettingsContentState>();
   final GlobalKey<ExitSettingsContentState> _exitSettingsKey =
       GlobalKey<ExitSettingsContentState>();
 
@@ -116,32 +100,6 @@ class _NewSettingsScreenState extends State<NewSettingsScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _initializeMenuItems();
-    _consumePendingSection();
-  }
-
-  /// Opens a section requested via [NewSettingsScreen.openRommSection] before
-  /// this screen was mounted. No-op when there's no pending request.
-  void _consumePendingSection() {
-    final key = NewSettingsScreen._pendingSectionKey;
-    if (key == null || _menuItems.isEmpty) return;
-    final index = _menuItems.indexWhere((m) => m.localeKey == key);
-    if (index < 0) return;
-    NewSettingsScreen._pendingSectionKey = null;
-    _onMenuItemSelected(index);
-
-    // Drop focus straight into the section's content so the cursor lands on
-    // its first option, rather than parking on the left category menu. The
-    // content isn't mounted until the setState above rebuilds, so defer the
-    // focus move and scroll until the next frame.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      if (_getContentItemCount() <= 0) return;
-      setState(() {
-        _focusOnMenu = false;
-        _selectedContentIndex = 0;
-      });
-      _triggerContentScroll();
-    });
   }
 
   @override
@@ -205,15 +163,6 @@ class _NewSettingsScreenState extends State<NewSettingsScreen> {
         title: '',
         localeKey: AppLocale.systemsSettings,
         icon: Symbols.sports_esports_rounded,
-        isVisible: true,
-      ),
-    );
-
-    _menuItems.add(
-      SettingsMenuItem(
-        title: '',
-        localeKey: AppLocale.romm,
-        icon: Symbols.cloud_download_rounded,
         isVisible: true,
       ),
     );
@@ -324,8 +273,6 @@ class _NewSettingsScreenState extends State<NewSettingsScreen> {
       _systemsSettingsKey.currentState?.scrollToIndex(_selectedContentIndex);
     } else if (selectedKey == AppLocale.about) {
       _aboutSettingsKey.currentState?.scrollToIndex(_selectedContentIndex);
-    } else if (selectedKey == AppLocale.romm) {
-      _rommSettingsKey.currentState?.scrollToIndex(_selectedContentIndex);
     }
   }
 
@@ -438,8 +385,6 @@ class _NewSettingsScreenState extends State<NewSettingsScreen> {
       return _systemsSettingsKey.currentState?.getItemCount(provider) ?? 0;
     } else if (selectedKey == AppLocale.about) {
       return _aboutSettingsKey.currentState?.getItemCount() ?? 0;
-    } else if (selectedKey == AppLocale.romm) {
-      return _rommSettingsKey.currentState?.getItemCount() ?? 0;
     } else if (selectedKey == AppLocale.exit) {
       return 1;
     } else {
@@ -470,8 +415,6 @@ class _NewSettingsScreenState extends State<NewSettingsScreen> {
       );
     } else if (selectedKey == AppLocale.about) {
       _aboutSettingsKey.currentState?.selectItem(_selectedContentIndex);
-    } else if (selectedKey == AppLocale.romm) {
-      _rommSettingsKey.currentState?.selectItem(_selectedContentIndex);
     } else if (selectedKey == AppLocale.exit) {
       _executeExit();
     }
@@ -691,12 +634,6 @@ class _NewSettingsScreenState extends State<NewSettingsScreen> {
     } else if (selectedKey == AppLocale.about) {
       return AboutSettingsContent(
         key: _aboutSettingsKey,
-        isContentFocused: !_focusOnMenu,
-        selectedContentIndex: _selectedContentIndex,
-      );
-    } else if (selectedKey == AppLocale.romm) {
-      return RommSettingsContent(
-        key: _rommSettingsKey,
         isContentFocused: !_focusOnMenu,
         selectedContentIndex: _selectedContentIndex,
       );

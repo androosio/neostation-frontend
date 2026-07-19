@@ -14,6 +14,7 @@ import 'settings_screen/new_settings_screen.dart';
 import 'scraper_screen/new_scraper_options_screen.dart';
 import 'neo_sync_screen/login_screen/neo_sync_content.dart';
 import 'neo_sync_screen/neo_sync_tab.dart';
+import 'romm_screen/romm_tab.dart';
 import '../widgets/scraper_content.dart';
 import 'package:neostation/services/game_service.dart';
 import 'package:neostation/services/android_service.dart';
@@ -70,8 +71,11 @@ class AppScreenState extends State<AppScreen> with WidgetsBindingObserver {
   /// Currently active top-level navigation tab index.
   int _selectedTabIndex = 0;
 
+  /// Index of the RomM library tab within [_tabContents].
+  static const int _rommTabIndex = 4;
+
   /// Index of the Global Settings tab within [_tabContents].
-  static const int _settingsTabIndex = 4;
+  static const int _settingsTabIndex = 5;
 
   /// Internal state tracker for system selection within the System tab.
   int _selectedSystemIndex = 0;
@@ -114,7 +118,8 @@ class AppScreenState extends State<AppScreen> with WidgetsBindingObserver {
       NeoSyncContent(), // Tab 1: Cloud Persistence (NeoSync)
       RAContent(), // Tab 2: RetroAchievements
       ScraperContent(), // Tab 3: Metadata Scraper
-      NewSettingsScreen(), // Tab 4: Global Settings
+      RommTab(), // Tab 4: RomM Library
+      NewSettingsScreen(), // Tab 5: Global Settings
     ];
 
     // Initialize the navigation bridge with core application callbacks.
@@ -362,16 +367,13 @@ class AppScreenState extends State<AppScreen> with WidgetsBindingObserver {
     _currentInstance?._gamepadNav.activate();
   }
 
-  /// Switches to the Global Settings tab and opens its RomM section.
+  /// Switches to the top-level RomM library tab.
   static void openRommSettings() {
     _currentInstance?._openRommSettings();
   }
 
   void _openRommSettings() {
-    // Stash the section request first so the settings screen picks it up when
-    // it mounts (tab content is built on demand, so it isn't alive yet).
-    NewSettingsScreen.openRommSection();
-    _onTabSelected(_settingsTabIndex);
+    _onTabSelected(_rommTabIndex);
   }
 
   static void _navigateToNextTabStatic() {
@@ -396,7 +398,7 @@ class AppScreenState extends State<AppScreen> with WidgetsBindingObserver {
       NewScraperOptionsScreen.navigateRight();
       return;
     }
-    if (_selectedTabIndex == 4) {
+    if (_selectedTabIndex == _settingsTabIndex) {
       NewSettingsScreen.navigateRight();
       return;
     }
@@ -408,7 +410,7 @@ class AppScreenState extends State<AppScreen> with WidgetsBindingObserver {
       NewScraperOptionsScreen.navigateLeft();
       return;
     }
-    if (_selectedTabIndex == 4) {
+    if (_selectedTabIndex == _settingsTabIndex) {
       NewSettingsScreen.navigateLeft();
       return;
     }
@@ -425,7 +427,7 @@ class AppScreenState extends State<AppScreen> with WidgetsBindingObserver {
       NewScraperOptionsScreen.navigateDown();
       return true;
     }
-    if (_selectedTabIndex == 4) {
+    if (_selectedTabIndex == _settingsTabIndex) {
       return NewSettingsScreen.navigateDown();
     }
     return true;
@@ -440,7 +442,7 @@ class AppScreenState extends State<AppScreen> with WidgetsBindingObserver {
       NewScraperOptionsScreen.navigateUp();
       return true;
     }
-    if (_selectedTabIndex == 4) {
+    if (_selectedTabIndex == _settingsTabIndex) {
       return NewSettingsScreen.navigateUp();
     }
     return true;
@@ -463,7 +465,7 @@ class AppScreenState extends State<AppScreen> with WidgetsBindingObserver {
 
     if (_selectedTabIndex == 3) {
       NewScraperOptionsScreen.selectCurrent();
-    } else if (_selectedTabIndex == 4) {
+    } else if (_selectedTabIndex == _settingsTabIndex) {
       NewSettingsScreen.selectCurrent();
     }
   }
@@ -522,6 +524,9 @@ class AppScreenState extends State<AppScreen> with WidgetsBindingObserver {
           tabName = 'Scraper';
           break;
         case 4:
+          tabName = 'Library';
+          break;
+        case 5:
           tabName = 'Settings';
           break;
       }
@@ -632,6 +637,13 @@ class AppScreenState extends State<AppScreen> with WidgetsBindingObserver {
       case 3:
         return ScraperContent();
       case 4:
+        // RomM tab hosts its own gamepad navigation layer (browse/connect),
+        // so hand off focus like the NeoSync tab does.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _gamepadNav.deactivate();
+        });
+        return const RommTab();
+      case 5:
         return NewSettingsScreen();
       default:
         return SystemContent(

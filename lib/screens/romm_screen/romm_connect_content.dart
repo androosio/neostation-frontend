@@ -4,35 +4,38 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
 
-import '../../../l10n/app_locale.dart';
-import '../../../providers/romm_provider.dart';
-import '../../../providers/sqlite_config_provider.dart';
-import '../../../sync/providers/neo_sync_adapter.dart';
-import '../../../sync/providers/romm_provider.dart';
-import '../../../sync/sync_manager.dart';
-import '../../../widgets/custom_notification.dart';
-import '../../romm_screen/romm_browse_screen.dart';
-import 'settings_title.dart';
+import '../../l10n/app_locale.dart';
+import '../../providers/romm_provider.dart';
+import '../../providers/sqlite_config_provider.dart';
+import '../../services/game_service.dart' show GamepadNavigationManager;
+import '../../sync/providers/neo_sync_adapter.dart';
+import '../../sync/providers/romm_provider.dart';
+import '../../sync/sync_manager.dart';
+import '../../utils/gamepad_nav.dart';
+import '../../widgets/custom_notification.dart';
+import '../app_screen.dart';
 
-/// Settings panel for the RomM integration: server credentials, test/connect,
-/// disconnect, and an entry point into the library browser.
-class RommSettingsContent extends StatefulWidget {
-  final bool isContentFocused;
-  final int selectedContentIndex;
+/// Self-contained RomM connect / account panel for the top-level RomM tab.
+///
+/// When disconnected it shows the server credential form (URL / user / password
+/// + connect). When connected it shows the server status plus the save-sync
+/// toggle, a disconnect action, and — when [onBrowse] is provided — a shortcut
+/// back to the library browser. Unlike the old settings panel this widget owns
+/// its own gamepad navigation layer so it works as a standalone tab.
+class RommConnectContent extends StatefulWidget {
+  /// Invoked by the "back to library" action while connected. Null when the
+  /// panel is shown as the disconnected landing view (nothing to go back to).
+  final VoidCallback? onBrowse;
 
-  const RommSettingsContent({
-    super.key,
-    required this.isContentFocused,
-    required this.selectedContentIndex,
-  });
+  const RommConnectContent({super.key, this.onBrowse});
 
   @override
-  State<RommSettingsContent> createState() => RommSettingsContentState();
+  State<RommConnectContent> createState() => _RommConnectContentState();
 }
 
-class RommSettingsContentState extends State<RommSettingsContent> {
+class _RommConnectContentState extends State<RommConnectContent> {
   final ScrollController _scrollController = ScrollController();
-  final List<GlobalKey> _itemKeys = [];
+  final List<GlobalKey> _itemKeys = List.generate(6, (_) => GlobalKey());
 
   final TextEditingController _urlController = TextEditingController();
   final TextEditingController _userController = TextEditingController();
@@ -41,23 +44,41 @@ class RommSettingsContentState extends State<RommSettingsContent> {
   final FocusNode _userFocus = FocusNode();
   final FocusNode _passwordFocus = FocusNode();
 
+  late final GamepadNavigation _gamepadNav;
+  int _index = 0;
   bool _busy = false;
 
   @override
   void initState() {
     super.initState();
-    for (int i = 0; i < 6; i++) {
-      _itemKeys.add(GlobalKey());
-    }
+    _gamepadNav = GamepadNavigation(
+      onNavigateUp: _moveUp,
+      onNavigateDown: _moveDown,
+      onSelectItem: _selectCurrent,
+      onBack: _handleBack,
+      onPreviousTab: AppNavigation.previousTab,
+      onNextTab: AppNavigation.nextTab,
+      onLeftBumper: AppNavigation.previousTab,
+      onRightBumper: AppNavigation.nextTab,
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       final provider = context.read<RommProvider>();
       _urlController.text = provider.serverUrl;
       _userController.text = provider.username;
+      _gamepadNav.initialize();
+      GamepadNavigationManager.pushLayer(
+        'romm_connect',
+        onActivate: () => _gamepadNav.activate(),
+        onDeactivate: () => _gamepadNav.deactivate(),
+      );
     });
   }
 
   @override
   void dispose() {
+    GamepadNavigationManager.popLayer('romm_connect');
+    _gamepadNav.dispose();
     _scrollController.dispose();
     _urlController.dispose();
     _userController.dispose();
@@ -68,19 +89,28 @@ class RommSettingsContentState extends State<RommSettingsContent> {
     super.dispose();
   }
 
-  // ── Gamepad/settings contract ───────────────────────────────────────────────
+  // ── Gamepad navigation ──────────────────────────────────────────────────────
 
-  int getItemCount() {
-    final connected = context.read<RommProvider>().isConnected;
-    return connected ? 3 : 4;
+  int get _itemCount => context.read<RommProvider>().isConnected ? 3 : 4;
+
+  void _moveUp() {
+    final n = _itemCount;
+    setState(() => _index = (_index - 1 + n) % n);
+    _scrollToIndex(_index);
   }
 
-  void selectItem(int index) {
+  void _moveDown() {
+    final n = _itemCount;
+    setState(() => _index = (_index + 1) % n);
+    _scrollToIndex(_index);
+  }
+
+  void _selectCurrent() {
     final provider = context.read<RommProvider>();
     if (provider.isConnected) {
-      switch (index) {
+      switch (_index) {
         case 0:
-          _openBrowser();
+          widget.onBrowse?.call();
           break;
         case 1:
           _toggleSaveSync();
@@ -91,7 +121,7 @@ class RommSettingsContentState extends State<RommSettingsContent> {
       }
       return;
     }
-    switch (index) {
+    switch (_index) {
       case 0:
         _urlFocus.requestFocus();
         break;
@@ -107,18 +137,28 @@ class RommSettingsContentState extends State<RommSettingsContent> {
     }
   }
 
-  void scrollToIndex(int index) {
-    if (index >= 0 && index < _itemKeys.length) {
-      final ctx = _itemKeys[index].currentContext;
-      if (ctx != null) {
-        Scrollable.ensureVisible(
-          ctx,
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeInOut,
-          alignment: 0.5,
-        );
-      }
+  void _handleBack() {
+    // If a field currently holds the on-screen keyboard, the B button drops it
+    // (only LB/RB/B pass through while a TextField is focused on Android).
+    final primary = FocusManager.instance.primaryFocus;
+    if (primary != null && primary.hasFocus && primary.context != null) {
+      FocusManager.instance.primaryFocus?.unfocus();
+      return;
     }
+    // Otherwise, when connected, back returns to the library browser.
+    widget.onBrowse?.call();
+  }
+
+  void _scrollToIndex(int index) {
+    if (index < 0 || index >= _itemKeys.length) return;
+    final ctx = _itemKeys[index].currentContext;
+    if (ctx == null) return;
+    Scrollable.ensureVisible(
+      ctx,
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeInOut,
+      alignment: 0.5,
+    );
   }
 
   // ── Actions ─────────────────────────────────────────────────────────────────
@@ -156,6 +196,8 @@ class RommSettingsContentState extends State<RommSettingsContent> {
       );
     } else {
       _passwordController.clear();
+      // Reset selection so the connected view starts on the first row.
+      setState(() => _index = 0);
       AppNotification.showNotification(
         context,
         AppLocale.rommConnectionSuccess.getString(context),
@@ -169,13 +211,7 @@ class RommSettingsContentState extends State<RommSettingsContent> {
     await provider.disconnect();
     if (!mounted) return;
     _passwordController.clear();
-    setState(() {});
-  }
-
-  void _openBrowser() {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => const RommBrowseScreen()));
+    setState(() => _index = 0);
   }
 
   bool get _isSaveSyncActive =>
@@ -196,9 +232,6 @@ class RommSettingsContentState extends State<RommSettingsContent> {
 
   // ── Build ─────────────────────────────────────────────────────────────────
 
-  bool _isSelected(int index) =>
-      widget.isContentFocused && widget.selectedContentIndex == index;
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -207,14 +240,17 @@ class RommSettingsContentState extends State<RommSettingsContent> {
     return SingleChildScrollView(
       controller: _scrollController,
       physics: const ClampingScrollPhysics(),
-      padding: EdgeInsets.only(bottom: 24.r),
+      padding: EdgeInsets.fromLTRB(16.r, 16.r, 16.r, 24.r),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SettingsTitle(title: AppLocale.rommLibrary.getString(context)),
-          SizedBox(height: 8.r),
+          Text(
+            AppLocale.rommLibrary.getString(context),
+            style: TextStyle(fontSize: 18.r, fontWeight: FontWeight.bold),
+          ),
+          SizedBox(height: 10.r),
           _buildStatusLine(theme, provider),
-          SizedBox(height: 12.r),
+          SizedBox(height: 14.r),
           if (provider.isConnected)
             ..._buildConnectedRows(theme)
           else
@@ -236,29 +272,26 @@ class RommSettingsContentState extends State<RommSettingsContent> {
     } else {
       text = AppLocale.rommStatusDisconnected.getString(context);
     }
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 12.r),
-      child: Row(
-        children: [
-          Icon(
-            connected ? Symbols.cloud_done_rounded : Symbols.cloud_off_rounded,
-            size: 16.r,
-            color: connected
-                ? Colors.greenAccent
-                : theme.colorScheme.onSurface.withValues(alpha: 0.5),
-          ),
-          SizedBox(width: 8.r),
-          Expanded(
-            child: Text(
-              text,
-              style: TextStyle(
-                fontSize: 11.r,
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
-              ),
+    return Row(
+      children: [
+        Icon(
+          connected ? Symbols.cloud_done_rounded : Symbols.cloud_off_rounded,
+          size: 16.r,
+          color: connected
+              ? Colors.greenAccent
+              : theme.colorScheme.onSurface.withValues(alpha: 0.5),
+        ),
+        SizedBox(width: 8.r),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: 11.r,
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -313,7 +346,7 @@ class RommSettingsContentState extends State<RommSettingsContent> {
         icon: Symbols.grid_view_rounded,
         label: AppLocale.rommBrowseLibrary.getString(context),
         primary: true,
-        onTap: _openBrowser,
+        onTap: () => widget.onBrowse?.call(),
       ),
       SizedBox(height: 10.r),
       _buildActionRow(
@@ -345,10 +378,9 @@ class RommSettingsContentState extends State<RommSettingsContent> {
     required FocusNode focusNode,
     bool obscure = false,
   }) {
-    final selected = _isSelected(index);
+    final selected = _index == index;
     return Container(
       key: _itemKeys[index],
-      padding: EdgeInsets.symmetric(horizontal: 12.r),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -413,58 +445,59 @@ class RommSettingsContentState extends State<RommSettingsContent> {
     bool primary = false,
     bool? toggleValue,
   }) {
-    final selected = _isSelected(index);
-    final accent = theme.colorScheme.primary;
-    return GestureDetector(
-      onTap: _busy ? null : onTap,
-      child: Container(
-        key: _itemKeys[index],
-        margin: EdgeInsets.symmetric(horizontal: 12.r),
-        padding: EdgeInsets.symmetric(horizontal: 12.r, vertical: 10.r),
-        decoration: BoxDecoration(
-          color: primary
-              ? accent.withValues(alpha: 0.15)
-              : theme.colorScheme.surface.withValues(alpha: 0.5),
+    final selected = _index == index;
+    final scheme = theme.colorScheme;
+    final borderColor = selected ? scheme.primary : scheme.outline;
+    final bgColor = primary
+        ? scheme.primary.withValues(alpha: selected ? 0.22 : 0.12)
+        : scheme.onSurface.withValues(alpha: selected ? 0.10 : 0.04);
+    return Container(
+      key: _itemKeys[index],
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: _busy ? null : onTap,
           borderRadius: BorderRadius.circular(8.r),
-          border: Border.all(
-            color: selected ? accent : Colors.transparent,
-            width: 2,
+          child: Container(
+            padding: EdgeInsets.symmetric(horizontal: 12.r, vertical: 12.r),
+            decoration: BoxDecoration(
+              color: bgColor,
+              borderRadius: BorderRadius.circular(8.r),
+              border: Border.all(
+                color: borderColor,
+                width: selected ? 2.r : 1.r,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(icon, size: 18.r, color: scheme.primary),
+                SizedBox(width: 10.r),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12.r,
+                    fontWeight: FontWeight.w600,
+                    color: scheme.onSurface,
+                  ),
+                ),
+                if (_busy) ...[
+                  SizedBox(width: 10.r),
+                  SizedBox(
+                    width: 12.r,
+                    height: 12.r,
+                    child: CircularProgressIndicator(strokeWidth: 2.r),
+                  ),
+                ],
+                if (toggleValue != null) ...[
+                  const Spacer(),
+                  Switch(
+                    value: toggleValue,
+                    onChanged: _busy ? null : (_) => onTap(),
+                  ),
+                ],
+              ],
+            ),
           ),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              size: 18.r,
-              color: selected || primary ? accent : theme.colorScheme.onSurface,
-            ),
-            SizedBox(width: 10.r),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12.r,
-                fontWeight: FontWeight.w500,
-                color: selected || primary
-                    ? accent
-                    : theme.colorScheme.onSurface,
-              ),
-            ),
-            if (_busy) ...[
-              SizedBox(width: 10.r),
-              SizedBox(
-                width: 12.r,
-                height: 12.r,
-                child: CircularProgressIndicator(strokeWidth: 2.r),
-              ),
-            ],
-            if (toggleValue != null) ...[
-              const Spacer(),
-              Switch(
-                value: toggleValue,
-                onChanged: _busy ? null : (_) => onTap(),
-              ),
-            ],
-          ],
         ),
       ),
     );

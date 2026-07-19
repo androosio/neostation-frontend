@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:battery_plus/battery_plus.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
 import 'dart:async';
@@ -45,7 +46,7 @@ class HeaderState extends State<Header> {
   @override
   void initState() {
     super.initState();
-    _tabFocusNodes = List.generate(5, (_) => FocusNode(skipTraversal: true));
+    _tabFocusNodes = List.generate(6, (_) => FocusNode(skipTraversal: true));
     _getBatteryLevel();
     _listenToBatteryState();
     _updateTime();
@@ -297,6 +298,16 @@ class HeaderState extends State<Header> {
                                 child: _buildTabButton(
                                   context,
                                   4,
+                                  "assets/images/icons/romm-light.svg",
+                                  AppLocale.rommLibrary.getString(context),
+                                ),
+                              ),
+                              SizedBox(
+                                width: 32.r,
+                                height: 32.r,
+                                child: _buildTabButton(
+                                  context,
+                                  5,
                                   "assets/images/icons/setting.webp",
                                   AppLocale.settings.getString(context),
                                 ),
@@ -418,15 +429,26 @@ class HeaderState extends State<Header> {
         },
         child: Container(
           padding: EdgeInsets.all(8.r),
-          child: Image.asset(
-            icon,
-            color: isSelected
-                ? Theme.of(context).colorScheme.onPrimary
-                : Theme.of(context).colorScheme.onSurface,
-          ),
+          child: _tabIcon(context, icon, isSelected),
         ),
       ),
     );
+  }
+
+  /// Renders a tab icon tinted to the active/inactive colour. Supports both
+  /// raster assets (Image.asset) and SVGs (e.g. the RomM logo) so brand marks
+  /// can be dropped in without pre-rasterising.
+  Widget _tabIcon(BuildContext context, String icon, bool isSelected) {
+    final scheme = Theme.of(context).colorScheme;
+    final color = isSelected ? scheme.onPrimary : scheme.onSurface;
+    if (icon.toLowerCase().endsWith('.svg')) {
+      return SvgPicture.asset(
+        icon,
+        colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
+        fit: BoxFit.contain,
+      );
+    }
+    return Image.asset(icon, color: color);
   }
 
   // Steam-style shoulder button (LB/RB)
