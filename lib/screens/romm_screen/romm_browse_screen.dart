@@ -262,10 +262,14 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
     final next = _romIndex + _romColumns;
     if (next < n) {
       setState(() => _romIndex = next);
-    } else if (_rommProvider.romsHasMore && !_rommProvider.loadingRoms) {
-      // At the last loaded row with more available: page in instead of wrapping.
-      _rommProvider.loadMoreRoms();
+    } else if (_rommProvider.romsHasMore) {
+      // At the last loaded row with more pages to come: page in and HOLD the
+      // cursor where it is. Wrapping to the top here is what caused the "cursor
+      // snaps back" when scrolling faster than pages load — the next row simply
+      // isn't loaded yet. Once the page lands, a further press advances into it.
+      if (!_rommProvider.loadingRoms) _rommProvider.loadMoreRoms();
     } else {
+      // Whole list is loaded — genuine end of grid, so wrap as before.
       setState(
         () => _romIndex = GridNavUtils.navigateDown(
           currentIndex: _romIndex,
@@ -928,7 +932,7 @@ class _RomCardState extends State<_RomCard> {
   }
 
   Future<void> _checkDownloaded() async {
-    final exists = await widget.provider.isDownloaded(
+    final exists = await widget.provider.isDownloadedCached(
       widget.rom,
       widget.romFolders,
     );

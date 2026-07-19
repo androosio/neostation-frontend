@@ -111,6 +111,16 @@ class RommProvider extends ChangeNotifier {
   /// per platform suffices. Cleared on [disconnect].
   final Map<int, SystemModel?> _systemByPlatformId = {};
 
+  /// Cache of RomM rom id → on-disk presence, mirroring [_systemByPlatformId]'s
+  /// rationale for the download badge's *other* half. Each browse tile calls
+  /// [isDownloaded] (a synchronous sqlite3 read + filesystem stats) in its
+  /// State's initState, and the GridView rebuilds that State every time the tile
+  /// recycles into view — so on a large platform, fast scrolling re-ran the same
+  /// check hundreds of times. The result only changes when this app downloads or
+  /// removes the ROM, so we memoize it here. Set true on a completed download,
+  /// cleared on [disconnect].
+  final Map<int, bool> _downloadedByRomId = {};
+
   // ── Getters ────────────────────────────────────────────────────────────────
   RommConnectionStatus get status => _status;
   bool get isConnected => _status == RommConnectionStatus.connected;
@@ -334,6 +344,7 @@ class RommProvider extends ChangeNotifier {
     _raEarnedByGameId = {};
     _downloadedSystems.clear();
     _systemByPlatformId.clear();
+    _downloadedByRomId.clear();
     _lastPersistedAccessToken = null;
     notifyListeners();
   }
@@ -686,6 +697,20 @@ class RommProvider extends ChangeNotifier {
     return await _existingRomDir(system, rom, romFolders) != null;
   }
 
+  /// Memoized [isDownloaded] for the browse grid (see [_downloadedByRomId]).
+  ///
+  /// Returns the cached result when known, otherwise computes it once and caches
+  /// it. Use this from tile widgets so recycling a tile back into view doesn't
+  /// re-run the sqlite3 read + filesystem stats — the storm behind the "list
+  /// can't keep up" jank on large platforms.
+  Future<bool> isDownloadedCached(RommRom rom, List<String> romFolders) async {
+    final cached = _downloadedByRomId[rom.id];
+    if (cached != null) return cached;
+    final result = await isDownloaded(rom, romFolders);
+    _downloadedByRomId[rom.id] = result;
+    return result;
+  }
+
   // ── Download ────────────────────────────────────────────────────────────────
 
   /// Downloads [rom] into a configured ROM folder. On success the resolved
@@ -800,6 +825,9 @@ class RommProvider extends ChangeNotifier {
 
     tracker.status = RommDownloadStatus.completed;
     _downloadedSystems[system.folderName] = system;
+    // The ROM now exists on disk — keep the browse-grid badge cache in sync so a
+    // tile recycling back into view reflects it without re-probing the disk.
+    _downloadedByRomId[rom.id] = true;
     // Record the rom_id ↔ local game mapping so save sync can target this ROM.
     // [indexedName] is the on-disk filename the library scan indexes as
     // GameModel.romname (the .m3u for unpacked multi-disc ROMs), so the key
