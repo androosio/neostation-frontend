@@ -1062,7 +1062,7 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
     // Single-column list: fixed row height + spacing gives the geometry that
     // _scrollRomTo needs to centre any (possibly not-yet-built) row.
     _romColumns = 1;
-    final itemHeight = 56.r;
+    final itemHeight = 68.r;
     final spacing = 8.r;
     _romCellHeight = itemHeight;
     _romRowStride = itemHeight + spacing;
@@ -1232,32 +1232,36 @@ class _RomCardState extends State<_RomCard> {
             // Fixed square thumbnail — a hard size avoids any intrinsic/aspect
             // sizing negotiation inside the Row.
             SizedBox(
-              width: 40.r,
-              height: 40.r,
+              width: 52.r,
+              height: 52.r,
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(6.r),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    _buildCover(theme, coverUrl),
-                    if (widget.rom.hasRetroAchievements) _buildRaBadge(),
-                  ],
-                ),
+                child: _buildCover(theme, coverUrl),
               ),
             ),
             SizedBox(width: 10.r),
             Expanded(
-              child: Text(
-                widget.rom.name,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 12.r,
-                  fontWeight: widget.isFocused
-                      ? FontWeight.w700
-                      : FontWeight.w500,
-                  color: widget.isFocused ? scheme.primary : scheme.onSurface,
-                ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.rom.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12.r,
+                      fontWeight: widget.isFocused
+                          ? FontWeight.w700
+                          : FontWeight.w500,
+                      color: widget.isFocused
+                          ? scheme.primary
+                          : scheme.onSurface,
+                    ),
+                  ),
+                  SizedBox(height: 3.r),
+                  _buildListMeta(theme, scheme),
+                ],
               ),
             ),
             SizedBox(width: 8.r),
@@ -1266,6 +1270,105 @@ class _RomCardState extends State<_RomCard> {
         ),
       ),
     );
+  }
+
+  /// Secondary metadata line for the list layout: platform, RA progress, file
+  /// size, and a multi-disc marker — the extra room a taller row buys us.
+  Widget _buildListMeta(ThemeData theme, ColorScheme scheme) {
+    final rom = widget.rom;
+    final muted = scheme.onSurface.withValues(alpha: 0.6);
+    final chips = <Widget>[];
+
+    final platform = _platformLabel();
+    if (platform != null) {
+      chips.add(_metaChip(Symbols.videogame_asset_rounded, platform, muted));
+    }
+
+    if (rom.hasRetroAchievements) {
+      final earned = widget.provider.raEarnedFor(rom);
+      final label = earned != null
+          ? '$earned/${rom.raTotalAchievements}'
+          : '${rom.raTotalAchievements}';
+      chips.add(
+        _metaChip(
+          Symbols.emoji_events_rounded,
+          label,
+          Colors.orangeAccent.withValues(alpha: earned != null ? 0.9 : 0.55),
+        ),
+      );
+    }
+
+    final size = _sizeLabel(rom.fsSizeBytes);
+    if (size != null) {
+      chips.add(_metaChip(null, size, muted));
+    }
+
+    if (rom.isMultiFile) {
+      chips.add(_metaChip(Symbols.album_rounded, 'Multi', muted));
+    }
+
+    if (chips.isEmpty) return const SizedBox.shrink();
+
+    return Row(
+      children: [
+        for (var i = 0; i < chips.length; i++) ...[
+          if (i > 0) SizedBox(width: 8.r),
+          Flexible(fit: FlexFit.loose, child: chips[i]),
+        ],
+      ],
+    );
+  }
+
+  /// A single icon+text metadata pill (icon optional).
+  Widget _metaChip(IconData? icon, String label, Color color) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (icon != null) ...[
+          Icon(icon, size: 12.r, color: color),
+          SizedBox(width: 3.r),
+        ],
+        Flexible(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 10.r,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Human-readable platform name for this ROM, resolved from the loaded
+  /// platform list (falls back to the upper-cased slug).
+  String? _platformLabel() {
+    final slug = widget.rom.platformSlug;
+    if (slug.isEmpty) return null;
+    for (final p in widget.provider.platforms) {
+      if (p.slug == slug) return p.name;
+    }
+    return slug.toUpperCase();
+  }
+
+  /// Compact size label (e.g. "2.1 MB"); null when the size is unknown.
+  String? _sizeLabel(int bytes) {
+    if (bytes <= 0) return null;
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    var value = bytes.toDouble();
+    var unit = 0;
+    while (value >= 1024 && unit < units.length - 1) {
+      value /= 1024;
+      unit++;
+    }
+    final text = value >= 100 || unit == 0
+        ? value.toStringAsFixed(0)
+        : value.toStringAsFixed(1);
+    return '$text ${units[unit]}';
   }
 
   /// Compact trailing download control for the list layout: live progress +
