@@ -1105,7 +1105,7 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
     // Single-column list: fixed row height + spacing gives the geometry that
     // _scrollRomTo needs to centre any (possibly not-yet-built) row.
     _romColumns = 1;
-    final itemHeight = 68.r;
+    final itemHeight = 98.r;
     final spacing = 8.r;
     _romCellHeight = itemHeight;
     _romRowStride = itemHeight + spacing;
@@ -1275,8 +1275,8 @@ class _RomCardState extends State<_RomCard> {
             // Fixed square thumbnail — a hard size avoids any intrinsic/aspect
             // sizing negotiation inside the Row.
             SizedBox(
-              width: 52.r,
-              height: 52.r,
+              width: 72.r,
+              height: 72.r,
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(6.r),
                 child: _buildCover(theme, coverUrl),
@@ -1285,7 +1285,7 @@ class _RomCardState extends State<_RomCard> {
             SizedBox(width: 10.r),
             Expanded(
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.start,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
@@ -1297,13 +1297,18 @@ class _RomCardState extends State<_RomCard> {
                       fontWeight: widget.isFocused
                           ? FontWeight.w700
                           : FontWeight.w500,
-                      color: widget.isFocused
-                          ? scheme.primary
-                          : scheme.onSurface,
+                      // Keep the title high-contrast when focused: the focus fill
+                      // is a primary tint, so primary-coloured text washes out —
+                      // white reads cleanly over it.
+                      color: scheme.onSurface,
                     ),
                   ),
                   SizedBox(height: 3.r),
                   _buildListMeta(theme, scheme),
+                  SizedBox(height: 2.r),
+                  _buildListSubtitle(scheme),
+                  SizedBox(height: 2.r),
+                  _buildListStatus(scheme, download),
                 ],
               ),
             ),
@@ -1359,6 +1364,56 @@ class _RomCardState extends State<_RomCard> {
           Flexible(fit: FlexFit.loose, child: chips[i]),
         ],
       ],
+    );
+  }
+
+  /// Third metadata line: the actual ROM file name (region tags, revision,
+  /// extension) — distinct from the cleaned display name above.
+  Widget _buildListSubtitle(ColorScheme scheme) {
+    final file = widget.rom.fsName;
+    if (file.isEmpty) return const SizedBox.shrink();
+    return Text(
+      file,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        fontSize: 9.r,
+        fontWeight: FontWeight.w500,
+        color: scheme.onSurface.withValues(alpha: 0.45),
+      ),
+    );
+  }
+
+  /// Fourth line: download state — installed, in-progress with a percentage, or
+  /// available to download.
+  Widget _buildListStatus(ColorScheme scheme, RommDownload? download) {
+    if (download != null &&
+        download.status == RommDownloadStatus.downloading) {
+      final fraction = download.fraction;
+      final pct = fraction != null
+          ? ' ${(fraction * 100).clamp(0, 100).round()}%'
+          : '';
+      return _metaChip(
+        Symbols.downloading_rounded,
+        '${AppLocale.rommDownloading.getString(context)}$pct',
+        scheme.primary,
+      );
+    }
+
+    final isDone =
+        _alreadyDownloaded ||
+        (download != null && download.status == RommDownloadStatus.completed);
+    if (isDone) {
+      return _metaChip(
+        Symbols.check_circle_rounded,
+        AppLocale.rommDownloaded.getString(context),
+        Colors.greenAccent.withValues(alpha: 0.9),
+      );
+    }
+    return _metaChip(
+      Symbols.cloud_download_rounded,
+      AppLocale.download.getString(context),
+      scheme.onSurface.withValues(alpha: 0.5),
     );
   }
 
