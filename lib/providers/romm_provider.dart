@@ -81,6 +81,9 @@ class RommProvider extends ChangeNotifier {
   bool _romsHasMore = false;
   int _romsOffset = 0;
   String _searchTerm = '';
+  // True while browsing a library-wide search (no platform/collection filter):
+  // ROMs are queried by [_searchTerm] alone across the whole server.
+  bool _librarySearch = false;
   static const int _pageSize = 50;
 
   final Map<int, RommDownload> _downloads = {};
@@ -140,6 +143,7 @@ class RommProvider extends ChangeNotifier {
   bool get loadingRoms => _loadingRoms;
   bool get romsHasMore => _romsHasMore;
   String get searchTerm => _searchTerm;
+  bool get librarySearch => _librarySearch;
 
   RommService get service => _service;
   Map<int, RommDownload> get downloads => Map.unmodifiable(_downloads);
@@ -336,6 +340,7 @@ class RommProvider extends ChangeNotifier {
     _collections = [];
     _currentPlatform = null;
     _currentCollection = null;
+    _librarySearch = false;
     _roms = [];
     _romsOffset = 0;
     _romsHasMore = false;
@@ -414,6 +419,7 @@ class RommProvider extends ChangeNotifier {
   }) async {
     _currentCollection = null;
     _currentPlatform = platform;
+    _librarySearch = false;
     _searchTerm = search;
     _roms = [];
     _romsOffset = 0;
@@ -429,6 +435,7 @@ class RommProvider extends ChangeNotifier {
   }) async {
     _currentPlatform = null;
     _currentCollection = collection;
+    _librarySearch = false;
     _searchTerm = search;
     _roms = [];
     _romsOffset = 0;
@@ -437,13 +444,34 @@ class RommProvider extends ChangeNotifier {
     await loadMoreRoms();
   }
 
-  /// Re-runs the current platform/collection query with a new search term.
+  /// Re-runs the current query (platform, collection or library-wide) with a
+  /// new search term.
   Future<void> searchRoms(String term) async {
     if (_currentCollection != null) {
       await selectCollection(_currentCollection!, search: term);
     } else if (_currentPlatform != null) {
       await selectPlatform(_currentPlatform!, search: term);
+    } else if (_librarySearch) {
+      await searchLibrary(term);
     }
+  }
+
+  /// Enters a library-wide search: queries ROMs by [term] alone across the
+  /// whole server, with no platform or collection filter. An empty [term]
+  /// lists the entire library (paginated), which the user can then narrow.
+  Future<void> searchLibrary(String term) async {
+    _currentPlatform = null;
+    _currentCollection = null;
+    _librarySearch = true;
+    _searchTerm = term;
+    _roms = [];
+    _romsOffset = 0;
+    _romsHasMore = false;
+    notifyListeners();
+    // An empty term would page the entire server library (and mass-init a tile
+    // per ROM). Library search is query-driven: wait for the user to type.
+    if (term.trim().isEmpty) return;
+    await loadMoreRoms();
   }
 
   /// Returns to the platform/collection list (the in-screen / system back
@@ -451,6 +479,7 @@ class RommProvider extends ChangeNotifier {
   void backToPlatforms() {
     _currentPlatform = null;
     _currentCollection = null;
+    _librarySearch = false;
     _roms = [];
     _romsOffset = 0;
     _romsHasMore = false;
@@ -458,11 +487,17 @@ class RommProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Loads the next page of ROMs for the current platform or collection.
+  /// Loads the next page of ROMs for the current platform, collection or
+  /// library-wide search.
   Future<void> loadMoreRoms() async {
     final platform = _currentPlatform;
     final collection = _currentCollection;
-    if ((platform == null && collection == null) || _loadingRoms) return;
+    if ((platform == null && collection == null && !_librarySearch) ||
+        _loadingRoms) {
+      return;
+    }
+    // A library search with no term must not page the whole server library.
+    if (_librarySearch && _searchTerm.trim().isEmpty) return;
     _loadingRoms = true;
     _lastError = null;
     notifyListeners();
