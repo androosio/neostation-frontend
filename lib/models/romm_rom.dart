@@ -73,6 +73,10 @@ class RommRom {
   /// Total number of achievements in the RA set (0 when unknown / no set).
   final int raTotalAchievements;
 
+  /// Primary genre from RomM's `metadatum.genres`, or null when unknown. Only
+  /// the first genre is kept — the list UI shows a single compact label.
+  final String? genre;
+
   const RommRom({
     required this.id,
     required this.name,
@@ -87,6 +91,7 @@ class RommRom {
     this.urlCover,
     this.raId,
     this.raTotalAchievements = 0,
+    this.genre,
   });
 
   /// True when RomM serves this ROM as a multi-file zip archive. Uses RomM's
@@ -123,7 +128,25 @@ class RommRom {
       urlCover: json['url_cover']?.toString(),
       raId: (json['ra_id'] as num?)?.toInt(),
       raTotalAchievements: _parseRaTotal(json),
+      genre: _parseGenre(json),
     );
+  }
+
+  /// First genre from `metadatum.genres`, or null when none is present. RomM
+  /// carries `metadatum` on both the list and detail endpoints, so the browse
+  /// list gets the genre without a per-ROM detail fetch.
+  static String? _parseGenre(Map<String, dynamic> json) {
+    final md = json['metadatum'];
+    if (md is Map) {
+      final genres = md['genres'];
+      if (genres is List) {
+        for (final g in genres) {
+          final s = g?.toString() ?? '';
+          if (s.isNotEmpty) return s;
+        }
+      }
+    }
+    return null;
   }
 
   /// Total achievements in the RA set. Prefers the length of the merged

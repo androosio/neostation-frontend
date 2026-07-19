@@ -1288,6 +1288,9 @@ class _RomCardState extends State<_RomCard> {
                 mainAxisAlignment: MainAxisAlignment.start,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Nudge the title down so it doesn't sit flush with the
+                  // thumbnail's top edge.
+                  SizedBox(height: 4.r),
                   Text(
                     widget.rom.name,
                     maxLines: 2,
@@ -1306,9 +1309,9 @@ class _RomCardState extends State<_RomCard> {
                   SizedBox(height: 3.r),
                   _buildListMeta(theme, scheme),
                   SizedBox(height: 2.r),
-                  _buildListSubtitle(scheme),
+                  _buildListBottomLine(scheme, download),
                   SizedBox(height: 2.r),
-                  _buildListStatus(scheme, download),
+                  _buildListSubtitle(scheme),
                 ],
               ),
             ),
@@ -1384,9 +1387,12 @@ class _RomCardState extends State<_RomCard> {
     );
   }
 
-  /// Fourth line: download state — installed, in-progress with a percentage, or
-  /// available to download.
-  Widget _buildListStatus(ColorScheme scheme, RommDownload? download) {
+  /// Fourth line: the ROM's genre when known — the right-hand control already
+  /// conveys download state, so the genre is the more useful use of this line.
+  /// While a download is in progress the live percentage takes over (the extra
+  /// feedback is worth it), and when no genre is available the line falls back
+  /// to the download-state chip so the row is never left blank.
+  Widget _buildListBottomLine(ColorScheme scheme, RommDownload? download) {
     if (download != null &&
         download.status == RommDownloadStatus.downloading) {
       final fraction = download.fraction;
@@ -1397,6 +1403,15 @@ class _RomCardState extends State<_RomCard> {
         Symbols.downloading_rounded,
         '${AppLocale.rommDownloading.getString(context)}$pct',
         scheme.primary,
+      );
+    }
+
+    final genre = widget.rom.genre;
+    if (genre != null && genre.isNotEmpty) {
+      return _metaChip(
+        Symbols.category_rounded,
+        genre,
+        scheme.onSurface.withValues(alpha: 0.6),
       );
     }
 
