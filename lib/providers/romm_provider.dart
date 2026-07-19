@@ -1045,47 +1045,132 @@ class RommProvider extends ChangeNotifier {
         );
       }
 
-      // Cover art -> box2d media folder (prefer the larger RomM-served image).
-      // RomM serves JPEG even from *.png cover paths, and the library's image
-      // lookup is extension-sensitive, so save under the extension that matches
-      // the actual bytes and remove any stale wrong-extension variant.
+      // Artwork import. RomM caches ScreenScraper's media set per ROM; each type
+      // maps onto the media folder the library UI reads it from. The library
+      // card layers a wheel/logo (foreground) over a fanart/screenshot
+      // (background), so populating all of these gives a proper card rather than
+      // a bare box.
+      final ss =
+          (detail['ss_metadata'] as Map?)?.cast<String, dynamic>() ?? const {};
+
+      // Cover -> box2d (the box art proper).
       final coverPath =
           (detail['path_cover_large']?.toString().isNotEmpty ?? false)
           ? detail['path_cover_large'].toString()
           : detail['path_cover_small']?.toString();
-      if (coverPath != null && coverPath.isNotEmpty) {
-        final bytes = await _service.fetchImageBytes(coverPath);
-        if (bytes != null && bytes.isNotEmpty) {
-          final ext = RommService.imageExtensionFor(bytes);
-          // NeoStation shows fanart for game art (both grid and list views), so
-          // the RomM cover is saved as the fanart. RomM exposes no separate
-          // fanart image, so the cover doubles as it.
-          final dest = fileProvider.getMediaPath(
-            system.folderName,
-            'fanarts',
-            indexedName,
-            ext,
-          );
-          final destFile = File(dest);
-          await destFile.parent.create(recursive: true);
-          await destFile.writeAsBytes(bytes);
-          // Drop an other-format leftover so getImagePath resolves this one.
-          for (final other in const ['png', 'jpg']) {
-            if (other == ext) continue;
-            final stale = File(
-              fileProvider.getMediaPath(
-                system.folderName,
-                'fanarts',
-                indexedName,
-                other,
-              ),
-            );
-            if (await stale.exists()) await stale.delete();
-          }
-        }
+      await _saveRommMedia(coverPath, 'box2d', system, indexedName, fileProvider);
+
+      // Fanart -> fanarts (card/detail background). When RomM has no cached
+      // fanart, the cover doubles as the background so the card is never blank.
+      final fanartPath = _rommResourcePath(ss['fanart_path']);
+      await _saveRommMedia(
+        fanartPath ?? coverPath,
+        'fanarts',
+        system,
+        indexedName,
+        fileProvider,
+      );
+
+      // Marquee/logo -> wheels (the logo overlaid on the card foreground).
+      final wheelPath =
+          _rommResourcePath(ss['marquee_path']) ??
+          _rommResourcePath(ss['logo_path']);
+      await _saveRommMedia(
+        wheelPath,
+        'wheels',
+        system,
+        indexedName,
+        fileProvider,
+      );
+
+      // Screenshot -> screenshots (background fallback + detail view).
+      final screenshots =
+          (detail['merged_screenshots'] as List?)
+              ?.whereType<String>()
+              .toList() ??
+          const <String>[];
+      final shotPath = screenshots.isNotEmpty
+          ? screenshots.first
+          : _rommResourcePath(ss['title_screen_path']);
+      await _saveRommMedia(
+        shotPath,
+        'screenshots',
+        system,
+        indexedName,
+        fileProvider,
+      );
+
+      // Video -> videos, when RomM has a cached clip. Many ROMs only carry a
+      // YouTube id (no downloadable file), in which case there is nothing to
+      // fetch and this is skipped.
+      final videoPath =
+          _rommResourcePath(ss['video_path']) ??
+          _rommResourcePath(detail['path_video']);
+      if (videoPath != null) {
+        final vext = videoPath.toLowerCase().contains('.webm')
+            ? 'webm'
+            : 'mp4';
+        await _saveRommMedia(
+          videoPath,
+          'videos',
+          system,
+          indexedName,
+          fileProvider,
+          forcedExt: vext,
+          siblingExts: const ['mp4', 'webm'],
+        );
       }
     } catch (e) {
       _log.e('RomM metadata import failed: $e');
+    }
+  }
+
+  /// Resolves a RomM `ss_metadata` `*_path` value to a server path fetchable by
+  /// [RommService.fetchImageBytes]. Those values are relative to
+  /// `/assets/romm/resources/`; the bare path (e.g. `roms/36/3625/fanart.png`)
+  /// resolves to RomM's SPA HTML shell — a 200 that would silently corrupt the
+  /// saved asset. Absolute paths/URLs (cover, screenshots) pass through.
+  String? _rommResourcePath(dynamic raw) {
+    final s = raw?.toString() ?? '';
+    if (s.isEmpty) return null;
+    if (s.startsWith('http') || s.startsWith('/')) return s;
+    return '/assets/romm/resources/$s';
+  }
+
+  /// Fetches [pathOrUrl] from RomM and writes it into the [folder] media folder
+  /// keyed by [indexedName], picking the on-disk extension from the actual bytes
+  /// (RomM serves JPEG even from `*.png` paths and the library's lookup is
+  /// extension-sensitive) unless [forcedExt] is given. Removes stale variants in
+  /// [siblingExts] so `getImagePath`/`getVideoPath` resolve this one. No-op when
+  /// the path is empty or the fetch yields nothing.
+  Future<void> _saveRommMedia(
+    String? pathOrUrl,
+    String folder,
+    SystemModel system,
+    String indexedName,
+    FileProvider fileProvider, {
+    String? forcedExt,
+    List<String> siblingExts = const ['png', 'jpg', 'webp'],
+  }) async {
+    if (pathOrUrl == null || pathOrUrl.isEmpty) return;
+    final bytes = await _service.fetchImageBytes(pathOrUrl);
+    if (bytes == null || bytes.isEmpty) return;
+    final ext = forcedExt ?? RommService.imageExtensionFor(bytes);
+    final dest = fileProvider.getMediaPath(
+      system.folderName,
+      folder,
+      indexedName,
+      ext,
+    );
+    final destFile = File(dest);
+    await destFile.parent.create(recursive: true);
+    await destFile.writeAsBytes(bytes);
+    for (final other in siblingExts) {
+      if (other == ext) continue;
+      final stale = File(
+        fileProvider.getMediaPath(system.folderName, folder, indexedName, other),
+      );
+      if (await stale.exists()) await stale.delete();
     }
   }
 
