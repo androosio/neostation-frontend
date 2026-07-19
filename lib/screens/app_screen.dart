@@ -533,7 +533,7 @@ class AppScreenState extends State<AppScreen> with WidgetsBindingObserver {
           tabName = 'Scraper';
           break;
         case 4:
-          tabName = 'Library';
+          tabName = 'RomM';
           break;
         case 5:
           tabName = 'Settings';
