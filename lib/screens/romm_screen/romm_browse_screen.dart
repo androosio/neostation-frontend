@@ -15,6 +15,7 @@ import '../../services/game_service.dart';
 import '../../services/romm_service.dart';
 import '../../services/sfx_service.dart';
 import '../../utils/gamepad_nav.dart';
+import '../../widgets/core_footer.dart';
 import '../../widgets/custom_notification.dart';
 import '../app_screen.dart';
 
@@ -140,6 +141,7 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
       onNavigateLeft: _navigateLeft,
       onNavigateRight: _navigateRight,
       onSelectItem: _confirmSelection,
+      onXButton: _toggleRomLayout,
       onBack: _handleBack,
       onPreviousTab: AppNavigation.previousTab,
       onNextTab: AppNavigation.nextTab,
@@ -412,6 +414,19 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
     _scrollGridTo(_activeScroll, _activeGeom, next);
   }
 
+  /// Flips the ROM view between grid and list. No-op unless the ROM view is
+  /// showing (the X hint / gamepad button only applies there).
+  void _toggleRomLayout() {
+    if (!_inRomGrid) return;
+    SfxService().playNavSound();
+    setState(
+      () => _romLayout = _romLayout == _RomLayout.grid
+          ? _RomLayout.list
+          : _RomLayout.grid,
+    );
+    _scrollRomTo(_romIndex);
+  }
+
   void _confirmSelection() {
     if (_inRomGrid) {
       final roms = _rommProvider.roms;
@@ -591,7 +606,11 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
           padding: EdgeInsets.only(top: 46.r),
           child: Column(
             children: [
-              _buildTitleBar(theme, provider),
+              // In the ROM browse view the title/back bar is redundant: the
+              // footer carries the platform name and a B-back hint. Keep the bar
+              // for the source/list views and library search.
+              if (!(_inRomGrid && !provider.librarySearch))
+                _buildTitleBar(theme, provider),
               Expanded(
                 child: Builder(
                   builder: (context) {
@@ -658,9 +677,9 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
       if (provider.librarySearch) {
         return AppLocale.rommSearch.getString(context);
       }
-      return provider.currentPlatform?.name ??
-          provider.currentCollection?.name ??
-          AppLocale.rommLibrary.getString(context);
+      // The platform/collection name is shown in the footer now — leave the
+      // title bar to just the back button here.
+      return '';
     }
     switch (_view) {
       case _BrowseView.platforms:
@@ -881,7 +900,10 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
   Widget _buildRomGrid(ThemeData theme, RommProvider provider) {
     return Column(
       children: [
-        _buildSearchBar(theme, provider),
+        // The search box only earns its vertical space in library-search mode,
+        // where typing a query is the whole point. Platform/collection browsing
+        // drops it to reclaim room for ROM rows.
+        if (provider.librarySearch) _buildSearchBar(theme, provider),
         Expanded(
           child:
               (provider.librarySearch &&
@@ -898,71 +920,92 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
               ? _buildRomGridBody(theme, provider)
               : _buildRomListBody(theme, provider),
         ),
+        _buildRomFooter(theme, provider),
       ],
+    );
+  }
+
+  /// Footer for the ROM view: the current platform/collection name on the left,
+  /// gamepad hints (toggle view, download) on the right — mirrors the game
+  /// library's footer layout.
+  Widget _buildRomFooter(ThemeData theme, RommProvider provider) {
+    final source =
+        provider.currentPlatform?.name ?? provider.currentCollection?.name ?? '';
+    return Container(
+      height: 42.r,
+      padding: EdgeInsets.symmetric(horizontal: 12.r),
+      decoration: BoxDecoration(
+        color: theme.scaffoldBackgroundColor.withValues(alpha: 0.5),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              source,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 13.r,
+                fontWeight: FontWeight.w600,
+                color: theme.colorScheme.onSurface,
+                letterSpacing: 0.2.r,
+              ),
+            ),
+          ),
+          SizedBox(width: 8.r),
+          GamepadControl(
+            iconPath: 'assets/images/gamepad/Xbox_X_button.png',
+            label: AppLocale.hintViewMode.getString(context),
+            backgroundColor: theme.colorScheme.primary,
+            textColor: Colors.white,
+            onTap: _toggleRomLayout,
+          ),
+          SizedBox(width: 8.r),
+          GamepadControl(
+            iconPath: 'assets/images/gamepad/Xbox_A_button.png',
+            label: AppLocale.download.getString(context),
+            backgroundColor: const Color(0xFF2ECC71),
+            textColor: Colors.white,
+            onTap: _confirmSelection,
+          ),
+          SizedBox(width: 8.r),
+          GamepadControl(
+            iconPath: 'assets/images/gamepad/Xbox_B_button.png',
+            label: AppLocale.hintBack.getString(context),
+            backgroundColor: theme.colorScheme.surfaceContainerHighest
+                .withValues(alpha: 0.3),
+            textColor: theme.colorScheme.onSurface,
+            onTap: _handleBack,
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildSearchBar(ThemeData theme, RommProvider provider) {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 12.r, vertical: 8.r),
-      child: Row(
-        children: [
-          Expanded(
-            child: SizedBox(
-              height: 36.r,
-              child: TextField(
-                controller: _searchController,
-                focusNode: _searchFocus,
-                style: TextStyle(fontSize: 12.r),
-                decoration: InputDecoration(
-                  isDense: true,
-                  hintText: AppLocale.rommSearch.getString(context),
-                  hintStyle: TextStyle(fontSize: 11.r),
-                  prefixIcon: Icon(Symbols.search_rounded, size: 18.r),
-                  filled: true,
-                  fillColor: theme.colorScheme.onSurface.withValues(
-                    alpha: 0.05,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8.r),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-                textInputAction: TextInputAction.search,
-                onSubmitted: (value) => provider.searchRoms(value),
-              ),
+      child: SizedBox(
+        height: 36.r,
+        child: TextField(
+          controller: _searchController,
+          focusNode: _searchFocus,
+          style: TextStyle(fontSize: 12.r),
+          decoration: InputDecoration(
+            isDense: true,
+            hintText: AppLocale.rommSearch.getString(context),
+            hintStyle: TextStyle(fontSize: 11.r),
+            prefixIcon: Icon(Symbols.search_rounded, size: 18.r),
+            filled: true,
+            fillColor: theme.colorScheme.onSurface.withValues(alpha: 0.05),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8.r),
+              borderSide: BorderSide.none,
             ),
           ),
-          SizedBox(width: 8.r),
-          _buildLayoutToggle(theme),
-        ],
-      ),
-    );
-  }
-
-  /// Grid⇄list toggle for the ROM view. The icon previews the layout it would
-  /// switch to, mirroring the game library's view-mode switch.
-  Widget _buildLayoutToggle(ThemeData theme) {
-    final isGrid = _romLayout == _RomLayout.grid;
-    return SizedBox(
-      height: 36.r,
-      width: 36.r,
-      child: IconButton(
-        padding: EdgeInsets.zero,
-        iconSize: 20.r,
-        tooltip: isGrid
-            ? AppLocale.listView.getString(context)
-            : AppLocale.gridView.getString(context),
-        icon: Icon(
-          isGrid ? Symbols.view_list_rounded : Symbols.grid_view_rounded,
+          textInputAction: TextInputAction.search,
+          onSubmitted: (value) => provider.searchRoms(value),
         ),
-        onPressed: () {
-          SfxService().playNavSound();
-          setState(
-            () => _romLayout = isGrid ? _RomLayout.list : _RomLayout.grid,
-          );
-          _scrollRomTo(_romIndex);
-        },
       ),
     );
   }
