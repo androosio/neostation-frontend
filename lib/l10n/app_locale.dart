@@ -891,6 +891,13 @@ mixin AppLocale {
   // ---------------------------------------------------------------------------
   static const String romm = 'romm';
   static const String rommLibrary = 'romm_library';
+  static const String rommLogin = 'romm_login';
+  static const String rommWhatIs = 'romm_what_is';
+  static const String rommDescription = 'romm_description';
+  static const String rommInfoBrowse = 'romm_info_browse';
+  static const String rommInfoSaveSync = 'romm_info_save_sync';
+  static const String rommInfoSelfHosted = 'romm_info_self_hosted';
+  static const String rommLearnMoreAt = 'romm_learn_more_at';
   static const String rommServerUrl = 'romm_server_url';
   static const String rommServerUrlHint = 'romm_server_url_hint';
   static const String rommTestConnection = 'romm_test_connection';

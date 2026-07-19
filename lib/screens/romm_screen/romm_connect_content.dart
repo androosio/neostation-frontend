@@ -1,8 +1,11 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localization/flutter_localization.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../l10n/app_locale.dart';
 import '../../providers/romm_provider.dart';
@@ -237,24 +240,212 @@ class _RommConnectContentState extends State<RommConnectContent> {
     final theme = Theme.of(context);
     final provider = context.watch<RommProvider>();
 
-    return SingleChildScrollView(
-      controller: _scrollController,
-      physics: const ClampingScrollPhysics(),
-      padding: EdgeInsets.fromLTRB(16.r, 16.r, 16.r, 24.r),
+    // Match the ScreenScraper / RetroAchievements login layout: a top-anchored,
+    // horizontally-scrollable row with the credential card on the left and an
+    // explanatory info box on the right (info box shown only when disconnected).
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 12.r),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            AppLocale.rommLibrary.getString(context),
-            style: TextStyle(fontSize: 18.r, fontWeight: FontWeight.bold),
+          SizedBox(height: 64.r), // Space for the top navigation dock.
+          Center(
+            child: SingleChildScrollView(
+              controller: _scrollController,
+              scrollDirection: Axis.horizontal,
+              physics: const ClampingScrollPhysics(),
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16.r),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      constraints: BoxConstraints(maxWidth: 260.r),
+                      child: _buildFormCard(theme, provider),
+                    ),
+                    if (!provider.isConnected) ...[
+                      SizedBox(width: 16.r),
+                      SizedBox(width: 300.r, child: _buildInfoBox(theme)),
+                    ],
+                  ],
+                ),
+              ),
+            ),
           ),
-          SizedBox(height: 10.r),
-          _buildStatusLine(theme, provider),
-          SizedBox(height: 14.r),
-          if (provider.isConnected)
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFormCard(ThemeData theme, RommProvider provider) {
+    final connected = provider.isConnected;
+    return Container(
+      padding: EdgeInsets.all(16.r),
+      decoration: BoxDecoration(
+        color: theme.cardColor.withValues(alpha: 0.25),
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(
+          color: theme.colorScheme.primary.withValues(alpha: 0.15),
+          width: 1.r,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  (connected ? AppLocale.rommLibrary : AppLocale.rommLogin)
+                      .getString(context),
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.primary,
+                    fontSize: 14.r,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          // The status line is redundant on the login form (you are visibly
+          // disconnected); show it only once connected, mirroring the peers.
+          if (connected) ...[
+            SizedBox(height: 8.r),
+            _buildStatusLine(theme, provider),
+          ],
+          SizedBox(height: 12.r),
+          if (connected)
             ..._buildConnectedRows(theme)
           else
             ..._buildCredentialRows(theme),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoBox(ThemeData theme) {
+    return Container(
+      padding: EdgeInsets.all(16.r),
+      decoration: BoxDecoration(
+        color: theme.cardColor.withValues(alpha: 0.25),
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(
+          color: theme.colorScheme.primary.withValues(alpha: 0.15),
+          width: 1.r,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              SvgPicture.asset(
+                'assets/images/icons/romm-light.svg',
+                width: 24.r,
+                height: 24.r,
+                colorFilter: ColorFilter.mode(
+                  theme.colorScheme.primary,
+                  BlendMode.srcIn,
+                ),
+                fit: BoxFit.contain,
+              ),
+              SizedBox(width: 12.r),
+              Expanded(
+                child: Text(
+                  AppLocale.rommWhatIs.getString(context),
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.primary,
+                    fontSize: 14.r,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 6.r),
+          Text(
+            AppLocale.rommDescription.getString(context),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.9),
+              fontSize: 8.r,
+            ),
+            softWrap: true,
+          ),
+          SizedBox(height: 6.r),
+          _buildInfoItem(
+            theme,
+            Symbols.grid_view_rounded,
+            AppLocale.rommInfoBrowse.getString(context),
+          ),
+          _buildInfoItem(
+            theme,
+            Symbols.cloud_sync_rounded,
+            AppLocale.rommInfoSaveSync.getString(context),
+          ),
+          _buildInfoItem(
+            theme,
+            Symbols.dns_rounded,
+            AppLocale.rommInfoSelfHosted.getString(context),
+          ),
+          SizedBox(height: 6.r),
+          RichText(
+            softWrap: true,
+            text: TextSpan(
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontStyle: FontStyle.italic,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                fontSize: 8.r,
+              ),
+              children: [
+                TextSpan(text: AppLocale.rommLearnMoreAt.getString(context)),
+                TextSpan(
+                  text: 'romm.app',
+                  style: TextStyle(
+                    color: theme.colorScheme.primary,
+                    decoration: TextDecoration.underline,
+                  ),
+                  recognizer: TapGestureRecognizer()
+                    ..onTap = () async {
+                      final url = Uri.parse('https://romm.app');
+                      if (await canLaunchUrl(url)) {
+                        await launchUrl(
+                          url,
+                          mode: LaunchMode.externalApplication,
+                        );
+                      }
+                    },
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoItem(ThemeData theme, IconData icon, String text) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: 8.r),
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            size: 12.r,
+            color: theme.colorScheme.primary.withValues(alpha: 0.7),
+          ),
+          SizedBox(width: 8.r),
+          Expanded(
+            child: Text(
+              text,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
+                fontSize: 8.r,
+              ),
+              softWrap: true,
+            ),
+          ),
         ],
       ),
     );
@@ -314,7 +505,7 @@ class _RommConnectContentState extends State<RommConnectContent> {
         controller: _userController,
         focusNode: _userFocus,
       ),
-      SizedBox(height: 10.r),
+      SizedBox(height: 8.r),
       _buildFieldRow(
         theme,
         index: 2,
@@ -324,17 +515,8 @@ class _RommConnectContentState extends State<RommConnectContent> {
         focusNode: _passwordFocus,
         obscure: true,
       ),
-      SizedBox(height: 14.r),
-      _buildActionRow(
-        theme,
-        index: 3,
-        icon: Symbols.link_rounded,
-        label: _busy
-            ? AppLocale.rommConnecting.getString(context)
-            : AppLocale.rommSaveConnect.getString(context),
-        primary: true,
-        onTap: _connect,
-      ),
+      SizedBox(height: 12.r),
+      _buildConnectButton(theme),
     ];
   }
 
@@ -379,59 +561,125 @@ class _RommConnectContentState extends State<RommConnectContent> {
     bool obscure = false,
   }) {
     final selected = _index == index;
+    // Mirror the ScreenScraper / RetroAchievements field: a filled input with
+    // the label floating inside it, constrained to 220.r, plus a soft primary
+    // glow when the gamepad cursor is on this row.
     return Container(
       key: _itemKeys[index],
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11.r,
-              fontWeight: FontWeight.w500,
-              color: selected
-                  ? theme.colorScheme.primary
-                  : theme.colorScheme.onSurface,
+      constraints: BoxConstraints(maxWidth: 220.r),
+      decoration: selected
+          ? BoxDecoration(
+              borderRadius: BorderRadius.circular(8.r),
+              boxShadow: [
+                BoxShadow(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.35),
+                  blurRadius: 6.r,
+                  spreadRadius: 1.r,
+                ),
+              ],
+            )
+          : null,
+      child: SizedBox(
+        height: 32.r,
+        child: TextField(
+          controller: controller,
+          focusNode: focusNode,
+          obscureText: obscure,
+          enabled: !_busy,
+          style: TextStyle(fontSize: 11.r),
+          decoration: InputDecoration(
+            labelText: label,
+            labelStyle: TextStyle(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+              fontSize: 10.r,
             ),
-          ),
-          SizedBox(height: 4.r),
-          SizedBox(
-            height: 34.r,
-            child: TextField(
-              controller: controller,
-              focusNode: focusNode,
-              obscureText: obscure,
-              enabled: !_busy,
-              style: TextStyle(fontSize: 11.r),
-              decoration: InputDecoration(
-                isDense: true,
-                hintText: hint,
-                hintStyle: TextStyle(
-                  fontSize: 10.r,
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
-                ),
-                filled: true,
-                fillColor: theme.colorScheme.onSurface.withValues(alpha: 0.05),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8.r),
-                  borderSide: BorderSide(
-                    color: selected
-                        ? theme.colorScheme.primary
-                        : theme.colorScheme.primary.withValues(alpha: 0.1),
-                    width: selected ? 2.r : 1.r,
-                  ),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8.r),
-                  borderSide: BorderSide(
-                    color: theme.colorScheme.primary,
-                    width: 1.5.r,
-                  ),
-                ),
+            floatingLabelStyle: TextStyle(
+              color: theme.colorScheme.primary,
+              fontSize: 10.r,
+              fontWeight: FontWeight.bold,
+            ),
+            hintText: hint,
+            hintStyle: TextStyle(
+              fontSize: 10.r,
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+            ),
+            filled: true,
+            fillColor: theme.colorScheme.onSurface.withValues(alpha: 0.05),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8.r),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8.r),
+              borderSide: BorderSide(
+                color: selected
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.primary.withValues(alpha: 0.1),
+                width: selected ? 2.r : 1.r,
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8.r),
+              borderSide: BorderSide(
+                color: theme.colorScheme.primary,
+                width: 1.r,
               ),
             ),
           ),
-        ],
+        ),
+      ),
+    );
+  }
+
+  /// Primary "Save & Connect" button, matching the RetroAchievements connect
+  /// button (full-width elevated button with a gamepad-selection glow).
+  Widget _buildConnectButton(ThemeData theme) {
+    const index = 3;
+    final selected = _index == index;
+    return Container(
+      key: _itemKeys[index],
+      constraints: BoxConstraints(maxWidth: 220.r),
+      decoration: selected
+          ? BoxDecoration(
+              borderRadius: BorderRadius.circular(8.r),
+              boxShadow: [
+                BoxShadow(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.5),
+                  blurRadius: 8.r,
+                  spreadRadius: 2.r,
+                ),
+              ],
+            )
+          : null,
+      child: SizedBox(
+        width: double.infinity,
+        height: 32.r,
+        child: ElevatedButton(
+          onPressed: _busy ? null : _connect,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: theme.colorScheme.primary,
+            foregroundColor: theme.colorScheme.onPrimary,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8.r),
+            ),
+            elevation: 0,
+          ),
+          child: _busy
+              ? SizedBox(
+                  width: 16.r,
+                  height: 16.r,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      theme.colorScheme.onPrimary.withValues(alpha: 0.8),
+                    ),
+                  ),
+                )
+              : Text(
+                  AppLocale.rommSaveConnect.getString(context),
+                  style: TextStyle(fontSize: 14.r, fontWeight: FontWeight.bold),
+                ),
+        ),
       ),
     );
   }
