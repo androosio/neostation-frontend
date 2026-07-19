@@ -37,6 +37,15 @@ class RommBrowseScreen extends StatefulWidget {
 /// Which top-level list is showing when not drilled into a ROM grid.
 enum _BrowseView { source, platforms, collections }
 
+/// Signature shared by the four [GridNavUtils] directional helpers, so the
+/// active top-level card grid can be moved with any of them.
+typedef _GridNavFn =
+    int Function({
+      required int currentIndex,
+      required int crossAxisCount,
+      required int maxItems,
+    });
+
 class _RommBrowseScreenState extends State<RommBrowseScreen> {
   final TextEditingController _searchController = TextEditingController();
 
@@ -75,10 +84,18 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
   // The platform list is rebuilt from scratch each time we drill out of a
   // platform, so its scroll offset is restored explicitly via this controller.
   // A fixed item extent lets us jump to any index even when it isn't built yet.
+  final ScrollController _sourceScroll = ScrollController();
   final ScrollController _platformScroll = ScrollController();
   final ScrollController _collectionScroll = ScrollController();
   final ScrollController _romScroll = ScrollController();
-  double get _platformExtent => 84.r;
+
+  // Grid geometry per top-level card grid (source menu, platforms, collections),
+  // recomputed in each grid's LayoutBuilder so gamepad navigation moves the
+  // selection by exactly one visual row/column and can scroll a not-yet-built
+  // off-screen cell into view arithmetically.
+  final _GridGeom _sourceGeom = _GridGeom();
+  final _GridGeom _platformGeom = _GridGeom();
+  final _GridGeom _collectionGeom = _GridGeom();
 
   // Grid geometry, recomputed in the ROM grid's LayoutBuilder. Used to scroll
   // the focused cell into view arithmetically — the lazy GridView doesn't build
@@ -126,6 +143,7 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
   void dispose() {
     GamepadNavigationManager.popLayer('romm_browse_screen');
     _gamepadNav.dispose();
+    _sourceScroll.dispose();
     _platformScroll.dispose();
     _collectionScroll.dispose();
     _romScroll.dispose();
@@ -219,7 +237,7 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
 
   void _navigateUp() {
     if (!_inRomGrid) {
-      _moveListSelection(-1);
+      _moveTopSelection(GridNavUtils.navigateUp);
       return;
     }
     final n = _rommProvider.roms.length;
@@ -236,7 +254,7 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
 
   void _navigateDown() {
     if (!_inRomGrid) {
-      _moveListSelection(1);
+      _moveTopSelection(GridNavUtils.navigateDown);
       return;
     }
     final n = _rommProvider.roms.length;
@@ -261,7 +279,10 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
   }
 
   void _navigateLeft() {
-    if (!_inRomGrid) return;
+    if (!_inRomGrid) {
+      _moveTopSelection(GridNavUtils.navigateLeft);
+      return;
+    }
     final n = _rommProvider.roms.length;
     if (n == 0) return;
     setState(
@@ -275,7 +296,10 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
   }
 
   void _navigateRight() {
-    if (!_inRomGrid) return;
+    if (!_inRomGrid) {
+      _moveTopSelection(GridNavUtils.navigateRight);
+      return;
+    }
     final n = _rommProvider.roms.length;
     if (n == 0) return;
     setState(
@@ -289,27 +313,78 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
     _maybeLoadMore();
   }
 
-  /// Moves the selection by [delta] (wrapping) within whichever top-level list
-  /// is showing, and scrolls it into view.
-  void _moveListSelection(int delta) {
+  /// Item count of whichever top-level card grid is showing.
+  int get _activeCount {
     switch (_view) {
       case _BrowseView.source:
-        final n = _sourceCount;
-        setState(() => _sourceIndex = (_sourceIndex + delta + n) % n);
+        return _sourceCount;
+      case _BrowseView.platforms:
+        return _rommProvider.platforms.length;
+      case _BrowseView.collections:
+        return _rommProvider.collections.length;
+    }
+  }
+
+  int get _activeIndex {
+    switch (_view) {
+      case _BrowseView.source:
+        return _sourceIndex;
+      case _BrowseView.platforms:
+        return _platformIndex;
+      case _BrowseView.collections:
+        return _collectionIndex;
+    }
+  }
+
+  set _activeIndex(int value) {
+    switch (_view) {
+      case _BrowseView.source:
+        _sourceIndex = value;
         break;
       case _BrowseView.platforms:
-        final n = _rommProvider.platforms.length;
-        if (n == 0) return;
-        setState(() => _platformIndex = (_platformIndex + delta + n) % n);
-        _scrollListTo(_platformScroll, _platformIndex);
+        _platformIndex = value;
         break;
       case _BrowseView.collections:
-        final n = _rommProvider.collections.length;
-        if (n == 0) return;
-        setState(() => _collectionIndex = (_collectionIndex + delta + n) % n);
-        _scrollListTo(_collectionScroll, _collectionIndex);
+        _collectionIndex = value;
         break;
     }
+  }
+
+  _GridGeom get _activeGeom {
+    switch (_view) {
+      case _BrowseView.source:
+        return _sourceGeom;
+      case _BrowseView.platforms:
+        return _platformGeom;
+      case _BrowseView.collections:
+        return _collectionGeom;
+    }
+  }
+
+  ScrollController get _activeScroll {
+    switch (_view) {
+      case _BrowseView.source:
+        return _sourceScroll;
+      case _BrowseView.platforms:
+        return _platformScroll;
+      case _BrowseView.collections:
+        return _collectionScroll;
+    }
+  }
+
+  /// Moves the selection within whichever top-level card grid is showing using
+  /// [fn] (one of the [GridNavUtils] directional helpers), then scrolls the new
+  /// cell into view. Column count comes from the grid's last layout pass.
+  void _moveTopSelection(_GridNavFn fn) {
+    final n = _activeCount;
+    if (n == 0) return;
+    final next = fn(
+      currentIndex: _activeIndex,
+      crossAxisCount: _activeGeom.columns,
+      maxItems: n,
+    );
+    setState(() => _activeIndex = next);
+    _scrollGridTo(_activeScroll, _activeGeom, next);
   }
 
   void _confirmSelection() {
@@ -379,20 +454,29 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
     });
     _rommProvider.backToPlatforms();
     if (wasCollection) {
-      _scrollListTo(_collectionScroll, _collectionIndex);
+      _scrollGridTo(_collectionScroll, _collectionGeom, _collectionIndex);
     } else {
-      _scrollListTo(_platformScroll, _platformIndex);
+      _scrollGridTo(_platformScroll, _platformGeom, _platformIndex);
     }
   }
 
-  void _scrollListTo(ScrollController controller, int index) {
+  /// Scrolls a top-level card grid so the cell at [index] is centred, computed
+  /// from the grid's cached geometry (see [_GridGeom]) so it works even for a
+  /// not-yet-built off-screen cell.
+  void _scrollGridTo(ScrollController controller, _GridGeom geom, int index) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!controller.hasClients) return;
       final pos = controller.position;
+      final row = index ~/ geom.columns;
       final target =
-          (index * _platformExtent) -
-          (pos.viewportDimension - _platformExtent) / 2;
-      pos.jumpTo(target.clamp(pos.minScrollExtent, pos.maxScrollExtent));
+          geom.topPadding +
+          row * geom.rowStride -
+          (pos.viewportDimension - geom.cellHeight) / 2;
+      pos.animateTo(
+        target.clamp(pos.minScrollExtent, pos.maxScrollExtent),
+        duration: const Duration(milliseconds: 140),
+        curve: Curves.easeOut,
+      );
     });
   }
 
@@ -497,70 +581,82 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
   // ── Source menu ─────────────────────────────────────────────────────────────
 
   Widget _buildSourceMenu(ThemeData theme) {
-    return ListView(
-      padding: EdgeInsets.all(12.r),
-      children: [
-        for (var i = 0; i < _sourceItems.length; i++)
-          _sourceTile(theme, i, _sourceItems[i]),
-        if (_hasSettingsEntry) _settingsTile(theme, _sourceItems.length),
-      ],
-    );
-  }
-
-  Widget _settingsTile(ThemeData theme, int index) {
     final scheme = theme.colorScheme;
-    final isFocused = _sourceIndex == index;
-    return Container(
-      margin: EdgeInsets.symmetric(vertical: 4.r),
-      decoration: _rommFocusDecoration(scheme, isFocused),
-      child: ListTile(
-        leading: Icon(Symbols.dns_rounded, color: scheme.primary, size: 28.r),
-        title: Text(
-          AppLocale.settings.getString(context),
-          style: TextStyle(fontSize: 14.r, fontWeight: FontWeight.w600),
-        ),
-        trailing: Icon(
-          Symbols.chevron_right_rounded,
-          color: isFocused ? scheme.primary : null,
-        ),
-        onTap: () {
-          setState(() => _sourceIndex = index);
-          widget.onOpenSettings?.call();
-        },
-      ),
-    );
-  }
-
-  Widget _sourceTile(ThemeData theme, int index, _BrowseView target) {
-    final scheme = theme.colorScheme;
-    final isFocused = _sourceIndex == index;
-    final isCollections = target == _BrowseView.collections;
-    return Container(
-      margin: EdgeInsets.symmetric(vertical: 4.r),
-      decoration: _rommFocusDecoration(scheme, isFocused),
-      child: ListTile(
-        leading: Icon(
-          isCollections
+    return _buildCardGrid(
+      controller: _sourceScroll,
+      geom: _sourceGeom,
+      count: _sourceCount,
+      cellExtent: 150,
+      itemBuilder: (context, index) {
+        // Settings sits after the browse destinations when present.
+        if (index >= _sourceItems.length) {
+          return _MenuCard(
+            icon: Symbols.dns_rounded,
+            title: AppLocale.settings.getString(context),
+            isFocused: _sourceIndex == index,
+            scheme: scheme,
+            onTap: () {
+              setState(() => _sourceIndex = index);
+              widget.onOpenSettings?.call();
+            },
+          );
+        }
+        final target = _sourceItems[index];
+        final isCollections = target == _BrowseView.collections;
+        return _MenuCard(
+          icon: isCollections
               ? Symbols.collections_bookmark_rounded
               : Symbols.dashboard_rounded,
-          color: scheme.primary,
-          size: 28.r,
-        ),
-        title: Text(
-          isCollections
+          title: isCollections
               ? AppLocale.rommCollections.getString(context)
               : AppLocale.rommPlatforms.getString(context),
-          style: TextStyle(fontSize: 14.r, fontWeight: FontWeight.w600),
-        ),
-        trailing: Icon(
-          Symbols.chevron_right_rounded,
-          color: isFocused ? scheme.primary : null,
-        ),
-        onTap: () {
-          setState(() => _sourceIndex = index);
-          _openSource(target);
-        },
-      ),
+          isFocused: _sourceIndex == index,
+          scheme: scheme,
+          onTap: () {
+            setState(() => _sourceIndex = index);
+            _openSource(target);
+          },
+        );
+      },
+    );
+  }
+
+  /// Shared square-card grid backing the three top-level views (source menu,
+  /// platforms, collections). Records its computed layout into [geom] so
+  /// gamepad navigation and scroll-into-view can work off exact geometry.
+  Widget _buildCardGrid({
+    required ScrollController controller,
+    required _GridGeom geom,
+    required int count,
+    required Widget Function(BuildContext, int) itemBuilder,
+    double cellExtent = 150,
+    double aspectRatio = 1.0,
+  }) {
+    final spacing = 10.r;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final usableWidth = constraints.maxWidth - 24.r; // 12.r padding each side
+        geom.columns = ((usableWidth + spacing) / (cellExtent.r + spacing))
+            .floor()
+            .clamp(1, 99);
+        final cellWidth =
+            (usableWidth - (geom.columns - 1) * spacing) / geom.columns;
+        geom.cellHeight = cellWidth / aspectRatio;
+        geom.rowStride = geom.cellHeight + spacing;
+        geom.topPadding = 12.r;
+        return GridView.builder(
+          controller: controller,
+          padding: EdgeInsets.all(12.r),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: geom.columns,
+            childAspectRatio: aspectRatio,
+            crossAxisSpacing: spacing,
+            mainAxisSpacing: spacing,
+          ),
+          itemCount: count,
+          itemBuilder: itemBuilder,
+        );
+      },
     );
   }
 
@@ -582,56 +678,28 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
       provider.collections.length - 1,
     );
     final scheme = theme.colorScheme;
-    return ListView.builder(
+    return _buildCardGrid(
       controller: _collectionScroll,
-      itemExtent: _platformExtent,
-      padding: EdgeInsets.all(12.r),
-      itemCount: provider.collections.length,
+      geom: _collectionGeom,
+      count: provider.collections.length,
       itemBuilder: (context, index) {
         final collection = provider.collections[index];
-        final isFocused = _collectionIndex == index;
-        return Container(
-          margin: EdgeInsets.symmetric(vertical: 4.r),
-          decoration: _rommFocusDecoration(scheme, isFocused),
-          child: ListTile(
-            leading: Container(
-              width: 40.r,
-              height: 40.r,
-              decoration: BoxDecoration(
-                color: scheme.primary.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(8.r),
-              ),
-              child: Icon(
-                collection.isVirtual
-                    ? Symbols.auto_awesome_motion_rounded
-                    : Symbols.collections_bookmark_rounded,
-                color: scheme.primary,
-                size: 22.r,
-              ),
-            ),
-            title: Text(
-              collection.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 13.r, fontWeight: FontWeight.w500),
-            ),
-            subtitle: Text(
-              '${collection.romCount}',
-              style: TextStyle(fontSize: 10.r),
-            ),
-            trailing: Icon(
-              Symbols.chevron_right_rounded,
-              color: isFocused ? scheme.primary : null,
-            ),
-            onTap: () {
-              _searchController.clear();
-              setState(() {
-                _collectionIndex = index;
-                _romIndex = 0;
-              });
-              provider.selectCollection(collection);
-            },
-          ),
+        return _MenuCard(
+          icon: collection.isVirtual
+              ? Symbols.auto_awesome_motion_rounded
+              : Symbols.collections_bookmark_rounded,
+          title: collection.name,
+          subtitle: '${collection.romCount}',
+          isFocused: _collectionIndex == index,
+          scheme: scheme,
+          onTap: () {
+            _searchController.clear();
+            setState(() {
+              _collectionIndex = index;
+              _romIndex = 0;
+            });
+            provider.selectCollection(collection);
+          },
         );
       },
     );
@@ -679,43 +747,27 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
     }
     _platformIndex = _platformIndex.clamp(0, provider.platforms.length - 1);
     final scheme = theme.colorScheme;
-    return ListView.builder(
+    return _buildCardGrid(
       controller: _platformScroll,
-      itemExtent: _platformExtent,
-      padding: EdgeInsets.all(12.r),
-      itemCount: provider.platforms.length,
+      geom: _platformGeom,
+      count: provider.platforms.length,
+      cellExtent: 116,
       itemBuilder: (context, index) {
         final platform = provider.platforms[index];
-        final isFocused = _platformIndex == index;
-        return Container(
-          margin: EdgeInsets.symmetric(vertical: 4.r),
-          decoration: _rommFocusDecoration(scheme, isFocused),
-          child: ListTile(
-            leading: _PlatformIcon(
-              platform: platform,
-              service: provider.service,
-            ),
-            title: Text(
-              platform.name,
-              style: TextStyle(fontSize: 13.r, fontWeight: FontWeight.w500),
-            ),
-            subtitle: Text(
-              '${platform.romCount}',
-              style: TextStyle(fontSize: 10.r),
-            ),
-            trailing: Icon(
-              Symbols.chevron_right_rounded,
-              color: isFocused ? scheme.primary : null,
-            ),
-            onTap: () {
-              _searchController.clear();
-              setState(() {
-                _platformIndex = index;
-                _romIndex = 0;
-              });
-              provider.selectPlatform(platform);
-            },
-          ),
+        return _MenuCard(
+          leading: _PlatformIcon(platform: platform, service: provider.service),
+          title: platform.name,
+          subtitle: '${platform.romCount}',
+          isFocused: _platformIndex == index,
+          scheme: scheme,
+          onTap: () {
+            _searchController.clear();
+            setState(() {
+              _platformIndex = index;
+              _romIndex = 0;
+            });
+            provider.selectPlatform(platform);
+          },
         );
       },
     );
@@ -782,7 +834,9 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
     final romFolders = context.watch<SqliteConfigProvider>().config.romFolders;
     _romIndex = _romIndex.clamp(0, provider.roms.length - 1);
 
-    const cellExtent = 140.0;
+    // Smaller target cell width than the top-level card grids so more games
+    // fit on screen at once.
+    const cellExtent = 88.0;
     final spacing = 10.r;
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -1219,6 +1273,86 @@ class _PlatformIconState extends State<_PlatformIcon> {
   /// (colour SVG or logo) carries its own colours on the dark surface.
   Widget _frame(Widget child) {
     return SizedBox(width: 40.r, height: 40.r, child: child);
+  }
+}
+
+/// Cached layout of a top-level card grid, written during its LayoutBuilder
+/// pass and read by gamepad navigation / scroll-into-view so both operate on
+/// the exact geometry currently on screen (a lazy GridView doesn't build
+/// off-screen cells, so index math must stand in for measuring real widgets).
+class _GridGeom {
+  int columns = 1;
+  double cellHeight = 1;
+  double rowStride = 1;
+  double topPadding = 12;
+}
+
+/// Square selectable card for the top-level grids (source menu, platforms,
+/// collections): a centred icon or custom [leading] widget, a title, and an
+/// optional [subtitle] (e.g. ROM count).
+class _MenuCard extends StatelessWidget {
+  final IconData? icon;
+  final Widget? leading;
+  final String title;
+  final String? subtitle;
+  final bool isFocused;
+  final ColorScheme scheme;
+  final VoidCallback onTap;
+
+  const _MenuCard({
+    this.icon,
+    this.leading,
+    required this.title,
+    this.subtitle,
+    required this.isFocused,
+    required this.scheme,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: _rommFocusDecoration(scheme, isFocused),
+        padding: EdgeInsets.all(8.r),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(
+              height: 44.r,
+              child: Center(
+                child:
+                    leading ??
+                    Icon(icon, color: scheme.primary, size: 34.r),
+              ),
+            ),
+            SizedBox(height: 8.r),
+            Text(
+              title,
+              maxLines: 2,
+              textAlign: TextAlign.center,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 12.r,
+                fontWeight: FontWeight.w600,
+                color: isFocused ? scheme.primary : scheme.onSurface,
+              ),
+            ),
+            if (subtitle != null) ...[
+              SizedBox(height: 2.r),
+              Text(
+                subtitle!,
+                style: TextStyle(
+                  fontSize: 10.r,
+                  color: scheme.onSurface.withValues(alpha: 0.6),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 }
 
