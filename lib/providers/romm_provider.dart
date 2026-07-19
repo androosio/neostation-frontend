@@ -536,7 +536,13 @@ class RommProvider extends ChangeNotifier {
     return UserDataLocationService.safUriToRealPath(folder);
   }
 
-  /// Picks a writable destination directory `<romFolder>/<system>` for [system].
+  /// Picks a writable destination directory for [system]'s ROMs.
+  ///
+  /// Prefers a platform folder that already exists on disk — possibly under a
+  /// non-canonical alias (e.g. an existing `psx/` for a system whose canonical
+  /// name is `ps1`) — so a download joins the user's current library instead of
+  /// spawning a redundant folder alongside it. Only when no such folder exists
+  /// in any ROM folder does it create the canonical `<romFolder>/<folderName>`.
   ///
   /// Resolves SAF folders to their real path, then confirms the target is
   /// actually writable with a probe file (fails cleanly when the app lacks
@@ -545,22 +551,63 @@ class RommProvider extends ChangeNotifier {
     SystemModel system,
     List<String> romFolders,
   ) async {
+    final aliases = _systemFolderNames(system);
+
+    // First pass: reuse an existing folder for this platform under any alias.
     for (final folder in romFolders) {
       final base = _folderToRealBase(folder);
       if (base == null) continue;
-      final dir = Directory(p.join(base, system.folderName));
-      try {
-        await dir.create(recursive: true);
-        final probe = File(p.join(dir.path, '.romm_write_test'));
-        await probe.writeAsString('');
-        await probe.delete();
-        return dir.path;
-      } catch (_) {
-        // Not writable (e.g. no broad storage permission): try the next folder.
-        continue;
-      }
+      final existing = await _existingAliasDir(base, aliases);
+      if (existing == null) continue;
+      final path = await _dirIfWritable(existing);
+      if (path != null) return path;
+    }
+
+    // Second pass: no existing platform folder anywhere — create the canonical
+    // one in the first writable ROM folder.
+    for (final folder in romFolders) {
+      final base = _folderToRealBase(folder);
+      if (base == null) continue;
+      final path = await _dirIfWritable(p.join(base, system.folderName));
+      if (path != null) return path;
     }
     return null;
+  }
+
+  /// Path of an existing subdirectory of [base] whose name matches one of
+  /// [aliases] (case-insensitively, mirroring how the library scan matches
+  /// folders), or null if none exists / [base] can't be listed.
+  Future<String?> _existingAliasDir(
+    String base,
+    List<String> aliases,
+  ) async {
+    final wanted = {for (final a in aliases) a.toLowerCase()};
+    try {
+      await for (final entity in Directory(base).list(followLinks: false)) {
+        if (entity is! Directory) continue;
+        if (wanted.contains(p.basename(entity.path).toLowerCase())) {
+          return entity.path;
+        }
+      }
+    } catch (_) {
+      // Base missing or unreadable (e.g. no broad storage permission).
+    }
+    return null;
+  }
+
+  /// Ensures [path] exists and is writable via a probe-file round-trip,
+  /// returning it on success or null when the folder can't be written to.
+  Future<String?> _dirIfWritable(String path) async {
+    final dir = Directory(path);
+    try {
+      await dir.create(recursive: true);
+      final probe = File(p.join(dir.path, '.romm_write_test'));
+      await probe.writeAsString('');
+      await probe.delete();
+      return dir.path;
+    } catch (_) {
+      return null;
+    }
   }
 
   /// All folder names (primary + aliases) a system's ROMs can live under.
