@@ -6,6 +6,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
 
 import '../../l10n/app_locale.dart';
+import '../../models/romm_collection.dart';
 import '../../models/romm_platform.dart';
 import '../../models/romm_rom.dart';
 import '../../providers/file_provider.dart';
@@ -647,8 +648,11 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
   /// there is nowhere left to step back to within the browser.
   Widget _buildTitleBar(ThemeData theme, RommProvider provider) {
     final atRoot = !_inRomGrid && _view == _BrowseView.source;
+    // At the library root, mirror the RetroAchievements dashboard header: show
+    // who's logged in and a red disconnect affordance.
+    final showAccount = atRoot && provider.isConnected;
     return SizedBox(
-      height: 40.r,
+      height: showAccount ? 48.r : 40.r,
       child: Row(
         children: [
           if (!atRoot)
@@ -660,15 +664,66 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
           else
             SizedBox(width: 12.r),
           Expanded(
-            child: Text(
-              _appBarTitle(provider),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 16.r, fontWeight: FontWeight.bold),
-            ),
+            child: showAccount
+                ? Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _appBarTitle(provider),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 16.r,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        AppLocale.rommConnectedAs
+                            .getString(context)
+                            .replaceAll('{user}', provider.username),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 10.r,
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.6,
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                : Text(
+                    _appBarTitle(provider),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 16.r, fontWeight: FontWeight.bold),
+                  ),
           ),
+          if (showAccount)
+            IconButton(
+              icon: Icon(
+                Symbols.logout_rounded,
+                color: theme.colorScheme.error,
+                size: 20.r,
+              ),
+              tooltip: AppLocale.rommDisconnect.getString(context),
+              onPressed: () => _disconnect(provider),
+            ),
         ],
       ),
+    );
+  }
+
+  /// Disconnects from the RomM server. RommTab watches connection state and
+  /// swaps this browser back to the connect form once disconnected.
+  Future<void> _disconnect(RommProvider provider) async {
+    await provider.disconnect();
+    if (!mounted) return;
+    AppNotification.showNotification(
+      context,
+      AppLocale.rommDisconnect.getString(context),
+      type: NotificationType.info,
     );
   }
 
@@ -806,12 +861,10 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
       count: provider.collections.length,
       itemBuilder: (context, index) {
         final collection = provider.collections[index];
-        return _MenuCard(
-          icon: collection.isVirtual
-              ? Symbols.auto_awesome_motion_rounded
-              : Symbols.collections_bookmark_rounded,
-          title: collection.name,
-          subtitle: '${collection.romCount}',
+        return _CollectionCard(
+          collection: collection,
+          covers: provider.service.collectionCovers(collection),
+          headersFor: provider.service.imageHeadersFor,
           isFocused: _collectionIndex == index,
           scheme: scheme,
           onTap: () {
@@ -1895,6 +1948,123 @@ class _MenuCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Collection browse tile: a cover-art montage (mirroring RomM's own web
+/// `/collections` grid) with the collection name and ROM count beneath. Falls
+/// back to a bookmark icon when the server reports no covers.
+class _CollectionCard extends StatelessWidget {
+  final RommCollection collection;
+  final List<String> covers;
+  final Map<String, String> Function(String url) headersFor;
+  final bool isFocused;
+  final ColorScheme scheme;
+  final VoidCallback onTap;
+
+  const _CollectionCard({
+    required this.collection,
+    required this.covers,
+    required this.headersFor,
+    required this.isFocused,
+    required this.scheme,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: _rommFocusDecoration(scheme, isFocused),
+        padding: EdgeInsets.all(8.r),
+        child: Column(
+          children: [
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8.r),
+                child: _buildMontage(),
+              ),
+            ),
+            SizedBox(height: 6.r),
+            Text(
+              collection.name,
+              maxLines: 1,
+              textAlign: TextAlign.center,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 12.r,
+                fontWeight: FontWeight.w600,
+                color: isFocused ? scheme.primary : scheme.onSurface,
+              ),
+            ),
+            SizedBox(height: 2.r),
+            Text(
+              '${collection.romCount}',
+              style: TextStyle(
+                fontSize: 10.r,
+                color: scheme.onSurface.withValues(alpha: 0.6),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMontage() {
+    if (covers.isEmpty) {
+      return Container(
+        color: scheme.surface.withValues(alpha: 0.5),
+        child: Center(
+          child: Icon(
+            collection.isVirtual
+                ? Symbols.auto_awesome_motion_rounded
+                : Symbols.collections_bookmark_rounded,
+            color: scheme.primary,
+            size: 34.r,
+          ),
+        ),
+      );
+    }
+    if (covers.length == 1) return _tile(covers[0]);
+    if (covers.length == 2) {
+      return Row(
+        children: [
+          Expanded(child: _tile(covers[0])),
+          SizedBox(width: 2.r),
+          Expanded(child: _tile(covers[1])),
+        ],
+      );
+    }
+    // 3–4 covers → 2×2 mosaic (blank bottom-right when only 3).
+    Widget cell(int i) => i < covers.length ? _tile(covers[i]) : _blank();
+    Widget row(int a, int b) => Expanded(
+      child: Row(
+        children: [
+          Expanded(child: cell(a)),
+          SizedBox(width: 2.r),
+          Expanded(child: cell(b)),
+        ],
+      ),
+    );
+    return Column(
+      children: [row(0, 1), SizedBox(height: 2.r), row(2, 3)],
+    );
+  }
+
+  Widget _blank() => ColoredBox(color: scheme.surface.withValues(alpha: 0.5));
+
+  Widget _tile(String url) {
+    return Image.network(
+      url,
+      fit: BoxFit.cover,
+      width: double.infinity,
+      height: double.infinity,
+      headers: headersFor(url),
+      gaplessPlayback: true,
+      errorBuilder: (context, error, stackTrace) => _blank(),
     );
   }
 }

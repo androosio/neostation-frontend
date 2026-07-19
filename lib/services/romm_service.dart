@@ -502,6 +502,19 @@ class RommService {
     return '$_baseUrl${cover.startsWith('/') ? '' : '/'}$cover';
   }
 
+  /// Absolute, authenticated-fetchable cover URLs making up [collection]'s
+  /// mosaic thumbnail (up to [limit], RomM's web UI uses 4). Empty when the
+  /// server reported no covers.
+  List<String> collectionCovers(RommCollection collection, {int limit = 4}) {
+    return collection.coverUrls
+        .map((c) {
+          if (c.startsWith('http://') || c.startsWith('https://')) return c;
+          return '$_baseUrl${c.startsWith('/') ? '' : '/'}$c';
+        })
+        .take(limit)
+        .toList();
+  }
+
   /// Absolute logo URL for [platform] (usually a public IGDB CDN URL), or null.
   String? platformLogoUrl(RommPlatform platform) {
     final logo = platform.urlLogo;
