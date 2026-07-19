@@ -15,6 +15,9 @@ import '../../providers/sqlite_config_provider.dart';
 import '../../services/game_service.dart';
 import '../../services/romm_service.dart';
 import '../../services/sfx_service.dart';
+import '../../sync/providers/neo_sync_adapter.dart';
+import '../../sync/providers/romm_provider.dart';
+import '../../sync/sync_manager.dart';
 import '../../utils/gamepad_nav.dart';
 import '../../widgets/core_footer.dart';
 import '../../widgets/custom_notification.dart';
@@ -27,11 +30,7 @@ import '../app_screen.dart';
 /// the mapped system subfolder, after which the normal scan indexes them so they
 /// become launchable.
 class RommBrowseScreen extends StatefulWidget {
-  /// Optional hook to open the RomM server/account panel from the source menu.
-  /// When null (e.g. used as a standalone route), the entry is hidden.
-  final VoidCallback? onOpenSettings;
-
-  const RommBrowseScreen({super.key, this.onOpenSettings});
+  const RommBrowseScreen({super.key});
 
   @override
   State<RommBrowseScreen> createState() => _RommBrowseScreenState();
@@ -41,9 +40,8 @@ class RommBrowseScreen extends StatefulWidget {
 enum _BrowseView { source, platforms, collections }
 
 /// A card on the intermediate source menu. [search] opens a library-wide ROM
-/// search; [collections]/[platforms] open their list; [settings] flips the tab
-/// to the server/account panel (present only when a settings hook is supplied).
-enum _SourceCard { search, collections, platforms, settings }
+/// search; [collections]/[platforms] open their list.
+enum _SourceCard { search, collections, platforms }
 
 /// How the ROM view lays out its tiles — mirrors the game library's grid/list
 /// view-mode concept (RomM keeps its own download-aware tiles either way).
@@ -70,17 +68,11 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
   // the artwork-forward grid.
   _RomLayout _romLayout = _RomLayout.grid;
 
-  /// Whether the source menu shows a "server settings" entry. Present only when
-  /// the host tab passes [RommBrowseScreen.onOpenSettings].
-  bool get _hasSettingsEntry => widget.onOpenSettings != null;
-
-  /// Source-menu cards, in display order. Search leads; settings trails when a
-  /// settings hook is supplied.
+  /// Source-menu cards, in display order.
   List<_SourceCard> get _sourceCards => [
     _SourceCard.search,
     _SourceCard.collections,
     _SourceCard.platforms,
-    if (_hasSettingsEntry) _SourceCard.settings,
   ];
 
   /// Total selectable cards in the source menu.
@@ -472,9 +464,6 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
       case _SourceCard.platforms:
         _openSource(_BrowseView.platforms);
         break;
-      case _SourceCard.settings:
-        widget.onOpenSettings?.call();
-        break;
     }
   }
 
@@ -700,7 +689,19 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
                     style: TextStyle(fontSize: 16.r, fontWeight: FontWeight.bold),
                   ),
           ),
-          if (showAccount)
+          if (showAccount) ...[
+            IconButton(
+              icon: Icon(
+                Symbols.cloud_sync_rounded,
+                fill: _isSaveSyncActive ? 1 : 0,
+                color: _isSaveSyncActive
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                size: 20.r,
+              ),
+              tooltip: AppLocale.rommUseForSaveSync.getString(context),
+              onPressed: _toggleSaveSync,
+            ),
             IconButton(
               icon: Icon(
                 Symbols.logout_rounded,
@@ -710,6 +711,7 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
               tooltip: AppLocale.rommDisconnect.getString(context),
               onPressed: () => _disconnect(provider),
             ),
+          ],
         ],
       ),
     );
@@ -725,6 +727,28 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
       AppLocale.rommDisconnect.getString(context),
       type: NotificationType.info,
     );
+  }
+
+  /// Whether RomM (vs NeoSync) is the active save-sync provider.
+  bool get _isSaveSyncActive =>
+      SyncManager.instance.activeProviderId == RomMSyncProvider.kProviderId;
+
+  /// Toggles whether RomM is the active save-sync provider (vs NeoSync).
+  Future<void> _toggleSaveSync() async {
+    final persist = context
+        .read<SqliteConfigProvider>()
+        .updateActiveSyncProvider;
+    final target = _isSaveSyncActive
+        ? NeoSyncAdapter.kProviderId
+        : RomMSyncProvider.kProviderId;
+    await SyncManager.instance.setActive(target, persist: persist);
+    if (!mounted) return;
+    AppNotification.showNotification(
+      context,
+      AppLocale.rommUseForSaveSync.getString(context),
+      type: NotificationType.info,
+    );
+    setState(() {});
   }
 
   String _appBarTitle(RommProvider provider) {
@@ -780,8 +804,6 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
         return Symbols.collections_bookmark_rounded;
       case _SourceCard.platforms:
         return Symbols.dashboard_rounded;
-      case _SourceCard.settings:
-        return Symbols.dns_rounded;
     }
   }
 
@@ -793,8 +815,6 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
         return AppLocale.rommCollections.getString(context);
       case _SourceCard.platforms:
         return AppLocale.rommPlatforms.getString(context);
-      case _SourceCard.settings:
-        return AppLocale.settings.getString(context);
     }
   }
 
