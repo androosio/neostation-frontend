@@ -372,7 +372,9 @@ class _NewSettingsScreenState extends State<NewSettingsScreen> {
     if (_focusOnMenu) return;
     final selectedKey = _menuItems[_selectedMenuIndex].localeKey;
     if (selectedKey == AppLocale.themes) {
-      _themesSettingsKey.currentState?.deleteFocusedTheme(_selectedContentIndex);
+      _themesSettingsKey.currentState?.deleteFocusedTheme(
+        _selectedContentIndex,
+      );
     }
   }
 

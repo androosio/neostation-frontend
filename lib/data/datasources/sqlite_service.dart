@@ -421,7 +421,7 @@ class SqliteService {
   SqliteService._internal();
 
   // Database configuration
-  static const int _databaseVersion = 104;
+  static const int _databaseVersion = 107;
   static const String _databaseName = 'data.sqlite';
 
   DatabaseAdapter? _database;
@@ -1206,6 +1206,17 @@ class SqliteService {
     );
     final tableNames = tables.map((r) => r['name'].toString()).toSet();
 
+    // Recovery guard: if the database already has tables but app_os is missing
+    // (e.g. after a failed downgrade/recreate cycle), recreate it immediately so
+    // downstream hotfixes and queries do not crash.
+    if (tableNames.isNotEmpty && !tableNames.contains('app_os')) {
+      _log.w(
+        'app_os table is missing on an existing database; recreating it defensively.',
+      );
+      await _ensureAppOsTable(db);
+      tableNames.add('app_os');
+    }
+
     // Only run hotfixes if the target tables exist.
 
     // FIX: Ensure user_rom_folders exists even if migrations were skipped.
@@ -1312,6 +1323,33 @@ class SqliteService {
       }
     } catch (e) {
       _log.e('Minor fix ensuring emulator default core column failed: $e');
+      rethrow;
+    }
+  }
+
+  /// Ensures the [app_os] lookup table exists and contains the base OS rows.
+  ///
+  /// This is a defensive guard used both during first install and as a recovery
+  /// mechanism if the table was lost during a failed downgrade/recreate cycle.
+  Future<void> _ensureAppOsTable(DatabaseAdapter db) async {
+    try {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS app_os (
+          id INTEGER PRIMARY KEY,
+          name TEXT NOT NULL UNIQUE
+        );
+      ''');
+
+      await db.execute('''
+        INSERT OR IGNORE INTO app_os (id, name) VALUES
+        (1, 'windows'),
+        (2, 'android'),
+        (3, 'linux'),
+        (4, 'macos'),
+        (5, 'ios')
+      ''');
+    } catch (e) {
+      _log.e('Failed to ensure app_os table: $e');
       rethrow;
     }
   }
@@ -1514,17 +1552,27 @@ class SqliteService {
   }
 
   /// Completely drops and recreates the database schema.
+  ///
+  /// Foreign keys are disabled while dropping tables so that parent tables
+  /// (e.g. [app_os], [app_systems]) can be removed even when child tables
+  /// reference them. They are re-enabled before returning.
   Future<void> _recreateDatabase(DatabaseAdapter db) async {
-    final tables = await db.rawQuery(
-      "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';",
-    );
+    try {
+      await db.execute('PRAGMA foreign_keys = OFF;');
 
-    for (final table in tables) {
-      final tableName = table['name'].toString();
-      await db.execute('DROP TABLE IF EXISTS $tableName;');
+      final tables = await db.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';",
+      );
+
+      for (final table in tables) {
+        final tableName = table['name'].toString();
+        await db.execute('DROP TABLE IF EXISTS $tableName;');
+      }
+
+      await _onCreate(db, _databaseVersion);
+    } finally {
+      await db.execute('PRAGMA foreign_keys = ON;');
     }
-
-    await _onCreate(db, _databaseVersion);
   }
 
   /// Creates internal application tables (systems, emulators, etc.).
@@ -1622,6 +1670,7 @@ class SqliteService {
         app_language TEXT DEFAULT 'en',
         active_theme TEXT DEFAULT '',
         hide_recent_card INTEGER DEFAULT 0,
+        legend_hidden INTEGER DEFAULT 0,
         active_sync_provider TEXT DEFAULT 'neosync',
         systems_version TEXT DEFAULT '',
         neostation_app_version TEXT DEFAULT '',
@@ -1883,14 +1932,7 @@ class SqliteService {
 
     try {
       await db.transaction((txn) async {
-        await txn.execute('''
-          INSERT OR IGNORE INTO app_os (id, name) VALUES
-          (1, 'windows'),
-          (2, 'android'),
-          (3, 'linux'),
-          (4, 'macos'),
-          (5, 'ios')
-        ''');
+        await _ensureAppOsTable(txn);
         await txn.execute('''
           INSERT OR IGNORE INTO user_screenscraper_config (id, scrape_mode) VALUES (1, 'new_only')
         ''');
@@ -2079,6 +2121,7 @@ class SqliteService {
 
       // Verify presence of critical tables
       final criticalTables = [
+        'app_os',
         'app_system_extensions',
         'app_systems',
         'app_emulators',
@@ -2349,6 +2392,7 @@ class SqliteService {
     String? appLanguage,
     String? activeTheme,
     int? hideRecentCard,
+    int? legendHidden,
     String? activeSyncProvider,
     String? systemsVersion,
     String? neostationAppVersion,
@@ -2423,6 +2467,9 @@ class SqliteService {
     }
     if (hideRecentCard != null) {
       newConfig['hide_recent_card'] = hideRecentCard;
+    }
+    if (legendHidden != null) {
+      newConfig['legend_hidden'] = legendHidden;
     }
     if (activeSyncProvider != null) {
       newConfig['active_sync_provider'] = activeSyncProvider;
@@ -2552,10 +2599,6 @@ class SqliteService {
     await _updateSystemSetting(systemId, 'hide_brackets', enabled ? 1 : 0);
   }
 
-  static Future<void> setSystemHideLogo(String systemId, bool enabled) async {
-    await _updateSystemSetting(systemId, 'hide_logo', enabled ? 1 : 0);
-  }
-
   static Future<void> setSystemPreferFileName(
     String systemId,
     bool enabled,
@@ -2607,6 +2650,10 @@ class SqliteService {
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
     });
+
+    // Invalidate the systems cache so subsequent reads reflect the updated
+    // setting (e.g. hide_logo) instead of returning a stale cached model.
+    _cachedSystems = null;
   }
 
   /// Sets custom images for a system.
@@ -3617,13 +3664,16 @@ class SqliteService {
   }
 
   /// Retrieves the effective default emulator for a system, respecting user overrides.
-  static Future<CoreEmulatorModel?> getDefaultEmulatorForSystem(
+  /// Returns the emulator the *user* explicitly set as default for [systemId]
+  /// (`is_user_default = 1`), or null if the user hasn't chosen one. Callers use
+  /// this to honor an explicit user choice before applying any auto-selection
+  /// heuristics.
+  static Future<CoreEmulatorModel?> getUserDefaultEmulatorForSystem(
     String systemId,
   ) async {
     final db = await instance.database;
     final currentOs = getCurrentOs();
 
-    // 1. Check for user-selected standalone default.
     final userStandalone = await db.rawQuery(
       '''
       SELECT e.*, os.name as os_name, uc.emulator_path, uc.is_user_default
@@ -3638,6 +3688,20 @@ class SqliteService {
 
     if (userStandalone.isNotEmpty) {
       return CoreEmulatorModel.fromMap(userStandalone.first);
+    }
+    return null;
+  }
+
+  static Future<CoreEmulatorModel?> getDefaultEmulatorForSystem(
+    String systemId,
+  ) async {
+    final db = await instance.database;
+    final currentOs = getCurrentOs();
+
+    // 1. Check for user-selected standalone default.
+    final userDefault = await getUserDefaultEmulatorForSystem(systemId);
+    if (userDefault != null) {
+      return userDefault;
     }
 
     // 2. Fallback to system-provided default (usually a core).
@@ -4024,12 +4088,32 @@ class SqliteService {
   }) async {
     final db = await instance.database;
     final system = await getSystemByFolderName(systemFolderName);
-    final defaultEmu = await getDefaultEmulatorForSystem(system.id!);
+
+    // Per-game emulator is an OVERRIDE, not an inherited default: leave it NULL
+    // (= "inherit the system default", resolved live at launch) unless the
+    // caller passes an explicit choice. Freezing the default here is what made
+    // per-game settings "whack-a-mole" (stale/uninstalled emulators). We only
+    // store a concrete id when we can also resolve its os_id, so the composite
+    // FK (app_emulator_os_id, app_emulator_unique_id) stays valid.
+    String? emulatorUniqueId;
+    int? emulatorOsId;
+    if (emulatorName != null && emulatorName.isNotEmpty) {
+      final osRow = await db.rawQuery(
+        'SELECT os_id FROM app_emulators '
+        'WHERE system_id = ? AND unique_identifier = ? '
+        'AND os_id = (SELECT id FROM app_os WHERE name = ?) LIMIT 1',
+        [system.id, emulatorName, getCurrentOs()],
+      );
+      if (osRow.isNotEmpty) {
+        emulatorUniqueId = emulatorName;
+        emulatorOsId = osRow.first['os_id'] as int?;
+      }
+    }
 
     await db.insert('user_roms', {
       'app_system_id': system.id,
-      'app_emulator_unique_id': defaultEmu?.uniqueId,
-      'app_emulator_os_id': defaultEmu?.osId,
+      'app_emulator_unique_id': emulatorUniqueId,
+      'app_emulator_os_id': emulatorOsId,
       'filename': filename,
       'rom_path': romPath,
       'ra_hash': raHash,

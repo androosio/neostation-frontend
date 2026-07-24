@@ -77,10 +77,7 @@ extension _Chrome on _SystemEmulatorSettingsDialogState {
       padding: EdgeInsets.symmetric(horizontal: 12.r, vertical: 8.r),
       decoration: BoxDecoration(
         color: Colors.transparent,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(12.r),
-          topRight: Radius.circular(12.r),
-        ),
+        
       ),
       child: Row(
         children: [
@@ -208,7 +205,7 @@ extension _Chrome on _SystemEmulatorSettingsDialogState {
           border: Border(
             bottom: BorderSide(
               color: isSelected
-                  ? Theme.of(context).colorScheme.secondary
+                  ? Theme.of(context).colorScheme.primary
                   : Colors.transparent,
               width: 2.r,
             ),
@@ -220,7 +217,7 @@ extension _Chrome on _SystemEmulatorSettingsDialogState {
             fontSize: 10.r,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
             color: isSelected
-                ? Theme.of(context).colorScheme.secondary
+                ? Theme.of(context).colorScheme.primary
                 : Theme.of(
                     context,
                   ).colorScheme.onSurface.withValues(alpha: 0.5),
@@ -234,16 +231,8 @@ extension _Chrome on _SystemEmulatorSettingsDialogState {
   Widget _buildFooter() {
     final theme = Theme.of(context);
     return Container(
-      padding: EdgeInsets.all(8.r),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(
-          alpha: 0.05,
-        ),
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(12.r),
-          bottomRight: Radius.circular(12.r),
-        ),
-      ),
+      padding: EdgeInsets.all(10.r),
+      
       child: Row(
         children: [
           // Gamepad controls hint

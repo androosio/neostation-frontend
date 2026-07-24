@@ -514,7 +514,6 @@ class _NeoThemeCard extends StatelessWidget {
     return _buildPlaceholder(theme);
   }
 
-
   Widget _buildPlaceholder(ThemeData theme) {
     return Container(
       color: theme.colorScheme.surface,

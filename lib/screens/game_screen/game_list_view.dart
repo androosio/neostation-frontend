@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:neostation/services/sfx_service.dart';
 
 import '../../services/game_service.dart';
+import '../../themes/corner_radii.dart';
 import '../../utils/centered_scroll_controller.dart';
 import '../../utils/game_utils.dart';
 import '../../providers/sqlite_config_provider.dart';
@@ -233,7 +234,20 @@ class GameListViewState extends State<GameListView>
                       child: Container(
                         decoration: BoxDecoration(
                           color: highlightColor,
-                          borderRadius: BorderRadius.circular(8.r),
+                          borderRadius:
+                              Theme.of(
+                                context,
+                              ).extension<CornerRadii>()?.radiusInternal ??
+                              BorderRadius.circular(14.r),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.shadow.withValues(alpha: 0.1),
+                              blurRadius: 4.r,
+                              offset: Offset(2.0.r, 2.0.r),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -363,28 +377,6 @@ class GameListViewState extends State<GameListView>
 
   /// Renders the system brand logo with fallback support, tinted to match the theme.
   Widget _buildSystemLogoHeader(SystemModel displaySystem) {
-    if (displaySystem.hideLogo) {
-      final shortName =
-          (displaySystem.shortName != null &&
-              displaySystem.shortName!.isNotEmpty)
-          ? displaySystem.shortName!
-          : displaySystem.realName;
-      return Container(
-        padding: EdgeInsets.symmetric(horizontal: 3.r, vertical: 3.r),
-        decoration: BoxDecoration(color: Colors.transparent),
-        child: Text(
-          shortName,
-          style: TextStyle(
-            fontSize: 11.r,
-            fontWeight: FontWeight.w700,
-            color: Theme.of(context).colorScheme.onSurface,
-            letterSpacing: 0.5.r,
-          ),
-          overflow: TextOverflow.ellipsis,
-        ),
-      );
-    }
-
     final resolvedLogoFolder = displaySystem.primaryFolderName.isNotEmpty
         ? displaySystem.primaryFolderName
         : (displaySystem.folderName.isNotEmpty

@@ -381,6 +381,15 @@ class SqliteMigrations {
       case 104:
         await _migrateToVersion104(db);
         break;
+      case 105:
+        await _migrateToVersion105(db);
+        break;
+      case 106:
+        await _migrateToVersion106(db);
+        break;
+      case 107:
+        await _migrateToVersion107(db);
+        break;
       default:
         _log.w('No migration defined for version $version');
     }
@@ -4951,16 +4960,46 @@ class SqliteMigrations {
     }
   }
 
-  /// Migration v102: Adds the singleton user_romm_config table used to store
-  /// RomM server credentials and tokens for remote library browse/download.
+  /// Migration v102: Reclaim inherited emulator stamps on [user_roms].
   ///
-  /// (RomM feature originally landed as v97 on its branch; renumbered as main
-  /// added its own v98–v101, so the RomM migrations now start at v102.)
+  /// The live ROM-scan path froze the *system default* emulator into
+  /// `user_roms.app_emulator_unique_id` at insert time, making an inherited
+  /// default indistinguishable from a deliberate per-game override. The per-game
+  /// column now means "explicit override, or NULL = inherit the system default"
+  /// (resolved live at launch). This backfill NULLs the rows that merely carry
+  /// the auto-stamped default so they re-inherit, leaving genuine per-game
+  /// overrides (a *different* emulator) untouched.
+  ///
+  /// We reclaim ONLY rows whose emulator equals the system's app-provided
+  /// default core (`app_emulators.is_default = 1`). That is the exact — and
+  /// only — value the batch scan-insert ever auto-stamped (it selected the
+  /// `is_default` core at `os_id = 1`). We deliberately do NOT reclaim rows
+  /// matching the user's `is_user_default` standalone: nothing auto-stamps a
+  /// standalone into user_roms, so such a row can only be a deliberate pin —
+  /// nulling it would destroy a genuine choice.
+  ///
+  /// Residual (irreducible) edge: a user who deliberately pinned a game to the
+  /// emulator that *is* the system default core is indistinguishable from an
+  /// inherited stamp and will be reclaimed to "inherit". This is benign and
+  /// recoverable (it re-inherits the same emulator, and can be re-pinned in the
+  /// per-game emulator tab in two taps).
   static Future<void> _migrateToVersion102(Database db) async {
-    _log.i('Migration v102: Creating user_romm_config table');
+    _log.i('Migration v102: Reclaiming inherited emulator stamps on user_roms');
     try {
-      db.execute(createUserRommConfigTableSql);
-      _log.i('Table user_romm_config created via v102');
+      db.execute('''
+        UPDATE user_roms
+        SET app_emulator_unique_id = NULL, app_emulator_os_id = NULL
+        WHERE app_emulator_unique_id IS NOT NULL
+          AND EXISTS (
+            SELECT 1 FROM app_emulators e
+            WHERE e.system_id = user_roms.app_system_id
+              AND e.unique_identifier = user_roms.app_emulator_unique_id
+              AND e.os_id = user_roms.app_emulator_os_id
+              AND e.is_default = 1
+          )
+      ''');
+
+      _log.i('Migration v102 completed');
     } catch (e, stackTrace) {
       _log.e('Error in migration v102: $e');
       _log.e('   StackTrace: $stackTrace');
@@ -4968,15 +5007,22 @@ class SqliteMigrations {
     }
   }
 
-  /// Migration v103: Adds the [app_romm_rom_map] table, which links a local game
-  /// (romname + system folder) to its RomM ROM id so save/state sync can target
-  /// the right `rom_id`. Populated when a ROM is downloaded from RomM.
+  /// Migration v103: Persist the game action-button legend visibility so the
+  /// Select + B toggle survives restarts and upgrades.
   static Future<void> _migrateToVersion103(Database db) async {
-    _log.i('Migration v103: Creating app_romm_rom_map table');
+    _log.i('Migration v103: Adding legend_hidden to user_config');
     try {
-      db.execute(createAppRommRomMapTableSql);
-      db.execute(createAppRommRomMapIndexSql);
-      _log.i('Table app_romm_rom_map created via v103');
+      final tableInfo = db.select('PRAGMA table_info(user_config)');
+      final columns = tableInfo.map((c) => c['name'].toString()).toList();
+      if (!columns.contains('legend_hidden')) {
+        db.execute(
+          'ALTER TABLE user_config ADD COLUMN legend_hidden INTEGER DEFAULT 0',
+        );
+        _log.i('Column legend_hidden added via v103');
+      } else {
+        _log.i('Column legend_hidden already exists');
+      }
+      _log.i('Migration v103 completed');
     } catch (e, stackTrace) {
       _log.e('Error in migration v103: $e');
       _log.e('   StackTrace: $stackTrace');
@@ -4984,7 +5030,7 @@ class SqliteMigrations {
     }
   }
 
-  /// Migration v104: Makes `app_neo_sync_state` provider-scoped so RomM and
+  /// Migration v107: Makes `app_neo_sync_state` provider-scoped so RomM and
   /// NeoSync no longer corrupt each other's recorded cloud timestamps.
   ///
   /// The legacy table keyed on `file_path` alone (`file_path ... UNIQUE`), so a
@@ -4992,8 +5038,8 @@ class SqliteMigrations {
   /// can't drop that column-level UNIQUE in place, so we rebuild the table with
   /// a composite `UNIQUE(provider, file_path)` and backfill every existing row
   /// to 'neosync' — the only provider that wrote these rows historically.
-  static Future<void> _migrateToVersion104(Database db) async {
-    _log.i('Migration v104: Adding provider column to app_neo_sync_state');
+  static Future<void> _migrateToVersion107(Database db) async {
+    _log.i('Migration v107: Adding provider column to app_neo_sync_state');
     try {
       final tableExists = db
           .select(
@@ -5005,7 +5051,7 @@ class SqliteMigrations {
         // Fresh/absent table → just create the new provider-scoped schema.
         db.execute(createAppNeoSyncStateTableSql);
         db.execute(createAppNeoSyncStateIndexSql);
-        _log.i('app_neo_sync_state created with provider column (v104)');
+        _log.i('app_neo_sync_state created with provider column (v107)');
         return;
       }
 
@@ -5015,7 +5061,7 @@ class SqliteMigrations {
         'provider',
       );
       if (alreadyMigrated) {
-        _log.i('app_neo_sync_state already provider-scoped, skipping v104');
+        _log.i('app_neo_sync_state already provider-scoped, skipping v107');
         return;
       }
 
@@ -5040,9 +5086,87 @@ class SqliteMigrations {
         db.execute('ROLLBACK');
         rethrow;
       }
-      _log.i('app_neo_sync_state migrated to (provider, file_path) via v104');
+      _log.i('app_neo_sync_state migrated to (provider, file_path) via v107');
+    } catch (e, stackTrace) {
+      _log.e('Error in migration v107: $e');
+      _log.e('   StackTrace: $stackTrace');
+      rethrow;
+    }
+  }
+
+  /// Migration v104: Defensively recreate the [app_os] lookup table if it is
+  /// missing and re-seed the base operating system rows.
+  ///
+  /// Devices that experienced a failed downgrade/recreate cycle could end up
+  /// with `PRAGMA user_version` advanced but without the [app_os] table. This
+  /// migration restores the table so every other query that joins against it
+  /// can succeed. It is idempotent and safe to run on a healthy database.
+  static Future<void> _migrateToVersion104(Database db) async {
+    _log.i('Migration v104: Ensuring app_os table exists');
+    try {
+      final tableExists = db.select('''
+        SELECT name FROM sqlite_master
+        WHERE type = 'table' AND name = 'app_os'
+        LIMIT 1
+      ''');
+
+      if (tableExists.isEmpty) {
+        _log.w('app_os table is missing; recreating it');
+        db.execute('''
+          CREATE TABLE app_os (
+            id INTEGER PRIMARY KEY,
+            name TEXT NOT NULL UNIQUE
+          )
+        ''');
+      } else {
+        _log.i('app_os table already exists');
+      }
+
+      db.execute('''
+        INSERT OR IGNORE INTO app_os (id, name) VALUES
+        (1, 'windows'),
+        (2, 'android'),
+        (3, 'linux'),
+        (4, 'macos'),
+        (5, 'ios')
+      ''');
+
+      _log.i('Migration v104 completed');
     } catch (e, stackTrace) {
       _log.e('Error in migration v104: $e');
+      _log.e('   StackTrace: $stackTrace');
+      rethrow;
+    }
+  }
+
+  /// Migration v105: Adds the singleton user_romm_config table used to store
+  /// RomM server credentials and tokens for remote library browse/download.
+  ///
+  /// (RomM feature originally landed as v97 on its branch; renumbered as main
+  /// added its own v98–v104, so the RomM migrations now start at v105.)
+  static Future<void> _migrateToVersion105(Database db) async {
+    _log.i('Migration v105: Creating user_romm_config table');
+    try {
+      db.execute(createUserRommConfigTableSql);
+      _log.i('Table user_romm_config created via v105');
+    } catch (e, stackTrace) {
+      _log.e('Error in migration v105: $e');
+      _log.e('   StackTrace: $stackTrace');
+      rethrow;
+    }
+  }
+
+  /// Migration v106: Adds the [app_romm_rom_map] table, which links a local game
+  /// (romname + system folder) to its RomM ROM id so save/state sync can target
+  /// the right `rom_id`. Populated when a ROM is downloaded from RomM.
+  static Future<void> _migrateToVersion106(Database db) async {
+    _log.i('Migration v106: Creating app_romm_rom_map table');
+    try {
+      db.execute(createAppRommRomMapTableSql);
+      db.execute(createAppRommRomMapIndexSql);
+      _log.i('Table app_romm_rom_map created via v106');
+    } catch (e, stackTrace) {
+      _log.e('Error in migration v106: $e');
       _log.e('   StackTrace: $stackTrace');
       rethrow;
     }

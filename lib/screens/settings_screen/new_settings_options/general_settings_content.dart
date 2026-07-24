@@ -330,310 +330,334 @@ class GeneralSettingsContentState extends State<GeneralSettingsContent>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Setting: Scan on Startup.
-          () {
-            final index = currentItemIdx++;
-            return SettingRow(
-              key: _itemKeys[index],
-              focused:
-                  widget.isContentFocused &&
-                  widget.selectedContentIndex == index,
-              title: AppLocale.scanOnStartup.getString(context),
-              subtitle: AppLocale.scanOnStartupSubtitle.getString(context),
-              trailing: CustomToggleSwitch(
-                value: config.scanOnStartup,
-                onChanged: (value) {
-                  context.read<SqliteConfigProvider>().updateScanOnStartup(
-                    value,
+                () {
+                  final index = currentItemIdx++;
+                  return SettingRow(
+                    key: _itemKeys[index],
+                    focused:
+                        widget.isContentFocused &&
+                        widget.selectedContentIndex == index,
+                    title: AppLocale.scanOnStartup.getString(context),
+                    subtitle: AppLocale.scanOnStartupSubtitle.getString(
+                      context,
+                    ),
+                    trailing: CustomToggleSwitch(
+                      value: config.scanOnStartup,
+                      onChanged: (value) {
+                        context
+                            .read<SqliteConfigProvider>()
+                            .updateScanOnStartup(value);
+                      },
+                      activeColor: theme.colorScheme.primary,
+                    ),
                   );
-                },
-                activeColor: theme.colorScheme.primary,
-              ),
-            );
-          }(),
+                }(),
 
-          // Setting: Ignore hidden files in scan.
-          SizedBox(height: 12.r),
-          () {
-            final index = currentItemIdx++;
-            return SettingRow(
-              key: _itemKeys[index],
-              focused:
-                  widget.isContentFocused &&
-                  widget.selectedContentIndex == index,
-              title: AppLocale.ignoreHiddenFiles.getString(context),
-              subtitle: AppLocale.ignoreHiddenFilesSubtitle.getString(context),
-              trailing: CustomToggleSwitch(
-                value: config.ignoreHiddenFiles,
-                onChanged: (value) {
-                  context.read<SqliteConfigProvider>().updateIgnoreHiddenFiles(
-                    value,
+                // Setting: Ignore hidden files in scan.
+                SizedBox(height: 12.r),
+                () {
+                  final index = currentItemIdx++;
+                  return SettingRow(
+                    key: _itemKeys[index],
+                    focused:
+                        widget.isContentFocused &&
+                        widget.selectedContentIndex == index,
+                    title: AppLocale.ignoreHiddenFiles.getString(context),
+                    subtitle: AppLocale.ignoreHiddenFilesSubtitle.getString(
+                      context,
+                    ),
+                    trailing: CustomToggleSwitch(
+                      value: config.ignoreHiddenFiles,
+                      onChanged: (value) {
+                        context
+                            .read<SqliteConfigProvider>()
+                            .updateIgnoreHiddenFiles(value);
+                      },
+                      activeColor: theme.colorScheme.primary,
+                    ),
                   );
-                },
-                activeColor: theme.colorScheme.primary,
-              ),
-            );
-          }(),
+                }(),
 
-          // Setting: Auto-update App.
-          SizedBox(height: 12.r),
-          () {
-            final index = currentItemIdx++;
-            return SettingRow(
-              key: _itemKeys[index],
-              focused:
-                  widget.isContentFocused &&
-                  widget.selectedContentIndex == index,
-              title: AppLocale.autoUpdateApp.getString(context),
-              subtitle: AppLocale.autoUpdateAppSubtitle.getString(context),
-              trailing: CustomToggleSwitch(
-                value: config.autoUpdateApp,
-                onChanged: (value) {
-                  context.read<SqliteConfigProvider>().updateAutoUpdateApp(
-                    value,
+                // Setting: Auto-update App.
+                SizedBox(height: 12.r),
+                () {
+                  final index = currentItemIdx++;
+                  return SettingRow(
+                    key: _itemKeys[index],
+                    focused:
+                        widget.isContentFocused &&
+                        widget.selectedContentIndex == index,
+                    title: AppLocale.autoUpdateApp.getString(context),
+                    subtitle: AppLocale.autoUpdateAppSubtitle.getString(
+                      context,
+                    ),
+                    trailing: CustomToggleSwitch(
+                      value: config.autoUpdateApp,
+                      onChanged: (value) {
+                        context
+                            .read<SqliteConfigProvider>()
+                            .updateAutoUpdateApp(value);
+                      },
+                      activeColor: theme.colorScheme.primary,
+                    ),
                   );
-                },
-                activeColor: theme.colorScheme.primary,
-              ),
-            );
-          }(),
+                }(),
 
-          // Setting: Auto-update Systems & Emulators.
-          SizedBox(height: 12.r),
-          () {
-            final index = currentItemIdx++;
-            return SettingRow(
-              key: _itemKeys[index],
-              focused:
-                  widget.isContentFocused &&
-                  widget.selectedContentIndex == index,
-              title: AppLocale.autoUpdateSystems.getString(context),
-              subtitle: AppLocale.autoUpdateSystemsSubtitle.getString(context),
-              trailing: CustomToggleSwitch(
-                value: config.autoUpdateSystems,
-                onChanged: (value) {
-                  context.read<SqliteConfigProvider>().updateAutoUpdateSystems(
-                    value,
+                // Setting: Auto-update Systems & Emulators.
+                SizedBox(height: 12.r),
+                () {
+                  final index = currentItemIdx++;
+                  return SettingRow(
+                    key: _itemKeys[index],
+                    focused:
+                        widget.isContentFocused &&
+                        widget.selectedContentIndex == index,
+                    title: AppLocale.autoUpdateSystems.getString(context),
+                    subtitle: AppLocale.autoUpdateSystemsSubtitle.getString(
+                      context,
+                    ),
+                    trailing: CustomToggleSwitch(
+                      value: config.autoUpdateSystems,
+                      onChanged: (value) {
+                        context
+                            .read<SqliteConfigProvider>()
+                            .updateAutoUpdateSystems(value);
+                      },
+                      activeColor: theme.colorScheme.primary,
+                    ),
                   );
-                },
-                activeColor: theme.colorScheme.primary,
-              ),
-            );
-          }(),
+                }(),
 
-          // Setting: SFX Feedback.
-          SizedBox(height: 12.r),
-          () {
-            final index = currentItemIdx++;
-            return SettingRow(
-              key: _itemKeys[index],
-              focused:
-                  widget.isContentFocused &&
-                  widget.selectedContentIndex == index,
-              title: AppLocale.sfxSounds.getString(context),
-              subtitle: AppLocale.sfxSoundsSubtitle.getString(context),
-              trailing: CustomToggleSwitch(
-                value: config.sfxEnabled,
-                onChanged: (value) {
-                  context.read<SqliteConfigProvider>().updateSfxEnabled(value);
-                },
-                activeColor: theme.colorScheme.primary,
-              ),
-            );
-          }(),
-
-          // Setting: 12-Hour Clock Format.
-          SizedBox(height: 12.r),
-          () {
-            final index = currentItemIdx++;
-            return SettingRow(
-              key: _itemKeys[index],
-              focused:
-                  widget.isContentFocused &&
-                  widget.selectedContentIndex == index,
-              title: AppLocale.use12HourClock.getString(context),
-              subtitle: AppLocale.use12HourClockSubtitle.getString(context),
-              trailing: CustomToggleSwitch(
-                value: config.use12HourClock,
-                onChanged: (value) {
-                  context.read<SqliteConfigProvider>().updateUse12HourClock(
-                    value,
+                // Setting: SFX Feedback.
+                SizedBox(height: 12.r),
+                () {
+                  final index = currentItemIdx++;
+                  return SettingRow(
+                    key: _itemKeys[index],
+                    focused:
+                        widget.isContentFocused &&
+                        widget.selectedContentIndex == index,
+                    title: AppLocale.sfxSounds.getString(context),
+                    subtitle: AppLocale.sfxSoundsSubtitle.getString(context),
+                    trailing: CustomToggleSwitch(
+                      value: config.sfxEnabled,
+                      onChanged: (value) {
+                        context.read<SqliteConfigProvider>().updateSfxEnabled(
+                          value,
+                        );
+                      },
+                      activeColor: theme.colorScheme.primary,
+                    ),
                   );
-                },
-                activeColor: theme.colorScheme.primary,
-              ),
-            );
-          }(),
+                }(),
 
-          // Setting: Localization & Language.
-          SizedBox(height: 12.r),
-          () {
-            final index = currentItemIdx++;
-            return SettingRow(
-              key: _itemKeys[index],
-              focused:
-                  widget.isContentFocused &&
-                  widget.selectedContentIndex == index,
-              title: AppLocale.language.getString(context),
-              subtitle: AppLocale.languageSub.getString(context),
-              trailing: GestureDetector(
-                onTap: () => _showLanguagePicker(context, _itemKeys[index]),
-                child: SettingValueChip(
-                  text:
-                      AppLocale.supportedLanguages[config.appLanguage] ??
-                      config.appLanguage,
-                  trailingIcon: Symbols.arrow_drop_down_rounded,
-                ),
-              ),
-            );
-          }(),
+                // Setting: 12-Hour Clock Format.
+                SizedBox(height: 12.r),
+                () {
+                  final index = currentItemIdx++;
+                  return SettingRow(
+                    key: _itemKeys[index],
+                    focused:
+                        widget.isContentFocused &&
+                        widget.selectedContentIndex == index,
+                    title: AppLocale.use12HourClock.getString(context),
+                    subtitle: AppLocale.use12HourClockSubtitle.getString(
+                      context,
+                    ),
+                    trailing: CustomToggleSwitch(
+                      value: config.use12HourClock,
+                      onChanged: (value) {
+                        context
+                            .read<SqliteConfigProvider>()
+                            .updateUse12HourClock(value);
+                      },
+                      activeColor: theme.colorScheme.primary,
+                    ),
+                  );
+                }(),
 
-          // Setting: Native Fullscreen (Desktop Platforms).
-          if (!kIsWeb &&
-              (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) ...[
-            SizedBox(height: 12.r),
-            () {
-              final index = currentItemIdx++;
-              return SettingRow(
-                key: _itemKeys[index],
-                expandTitle: false,
-                focused:
-                    widget.isContentFocused &&
-                    widget.selectedContentIndex == index,
-                title: AppLocale.fullscreenMode.getString(context),
-                subtitle: AppLocale.fullscreenModeSubtitle.getString(context),
-                trailing: CustomToggleSwitch(
-                  value: provider.isFullscreen,
-                  onChanged: _toggleFullscreen,
-                  activeColor: theme.colorScheme.primary,
-                ),
-              );
-            }(),
-          ],
-
-          // Setting: Filesystem Access & Launcher (Android).
-          if (Platform.isAndroid) ...[
-            SizedBox(height: 12.r),
-            () {
-              final index = currentItemIdx++;
-              return SettingRow(
-                key: _itemKeys[index],
-                focused:
-                    widget.isContentFocused &&
-                    widget.selectedContentIndex == index,
-                title: AppLocale.allFilesAccess.getString(context),
-                subtitle: '',
-                subtitleWidget: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      provider.hasAllFilesAccess
-                          ? AppLocale.permissionGranted.getString(context)
-                          : AppLocale.permissionDisabled.getString(context),
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontSize: 9.r,
-                        fontWeight: FontWeight.bold,
-                        color: provider.hasAllFilesAccess
-                            ? Colors.green
-                            : Colors.red,
+                // Setting: Localization & Language.
+                SizedBox(height: 12.r),
+                () {
+                  final index = currentItemIdx++;
+                  return SettingRow(
+                    key: _itemKeys[index],
+                    focused:
+                        widget.isContentFocused &&
+                        widget.selectedContentIndex == index,
+                    title: AppLocale.language.getString(context),
+                    subtitle: AppLocale.languageSub.getString(context),
+                    trailing: GestureDetector(
+                      onTap: () =>
+                          _showLanguagePicker(context, _itemKeys[index]),
+                      child: SettingValueChip(
+                        text:
+                            AppLocale.supportedLanguages[config.appLanguage] ??
+                            config.appLanguage,
+                        trailingIcon: Symbols.arrow_drop_down_rounded,
                       ),
                     ),
-                    SizedBox(height: 2.r),
-                    Text(
-                      AppLocale.allFilesAccessSubtitle.getString(context),
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontSize: 8.r,
-                        color: theme.colorScheme.onSurface.withValues(
-                          alpha: 0.5,
-                        ),
+                  );
+                }(),
+
+                // Setting: Native Fullscreen (Desktop Platforms).
+                if (!kIsWeb &&
+                    (Platform.isWindows ||
+                        Platform.isLinux ||
+                        Platform.isMacOS)) ...[
+                  SizedBox(height: 12.r),
+                  () {
+                    final index = currentItemIdx++;
+                    return SettingRow(
+                      key: _itemKeys[index],
+                      expandTitle: false,
+                      focused:
+                          widget.isContentFocused &&
+                          widget.selectedContentIndex == index,
+                      title: AppLocale.fullscreenMode.getString(context),
+                      subtitle: AppLocale.fullscreenModeSubtitle.getString(
+                        context,
                       ),
-                    ),
-                  ],
-                ),
-                trailing: CustomToggleSwitch(
-                  value: provider.hasAllFilesAccess,
-                  onChanged: (value) => _handlePermissionToggle(provider),
-                  activeColor: theme.colorScheme.primary,
-                ),
-              );
-            }(),
-            SizedBox(height: 12.r),
-
-            () {
-              final index = currentItemIdx++;
-              return SettingRow(
-                key: _itemKeys[index],
-                focused:
-                    widget.isContentFocused &&
-                    widget.selectedContentIndex == index,
-                title: AppLocale.defaultLauncher.getString(context),
-                subtitle: _isDefaultLauncher
-                    ? AppLocale.isDefaultLauncher.getString(context)
-                    : AppLocale.setAsDefaultLauncher.getString(context),
-                trailing: CustomToggleSwitch(
-                  value: _isDefaultLauncher,
-                  onChanged: _toggleLauncher,
-                  activeColor: theme.colorScheme.primary,
-                ),
-              );
-            }(),
-            SizedBox(height: 12.r),
-          ],
-
-          // Setting: Secondary Display Suppression (Android Multi-Display).
-          if (Platform.isAndroid) ...[
-            () {
-              final index = currentItemIdx++;
-              return SettingRow(
-                key: _itemKeys[index],
-                focused:
-                    widget.isContentFocused &&
-                    widget.selectedContentIndex == index,
-                title: AppLocale.disableSecondaryScreen.getString(context),
-                subtitle: AppLocale.disableSecondaryScreenSub.getString(
-                  context,
-                ),
-                trailing: CustomToggleSwitch(
-                  value: config.hideBottomScreen,
-                  onChanged: (value) {
-                    provider.updateHideBottomScreen(
-                      value,
-                      backgroundColor: theme.scaffoldBackgroundColor.toARGB32(),
+                      trailing: CustomToggleSwitch(
+                        value: provider.isFullscreen,
+                        onChanged: _toggleFullscreen,
+                        activeColor: theme.colorScheme.primary,
+                      ),
                     );
-                  },
-                  activeColor: theme.colorScheme.primary,
-                ),
-              );
-            }(),
-          ],
+                  }(),
+                ],
 
-          // Setting: BarTOP Shutdown (Windows/Linux Power Management).
-          if (!kIsWeb && (Platform.isWindows || Platform.isLinux)) ...[
-            SizedBox(height: 12.r),
-            () {
-              final index = currentItemIdx++;
-              return SettingRow(
-                key: _itemKeys[index],
-                focused:
-                    widget.isContentFocused &&
-                    widget.selectedContentIndex == index,
-                title: AppLocale.bartopShutdown.getString(context),
-                subtitle: AppLocale.bartopShutdownSubtitle.getString(context),
-                trailing: CustomToggleSwitch(
-                  value: config.bartopExitPoweroff,
-                  onChanged: (value) {
-                    context
-                        .read<SqliteConfigProvider>()
-                        .updateBartopExitPoweroff(value);
-                  },
-                  activeColor: theme.colorScheme.primary,
-                ),
-              );
-            }(),
-          ],
-        ],
+                // Setting: Filesystem Access & Launcher (Android).
+                if (Platform.isAndroid) ...[
+                  SizedBox(height: 12.r),
+                  () {
+                    final index = currentItemIdx++;
+                    return SettingRow(
+                      key: _itemKeys[index],
+                      focused:
+                          widget.isContentFocused &&
+                          widget.selectedContentIndex == index,
+                      title: AppLocale.allFilesAccess.getString(context),
+                      subtitle: '',
+                      subtitleWidget: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            provider.hasAllFilesAccess
+                                ? AppLocale.permissionGranted.getString(context)
+                                : AppLocale.permissionDisabled.getString(
+                                    context,
+                                  ),
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontSize: 9.r,
+                              fontWeight: FontWeight.bold,
+                              color: provider.hasAllFilesAccess
+                                  ? Colors.green
+                                  : Colors.red,
+                            ),
+                          ),
+                          SizedBox(height: 2.r),
+                          Text(
+                            AppLocale.allFilesAccessSubtitle.getString(context),
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontSize: 8.r,
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.5,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      trailing: CustomToggleSwitch(
+                        value: provider.hasAllFilesAccess,
+                        onChanged: (value) => _handlePermissionToggle(provider),
+                        activeColor: theme.colorScheme.primary,
+                      ),
+                    );
+                  }(),
+                  SizedBox(height: 12.r),
+
+                  () {
+                    final index = currentItemIdx++;
+                    return SettingRow(
+                      key: _itemKeys[index],
+                      focused:
+                          widget.isContentFocused &&
+                          widget.selectedContentIndex == index,
+                      title: AppLocale.defaultLauncher.getString(context),
+                      subtitle: _isDefaultLauncher
+                          ? AppLocale.isDefaultLauncher.getString(context)
+                          : AppLocale.setAsDefaultLauncher.getString(context),
+                      trailing: CustomToggleSwitch(
+                        value: _isDefaultLauncher,
+                        onChanged: _toggleLauncher,
+                        activeColor: theme.colorScheme.primary,
+                      ),
+                    );
+                  }(),
+                  SizedBox(height: 12.r),
+                ],
+
+                // Setting: Secondary Display Suppression (Android Multi-Display).
+                if (Platform.isAndroid) ...[
+                  () {
+                    final index = currentItemIdx++;
+                    return SettingRow(
+                      key: _itemKeys[index],
+                      focused:
+                          widget.isContentFocused &&
+                          widget.selectedContentIndex == index,
+                      title: AppLocale.disableSecondaryScreen.getString(
+                        context,
+                      ),
+                      subtitle: AppLocale.disableSecondaryScreenSub.getString(
+                        context,
+                      ),
+                      trailing: CustomToggleSwitch(
+                        value: config.hideBottomScreen,
+                        onChanged: (value) {
+                          provider.updateHideBottomScreen(
+                            value,
+                            backgroundColor: theme.scaffoldBackgroundColor
+                                .toARGB32(),
+                          );
+                        },
+                        activeColor: theme.colorScheme.primary,
+                      ),
+                    );
+                  }(),
+                ],
+
+                // Setting: BarTOP Shutdown (Windows/Linux Power Management).
+                if (!kIsWeb && (Platform.isWindows || Platform.isLinux)) ...[
+                  SizedBox(height: 12.r),
+                  () {
+                    final index = currentItemIdx++;
+                    return SettingRow(
+                      key: _itemKeys[index],
+                      focused:
+                          widget.isContentFocused &&
+                          widget.selectedContentIndex == index,
+                      title: AppLocale.bartopShutdown.getString(context),
+                      subtitle: AppLocale.bartopShutdownSubtitle.getString(
+                        context,
+                      ),
+                      trailing: CustomToggleSwitch(
+                        value: config.bartopExitPoweroff,
+                        onChanged: (value) {
+                          context
+                              .read<SqliteConfigProvider>()
+                              .updateBartopExitPoweroff(value);
+                        },
+                        activeColor: theme.colorScheme.primary,
+                      ),
+                    );
+                  }(),
+                ],
+              ],
+            ),
           ),
         ),
-      ),
       ],
     );
   }

@@ -558,6 +558,7 @@ class OptimizedMd5Utils {
       final raEntry = await RetroAchievementsRepository.findRAHashByConsoleName(
         consoleName,
         likePattern,
+        preferHackMatches: cleanedFilename.toLowerCase().contains('hack'),
       );
 
       if (raEntry != null) {

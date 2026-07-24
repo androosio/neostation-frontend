@@ -214,8 +214,7 @@ class SecondarySettingsContentState extends State<SecondarySettingsContent>
           child: SettingRow(
             key: _itemKeys[index],
             focused:
-                widget.isContentFocused &&
-                widget.selectedContentIndex == index,
+                widget.isContentFocused && widget.selectedContentIndex == index,
             title: title,
             subtitle: subtitle,
             trailing: SettingValueChip(text: valueText),
@@ -292,55 +291,67 @@ class SecondarySettingsContentState extends State<SecondarySettingsContent>
                 SettingsSectionHeader(
                   label: AppLocale.general.getString(context),
                 ),
-          _buildValueRow(
-            index: 0,
-            title: AppLocale.nowPlayingFanartDim.getString(context),
-            subtitle: AppLocale.nowPlayingFanartDimSubtitle.getString(context),
-            valueText: _fanartDimLabel(config.fanartDimLevel),
-            onTap: () => _cycleFanartDim(provider),
-          ),
-          SizedBox(height: 12.r),
-          _buildScreenshotAccessRow(),
-          SizedBox(height: 24.r),
-          SettingsSectionHeader(label: AppLocale.secondarySectionNowPlaying.getString(context)),
-          _buildValueRow(
-            index: 2,
-            title: AppLocale.nowPlayingDimAfter.getString(context),
-            subtitle: AppLocale.nowPlayingDimAfterSubtitle.getString(context),
-            valueText: _dimDelayLabel(config.nowPlayingDimDelay),
-            onTap: () => _cycleDimDelay(provider),
-          ),
-          SizedBox(height: 12.r),
-          _buildValueRow(
-            index: 3,
-            title: AppLocale.nowPlayingDimDarkness.getString(context),
-            subtitle: AppLocale.nowPlayingDimDarknessSubtitle.getString(
-              context,
-            ),
-            valueText: '${config.nowPlayingDimLevel}%',
-            enabled: config.nowPlayingDimDelay > 0,
-            onTap: () => _cycleDimLevel(provider),
-          ),
-          SizedBox(height: 24.r),
-          SettingsSectionHeader(label: AppLocale.secondarySectionDock.getString(context)),
-          _buildToggleRow(
-            index: 4,
-            title: AppLocale.nowPlayingDockEnabled.getString(context),
-            subtitle: AppLocale.nowPlayingDockEnabledSubtitle.getString(
-              context,
-            ),
-            value: config.dockEnabled,
-            onChanged: (v) => provider.updateDockEnabled(v),
-          ),
-          SizedBox(height: 12.r),
-          _buildValueRow(
-            index: 5,
-            title: AppLocale.nowPlayingDockSlots.getString(context),
-            subtitle: AppLocale.nowPlayingDockSlotsSubtitle.getString(context),
-            valueText: '${config.dockSlotCount}',
-            enabled: config.dockEnabled,
-            onTap: () => _cycleDockSlotCount(provider),
-          ),
+                _buildValueRow(
+                  index: 0,
+                  title: AppLocale.nowPlayingFanartDim.getString(context),
+                  subtitle: AppLocale.nowPlayingFanartDimSubtitle.getString(
+                    context,
+                  ),
+                  valueText: _fanartDimLabel(config.fanartDimLevel),
+                  onTap: () => _cycleFanartDim(provider),
+                ),
+                SizedBox(height: 12.r),
+                _buildScreenshotAccessRow(),
+                SizedBox(height: 24.r),
+                SettingsSectionHeader(
+                  label: AppLocale.secondarySectionNowPlaying.getString(
+                    context,
+                  ),
+                ),
+                _buildValueRow(
+                  index: 2,
+                  title: AppLocale.nowPlayingDimAfter.getString(context),
+                  subtitle: AppLocale.nowPlayingDimAfterSubtitle.getString(
+                    context,
+                  ),
+                  valueText: _dimDelayLabel(config.nowPlayingDimDelay),
+                  onTap: () => _cycleDimDelay(provider),
+                ),
+                SizedBox(height: 12.r),
+                _buildValueRow(
+                  index: 3,
+                  title: AppLocale.nowPlayingDimDarkness.getString(context),
+                  subtitle: AppLocale.nowPlayingDimDarknessSubtitle.getString(
+                    context,
+                  ),
+                  valueText: '${config.nowPlayingDimLevel}%',
+                  enabled: config.nowPlayingDimDelay > 0,
+                  onTap: () => _cycleDimLevel(provider),
+                ),
+                SizedBox(height: 24.r),
+                SettingsSectionHeader(
+                  label: AppLocale.secondarySectionDock.getString(context),
+                ),
+                _buildToggleRow(
+                  index: 4,
+                  title: AppLocale.nowPlayingDockEnabled.getString(context),
+                  subtitle: AppLocale.nowPlayingDockEnabledSubtitle.getString(
+                    context,
+                  ),
+                  value: config.dockEnabled,
+                  onChanged: (v) => provider.updateDockEnabled(v),
+                ),
+                SizedBox(height: 12.r),
+                _buildValueRow(
+                  index: 5,
+                  title: AppLocale.nowPlayingDockSlots.getString(context),
+                  subtitle: AppLocale.nowPlayingDockSlotsSubtitle.getString(
+                    context,
+                  ),
+                  valueText: '${config.dockSlotCount}',
+                  enabled: config.dockEnabled,
+                  onTap: () => _cycleDockSlotCount(provider),
+                ),
               ],
             ),
           ),

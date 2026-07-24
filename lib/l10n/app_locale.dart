@@ -387,6 +387,8 @@ mixin AppLocale {
   // ---------------------------------------------------------------------------
   static const String account = 'account';
   static const String scraping = 'scraping';
+  static const String scrapingData = 'scraping_data';
+  static const String scrapingMedia = 'scraping_media';
   static const String scrapeMode = 'scrape_mode';
   static const String scrapeModeSub = 'scrape_mode_sub';
   static const String media = 'media';
@@ -504,6 +506,19 @@ mixin AppLocale {
   static const String scrape = 'scrape';
   static const String noAchievements = 'no_achievements';
   static const String gameInfo = 'game_info';
+  static const String manage = 'manage';
+  static const String forceRescrape = 'force_rescrape';
+  static const String gameTitle = 'game_title';
+  static const String publisher = 'publisher';
+  static const String genre = 'genre';
+  static const String description = 'description';
+  static const String screenshot = 'screenshot';
+  static const String fanart = 'fanart';
+  static const String wheel = 'wheel';
+  static const String boxart = 'boxart';
+  static const String change = 'change';
+  static const String metadataSaved = 'metadata_saved';
+  static const String imageUpdated = 'image_updated';
   static const String unlocked = 'unlocked';
   static const String points = 'points';
   static const String scanningRomsRA = 'scanning_roms_ra';
@@ -668,6 +683,7 @@ mixin AppLocale {
   static const String hintRefresh = 'hint_refresh';
   static const String hintViewMode = 'hint_view_mode';
   static const String hintScrape = 'hint_scrape';
+  static const String hintMoreActions = 'hint_more_actions';
 
   // ---------------------------------------------------------------------------
   // Misc

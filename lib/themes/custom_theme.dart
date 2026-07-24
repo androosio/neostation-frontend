@@ -112,8 +112,8 @@ class CustomTheme {
 
     // Designer exports the key as `colorScheme`; older/manual files may use
     // `scheme`. Accept either so light themes don't silently import as dark.
-    final rawScheme =
-        ((json['scheme'] ?? json['colorScheme']) as String?)?.toLowerCase();
+    final rawScheme = ((json['scheme'] ?? json['colorScheme']) as String?)
+        ?.toLowerCase();
     final isDark = rawScheme != 'light';
     final brightness = isDark ? Brightness.dark : Brightness.light;
 
@@ -236,9 +236,26 @@ class CustomTheme {
     // Fingerprint of the resolved palette (order-stable, notation-independent).
     final sig = StringBuffer(isDark ? 'd|' : 'l|');
     for (final c in [
-      primary, onPrimary, secondary, onSecondary, tertiary, onTertiary,
-      surface, onSurface, card, outline, neutral, onNeutral,
-      error, onError, success, onSuccess, warning, onWarning, info, onInfo,
+      primary,
+      onPrimary,
+      secondary,
+      onSecondary,
+      tertiary,
+      onTertiary,
+      surface,
+      onSurface,
+      card,
+      outline,
+      neutral,
+      onNeutral,
+      error,
+      onError,
+      success,
+      onSuccess,
+      warning,
+      onWarning,
+      info,
+      onInfo,
     ]) {
       // ignore: deprecated_member_use
       sig.write('${c.value.toRadixString(16)};');

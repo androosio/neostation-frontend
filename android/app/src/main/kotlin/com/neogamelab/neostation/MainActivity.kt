@@ -35,6 +35,9 @@ import androidx.core.content.FileProvider
 
 class MainActivity: MultiDisplayFlutterActivity(), GamepadsCompatibleActivity {
     private val CHANNEL = "com.neogamelab.neostation/game"
+    // Max size the dock/picker renders an app icon at; icons are rasterized to
+    // this (in px) before encoding so we don't ship/decode full-res drawables.
+    private val ICON_TARGET_DP = 56f
     private val LAUNCHER_CHANNEL = "com.neogamelab.neostation/launcher"
     var keyListener: ((KeyEvent) -> Boolean)? = null
     var motionListener: ((MotionEvent) -> Boolean)? = null
@@ -262,6 +265,16 @@ class MainActivity: MultiDisplayFlutterActivity(), GamepadsCompatibleActivity {
                         isPackageInstalled(packageName, result)
                     } else {
                         result.error("INVALID_ARGUMENTS", "Package name is required", null)
+                    }
+                }
+
+                "isCoreInstalled" -> {
+                    val packageName = call.argument<String>("packageName")
+                    val coreFilename = call.argument<String>("coreFilename")
+                    if (packageName != null && coreFilename != null) {
+                        isCoreInstalled(packageName, coreFilename, result)
+                    } else {
+                        result.error("INVALID_ARGUMENTS", "packageName and coreFilename are required", null)
                     }
                 }
 
@@ -641,6 +654,61 @@ class MainActivity: MultiDisplayFlutterActivity(), GamepadsCompatibleActivity {
         }
     }
 
+    /**
+     * Determines whether a specific RetroArch libretro core (.so) is actually present,
+     * as opposed to merely having the RetroArch app installed. RetroArch stores its
+     * cores in its own private data dir ({dataDir}/cores/), which this app's sandbox
+     * usually cannot read — so a plain File.exists() from here returns false even when
+     * the core IS installed. We therefore return a TRI-STATE:
+     *   true  = core file positively confirmed present
+     *   false = core file positively confirmed absent (cores dir was readable, or root)
+     *   null  = could not determine (dir unreadable and no root) → caller must fail OPEN
+     * This lets the Ready badge stay accurate where we can tell, without hiding genuinely
+     * installed cores on non-rooted devices. See issue #192.
+     */
+    private fun isCoreInstalled(retroArchPackage: String, coreFilename: String, result: MethodChannel.Result) {
+        try {
+            val coresDir = try {
+                val appInfo = packageManager.getApplicationInfo(retroArchPackage, 0)
+                "${appInfo.dataDir}/cores/"
+            } catch (e: Exception) {
+                "/data/user/0/$retroArchPackage/cores/"
+            }
+            // The DB stores core_filename as the bare base (e.g. "ppsspp"); the actual
+            // Android core is "<base>_libretro_android.so". Probe both the reconstructed
+            // name and the raw value in case a full filename was ever stored.
+            val base = coreFilename
+                .removeSuffix("_libretro_android.so")
+                .removeSuffix("_libretro.so")
+            val candidates = linkedSetOf(
+                "${base}_libretro_android.so",
+                coreFilename,
+            )
+
+            // 1. Direct filesystem check. Trustworthy only if we can actually read the
+            //    cores directory (usually we can't — it's RetroArch's private 0700 dir).
+            if (candidates.any { java.io.File(coresDir, it).exists() }) {
+                result.success(true)
+                return
+            }
+            val dir = java.io.File(coresDir)
+            if (dir.exists() && dir.canRead()) {
+                // Directory readable and none of the candidates were in it → absent.
+                result.success(false)
+                return
+            }
+
+            // 2. Directory unreadable from our sandbox (RetroArch's private 0700 dir).
+            //    We deliberately do NOT escalate to `su` here — requesting root would
+            //    pop a Superuser prompt on rooted devices at game-launch time. Report
+            //    unknown (null) → the caller fails open (treats the core as installed),
+            //    which matches non-rooted/production behavior.
+            result.success(null)
+        } catch (e: Exception) {
+            result.success(null)
+        }
+    }
+
     private fun openLauncherSettings(result: MethodChannel.Result) {
         try {
             // Opción 1: Intentar abrir la configuración de apps predeterminadas
@@ -863,23 +931,18 @@ class MainActivity: MultiDisplayFlutterActivity(), GamepadsCompatibleActivity {
                     val isGame = false
 
                     val label = resolveInfo.loadLabel(pm).toString()
-                    
-                    var firstInstallTime: Long = 0
-                    var versionName = ""
-                    try {
-                        val pInfo = pm.getPackageInfo(packageName, 0)
-                        firstInstallTime = pInfo.firstInstallTime
-                        versionName = pInfo.versionName ?: ""
-                    } catch (e: Exception) { }
 
+                    // Only name+package are consumed by the dock/picker on the
+                    // Dart side, so we deliberately skip the extra per-app
+                    // pm.getPackageInfo() round-trip that used to fetch
+                    // firstInstallTime/versionName here — on a device with many
+                    // installed apps that second PackageManager hit per app was
+                    // the bulk of the "app drawer takes seconds to wake up" lag.
                     apps.add(mapOf(
                         "name" to label,
                         "package" to packageName,
                         "isSystemApp" to isSystemApp,
-                        "isGame" to isGame,
-                        "firstInstallTime" to firstInstallTime,
-                        "version" to versionName,
-                        "description" to "Android Application ($versionName)"
+                        "isGame" to isGame
                     ))
                 }
                 
@@ -1001,19 +1064,21 @@ class MainActivity: MultiDisplayFlutterActivity(), GamepadsCompatibleActivity {
         Thread {
             try {
                 val iconDrawable = packageManager.getApplicationIcon(packageName)
-                val bitmap = if (iconDrawable is BitmapDrawable) {
-                    iconDrawable.bitmap
-                } else {
-                    val bitmap = android.graphics.Bitmap.createBitmap(
-                        iconDrawable.intrinsicWidth,
-                        iconDrawable.intrinsicHeight,
-                        android.graphics.Bitmap.Config.ARGB_8888
-                    )
-                    val canvas = android.graphics.Canvas(bitmap)
-                    iconDrawable.setBounds(0, 0, canvas.width, canvas.height)
-                    iconDrawable.draw(canvas)
-                    bitmap
-                }
+                // The dock/picker never renders an icon larger than ~56dp, so
+                // rasterize straight into a small target bitmap instead of
+                // encoding the source drawable at its native resolution
+                // (adaptive icons are often 192-432px). This shrinks both the
+                // PNG encode here and the Image.memory decode on the Dart side,
+                // which was making the dock feel sluggish while icons loaded.
+                val targetPx = (ICON_TARGET_DP * resources.displayMetrics.density).toInt()
+                val bitmap = android.graphics.Bitmap.createBitmap(
+                    targetPx,
+                    targetPx,
+                    android.graphics.Bitmap.Config.ARGB_8888
+                )
+                val canvas = android.graphics.Canvas(bitmap)
+                iconDrawable.setBounds(0, 0, targetPx, targetPx)
+                iconDrawable.draw(canvas)
 
                 val stream = ByteArrayOutputStream()
                 bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, stream)

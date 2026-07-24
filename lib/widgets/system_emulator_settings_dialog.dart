@@ -6,9 +6,11 @@ import 'package:file_picker/file_picker.dart';
 import 'package:neostation/l10n/app_locale.dart';
 import 'package:flutter_localization/flutter_localization.dart';
 import 'package:neostation/services/sfx_service.dart';
+import 'package:neostation/themes/app_themes.dart';
 import 'package:provider/provider.dart';
 import '../models/core_emulator_model.dart';
 import '../models/standalone_emulator_model.dart';
+import '../themes/corner_radii.dart';
 import 'system_emulator_settings_dialog/models/emulator_list_item.dart';
 import '../models/system_model.dart';
 import '../providers/sqlite_config_provider.dart';
@@ -63,7 +65,7 @@ class _SystemEmulatorSettingsDialogState
   int _currentTab = 0; // Default to General tab
   int _generalIndex = 0; // Index for General tab items
   int _appearanceIndex = 0; // Index for Appearance tab items
-  // 0: Prefer filename, 1: Hide ext, 2: (), 3: [], 4: Logo, 5: Recursive?
+  // 0: Prefer filename, 1: Hide ext, 2: (), 3: [], 4: Recursive?
   late int _totalGeneralItems;
   late List<GlobalKey> _generalItemKeys;
   late List<GlobalKey> _appearanceItemKeys;
@@ -100,8 +102,8 @@ class _SystemEmulatorSettingsDialogState
     _system = widget.system;
     _totalGeneralItems =
         (_system.folderName == 'all' || _system.folderName == 'android')
-        ? 5
-        : 6;
+        ? 4
+        : 5;
 
     _generalScrollController = ScrollController();
     _generalItemKeys = List.generate(
@@ -298,21 +300,6 @@ class _SystemEmulatorSettingsDialogState
         (value ? AppLocale.bracketsHidden : AppLocale.bracketsShown).getString(
           context,
         ),
-        type: NotificationType.info,
-      );
-    }
-  }
-
-  Future<void> _toggleHideLogo(bool value) async {
-    setState(() => _system = _system.copyWith(hideLogo: value));
-    await SystemRepository.setHideLogo(widget.system.id!, value);
-    if (mounted) {
-      await context.read<SqliteConfigProvider>().refreshSystem(_system);
-      if (!mounted) return;
-      AppNotification.showNotification(
-        context,
-        (value ? AppLocale.systemLogoHidden : AppLocale.systemLogoShown)
-            .getString(context),
         type: NotificationType.info,
       );
     }

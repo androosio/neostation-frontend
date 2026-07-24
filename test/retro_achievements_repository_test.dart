@@ -89,6 +89,46 @@ void main() {
       expect(result.gameId, 99);
     });
 
+    test('findRAHashByConsoleName prefers a base game over variants', () async {
+      await db.execute(
+        "INSERT INTO app_ra_game_list (hash, game_id, console_name, title) VALUES ('hack', 101, 'PlayStation', '~Hack~ Castlevania: Symphony of the Night - Reborn')",
+      );
+      await db.execute(
+        "INSERT INTO app_ra_game_list (hash, game_id, console_name, title) VALUES ('subset', 102, 'PlayStation', 'Crash Bandicoot 3: Warped [Subset - Developer Times]')",
+      );
+      await db.execute(
+        "INSERT INTO app_ra_game_list (hash, game_id, console_name, title) VALUES ('base', 103, 'PlayStation', 'Crash Bandicoot 3: Warped')",
+      );
+
+      final result = await RetroAchievementsRepository.findRAHashByConsoleName(
+        'PlayStation',
+        '%Crash%Bandicoot%3:%Warped%',
+      );
+
+      expect(result, isNotNull);
+      expect(result!.hash, 'base');
+      expect(result.gameId, 103);
+    });
+
+    test('findRAHashByConsoleName prefers hacks for hack filenames', () async {
+      await db.execute(
+        "INSERT INTO app_ra_game_list (hash, game_id, console_name, title) VALUES ('base', 104, 'Nintendo Entertainment System', 'Super Mario Bros')",
+      );
+      await db.execute(
+        "INSERT INTO app_ra_game_list (hash, game_id, console_name, title) VALUES ('hack', 105, 'Nintendo Entertainment System', '~Hack~ Super Mario Bros Remix')",
+      );
+
+      final result = await RetroAchievementsRepository.findRAHashByConsoleName(
+        'Nintendo',
+        '%Super%Mario%Bros%',
+        preferHackMatches: true,
+      );
+
+      expect(result, isNotNull);
+      expect(result!.hash, 'hack');
+      expect(result.gameId, 105);
+    });
+
     test('updateRomRAData updates hash and id_ra', () async {
       await db.execute(
         "INSERT INTO user_roms (filename, rom_path, app_system_id) VALUES ('a.nes', '/roms/nes/a.nes', 'nes')",
@@ -141,6 +181,25 @@ void main() {
         'Zelda',
       );
       expect(gameId, 3001);
+    });
+
+    test('findGameIdByFilename prefers the base game over variants', () async {
+      await db.execute(
+        "INSERT INTO app_ra_game_list (hash, game_id, console_id, title) VALUES ('hack', 4001, '7', '~Hack~ Legend of Zelda Remix')",
+      );
+      await db.execute(
+        "INSERT INTO app_ra_game_list (hash, game_id, console_id, title) VALUES ('subset', 4002, '7', 'Legend of Zelda [Subset - Challenge]')",
+      );
+      await db.execute(
+        "INSERT INTO app_ra_game_list (hash, game_id, console_id, title) VALUES ('base', 4003, '7', 'Legend of Zelda')",
+      );
+
+      final gameId = await RetroAchievementsRepository.findGameIdByFilename(
+        'nes',
+        'Legend Zelda',
+      );
+
+      expect(gameId, 4003);
     });
 
     test('findGameIdByFilename returns null when no match', () async {

@@ -164,9 +164,7 @@ extension _GamepadNav on _SystemEmulatorSettingsDialogState {
         _toggleHideParentheses(!_system.hideParentheses);
       } else if (_generalIndex == 3) {
         _toggleHideBrackets(!_system.hideBrackets);
-      } else if (_generalIndex == 4) {
-        _toggleHideLogo(!_system.hideLogo);
-      } else if (_generalIndex == 5 &&
+      } else if (_generalIndex == 4 &&
           widget.system.folderName != 'all' &&
           widget.system.folderName != 'android') {
         _toggleRecursiveScan(!_system.recursiveScan);

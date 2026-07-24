@@ -524,6 +524,7 @@ class SystemCardGridView extends StatefulWidget {
     super.key,
     required this.crossAxisCount,
     this.childAspectRatio = 1,
+    this.aspectRatios,
     this.selectedIndex = 0,
     this.onCardTapped,
     this.onEnterPressed,
@@ -533,6 +534,13 @@ class SystemCardGridView extends StatefulWidget {
 
   final int crossAxisCount;
   final double childAspectRatio;
+
+  /// Optional per-card aspect ratios. When supplied, each card is laid out with
+  /// its own height (width / aspectRatio). This is used to render systems with
+  /// hidden logos as perfect 1:1 squares while keeping the logo footer space
+  /// for the rest.
+  final List<double>? aspectRatios;
+
   final int selectedIndex;
   final Function(int index)? onCardTapped;
   final VoidCallback? onEnterPressed;
@@ -864,6 +872,10 @@ class _SystemCardGridViewState extends State<SystemCardGridView> {
   }
 
   /// Renders a non-linear grid by manually positioning components according to their spans.
+  ///
+  /// System cards can now have per-card aspect ratios (e.g. 1:1 when the system
+  /// logo is hidden). Each row's height is derived from the tallest card in that
+  /// row, eliminating empty footer space inside the card itself.
   Widget _buildWideCardGrid(
     BuildContext context,
     List<SystemInfo> systemCards,
@@ -875,12 +887,48 @@ class _SystemCardGridViewState extends State<SystemCardGridView> {
       builder: (context, constraints) {
         final dims = _calculateGridDimensions(constraints.maxWidth);
         final colWidth = dims['itemWidth']!;
-        final rowHeight = dims['itemHeight']!;
         final spX = dims['crossAxisSpacing']!;
         final spY = dims['mainAxisSpacing']!;
 
-        final double totalHeight =
-            grid.length * rowHeight + (grid.length - 1) * spY;
+        /// Resolves the aspect ratio for a card, falling back to the widget default.
+        double cardAspectRatio(int index) {
+          final ratios = widget.aspectRatios;
+          if (ratios != null && index >= 0 && index < ratios.length) {
+            return ratios[index];
+          }
+          return widget.childAspectRatio;
+        }
+
+        /// Computes the item height for each row based on the tallest occupant.
+        final rowItemHeights = List<double>.filled(grid.length, 0);
+        final rowHeights = List<double>.filled(grid.length, 0);
+        for (int r = 0; r < grid.length; r++) {
+          final seen = <int>{};
+          double maxHeight = 0;
+          for (int c = 0; c < grid[r].length; c++) {
+            final cardIdx = grid[r][c];
+            if (cardIdx == -1 || seen.contains(cardIdx)) continue;
+            seen.add(cardIdx);
+            final height = colWidth / cardAspectRatio(cardIdx);
+            if (height > maxHeight) maxHeight = height;
+          }
+          rowItemHeights[r] = maxHeight;
+          rowHeights[r] = maxHeight + spY;
+        }
+
+        /// Accumulated top offset for a given row.
+        double rowTop(int row) {
+          double top = 0;
+          for (int i = 0; i < row; i++) {
+            top += rowHeights[i];
+          }
+          return top;
+        }
+
+        /// Total scrollable height (last row doesn't add trailing spacing).
+        final totalHeight = rowHeights.isEmpty
+            ? 0.0
+            : rowHeights.reduce((a, b) => a + b) - spY;
 
         final List<Widget> cardWidgets = [];
         final Set<int> placedIndices = {};
@@ -897,15 +945,29 @@ class _SystemCardGridViewState extends State<SystemCardGridView> {
             final spanH = (card.isGame && cols >= 3) ? 2 : 1;
 
             final left = c * (colWidth + spX);
-            final top = r * (rowHeight + spY);
             final width = spanW * colWidth + (spanW - 1) * spX;
-            final height = spanH * rowHeight + (spanH - 1) * spY;
+
+            double cardHeight;
+            double top;
+            if (card.isGame) {
+              cardHeight = 0;
+              for (int i = 0; i < spanH && r + i < rowItemHeights.length; i++) {
+                cardHeight += rowItemHeights[r + i];
+              }
+              cardHeight += (spanH - 1) * spY;
+              top = rowTop(r);
+            } else {
+              cardHeight = colWidth / cardAspectRatio(cardIdx);
+              // Center the card vertically inside the row band.
+              final rowItemHeight = rowItemHeights[r];
+              top = rowTop(r) + (rowItemHeight - cardHeight) / 2;
+            }
 
             if (cardIdx == widget.selectedIndex) {
               selLeft = left;
               selTop = top;
               selWidth = width;
-              selHeight = height;
+              selHeight = cardHeight;
             }
 
             cardWidgets.add(
@@ -913,7 +975,7 @@ class _SystemCardGridViewState extends State<SystemCardGridView> {
                 left: left,
                 top: top,
                 width: width,
-                height: height,
+                height: cardHeight,
                 child: RepaintBoundary(
                   child: SystemCard(
                     key: ValueKey('system_card_${card.title}_$cardIdx'),

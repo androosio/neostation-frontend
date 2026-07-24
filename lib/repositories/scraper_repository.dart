@@ -476,6 +476,78 @@ class ScraperRepository {
 
   // ── Metadata ──────────────────────────────────────────────────────────────
 
+  /// Returns the raw metadata row for a game, or null when it was never
+  /// scraped. Column names match the table (`real_name`, `description_en`,
+  /// `developer`, …).
+  static Future<Map<String, dynamic>?> getGameMetadata(
+    String appSystemId,
+    String filename,
+  ) async {
+    try {
+      final db = await SqliteService.getDatabase();
+      final rows = await db.query(
+        'user_screenscraper_metadata',
+        where: 'app_system_id = ? AND filename = ? COLLATE NOCASE',
+        whereArgs: [appSystemId, filename],
+        limit: 1,
+      );
+      return rows.isEmpty ? null : rows.first;
+    } catch (e) {
+      _log.e('Error reading game metadata: $e');
+      return null;
+    }
+  }
+
+  /// Partially updates editable metadata [fields] for a game. Only the
+  /// provided columns are touched; a minimal row is created when the game
+  /// has no metadata yet. Used by the manual metadata editor.
+  static Future<bool> updateGameMetadata(
+    String appSystemId,
+    String filename,
+    Map<String, dynamic> fields,
+  ) async {
+    if (fields.isEmpty) return false;
+    try {
+      final db = await SqliteService.getDatabase();
+      final existing = await db.query(
+        'user_screenscraper_metadata',
+        columns: const ['app_system_id'],
+        where: 'app_system_id = ? AND filename = ? COLLATE NOCASE',
+        whereArgs: [appSystemId, filename],
+        limit: 1,
+      );
+
+      final values = Map<String, dynamic>.from(fields)
+        ..remove('app_system_id')
+        ..remove('filename')
+        ..remove('is_fully_scraped')
+        ..remove('updated_at')
+        ..['updated_at'] = DateTime.now().toIso8601String();
+
+      if (existing.isEmpty) {
+        values['app_system_id'] = appSystemId;
+        values['filename'] = filename;
+        values['is_fully_scraped'] = 0;
+        await db.insert(
+          'user_screenscraper_metadata',
+          values,
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      } else {
+        await db.update(
+          'user_screenscraper_metadata',
+          values,
+          where: 'app_system_id = ? AND filename = ? COLLATE NOCASE',
+          whereArgs: [appSystemId, filename],
+        );
+      }
+      return true;
+    } catch (e) {
+      _log.e('Error updating game metadata: $e');
+      return false;
+    }
+  }
+
   /// Saves the metadata to the local user_screenscraper_metadata table.
   static Future<bool> saveGameMetadata(
     Map<String, dynamic> metadata,

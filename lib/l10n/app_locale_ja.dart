@@ -406,6 +406,7 @@ const Map<String, dynamic> appLocaleJa = {
   AppLocale.hintRefresh: '更新',
   AppLocale.hintViewMode: '表示切替',
   AppLocale.hintScrape: 'スクレイプ',
+  AppLocale.hintMoreActions: 'その他',
 
   AppLocale.error: 'エラー',
   AppLocale.loading: '読み込み中...',
@@ -458,6 +459,21 @@ const Map<String, dynamic> appLocaleJa = {
   AppLocale.scrape: 'スクレイピング',
   AppLocale.noAchievements: '実績なし',
   AppLocale.gameInfo: 'ゲーム情報',
+  AppLocale.manage: '管理',
+  AppLocale.forceRescrape: '強制再スクレイプ',
+  AppLocale.scrapingData: 'スクラピング データ',
+  AppLocale.scrapingMedia: 'スクラピング メディア',
+  AppLocale.gameTitle: 'タイトル',
+  AppLocale.publisher: 'パブリッシャー',
+  AppLocale.genre: 'ジャンル',
+  AppLocale.description: '説明',
+  AppLocale.screenshot: 'スクリーンショット',
+  AppLocale.fanart: 'ファンアート',
+  AppLocale.wheel: 'ホイール',
+  AppLocale.boxart: 'ボックスアート',
+  AppLocale.change: '変更',
+  AppLocale.metadataSaved: 'メタデータを保存しました',
+  AppLocale.imageUpdated: '画像を更新しました',
   AppLocale.unlocked: 'アンロック済み!',
   AppLocale.points: 'ポイント',
   AppLocale.scanningRomsRA: 'RetroAchievements用のROMを検索中',
@@ -871,8 +887,7 @@ const Map<String, dynamic> appLocaleJa = {
       'システムアートパックのダウンロードを強くおすすめします。後で設定から'
       '変更できます。',
   AppLocale.wizardDownloadArtPack: 'アートパックをダウンロード',
-  AppLocale.wizardArtPackInstalled:
-      'アートパックをインストールしました！他のテーマは後で設定から確認できます。',
+  AppLocale.wizardArtPackInstalled: 'アートパックをインストールしました！他のテーマは後で設定から確認できます。',
   AppLocale.wizardArtPackUnavailable:
       '現在アートパックにアクセスできませんでした。オンラインになったら、後で'
       '設定からインストールできます。',

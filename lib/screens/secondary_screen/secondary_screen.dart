@@ -39,6 +39,14 @@ class _SecondaryScreenState extends State<SecondaryScreen> {
   /// can't un-reveal the dock. See [_buildDockOverlay].
   bool _dockRevealed = false;
 
+  /// Failsafe that reveals the dock even if the `appReady` flag never arrives.
+  /// `appReady` is written by both engines and the secondary's own pushes can
+  /// clobber the main engine's `true` back to `false` before this engine ever
+  /// observes it (a slow fresh-install cold boot loses this race reliably),
+  /// leaving the dock parked off-screen forever. This timer guarantees the dock
+  /// still slides in shortly after the screen appears. See [_buildDockOverlay].
+  Timer? _dockRevealFallback;
+
   /// A BuildContext captured from *under* this screen's MaterialApp (and its
   /// Localizations). The _buildXxx helpers below run as methods on this State,
   /// so a bare `context` resolves to `this.context` — which sits ABOVE the
@@ -108,6 +116,12 @@ class _SecondaryScreenState extends State<SecondaryScreen> {
   List<Map<String, dynamic>>? _pickerApps;
   bool _loadingPickerApps = false;
 
+  /// Guards the one-shot background warm of the installed-app list + dock icons.
+  /// Deliberately deferred until *after* the dock has revealed (`appReady`), so
+  /// the heavy `getInstalledApps` scan can never contend with the cross-engine
+  /// dock-reveal timing race during cold boot.
+  bool _dockPrefetchStarted = false;
+
   @override
   void initState() {
     super.initState();
@@ -119,6 +133,15 @@ class _SecondaryScreenState extends State<SecondaryScreen> {
       // updateState fall back to the WELCOME default and clobber the real
       // retained display state, which then shows until the next push.
       _signalSecondaryActiveWhenSynced();
+      // Failsafe reveal: if `appReady` never lands (the cross-engine clobber
+      // described on [_dockRevealFallback]), slide the dock in anyway so it's
+      // never permanently stuck off-screen. The `appReady` path in
+      // [_buildDockOverlay] still wins the moment it arrives.
+      _dockRevealFallback = Timer(const Duration(seconds: 4), () {
+        if (mounted && !_dockRevealed) {
+          setState(() => _dockRevealed = true);
+        }
+      });
     }
   }
 
@@ -138,9 +161,44 @@ class _SecondaryScreenState extends State<SecondaryScreen> {
     state.updateState(isSecondaryActive: true);
   }
 
+  /// Pre-populates the picker's installed-app list and warms the in-process
+  /// icon cache so both the dock and the app picker render instantly on first
+  /// open instead of decoding icons on demand.
+  ///
+  /// Docked apps are warmed first (they're visible the moment the dock reveals),
+  /// then every installed app the picker can show. Icons are fetched one at a
+  /// time — each `getAppIcon` spins up native work, so a sequential trickle
+  /// avoids a CPU spike on low-power hardware. `getAppIcon` caches per package,
+  /// so this only ever pays the cost once.
+  Future<void> _prefetchDockData() async {
+    await _ensurePickerApps();
+    if (!mounted) return;
+
+    // Dock apps first, then the rest of the picker list, de-duplicated so a
+    // docked app isn't fetched twice.
+    final warmed = <String>{};
+    final order = <String>[
+      ..._dockApps,
+      ...?_pickerApps?.map((app) => (app['package'] ?? '').toString()),
+    ];
+    for (final package in order) {
+      if (package.isEmpty || !warmed.add(package)) continue;
+      if (!mounted) return; // stop if the screen went away mid-warm
+      await SecondaryAppsService.getAppIcon(package);
+    }
+  }
+
   void _onStateChanged() {
     final state = _secondaryDisplayState?.value;
     if (state == null) return;
+
+    // Warm the app list + dock icons exactly once, only after the dock has
+    // revealed. Gating on `appReady` keeps this heavy work off the cold-boot
+    // reveal path so it can't perturb the cross-engine dock-reveal race.
+    if (state.appReady && !_dockPrefetchStarted) {
+      _dockPrefetchStarted = true;
+      unawaited(_prefetchDockData());
+    }
 
     // A re-scrape rewrites the art at the same path, so this engine's image
     // cache still holds the old bitmap. When the producer bumps mediaRevision,
@@ -496,6 +554,7 @@ class _SecondaryScreenState extends State<SecondaryScreen> {
     _celebrationTimer?.cancel();
     _playTimeTicker?.cancel();
     _dimTimer?.cancel();
+    _dockRevealFallback?.cancel();
     _stopVideo();
     super.dispose();
   }
@@ -565,6 +624,7 @@ class _SecondaryScreenState extends State<SecondaryScreen> {
   /// Lazily loads the installed-app list backing the picker/launcher, once.
   Future<void> _ensurePickerApps() async {
     if (_pickerApps != null || _loadingPickerApps) return;
+    if (!mounted) return;
     setState(() => _loadingPickerApps = true);
     final apps = await SecondaryAppsService.getInstalledApps();
     if (!mounted) return;
@@ -1003,7 +1063,10 @@ class _SecondaryScreenState extends State<SecondaryScreen> {
     // mute/screenshot toggles) copyWith from a local snapshot that may still
     // carry appReady=false, so the incoming flag oscillates. Latch it locally on
     // first true and ignore later falses, so the dock slides up once and stays.
-    if (value.appReady) _dockRevealed = true;
+    if (value.appReady && !_dockRevealed) {
+      _dockRevealed = true;
+      _dockRevealFallback?.cancel();
+    }
     final raAvailable =
         value.showAchievementPanel && value.achievements != null;
     // Off the Now Playing page (achievements/comments) → hide the dock.
@@ -1019,6 +1082,13 @@ class _SecondaryScreenState extends State<SecondaryScreen> {
         ? (1.0 - value.nowPlayingDimLevel.clamp(0, 100) / 100.0)
         : 1.0;
     return Positioned.fill(
+      // Stable key so this subtree's element (and its slide-in
+      // TweenAnimationBuilder state) is preserved across rebuilds of the parent
+      // Stack. Without it, the unkeyed conditional siblings above (game layer,
+      // mute button) inserting/removing on game-select and video-toggle shift
+      // element positions, tearing down and recreating the dock — which restarts
+      // the reveal tween and makes the static dock re-slide up every time.
+      key: const ValueKey('dock-overlay'),
       child: IgnorePointer(
         // Non-interactive while hidden or dimmed — when dimmed, touches fall
         // through to the panel's wake Listener below (first touch only wakes).
@@ -1035,10 +1105,8 @@ class _SecondaryScreenState extends State<SecondaryScreen> {
             tween: Tween(begin: 1.0, end: _dockRevealed ? 0.0 : 1.0),
             duration: const Duration(milliseconds: 550),
             curve: Curves.easeOutCubic,
-            builder: (context, t, child) => Transform.translate(
-              offset: Offset(0, t * 140.r),
-              child: child,
-            ),
+            builder: (context, t, child) =>
+                Transform.translate(offset: Offset(0, t * 140.r), child: child),
             child: Stack(
               children: [
                 Positioned(
@@ -1387,9 +1455,14 @@ class _SecondaryScreenState extends State<SecondaryScreen> {
   /// the backdrop cancels; tapping an app assigns it.
   Widget _buildAppPickerOverlay() {
     return Positioned.fill(
+      // Opaque hit barrier (no onTap) so taps land on the grid/✕ only and never
+      // fall through to the dock beneath. Deliberately NOT tap-to-dismiss: this
+      // picker is fullscreen and fully opaque, so there's no "outside" to
+      // reveal, and the ~20px frame around the grid used to sit right under the
+      // bottom/edge icons — a near-miss reaching for an icon dismissed the whole
+      // drawer. Closing is explicit via the ✕ button.
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: _closeAppPicker,
         child: ColoredBox(
           // Fully opaque so the Now Playing screen behind is not visible while
           // choosing an app for a dock slot.
@@ -1412,11 +1485,19 @@ class _SecondaryScreenState extends State<SecondaryScreen> {
                       ),
                       const Spacer(),
                       GestureDetector(
+                        // Opaque + generous padding so the whole ~50px corner
+                        // region closes the picker, not just the 26px glyph.
+                        // (Now that the backdrop no longer dismisses, a near-miss
+                        // on the bare icon would otherwise do nothing.)
+                        behavior: HitTestBehavior.opaque,
                         onTap: _closeAppPicker,
-                        child: Icon(
-                          Symbols.close_rounded,
-                          color: Colors.white,
-                          size: 26.r,
+                        child: Padding(
+                          padding: EdgeInsets.all(12.r),
+                          child: Icon(
+                            Symbols.close_rounded,
+                            color: Colors.white,
+                            size: 26.r,
+                          ),
                         ),
                       ),
                     ],

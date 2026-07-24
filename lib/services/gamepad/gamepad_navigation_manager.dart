@@ -118,4 +118,39 @@ class GamepadNavigationManager {
       }
     }
   }
+
+  /// Removes every layer above [id] and reactivates [id].
+  ///
+  /// Used when a dialog must reclaim focus after an async action (e.g. changing
+  /// a view mode) caused background widgets to push their own layers on top.
+  static void popLayersAbove(String id) {
+    final index = _stack.indexWhere((layer) => layer.id == id);
+    if (index == -1) {
+      _log.w(
+        '[GamepadNavigationManager] Layer $id not found for popLayersAbove',
+      );
+      return;
+    }
+
+    while (_stack.length > index + 1) {
+      final layer = _stack.removeLast();
+      _log.i('[GamepadNavigationManager] popLayersAbove: removing ${layer.id}');
+      try {
+        layer.onDeactivate();
+      } catch (e) {
+        _log.e('Error deactivating layer ${layer.id}: $e');
+      }
+    }
+
+    if (_stack.isNotEmpty) {
+      _log.i(
+        '[GamepadNavigationManager] popLayersAbove: reactivating ${_stack.last.id}',
+      );
+      try {
+        _stack.last.onActivate();
+      } catch (e) {
+        _log.e('Error reactivating layer ${_stack.last.id}: $e');
+      }
+    }
+  }
 }

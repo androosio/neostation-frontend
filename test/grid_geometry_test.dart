@@ -50,9 +50,8 @@ void main() {
       ]);
     });
 
-    test('first-fit stacks single cells below a leading game block', () {
-      // Game occupies rows 0-1 fully (cols 0-2); the systems can't fit beside
-      // it so they land on row 2 onward.
+    test('first-fit places single cells after a leading game block', () {
+      // Game occupies cols 0-2 on rows 0-1; systems start on row 2.
       final grid = buildVirtualGrid([game(), system(), system()], 3);
       expect(grid, [
         [0, 0, 0],

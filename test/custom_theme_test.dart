@@ -96,9 +96,8 @@ void main() {
     });
 
     test('missing on-* tokens fall back to base-content', () {
-      final colors = Map<String, dynamic>.from(
-        _daisyJson['colors'] as Map,
-      )..remove('success-content');
+      final colors = Map<String, dynamic>.from(_daisyJson['colors'] as Map)
+        ..remove('success-content');
       final json = Map<String, dynamic>.from(_daisyJson)..['colors'] = colors;
       final theme = CustomTheme.fromDaisyJson(json);
       expect(theme.customColors.onSuccessColor, const Color(0xFFF8F8F3));
@@ -114,7 +113,8 @@ void main() {
 
     test('accepts 6- and 8-digit hex', () {
       final colors = Map<String, dynamic>.from(_daisyJson['colors'] as Map)
-        ..['primary'] = 'FF79C6' // no leading '#'
+        ..['primary'] =
+            'FF79C6' // no leading '#'
         ..['secondary'] = '#BD93F9FF'; // 8-digit RRGGBBAA-style value
       final json = Map<String, dynamic>.from(_daisyJson)..['colors'] = colors;
       final theme = CustomTheme.fromDaisyJson(json);
@@ -130,16 +130,16 @@ void main() {
     });
 
     test('throws FormatException on a missing required token', () {
-      final colors = Map<String, dynamic>.from(
-        _daisyJson['colors'] as Map,
-      )..remove('primary');
+      final colors = Map<String, dynamic>.from(_daisyJson['colors'] as Map)
+        ..remove('primary');
       final json = Map<String, dynamic>.from(_daisyJson)..['colors'] = colors;
       expect(() => CustomTheme.fromDaisyJson(json), throwsFormatException);
     });
 
     test('parses oklch colour notation (daisyUI native)', () {
       final colors = Map<String, dynamic>.from(_daisyJson['colors'] as Map)
-        ..['primary'] = 'oklch(0% 0 0)' // pure black
+        ..['primary'] =
+            'oklch(0% 0 0)' // pure black
         ..['secondary'] = 'oklch(100% 0 0)'; // pure white
       final json = Map<String, dynamic>.from(_daisyJson)..['colors'] = colors;
       final theme = CustomTheme.fromDaisyJson(json);

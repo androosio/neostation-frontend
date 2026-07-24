@@ -88,12 +88,13 @@ extension _Tabs on _SystemEmulatorSettingsDialogState {
       padding: EdgeInsets.symmetric(horizontal: 12.r),
       decoration: BoxDecoration(
         color: isFocused
-            ? theme.colorScheme.secondary.withValues(alpha: 0.1)
+            ? theme.colorScheme.primary.withValues(alpha: 0.1)
             : Colors.transparent,
-        borderRadius: BorderRadius.circular(8.r),
+        borderRadius: Theme.of(context).extension<CornerRadii>()?.radiusExternal ??
+                  BorderRadius.circular(9.r),
         border: isFocused
             ? Border.all(
-                color: theme.colorScheme.secondary.withValues(alpha: 0.5),
+                color: theme.colorScheme.primary.withValues(alpha: 0.5),
               )
             : null,
       ),
@@ -107,7 +108,8 @@ extension _Tabs on _SystemEmulatorSettingsDialogState {
             clipBehavior: Clip.antiAlias,
             decoration: BoxDecoration(
               color: Colors.black26,
-              borderRadius: BorderRadius.circular(4.r),
+              borderRadius: Theme.of(context).extension<CornerRadii>()?.radiusInternal ??
+                  BorderRadius.circular(9.r),
             ),
             child: currentPath.isEmpty
                 ? Icon(
@@ -502,22 +504,12 @@ extension _Tabs on _SystemEmulatorSettingsDialogState {
           value: _system.hideBrackets,
           onChanged: _toggleHideBrackets,
         ),
-        SizedBox(height: 4.r),
-        _buildSwitchItem(
-          index: 4,
-          key: _generalItemKeys[4],
-          title: AppLocale.hideSystemLogo.getString(context),
-          subtitle: AppLocale.hideSystemLogoSubtitle.getString(context),
-          value: _system.hideLogo,
-          onChanged: _toggleHideLogo,
-        ),
-
         if (widget.system.folderName != 'all' &&
             widget.system.folderName != 'android') ...[
           SizedBox(height: 4.r),
           _buildSwitchItem(
-            index: 5,
-            key: _generalItemKeys[5],
+            index: 4,
+            key: _generalItemKeys[4],
             title: AppLocale.recursiveScan.getString(context),
             subtitle: AppLocale.recursiveScanSubtitle.getString(context),
             value: _system.recursiveScan,
@@ -543,16 +535,18 @@ extension _Tabs on _SystemEmulatorSettingsDialogState {
       key: key,
       decoration: BoxDecoration(
         color: isFocused
-            ? theme.colorScheme.secondary.withValues(alpha: 0.2)
+            ? theme.colorScheme.primary.withValues(alpha: 0.2)
             : Colors.transparent,
-        borderRadius: BorderRadius.circular(8.r),
+        borderRadius: Theme.of(context).extension<CornerRadii>()?.radiusInternal ??
+                  BorderRadius.circular(9.r),
       ),
       child: InkWell(
         onTap: () {
           SfxService().playNavSound();
           onChanged(!value);
         },
-        borderRadius: BorderRadius.circular(8.r),
+        borderRadius: Theme.of(context).extension<CornerRadii>()?.radiusInternal ??
+                  BorderRadius.circular(9.r),
         child: Padding(
           padding: EdgeInsets.symmetric(horizontal: 12.r, vertical: 6.r),
           child: Row(
@@ -568,7 +562,7 @@ extension _Tabs on _SystemEmulatorSettingsDialogState {
                         fontSize: 10.r,
                         fontWeight: FontWeight.w600,
                         color: isFocused
-                            ? theme.colorScheme.secondary
+                            ? theme.colorScheme.primary
                             : theme.colorScheme.onSurface,
                       ),
                     ),

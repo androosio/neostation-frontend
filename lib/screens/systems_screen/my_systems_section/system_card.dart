@@ -10,7 +10,6 @@ import 'package:provider/provider.dart';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import '../../../themes/corner_radii.dart';
-import '../../../widgets/marquee_text.dart';
 import '../../../widgets/shaders/shader_gif_widget.dart';
 import '../../../widgets/shaders/music_card_shader_background.dart';
 import '../../../utils/image_utils.dart';
@@ -27,7 +26,7 @@ class SystemCard extends StatefulWidget {
     required this.info,
     this.onTap,
     this.isSelected = false,
-    this.footerLogoHeight,
+    this.backgroundCacheWidth = 512,
   });
 
   /// The system or game metadata resolved for this card.
@@ -39,10 +38,9 @@ class SystemCard extends StatefulWidget {
   /// Whether this card currently has visual focus in the grid.
   final bool isSelected;
 
-  /// Optional override for the system footer logo height. When null, the grid
-  /// default (30.r) is used. Larger values are useful for big cards such as
-  /// the system carousel.
-  final double? footerLogoHeight;
+  /// Decode width for the card's background image. Defaults to 512 (grid
+  /// cards); the carousel passes 1024 since its cards are much larger.
+  final int backgroundCacheWidth;
 
   @override
   State<SystemCard> createState() => _SystemCardState();
@@ -248,14 +246,25 @@ class _SystemCardState extends State<SystemCard> {
               highlightColor: Colors.transparent,
               splashColor: Colors.transparent,
               child: Padding(
-                padding: EdgeInsets.all(4.r),
+                padding: EdgeInsets.only(
+                  top: 4.r,
+                  bottom: 0.r,
+                  left: 4.r,
+                  right: 4.r,
+                ),
                 child: widget.info.isGame
-                    ? Stack(
-                        key: _contentStackKey,
+                    ? Column(
                         children: [
-                          _buildSystemBackground(),
-                          _buildMainBodyContent(context, true),
-                          _buildRecentFooter(context),
+                          Expanded(
+                            child: Stack(
+                              key: _contentStackKey,
+                              children: [
+                                _buildSystemBackground(),
+                                _buildGameMainContent(context),
+                              ],
+                            ),
+                          ),
+                          _buildGameFooter(context),
                         ],
                       )
                     : Column(
@@ -264,10 +273,7 @@ class _SystemCardState extends State<SystemCard> {
                             aspectRatio: 1,
                             child: Stack(
                               key: _contentStackKey,
-                              children: [
-                                _buildSystemBackground(),
-                                _buildMainBodyContent(context, true),
-                              ],
+                              children: [_buildSystemBackground()],
                             ),
                           ),
                           _buildSystemFooter(context),
@@ -374,7 +380,7 @@ class _SystemCardState extends State<SystemCard> {
                 File(activeBgPath),
                 key: ValueKey('${activeBgPath}_${widget.info.imageVersion}'),
                 fit: BoxFit.cover,
-                cacheWidth: widget.info.isGame ? 1024 : 256,
+                cacheWidth: widget.backgroundCacheWidth,
                 errorBuilder: (context, error, stackTrace) => Stack(
                   children: [
                     Container(color: Theme.of(context).colorScheme.surface),
@@ -417,7 +423,6 @@ class _SystemCardState extends State<SystemCard> {
     double? height,
     Color? color,
   }) {
-    height ??= 32.r;
     final customLogoPath = widget.info.customLogoPath;
     final hasCustomLogo = customLogoPath != null && customLogoPath.isNotEmpty;
 
@@ -434,7 +439,7 @@ class _SystemCardState extends State<SystemCard> {
         Image.file(
           File(customLogoPath),
           key: ValueKey('${customLogoPath}_${widget.info.imageVersion}'),
-          height: height,
+          height: height ?? 32.r,
           cacheWidth: 256,
           fit: BoxFit.contain,
           errorBuilder: (context, error, stackTrace) => Image.asset(
@@ -445,7 +450,7 @@ class _SystemCardState extends State<SystemCard> {
             errorBuilder: (context, error, stackTrace) => SystemLogoFallback(
               title: widget.info.title,
               shortName: widget.info.shortName,
-              height: 24.r,
+              height: height ?? 32.r,
             ),
           ),
         ),
@@ -455,199 +460,132 @@ class _SystemCardState extends State<SystemCard> {
     return buildLogo(
       Image.asset(
         assetLogoPath,
-        height: height,
+        height: height ?? 32.r,
         cacheWidth: 256,
         fit: BoxFit.contain,
         errorBuilder: (context, error, stackTrace) => SystemLogoFallback(
           title: widget.info.title,
           shortName: widget.info.shortName,
-          height: 24.r,
+          height: height ?? 32.r,
         ),
       ),
     );
   }
 
-  /// Builds the foreground content, including badges and specialized layouts for 'Recent Games'.
-  Widget _buildMainBodyContent(BuildContext context, bool includeInnerCard) {
-    final isGame = widget.info.isGame;
-
+  /// Builds the foreground content for game cards, including the RECENT badge
+  /// and the game wheel/logo.
+  Widget _buildGameMainContent(BuildContext context) {
     return Stack(
       children: [
-        if (isGame) ...[
-          // Premium 'RECENT' badge.
-          Positioned(
-            top: 10.r,
-            right: 10.r,
-            child: Container(
-              padding: EdgeInsets.symmetric(horizontal: 8.r, vertical: 4.r),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary,
-                borderRadius: BorderRadius.circular(4.r),
-              ),
-              child: Text(
-                AppLocale.recentBadge.getString(context),
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onPrimary,
-                  fontSize: 10.r,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1.2,
-                ),
+        // RECENT badge.
+        Positioned(
+          top: 6.r,
+          right: 6.r,
+          child: Container(
+            padding: EdgeInsets.symmetric(horizontal: 8.r, vertical: 4.r),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.secondary,
+              borderRadius:
+                  Theme.of(context).extension<CornerRadii>()?.radiusInternal ??
+                  BorderRadius.circular(9.r),
+            ),
+            child: Text(
+              AppLocale.recentBadge.getString(context),
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSecondary,
+                fontSize: 8.r,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1.2,
               ),
             ),
           ),
+        ),
 
-          // Central game identification asset (Wheel/Logo).
-          Positioned(
-            top: 20.r,
-            left: 60.r,
-            right: 60.r,
-            bottom: 45.r,
-            child: Center(
-              child: !_cachedHasWheelFile
-                  ? const SizedBox.shrink()
-                  : Image.file(
-                      _cachedWheelFile!,
-                      height: 128.r,
-                      fit: BoxFit.contain,
-                      cacheWidth: 512,
-                      errorBuilder: (context, error, stackTrace) =>
-                          const SizedBox.shrink(),
-                    ),
-            ),
-          ),
-        ],
+        // Central game wheel/logo.
+        Center(
+          child: !_cachedHasWheelFile
+              ? const SizedBox.shrink()
+              : Container(
+                  padding: EdgeInsetsGeometry.all(48.r),
+                  child: Image.file(
+                    _cachedWheelFile!,
+                    height: 256.r,
+                    fit: BoxFit.contain,
+                    cacheWidth: 512,
+                    errorBuilder: (context, error, stackTrace) =>
+                        const SizedBox.shrink(),
+                  ),
+                ),
+        ),
       ],
     );
   }
 
-  /// Renders a descriptive footer overlay for game-specific cards.
-  Widget _buildRecentFooter(BuildContext context) {
-    return Positioned(
-      bottom: 0,
-      left: 0,
-      right: 0,
-      height: 42.r,
-      child: ClipRRect(
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(12.r),
-          bottomRight: Radius.circular(12.r),
-        ),
-        child: Container(
-          padding: EdgeInsets.symmetric(horizontal: 12.r),
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.6),
-            borderRadius: BorderRadius.only(
-              bottomLeft: Radius.circular(12.r),
-              bottomRight: Radius.circular(12.r),
+  /// Renders a footer for game cards, matching the system card footer style.
+  Widget _buildGameFooter(BuildContext context) {
+    return Container(
+      height: 32.r,
+      alignment: Alignment.center,
+      padding: EdgeInsets.symmetric(horizontal: 8.r),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(
+            AppLocale.timePlayedLabel
+                .getString(context)
+                .replaceFirst(
+                  '{time}',
+                  _formatPlayTimeLocalized(
+                    widget.info.gameModel?.playTime ?? 0,
+                  ),
+                )
+                .toUpperCase(),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface,
+              fontSize: 10.r,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.0,
             ),
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              MarqueeText(
-                text:
-                    widget.info.title?.toUpperCase() ??
-                    AppLocale.unknownGame.getString(context),
-                isActive: widget.isSelected,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 13.r,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.5,
-                  shadows: const <Shadow>[
-                    Shadow(
-                      offset: Offset(2.0, 2.0),
-                      blurRadius: 2.0,
-                      color: Colors.black,
-                    ),
-                  ],
-                ),
-              ),
-              Text(
-                widget.info.isGame
-                    ? AppLocale.timePlayedLabel
-                          .getString(context)
-                          .replaceFirst(
-                            '{time}',
-                            _formatPlayTimeLocalized(
-                              widget.info.gameModel?.playTime ?? 0,
-                            ),
-                          )
-                          .toUpperCase()
-                    : (widget.info.folderName == 'android'
-                          ? AppLocale.appsCount
-                                .getString(context)
-                                .replaceFirst(
-                                  '{count}',
-                                  widget.info.numOfRoms.toString(),
-                                )
-                                .toUpperCase()
-                          : (widget.info.folderName == 'music'
-                                ? AppLocale.tracksCount
-                                      .getString(context)
-                                      .replaceFirst(
-                                        '{count}',
-                                        widget.info.numOfRoms.toString(),
-                                      )
-                                      .toUpperCase()
-                                : AppLocale.gamesCount
-                                      .getString(context)
-                                      .replaceFirst(
-                                        '{count}',
-                                        widget.info.numOfRoms.toString(),
-                                      )
-                                      .toUpperCase())),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 8.r,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.0,
-                  shadows: const <Shadow>[
-                    Shadow(
-                      offset: Offset(1.0, 1.0),
-                      blurRadius: 1.0,
-                      color: Colors.black,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
+        ],
       ),
     );
   }
 
   /// Renders a bottom footer with the system logo for non-game system cards.
+  ///
+  /// The footer expands to fill the remaining space below the square artwork,
+  /// and the logo is auto-sized to fit while keeping its aspect ratio.
   Widget _buildSystemFooter(BuildContext context) {
-    if (widget.info.hideLogo) return const SizedBox.shrink();
+    final assetLogoPath = _resolveSystemLogoPath();
 
+    return Expanded(
+      child: Container(
+        alignment: Alignment.center,
+        padding: EdgeInsets.only(top: 1.r, bottom: 1.r, left: 2.r, right: 2.r),
+        child: FittedBox(
+          fit: BoxFit.contain,
+          child: _buildSystemLogo(
+            assetLogoPath,
+            height: 128.r,
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Resolves the logo asset path for this system.
+  String _resolveSystemLogoPath() {
     final resolvedLogoFolder = widget.info.primaryFolderName?.isNotEmpty == true
         ? widget.info.primaryFolderName!
         : (widget.info.folderName?.isNotEmpty == true
               ? widget.info.folderName!
               : 'all');
-    final assetLogoPath = 'assets/images/logos/$resolvedLogoFolder.webp';
-
-    final logoHeight = widget.footerLogoHeight ?? 30.r;
-    final footerHeight = widget.footerLogoHeight != null
-        ? logoHeight + 4.r
-        : 32.r;
-
-    return Container(
-      height: footerHeight,
-      padding: EdgeInsets.only(left: 0.r, right: 0.r, top: 4.r, bottom: 0.r),
-      child: Center(
-        child: _buildSystemLogo(
-          assetLogoPath,
-          height: logoHeight,
-          color: Theme.of(context).colorScheme.onSurface,
-        ),
-      ),
-    );
+    return 'assets/images/logos/$resolvedLogoFolder.webp';
   }
 }
 

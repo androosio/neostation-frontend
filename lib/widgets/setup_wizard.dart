@@ -521,60 +521,60 @@ class _SetupWizardState extends State<SetupWizard> with WidgetsBindingObserver {
     return FittedBox(
       fit: BoxFit.scaleDown,
       child: Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(_totalSteps, (index) {
-        final isCompleted = index < _currentStep;
-        final isCurrent = index == _currentStep;
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: List.generate(_totalSteps, (index) {
+          final isCompleted = index < _currentStep;
+          final isCurrent = index == _currentStep;
 
-        return Row(
-          children: [
-            Container(
-              width: 40.r,
-              height: 40.r,
-              decoration: BoxDecoration(
-                color: isCompleted || isCurrent
-                    ? theme.colorScheme.primary
-                    : Colors.transparent,
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: isCompleted || isCurrent
-                      ? theme.colorScheme.primary
-                      : theme.colorScheme.primary.withValues(alpha: 0.3),
-                  width: 2.r,
-                ),
-              ),
-              child: Center(
-                child: isCompleted
-                    ? Icon(
-                        Symbols.check_rounded,
-                        color: Colors.white,
-                        size: 24.r,
-                      )
-                    : Text(
-                        '${index + 1}',
-                        style: TextStyle(
-                          fontSize: 18.r,
-                          fontWeight: FontWeight.bold,
-                          color: isCurrent
-                              ? Colors.white
-                              : theme.colorScheme.primary.withValues(
-                                  alpha: 0.5,
-                                ),
-                        ),
-                      ),
-              ),
-            ),
-            if (index < _totalSteps - 1)
+          return Row(
+            children: [
               Container(
                 width: 40.r,
-                height: 2.r,
-                color: isCompleted
-                    ? theme.colorScheme.primary
-                    : theme.colorScheme.primary.withValues(alpha: 0.2),
+                height: 40.r,
+                decoration: BoxDecoration(
+                  color: isCompleted || isCurrent
+                      ? theme.colorScheme.primary
+                      : Colors.transparent,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isCompleted || isCurrent
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.primary.withValues(alpha: 0.3),
+                    width: 2.r,
+                  ),
+                ),
+                child: Center(
+                  child: isCompleted
+                      ? Icon(
+                          Symbols.check_rounded,
+                          color: Colors.white,
+                          size: 24.r,
+                        )
+                      : Text(
+                          '${index + 1}',
+                          style: TextStyle(
+                            fontSize: 18.r,
+                            fontWeight: FontWeight.bold,
+                            color: isCurrent
+                                ? Colors.white
+                                : theme.colorScheme.primary.withValues(
+                                    alpha: 0.5,
+                                  ),
+                          ),
+                        ),
+                ),
               ),
-          ],
-        );
-      }),
+              if (index < _totalSteps - 1)
+                Container(
+                  width: 40.r,
+                  height: 2.r,
+                  color: isCompleted
+                      ? theme.colorScheme.primary
+                      : theme.colorScheme.primary.withValues(alpha: 0.2),
+                ),
+            ],
+          );
+        }),
       ),
     );
   }
@@ -1624,91 +1624,96 @@ class _SetupWizardState extends State<SetupWizard> with WidgetsBindingObserver {
             neoAssets.themes.isEmpty &&
             neoAssets.loading;
         return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        if (showSkip)
-          TextButton(
-            onPressed: () => _handleSkip(),
-            style: TextButton.styleFrom(
-              padding: EdgeInsets.symmetric(horizontal: 16.r, vertical: 8.r),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Image.asset(
-                  'assets/images/gamepad/Xbox_B_button.png',
-                  width: 20.r,
-                  height: 20.r,
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                ),
-                SizedBox(width: 8.r),
-                Text(
-                  AppLocale.skipForNow.getString(context),
-                  style: TextStyle(
-                    fontSize: 12.r,
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            if (showSkip)
+              TextButton(
+                onPressed: () => _handleSkip(),
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 16.r,
+                    vertical: 8.r,
                   ),
                 ),
-              ],
-            ),
-          )
-        else
-          SizedBox(width: 64.r),
-
-        // Main action button
-        ElevatedButton(
-          onPressed:
-              (_isSelectingFolder ||
-                  _isImportingEsde ||
-                  _isDownloadingArt ||
-                  artLoading)
-              ? null
-              : () => _handleMainAction(),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: theme.colorScheme.primary,
-            foregroundColor: theme.colorScheme.onPrimary,
-            padding: EdgeInsets.symmetric(horizontal: 20.r, vertical: 12.r),
-            elevation: 4,
-            shadowColor: theme.colorScheme.primary.withValues(alpha: 0.4),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16.r),
-            ),
-            disabledBackgroundColor: theme.colorScheme.primary.withValues(
-              alpha: 0.3,
-            ),
-          ),
-          child: (_isSelectingFolder || artLoading)
-              ? SizedBox(
-                  width: 20.r,
-                  height: 20.r,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.r,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      theme.colorScheme.onPrimary,
-                    ),
-                  ),
-                )
-              : Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Image.asset(
-                      'assets/images/gamepad/Xbox_A_button.png',
+                      'assets/images/gamepad/Xbox_B_button.png',
                       width: 20.r,
                       height: 20.r,
-                      color: theme.colorScheme.onPrimary,
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                     ),
                     SizedBox(width: 8.r),
                     Text(
-                      _getButtonText(),
+                      AppLocale.skipForNow.getString(context),
                       style: TextStyle(
-                        fontSize: 14.r,
-                        fontWeight: FontWeight.bold,
+                        fontSize: 12.r,
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.6,
+                        ),
                       ),
                     ),
                   ],
                 ),
-        ),
-      ],
+              )
+            else
+              SizedBox(width: 64.r),
+
+            // Main action button
+            ElevatedButton(
+              onPressed:
+                  (_isSelectingFolder ||
+                      _isImportingEsde ||
+                      _isDownloadingArt ||
+                      artLoading)
+                  ? null
+                  : () => _handleMainAction(),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: theme.colorScheme.primary,
+                foregroundColor: theme.colorScheme.onPrimary,
+                padding: EdgeInsets.symmetric(horizontal: 20.r, vertical: 12.r),
+                elevation: 4,
+                shadowColor: theme.colorScheme.primary.withValues(alpha: 0.4),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16.r),
+                ),
+                disabledBackgroundColor: theme.colorScheme.primary.withValues(
+                  alpha: 0.3,
+                ),
+              ),
+              child: (_isSelectingFolder || artLoading)
+                  ? SizedBox(
+                      width: 20.r,
+                      height: 20.r,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.r,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          theme.colorScheme.onPrimary,
+                        ),
+                      ),
+                    )
+                  : Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Image.asset(
+                          'assets/images/gamepad/Xbox_A_button.png',
+                          width: 20.r,
+                          height: 20.r,
+                          color: theme.colorScheme.onPrimary,
+                        ),
+                        SizedBox(width: 8.r),
+                        Text(
+                          _getButtonText(),
+                          style: TextStyle(
+                            fontSize: 14.r,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
+          ],
         );
       },
     );
