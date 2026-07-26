@@ -85,6 +85,27 @@ class EmulatorRepository {
     String systemId,
   ) => SqliteService.getUserDefaultEmulatorForSystem(systemId);
 
+  /// Whether [systemId] has already been offered the pre-launch emulator
+  /// choice (see `EmulatorChoiceGate`).
+  static Future<bool> hasOfferedEmulatorChoice(String systemId) async {
+    final db = await SqliteService.getDatabase();
+    final rows = await db.rawQuery(
+      'SELECT 1 FROM user_emulator_choice_prompt WHERE system_id = ? LIMIT 1',
+      [systemId],
+    );
+    return rows.isNotEmpty;
+  }
+
+  /// Records that [systemId] has been offered the pre-launch emulator choice,
+  /// so it is never offered again regardless of what the user picked.
+  static Future<void> markEmulatorChoiceOffered(String systemId) async {
+    final db = await SqliteService.getDatabase();
+    await db.rawInsert(
+      'INSERT OR IGNORE INTO user_emulator_choice_prompt (system_id) VALUES (?)',
+      [systemId],
+    );
+  }
+
   /// Every RetroArch package the database knows about, installed or not.
   ///
   /// Prefer [getInstalledAndroidRetroArchPackages] anywhere the result is used

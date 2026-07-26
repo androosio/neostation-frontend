@@ -651,7 +651,11 @@ const Map<String, dynamic> appLocaleKo = {
   AppLocale.launchFailed: '실행 실패',
   AppLocale.platformNotSupported: '지원되지 않는 플랫폼',
   AppLocale.coreNotConfigured: '코어가 구성되지 않았습니다',
-  AppLocale.coreNotInstalled: '코어 "{name}"이(가) 설치되지 않았습니다',
+  AppLocale.chooseEmulatorTitle: '{system}에 사용할 에뮬레이터를 선택할까요?',
+  AppLocale.chooseEmulatorBody:
+      '{system}에 설정된 에뮬레이터가 없어 NeoStation이 RetroArch 코어 "{core}"를 대신 선택했습니다.\n\n이 선택은 추측일 뿐입니다. Android에서는 어떤 코어가 실제로 설치되어 있는지 NeoStation이 확인할 수 없으므로 이 코어가 없을 수도 있습니다. 없다면 RetroArch는 오류 메시지 없이 검은 화면으로 실행됩니다.\n\n{system}에 대해서는 이번 한 번만 묻습니다. 에뮬레이터는 시스템 설정에서 언제든지 변경할 수 있습니다.',
+  AppLocale.chooseEmulator: '에뮬레이터 선택',
+  AppLocale.launchAnyway: '그대로 실행',
   AppLocale.retroArchNotFound: 'RetroArch를 찾을 수 없습니다',
   AppLocale.retroArchExecutableNotFound: 'RetroArch 실행 파일을 찾을 수 없습니다',
   AppLocale.coresDirectoryNotFound: '코어 폴더를 찾을 수 없습니다',

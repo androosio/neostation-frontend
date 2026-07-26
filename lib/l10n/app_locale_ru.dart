@@ -707,7 +707,11 @@ const Map<String, dynamic> appLocaleRu = {
   AppLocale.launchFailed: 'Ошибка запуска',
   AppLocale.platformNotSupported: 'Платформа не поддерживается',
   AppLocale.coreNotConfigured: 'Ядро не настроено',
-  AppLocale.coreNotInstalled: 'Ядро «{name}» не установлено',
+  AppLocale.chooseEmulatorTitle: 'Выбрать эмулятор для {system}?',
+  AppLocale.chooseEmulatorBody:
+      'Для {system} не выбран эмулятор, поэтому NeoStation выбрал его сам: ядро RetroArch "{core}".\n\nЭто лишь предположение. Android не позволяет NeoStation проверить, какие ядра действительно установлены, поэтому этого ядра может не быть. В таком случае RetroArch запустится с чёрным экраном и без сообщения об ошибке.\n\nВопрос задаётся только один раз для {system}. Вы можете изменить эмулятор в любое время в настройках системы.',
+  AppLocale.chooseEmulator: 'Выбрать эмулятор',
+  AppLocale.launchAnyway: 'Всё равно запустить',
   AppLocale.retroArchNotFound: 'RetroArch не найден',
   AppLocale.retroArchExecutableNotFound: 'Исполняемый файл RetroArch не найден',
   AppLocale.coresDirectoryNotFound: 'Директория ядер не найдена',

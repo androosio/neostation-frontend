@@ -704,7 +704,11 @@ const Map<String, dynamic> appLocaleId = {
   AppLocale.launchFailed: 'Peluncuran gagal',
   AppLocale.platformNotSupported: 'Platform tidak didukung',
   AppLocale.coreNotConfigured: 'Core tidak dikonfigurasi',
-  AppLocale.coreNotInstalled: 'Core "{name}" tidak terinstal',
+  AppLocale.chooseEmulatorTitle: 'Pilih emulator untuk {system}?',
+  AppLocale.chooseEmulatorBody:
+      'Belum ada emulator untuk {system}, jadi NeoStation memilihkan satu: core RetroArch "{core}".\n\nPilihan itu hanya perkiraan. Android tidak mengizinkan NeoStation memeriksa core mana yang benar-benar terpasang, jadi core ini mungkin tidak ada. Jika memang tidak ada, RetroArch akan terbuka dengan layar hitam tanpa pesan kesalahan.\n\nAnda hanya ditanya sekali untuk {system}. Anda dapat mengubah emulatornya kapan saja di pengaturan sistem.',
+  AppLocale.chooseEmulator: 'Pilih emulator',
+  AppLocale.launchAnyway: 'Jalankan saja',
   AppLocale.retroArchNotFound: 'RetroArch tidak ditemukan',
   AppLocale.retroArchExecutableNotFound: 'Eksekusi RetroArch tidak ditemukan',
   AppLocale.coresDirectoryNotFound: 'Direktori core tidak ditemukan',

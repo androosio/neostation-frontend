@@ -5,6 +5,7 @@ import '../providers/file_provider.dart';
 import '../sync/i_sync_provider.dart';
 import '../services/game_service.dart';
 import '../services/game_launch_manager.dart';
+import '../widgets/emulator_choice_prompt.dart';
 import '../widgets/game_launch_dialog.dart';
 
 /// Standardizes the game launch workflow: Session initialization -> Progress Dialog -> Delay -> Execution -> Monitoring.
@@ -36,6 +37,15 @@ Future<void> launchGameWithDialog({
   // the dialog/handoff can't clear the Now Playing state (see
   // GameService.isGameLaunchInProgress). Closed by _registerGameLaunch on
   // success, or below on failure.
+  // Before anything else: on Android, a system whose only default is a
+  // RetroArch core we cannot verify gets one chance to pick an emulator. Runs
+  // ahead of the pending window and the overlay so the picker owns the screen
+  // on its own, and so a choice made here is already the system default by the
+  // time the launch resolves one. A no-op on every launch but the first per
+  // system, and on every non-core route.
+  await EmulatorChoicePrompt.maybeShow(context, system, game);
+  if (!context.mounted) return;
+
   GameService.beginLaunchPending();
   await GameLaunchManager().beginSession();
   if (!context.mounted) {

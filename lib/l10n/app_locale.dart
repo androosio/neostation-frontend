@@ -717,7 +717,10 @@ mixin AppLocale {
   static const String launchFailed = 'launch_failed';
   static const String platformNotSupported = 'platform_not_supported';
   static const String coreNotConfigured = 'core_not_configured';
-  static const String coreNotInstalled = 'core_not_installed';
+  static const String chooseEmulatorTitle = 'choose_emulator_title';
+  static const String chooseEmulatorBody = 'choose_emulator_body';
+  static const String chooseEmulator = 'choose_emulator';
+  static const String launchAnyway = 'launch_anyway';
   static const String retroArchNotFound = 'retroarch_not_found';
   static const String retroArchExecutableNotFound = 'retroarch_exe_not_found';
   static const String coresDirectoryNotFound = 'cores_dir_not_found';

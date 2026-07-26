@@ -421,7 +421,7 @@ class SqliteService {
   SqliteService._internal();
 
   // Database configuration
-  static const int _databaseVersion = 105;
+  static const int _databaseVersion = 106;
   static const String _databaseName = 'data.sqlite';
 
   DatabaseAdapter? _database;
@@ -1720,6 +1720,12 @@ class SqliteService {
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY(emulator_unique_id)
+      );
+      ''',
+      '''
+      CREATE TABLE IF NOT EXISTS user_emulator_choice_prompt (
+        system_id TEXT PRIMARY KEY,
+        prompted_at TEXT DEFAULT CURRENT_TIMESTAMP
       );
       ''',
       '''

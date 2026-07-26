@@ -644,7 +644,11 @@ const Map<String, dynamic> appLocaleJa = {
   AppLocale.launchFailed: '起動失敗',
   AppLocale.platformNotSupported: 'プラットフォームはサポートされていません',
   AppLocale.coreNotConfigured: 'コアが設定されていません',
-  AppLocale.coreNotInstalled: 'コア "{name}" はインストールされていません',
+  AppLocale.chooseEmulatorTitle: '{system} のエミュレーターを選びますか？',
+  AppLocale.chooseEmulatorBody:
+      '{system} にはエミュレーターが設定されていないため、NeoStation が RetroArch コア "{core}" を選びました。\n\nこれはあくまで推測です。Android では実際にどのコアがインストールされているかを NeoStation は確認できないため、このコアが無い可能性があります。その場合、RetroArch はエラーを表示せず黒い画面のまま起動します。\n\n{system} について尋ねられるのはこの一度だけです。エミュレーターはシステム設定からいつでも変更できます。',
+  AppLocale.chooseEmulator: 'エミュレーターを選択',
+  AppLocale.launchAnyway: 'このまま起動',
   AppLocale.retroArchNotFound: 'RetroArchが見つかりません',
   AppLocale.retroArchExecutableNotFound: 'RetroArchの実行ファイルが見つかりません',
   AppLocale.coresDirectoryNotFound: 'コアディレクトリが見つかりません',

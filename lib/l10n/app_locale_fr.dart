@@ -731,7 +731,11 @@ const Map<String, dynamic> appLocaleFr = {
   AppLocale.launchFailed: 'Échec du lancement',
   AppLocale.platformNotSupported: 'Plateforme non supportée',
   AppLocale.coreNotConfigured: 'Core non configuré',
-  AppLocale.coreNotInstalled: 'Core "{name}" non installé',
+  AppLocale.chooseEmulatorTitle: 'Choisir un émulateur pour {system} ?',
+  AppLocale.chooseEmulatorBody:
+      'Aucun émulateur n\'est défini pour {system}, alors NeoStation en a choisi un pour vous : le core RetroArch "{core}".\n\nCe choix est une supposition. Android ne permet pas à NeoStation de vérifier quels cores sont réellement installés, donc celui-ci est peut-être absent. Dans ce cas, RetroArch démarrera sur un écran noir, sans message d\'erreur.\n\nCette question n\'est posée qu\'une seule fois pour {system}. Vous pouvez changer son émulateur à tout moment dans les paramètres du système.',
+  AppLocale.chooseEmulator: 'Choisir un émulateur',
+  AppLocale.launchAnyway: 'Lancer quand même',
   AppLocale.retroArchNotFound: 'RetroArch non trouvé',
   AppLocale.retroArchExecutableNotFound: 'Exécutable RetroArch non trouvé',
   AppLocale.coresDirectoryNotFound: 'Répertoire des cores non trouvé',

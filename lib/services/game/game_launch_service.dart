@@ -124,7 +124,7 @@ class GameLaunchService {
           isExplicitChoice = true;
           source = 'system default (user-selected)';
         } else {
-          final defaultEmu = await _resolveDefaultInstalledEmulator(system);
+          final defaultEmu = await resolveDefaultInstalledEmulator(system);
           if (defaultEmu != null) {
             preferredPlayerId = defaultEmu.uniqueId;
             source = 'auto-resolved default';
@@ -448,20 +448,17 @@ class GameLaunchService {
       await platform.invokeMethod('setGamepadBlock', {'block': false});
       if (!context.mounted) return GameLaunchResult.failure('', '');
 
+      // No CORE_NOT_FOUND case: nothing in the native launcher raises one.
+      // EmulatorLauncher.launchGenericIntent string-builds the core path into
+      // the LIBRETRO extra without ever stat-ing it, and it could not check
+      // even if it wanted to — the core lives 0600 inside RetroArch's 0700
+      // private data dir. A missing core is therefore invisible here; it is
+      // headed off before launch instead (see EmulatorChoiceGate).
       if (e is PlatformException) {
-        if (e.code == "CORE_NOT_FOUND") {
-          return GameLaunchResult.failure(
-            AppLocale.coreNotInstalled
-                .getString(context)
-                .replaceFirst('{name}', coreName),
-            'Please install the core from RetroArch\'s Online Updater',
-          );
-        } else {
-          return GameLaunchResult.failure(
-            e.message ?? AppLocale.error.getString(context),
-            e.details?.toString(),
-          );
-        }
+        return GameLaunchResult.failure(
+          e.message ?? AppLocale.error.getString(context),
+          e.details?.toString(),
+        );
       } else {
         _log.e('Error en MethodChannel: $e');
         return GameLaunchResult.failure(
@@ -766,7 +763,7 @@ class GameLaunchService {
   /// return that core and the launch will fail. Step 2 (prefer an installed
   /// standalone) minimizes this but cannot eliminate it without root or an
   /// install-state API RetroArch does not expose.
-  static Future<CoreEmulatorModel?> _resolveDefaultInstalledEmulator(
+  static Future<CoreEmulatorModel?> resolveDefaultInstalledEmulator(
     SystemModel system,
   ) async {
     // 1. Explicit user choice wins outright.

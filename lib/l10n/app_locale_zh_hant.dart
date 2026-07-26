@@ -635,7 +635,11 @@ const Map<String, dynamic> appLocaleZhHant = {
   AppLocale.launchFailed: '啟動失敗',
   AppLocale.platformNotSupported: '平台不支援',
   AppLocale.coreNotConfigured: '核心未設定',
-  AppLocale.coreNotInstalled: '核心 "{name}" 未安裝',
+  AppLocale.chooseEmulatorTitle: '要為 {system} 選擇模擬器嗎？',
+  AppLocale.chooseEmulatorBody:
+      '{system} 尚未設定模擬器，因此 NeoStation 替你選了 RetroArch 核心 "{core}"。\n\n這個選擇只是推測。Android 不允許 NeoStation 檢查實際已安裝的核心，因此該核心可能並不存在。若確實缺失，RetroArch 會啟動到黑畫面，且不會顯示任何錯誤訊息。\n\n{system} 只會詢問這一次。你隨時可以在系統設定中更改其模擬器。',
+  AppLocale.chooseEmulator: '選擇模擬器',
+  AppLocale.launchAnyway: '仍然啟動',
   AppLocale.retroArchNotFound: '未發現 RetroArch',
   AppLocale.retroArchExecutableNotFound: '未發現 RetroArch 執行檔',
   AppLocale.coresDirectoryNotFound: '未發現核心目錄',

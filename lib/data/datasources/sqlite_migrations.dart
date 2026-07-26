@@ -321,6 +321,9 @@ class SqliteMigrations {
       case 105:
         await _migrateToVersion105(db);
         break;
+      case 106:
+        await _migrateToVersion106(db);
+        break;
       default:
         _log.w('No migration defined for version $version');
     }
@@ -5052,6 +5055,31 @@ class SqliteMigrations {
       _log.i('Migration v105 completed (cleared $cleared stale default(s))');
     } catch (e, stackTrace) {
       _log.e('Error in migration v105: $e');
+      _log.e('   StackTrace: $stackTrace');
+      rethrow;
+    }
+  }
+
+  /// Migration v106: Track which systems have already offered the pre-launch
+  /// emulator choice.
+  ///
+  /// On Android a libretro core's install state is unknowable — the `.so` lives
+  /// in RetroArch's private `0700` data dir — so a system whose only default is
+  /// a RetroArch core is offered the emulator picker once, before its first
+  /// launch. This table remembers that offer so a user who declines is not
+  /// asked again on every launch.
+  static Future<void> _migrateToVersion106(Database db) async {
+    _log.i('Migration v106: Adding user_emulator_choice_prompt');
+    try {
+      db.execute('''
+        CREATE TABLE IF NOT EXISTS user_emulator_choice_prompt (
+          system_id TEXT PRIMARY KEY,
+          prompted_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+      ''');
+      _log.i('Migration v106 completed');
+    } catch (e, stackTrace) {
+      _log.e('Error in migration v106: $e');
       _log.e('   StackTrace: $stackTrace');
       rethrow;
     }
