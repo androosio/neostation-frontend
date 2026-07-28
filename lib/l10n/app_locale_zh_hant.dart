@@ -760,6 +760,15 @@ const Map<String, dynamic> appLocaleZhHant = {
   // RomM (remote library browse + download)
   AppLocale.romm: 'RomM',
   AppLocale.rommLibrary: 'RomM Library',
+  AppLocale.rommLogin: 'RomM Login',
+  AppLocale.rommWhatIs: 'What is RomM?',
+  AppLocale.rommDescription:
+      'RomM is a self-hosted ROM manager. Connect to your server to browse your '
+      'library, download games straight to this device, and sync your saves.',
+  AppLocale.rommInfoBrowse: 'Browse and download your full game library',
+  AppLocale.rommInfoSaveSync: 'Sync save files across your devices',
+  AppLocale.rommInfoSelfHosted: 'Self-hosted — your collection, your server',
+  AppLocale.rommLearnMoreAt: 'Learn more at ',
   AppLocale.rommServerUrl: 'Server URL',
   AppLocale.rommServerUrlHint: 'https://romm.example.com',
   AppLocale.rommTestConnection: 'Test Connection',
