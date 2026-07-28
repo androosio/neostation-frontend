@@ -19,8 +19,9 @@ import '../../sync/providers/neo_sync_adapter.dart';
 import '../../sync/providers/romm_provider.dart';
 import '../../sync/sync_manager.dart';
 import '../../utils/gamepad_nav.dart';
-import '../../widgets/core_footer.dart';
+import '../../widgets/core_footer.dart' show kCoreFooterHeight;
 import '../../widgets/custom_notification.dart';
+import '../../widgets/romm_browse_footer.dart';
 import '../app_screen.dart';
 
 /// Gamepad/touch-navigable browser for a connected RomM server.
@@ -568,10 +569,7 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
           padding: EdgeInsets.only(top: 46.r),
           child: Column(
             children: [
-              // In the ROM browse view the title/back bar is redundant: the
-              // footer carries the platform name and a B-back hint. Keep the bar
-              // for the source/list views.
-              if (!_inRomGrid) _buildTitleBar(theme, provider),
+              if (_showTitleBar(provider)) _buildTitleBar(theme, provider),
               Expanded(
                 child: Builder(
                   builder: (context) {
@@ -601,6 +599,25 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
         ),
       ),
     );
+  }
+
+  /// Whether the compact title/back bar is worth its vertical space.
+  ///
+  /// Wherever a footer is showing it already carries the view's context and a
+  /// B-back hint, making the bar a redundant second header — so the ROM,
+  /// platform and collection views drop it and give the row back to the grid.
+  /// The list views keep the bar while empty or still loading, since there is
+  /// no footer yet to take over the back affordance.
+  bool _showTitleBar(RommProvider provider) {
+    if (_inRomGrid) return false;
+    switch (_view) {
+      case _BrowseView.platforms:
+        return provider.platforms.isEmpty;
+      case _BrowseView.collections:
+        return provider.collections.isEmpty;
+      case _BrowseView.source:
+        return true;
+    }
   }
 
   /// Compact in-content header (below the global nav header): a back affordance
@@ -910,12 +927,17 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
     required Widget Function(BuildContext, int) itemBuilder,
     double cellExtent = 150,
     double aspectRatio = 1.0,
+    // The title bar directly above already separates the grid from the nav
+    // header, so by default the first row sits close under it rather than
+    // repeating that gap — the screen is short and every row of cards counts.
+    // Views with no title bar pass a slightly larger gap of their own.
+    double? topInset,
+    // Extra bottom padding for views that float their footer over the grid, so
+    // the last row can still scroll clear of it.
+    double bottomInset = 0,
   }) {
     final spacing = 10.r;
-    // The title bar directly above already separates the grid from the nav
-    // header, so the first row sits close under it rather than repeating that
-    // gap — the screen is short and every row of cards counts.
-    final topPadding = 4.r;
+    final topPadding = topInset ?? 4.r;
     return LayoutBuilder(
       builder: (context, constraints) {
         final usableWidth =
@@ -930,7 +952,12 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
         geom.topPadding = topPadding;
         return GridView.builder(
           controller: controller,
-          padding: EdgeInsets.fromLTRB(12.r, topPadding, 12.r, 12.r),
+          padding: EdgeInsets.fromLTRB(
+            12.r,
+            topPadding,
+            12.r,
+            12.r + bottomInset,
+          ),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: geom.columns,
             childAspectRatio: aspectRatio,
@@ -962,27 +989,51 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
       provider.collections.length - 1,
     );
     final scheme = theme.colorScheme;
-    return _buildCardGrid(
-      controller: _collectionScroll,
-      geom: _collectionGeom,
-      count: provider.collections.length,
-      itemBuilder: (context, index) {
-        final collection = provider.collections[index];
-        return _CollectionCard(
-          collection: collection,
-          covers: provider.service.collectionCovers(collection),
-          headersFor: provider.service.imageHeadersFor,
-          isFocused: _collectionIndex == index,
-          scheme: scheme,
-          onTap: () {
-            setState(() {
-              _collectionIndex = index;
-              _romIndex = 0;
-            });
-            provider.selectCollection(collection);
-          },
-        );
-      },
+    final focused = provider.collections[_collectionIndex];
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: _buildCardGrid(
+            controller: _collectionScroll,
+            geom: _collectionGeom,
+            count: provider.collections.length,
+            // No title bar in this view — keep a little air under the nav
+            // header instead of butting the first row against it.
+            topInset: 10.r,
+            bottomInset: kCoreFooterHeight.r,
+            itemBuilder: (context, index) {
+              final collection = provider.collections[index];
+              return _CollectionCard(
+                collection: collection,
+                covers: provider.service.collectionCovers(collection),
+                headersFor: provider.service.imageHeadersFor,
+                isFocused: _collectionIndex == index,
+                scheme: scheme,
+                onTap: () {
+                  setState(() {
+                    _collectionIndex = index;
+                    _romIndex = 0;
+                  });
+                  provider.selectCollection(collection);
+                },
+              );
+            },
+          ),
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: RommBrowseFooter(
+            label: focused.name,
+            countText:
+                '${focused.romCount} ${AppLocale.games.getString(context)}',
+            confirmLabel: AppLocale.enter.getString(context),
+            onConfirm: _confirmSelection,
+            onBack: _handleBack,
+          ),
+        ),
+      ],
     );
   }
 
@@ -1028,106 +1079,103 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
     }
     _platformIndex = _platformIndex.clamp(0, provider.platforms.length - 1);
     final scheme = theme.colorScheme;
-    return _buildCardGrid(
-      controller: _platformScroll,
-      geom: _platformGeom,
-      count: provider.platforms.length,
-      cellExtent: 116,
-      itemBuilder: (context, index) {
-        final platform = provider.platforms[index];
-        return _MenuCard(
-          leading: _PlatformIcon(
-            platform: platform,
-            service: provider.service,
-            fill: true,
+    final focused = provider.platforms[_platformIndex];
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: _buildCardGrid(
+            controller: _platformScroll,
+            geom: _platformGeom,
+            count: provider.platforms.length,
+            cellExtent: 116,
+            // No title bar in this view — keep a little air under the nav
+            // header instead of butting the first row against it.
+            topInset: 10.r,
+            bottomInset: kCoreFooterHeight.r,
+            itemBuilder: (context, index) {
+              final platform = provider.platforms[index];
+              return _MenuCard(
+                leading: _PlatformIcon(
+                  platform: platform,
+                  service: provider.service,
+                  fill: true,
+                ),
+                title: platform.name,
+                subtitle: '${platform.romCount}',
+                isFocused: _platformIndex == index,
+                scheme: scheme,
+                onTap: () {
+                  setState(() {
+                    _platformIndex = index;
+                    _romIndex = 0;
+                  });
+                  provider.selectPlatform(platform);
+                },
+              );
+            },
           ),
-          title: platform.name,
-          subtitle: '${platform.romCount}',
-          isFocused: _platformIndex == index,
-          scheme: scheme,
-          onTap: () {
-            setState(() {
-              _platformIndex = index;
-              _romIndex = 0;
-            });
-            provider.selectPlatform(platform);
-          },
-        );
-      },
+        ),
+        // Same footer the local systems grid/carousel wears, carrying the
+        // focused platform rather than the focused system. Floated over the
+        // grid rather than stacked under it so the cards run to the bottom of
+        // the screen instead of stopping short in an empty band.
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: RommBrowseFooter(
+            label: focused.name,
+            countText:
+                '${focused.romCount} ${AppLocale.games.getString(context)}',
+            confirmLabel: AppLocale.enter.getString(context),
+            onConfirm: _confirmSelection,
+            onBack: _handleBack,
+          ),
+        ),
+      ],
     );
   }
 
   // ── ROM grid ────────────────────────────────────────────────────────────────
 
   Widget _buildRomGrid(ThemeData theme, RommProvider provider) {
-    return Column(
+    return Stack(
       children: [
-        Expanded(
+        Positioned.fill(
           child: _romLayout == _RomLayout.grid
               ? _buildRomGridBody(theme, provider)
               : _buildRomListBody(theme, provider),
         ),
-        _buildRomFooter(theme, provider),
+        // Floated over the tiles (which pad past it) so they run to the bottom
+        // of the screen rather than stopping short in an empty band.
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: _buildRomFooter(provider),
+        ),
       ],
     );
   }
 
-  /// Footer for the ROM view: the current platform/collection name on the left,
-  /// gamepad hints (toggle view, download) on the right — mirrors the game
-  /// library's footer layout.
-  Widget _buildRomFooter(ThemeData theme, RommProvider provider) {
-    final source =
-        provider.currentPlatform?.name ??
-        provider.currentCollection?.name ??
-        '';
-    return Container(
-      height: 42.r,
-      padding: EdgeInsets.symmetric(horizontal: 12.r),
-      decoration: BoxDecoration(
-        color: theme.scaffoldBackgroundColor.withValues(alpha: 0.5),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              source,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 13.r,
-                fontWeight: FontWeight.w600,
-                color: theme.colorScheme.onSurface,
-                letterSpacing: 0.2.r,
-              ),
-            ),
-          ),
-          SizedBox(width: 8.r),
-          GamepadControl(
-            iconPath: 'assets/images/gamepad/Xbox_X_button.png',
-            label: AppLocale.hintViewMode.getString(context),
-            backgroundColor: theme.colorScheme.primary,
-            textColor: Colors.white,
-            onTap: _toggleRomLayout,
-          ),
-          SizedBox(width: 8.r),
-          GamepadControl(
-            iconPath: 'assets/images/gamepad/Xbox_A_button.png',
-            label: AppLocale.download.getString(context),
-            backgroundColor: const Color(0xFF2ECC71),
-            textColor: Colors.white,
-            onTap: _confirmSelection,
-          ),
-          SizedBox(width: 8.r),
-          GamepadControl(
-            iconPath: 'assets/images/gamepad/Xbox_B_button.png',
-            label: AppLocale.hintBack.getString(context),
-            backgroundColor: theme.colorScheme.surfaceContainerHighest
-                .withValues(alpha: 0.3),
-            textColor: theme.colorScheme.onSurface,
-            onTap: _handleBack,
-          ),
-        ],
-      ),
+  /// Footer for the ROM view: the open platform/collection on the left, gamepad
+  /// hints (toggle view, download, back) on the right. Same [RommBrowseFooter]
+  /// the platform view uses, which in turn matches the local systems footer.
+  Widget _buildRomFooter(RommProvider provider) {
+    final platform = provider.currentPlatform;
+    final collection = provider.currentCollection;
+    // The library total for the open source, not the paged-in count — the grid
+    // loads a page at a time, so provider.roms.length would keep changing.
+    final total = platform?.romCount ?? collection?.romCount;
+    return RommBrowseFooter(
+      label: platform?.name ?? collection?.name ?? '',
+      countText: total == null
+          ? null
+          : '$total ${AppLocale.games.getString(context)}',
+      confirmLabel: AppLocale.download.getString(context),
+      onConfirm: _confirmSelection,
+      onBack: _handleBack,
+      onToggleView: _toggleRomLayout,
     );
   }
 
@@ -1179,7 +1227,13 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
           },
           child: GridView.builder(
             controller: _romScroll,
-            padding: EdgeInsets.all(12.r),
+            // Bottom pad by the floating footer so the last row clears it.
+            padding: EdgeInsets.fromLTRB(
+              12.r,
+              12.r,
+              12.r,
+              12.r + kCoreFooterHeight.r,
+            ),
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: _romColumns,
               childAspectRatio: 0.62,
@@ -1243,7 +1297,13 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
       },
       child: ListView.separated(
         controller: _romScroll,
-        padding: EdgeInsets.all(12.r),
+        // Bottom pad by the floating footer so the last row clears it.
+        padding: EdgeInsets.fromLTRB(
+          12.r,
+          12.r,
+          12.r,
+          12.r + kCoreFooterHeight.r,
+        ),
         itemCount: provider.roms.length,
         separatorBuilder: (_, _) => SizedBox(height: spacing),
         itemBuilder: (context, index) {
