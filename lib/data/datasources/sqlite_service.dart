@@ -1287,7 +1287,20 @@ class SqliteService {
     // installs get the provider-scoped schema (v100); pre-existing tables are
     // upgraded by migration v100, so IF NOT EXISTS here never masks that.
     await db.execute(SqliteMigrations.createAppNeoSyncStateTableSql);
-    await db.execute(SqliteMigrations.createAppNeoSyncStateIndexSql);
+    // The index spans `provider`, which migration v108 adds — and this runs
+    // *before* migrations. On a database still at the pre-v108 schema the
+    // CREATE INDEX raises "no such column: provider" and aborts init before
+    // v108 can ever run, leaving every launch to fail the same way. Create it
+    // only once the column is there; v108 creates it as part of the upgrade.
+    final neoSyncColumns = await db.rawQuery(
+      'PRAGMA table_info(app_neo_sync_state);',
+    );
+    final hasProviderColumn = neoSyncColumns.any(
+      (c) => c['name']?.toString() == 'provider',
+    );
+    if (hasProviderColumn) {
+      await db.execute(SqliteMigrations.createAppNeoSyncStateIndexSql);
+    }
 
     // RomM tables (user_romm_config v98, app_romm_rom_map v99) are created by
     // their versioned migrations and the fresh-install table list — the only
