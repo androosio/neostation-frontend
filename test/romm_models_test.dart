@@ -204,23 +204,36 @@ void main() {
       expect(c.romCount, 0);
     });
 
-    test('falls back to path_cover_small when url_cover empty', () {
+    test('falls back to the first path_covers_small when url_cover empty', () {
       final c = RommCollection.fromJson({
         'id': 1,
         'name': 'X',
         'url_cover': '',
-        'path_cover_small': '/small.png',
+        'path_covers_small': ['/small.png', '/small2.png'],
       }, isVirtual: false);
       expect(c.urlCover, '/small.png');
+      expect(c.coverUrls, ['/small.png', '/small2.png']);
+    });
+
+    test('falls back to path_covers_large when small is empty', () {
+      final c = RommCollection.fromJson({
+        'id': 1,
+        'name': 'X',
+        'path_covers_small': <String>[],
+        'path_covers_large': ['/large.png'],
+      }, isVirtual: false);
+      expect(c.urlCover, '/large.png');
+      expect(c.coverUrls, ['/large.png']);
     });
 
     test('cover is null when no usable cover field present', () {
       final c = RommCollection.fromJson({
         'id': 1,
         'name': 'X',
-        'path_cover_small': '',
+        'path_covers_small': <String>[],
       }, isVirtual: false);
       expect(c.urlCover, isNull);
+      expect(c.coverUrls, isEmpty);
     });
   });
 
