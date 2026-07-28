@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "pico",
+    "multidisc": false,
     "name": "Sega Pico",
     "short_name": "Pico",
     "details": {

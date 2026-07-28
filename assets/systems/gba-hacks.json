@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "gba-hacks",
+    "multidisc": false,
     "name": "Game Boy Advance Hacks",
     "short_name": "GBAH",
     "details": {

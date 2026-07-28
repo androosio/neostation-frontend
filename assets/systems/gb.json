@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "gb",
+    "multidisc": false,
     "name": "Game Boy",
     "short_name": "GB",
     "details": {

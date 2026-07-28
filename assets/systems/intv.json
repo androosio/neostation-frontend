@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "intv",
+    "multidisc": false,
     "name": "Intellivision",
     "short_name": "INTV",
     "details": {

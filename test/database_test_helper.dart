@@ -118,7 +118,8 @@ class DatabaseTestHelper {
         auto_update_app INTEGER,
         auto_update_systems INTEGER,
         system_grid_columns TEXT DEFAULT 'M',
-        use_12_hour_clock INTEGER DEFAULT 0
+        use_12_hour_clock INTEGER DEFAULT 0,
+        esde_folder_path TEXT
       )
     ''');
 
@@ -141,6 +142,7 @@ class DatabaseTestHelper {
         android_package_name TEXT,
         android_activity_name TEXT,
         is_default INTEGER,
+        is_default_core INTEGER,
         is_ra_compatible INTEGER
       )
     ''');

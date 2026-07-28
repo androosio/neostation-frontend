@@ -75,10 +75,7 @@ extension _Chrome on _SystemEmulatorSettingsDialogState {
   Widget _buildHeader() {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 12.r, vertical: 8.r),
-      decoration: BoxDecoration(
-        color: Colors.transparent,
-        
-      ),
+      decoration: BoxDecoration(color: Colors.transparent),
       child: Row(
         children: [
           // Title
@@ -232,7 +229,7 @@ extension _Chrome on _SystemEmulatorSettingsDialogState {
     final theme = Theme.of(context);
     return Container(
       padding: EdgeInsets.all(10.r),
-      
+
       child: Row(
         children: [
           // Gamepad controls hint

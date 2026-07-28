@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "ngpc",
+    "multidisc": false,
     "name": "NeoGeo Pocket Color",
     "short_name": "NGPC",
     "details": {

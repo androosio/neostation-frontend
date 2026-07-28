@@ -24,6 +24,7 @@ import '../../services/screenscraper_service.dart';
 import '../../services/secondary_achievements_controller.dart';
 import '../../services/game_legend_visibility.dart';
 import '../../utils/gamepad_nav.dart';
+import '../../utils/letter_jump.dart';
 import '../../providers/file_provider.dart';
 import '../../providers/sqlite_config_provider.dart';
 import '../../providers/sqlite_database_provider.dart';
@@ -43,6 +44,7 @@ import '../../models/secondary_display_state.dart';
 import '../../widgets/game_view_mode_dropdown.dart';
 import '../../widgets/game_action_buttons.dart';
 import '../../widgets/legend_edge_reshow_zone.dart';
+import '../../widgets/letter_indicator.dart';
 import '../../constants/system_folder_names.dart';
 import '../../utils/game_list_update.dart';
 import '../../themes/corner_radii.dart';
@@ -75,7 +77,6 @@ class SystemGamesList extends StatefulWidget {
 
 class _SystemGamesListState extends State<SystemGamesList> {
   static final _log = LoggerService.instance;
-  static final _letterRegex = RegExp(r'[A-Z0-9]');
 
   // Dataset management.
   List<GameModel> _games = [];
@@ -129,6 +130,7 @@ class _SystemGamesListState extends State<SystemGamesList> {
     milliseconds: 1500,
   ); // Debounce for video playback.
   bool _lastShowInfo = false; // Memoizes 'showGameInfo' config state.
+  String? _lastGameViewMode; // Memoizes 'gameViewMode' config state.
   bool _isGameLaunching =
       false; // Critical flag to suppress media tasks during transitions.
 
@@ -139,9 +141,21 @@ class _SystemGamesListState extends State<SystemGamesList> {
 
   // Rapid navigation state.
   bool _isNavigatingFast = false;
+
+  // True only while a held direction is skipping letter-to-letter. The letter
+  // overlay is tied to this rather than to _isNavigatingFast: an ordinary fast
+  // scroll shows the game names themselves, so throwing a big letter over them
+  // the moment the scroll speeds up is just noise.
+  bool _isLetterJumping = false;
   String? _currentLetter;
   DateTime? _lastNavTime;
   static const Duration _fastNavThreshold = Duration(milliseconds: 150);
+
+  // How long after the last move a rapid-scroll burst is considered over. The
+  // letter-jump variant must exceed the dwell between two jumps (see
+  // GamepadNavigation) so a held direction reads as one continuous burst.
+  static const Duration _fastNavEndDelay = Duration(milliseconds: 300);
+  static const Duration _letterJumpEndDelay = Duration(milliseconds: 600);
 
   // Media controllers.
   VideoPlayerController? _videoController;
@@ -235,13 +249,23 @@ class _SystemGamesListState extends State<SystemGamesList> {
     final newShowInfo = configProvider.config.showGameInfo;
     final gameViewMode = configProvider.config.gameViewMode;
 
-    try {
-      if (gameViewMode == 'grid' || gameViewMode == 'carousel') {
-        _gamepadNav.deactivate();
-      } else {
-        _gamepadNav.activate();
-      }
-    } catch (_) {}
+    // Hand input to whichever layer owns the new view mode — but ONLY on an
+    // actual mode change. Re-asserting this on every config write is not free:
+    // deactivate() resets the shared Select chord-modifier state, so any
+    // setting written while Select is held (the legend toggle persists
+    // `legend_hidden`, for one) would drop the legend back to its default layer
+    // mid-hold, and `SelectTap.reset()` means it can't recover until Select is
+    // released and pressed again.
+    if (gameViewMode != _lastGameViewMode) {
+      _lastGameViewMode = gameViewMode;
+      try {
+        if (gameViewMode == 'grid' || gameViewMode == 'carousel') {
+          _gamepadNav.deactivate();
+        } else {
+          _gamepadNav.activate();
+        }
+      } catch (_) {}
+    }
 
     if (newShowInfo != _lastShowInfo) {
       _lastShowInfo = newShowInfo;
@@ -352,12 +376,17 @@ class _SystemGamesListState extends State<SystemGamesList> {
   }
 
   /// Core logic for updating selection and managing rapid-scrolling UI state.
-  void _updateSelectedGame(int newIndex) {
+  ///
+  /// [forceFast] keeps the rapid-scroll UI (deferred heavy loading) engaged
+  /// regardless of timing, and raises the letter overlay — used by letter
+  /// jumps, whose dwell between hops is deliberately longer than
+  /// [_fastNavThreshold].
+  void _updateSelectedGame(int newIndex, {bool forceFast = false}) {
     _resetVideoState();
 
     final now = DateTime.now();
-    bool isFast = false;
-    if (_lastNavTime != null) {
+    bool isFast = forceFast;
+    if (!isFast && _lastNavTime != null) {
       final delta = now.difference(_lastNavTime!);
       if (delta < _fastNavThreshold) {
         isFast = true;
@@ -367,45 +396,39 @@ class _SystemGamesListState extends State<SystemGamesList> {
 
     // Resolve current alphabetical letter for navigation overlays.
     final game = _games[newIndex];
-    String? letter;
-    final displayName = game.name.isNotEmpty ? game.name : game.romname;
-    if (displayName.isNotEmpty) {
-      String cleanName = displayName.trim().toUpperCase();
-      if (cleanName.startsWith('THE ')) cleanName = cleanName.substring(4);
-
-      if (cleanName.isNotEmpty) {
-        final firstChar = cleanName[0];
-        if (_letterRegex.hasMatch(firstChar)) {
-          letter = firstChar;
-        } else {
-          letter = '#';
-        }
-      }
-    }
+    final letter = LetterJump.letterFor(game);
 
     setState(() {
       _selectedGameIndex = newIndex;
       _selectedGame = game;
       _isNavigatingFast = isFast;
+      _isLetterJumping = forceFast;
       _currentLetter = letter;
     });
 
-    // Debounce rapid navigation end to resume heavy resource loading.
+    // Debounce rapid navigation end to resume heavy resource loading. Letter
+    // jumps dwell longer than this debounce, so they get a window wider than
+    // one hop — otherwise the burst would "end" between every jump and the
+    // letter overlay would flash out and back in on each one.
     _fastNavEndTimer?.cancel();
-    _fastNavEndTimer = Timer(const Duration(milliseconds: 300), () {
-      if (mounted) {
-        setState(() {
-          _isNavigatingFast = false;
-        });
-        _performBackgroundOperationsForSelectedGame(force: true);
+    _fastNavEndTimer = Timer(
+      forceFast ? _letterJumpEndDelay : _fastNavEndDelay,
+      () {
+        if (mounted) {
+          setState(() {
+            _isNavigatingFast = false;
+            _isLetterJumping = false;
+          });
+          _performBackgroundOperationsForSelectedGame(force: true);
 
-        Timer(const Duration(milliseconds: 200), () {
-          if (mounted && !_isNavigatingFast) {
-            setState(() => _currentLetter = null);
-          }
-        });
-      }
-    });
+          Timer(const Duration(milliseconds: 200), () {
+            if (mounted && !_isNavigatingFast) {
+              setState(() => _currentLetter = null);
+            }
+          });
+        }
+      },
+    );
 
     _performBackgroundOperationsForSelectedGame();
   }
@@ -579,49 +602,7 @@ class _SystemGamesListState extends State<SystemGamesList> {
 
   /// Renders a large, semi-transparent alphabetical indicator for high-speed navigation.
   Widget _buildLetterIndicator() {
-    return AnimatedOpacity(
-      duration: const Duration(milliseconds: 150),
-      opacity: _isNavigatingFast ? 1.0 : 0.0,
-      child: RepaintBoundary(
-        child: Center(
-          child: Container(
-            width: 120.r,
-            height: 120.r,
-            decoration: BoxDecoration(
-              color: Theme.of(
-                context,
-              ).colorScheme.surface.withValues(alpha: 0.9),
-              borderRadius:
-                  Theme.of(context).extension<CornerRadii>()?.radiusExternal ??
-                  BorderRadius.circular(14.r),
-              border: Border.all(
-                color: Theme.of(context).colorScheme.outline,
-                width: 1.r,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.shadow.withValues(alpha: 0.5),
-                  blurRadius: 3.r,
-                  offset: Offset(2.r, 2.r),
-                ),
-              ],
-            ),
-            child: Center(
-              child: Text(
-                _currentLetter!,
-                style: TextStyle(
-                  fontSize: 72.r,
-                  fontWeight: FontWeight.w900,
-                  color: Theme.of(context).colorScheme.onSurface,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
+    return LetterIndicator(letter: _currentLetter!, visible: _isLetterJumping);
   }
 
   /// Visual placeholder for initial data hydration.
@@ -1202,13 +1183,15 @@ class _SystemGamesListState extends State<SystemGamesList> {
         ),
 
         // Floating action buttons on the left side of the game list. Select + B
-        // slides this legend off the left edge (in sync with the sidebar margin).
+        // slides this legend off the left edge (in sync with the sidebar
+        // margin). The column is 40.r wide, so a 10.r inset centres it in the
+        // 60.r gutter — equal air either side of it.
         if (!isMusic)
           AnimatedPositioned(
             duration: const Duration(milliseconds: 250),
             curve: Curves.easeOutCubic,
             top: 12.r,
-            left: GameLegendVisibility.hidden.value ? -60.r : 12.r,
+            left: GameLegendVisibility.hidden.value ? -60.r : 10.r,
             child: AnimatedOpacity(
               duration: const Duration(milliseconds: 250),
               opacity: GameLegendVisibility.hidden.value ? 0.0 : 1.0,

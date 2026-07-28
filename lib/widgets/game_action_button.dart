@@ -1,7 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+import '../services/sfx_service.dart';
 import '../themes/corner_radii.dart';
+
+/// Sound effect played when a [GameActionButton] is tapped.
+enum GameActionButtonSound {
+  /// Confirm / primary action (A button, play, scrape).
+  enter,
+
+  /// Back / cancel action (B button).
+  back,
+
+  /// Generic navigation action (X, Y, Menu, View, random).
+  nav,
+}
 
 /// A tall vertical action button used in the game list / grid / carousel.
 ///
@@ -16,6 +29,10 @@ class GameActionButton extends StatelessWidget {
   final VoidCallback? onTap;
   final bool isLoading;
 
+  /// Optional SFX to play when the button is tapped. Disabled buttons and
+  /// buttons with no callback never play a sound.
+  final GameActionButtonSound? sound;
+
   const GameActionButton({
     super.key,
     this.buttonKey,
@@ -25,6 +42,7 @@ class GameActionButton extends StatelessWidget {
     this.foregroundColor,
     this.onTap,
     this.isLoading = false,
+    this.sound,
   });
 
   @override
@@ -48,14 +66,14 @@ class GameActionButton extends StatelessWidget {
         hoverColor: Colors.transparent,
         highlightColor: Colors.transparent,
         key: buttonKey,
-        onTap: isLoading ? null : onTap,
+        onTap: isLoading || onTap == null ? null : _onTap,
         borderRadius: cornerRadius,
         child: Container(
           margin: EdgeInsets.only(bottom: 2.r),
           width: buttonWidth.r,
           height: buttonHeight.r,
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.primary,
+            color: color,
             borderRadius: cornerRadius,
             border: Border.all(
               color: color,
@@ -79,7 +97,7 @@ class GameActionButton extends StatelessWidget {
                     height: 16.r,
                     child: CircularProgressIndicator(
                       strokeWidth: 2.r,
-                      color: Theme.of(context).colorScheme.onPrimary,
+                      color: foregroundColor,
                     ),
                   ),
                 )
@@ -92,14 +110,14 @@ class GameActionButton extends StatelessWidget {
                       height: badgeHeight.r,
                       width: double.infinity,
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surface,
+                        color: color,
                         borderRadius: badgeRadius,
                       ),
                       child: Center(
                         child: Icon(
                           symbol,
                           size: mainIconSize.r,
-                          color: Theme.of(context).colorScheme.onSurface,
+                          color: foregroundColor,
                         ),
                       ),
                     ),
@@ -110,7 +128,7 @@ class GameActionButton extends StatelessWidget {
                           iconPath,
                           width: 14.r,
                           height: 14.r,
-                          color: Theme.of(context).colorScheme.onPrimary,
+                          color: foregroundColor,
                           colorBlendMode: BlendMode.srcIn,
                         ),
                       ),
@@ -120,5 +138,19 @@ class GameActionButton extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  void _onTap() {
+    switch (sound) {
+      case GameActionButtonSound.enter:
+        SfxService().playEnterSound();
+      case GameActionButtonSound.back:
+        SfxService().playBackSound();
+      case GameActionButtonSound.nav:
+        SfxService().playNavSound();
+      case null:
+        break;
+    }
+    onTap?.call();
   }
 }

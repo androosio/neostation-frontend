@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "uze",
+    "multidisc": false,
     "name": "Uzebox",
     "short_name": "UZE",
     "details": {

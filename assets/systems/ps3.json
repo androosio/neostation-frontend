@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "ps3",
+    "multidisc": false,
     "name": "Sony PlayStation 3",
     "short_name": "PS3",
     "details": {

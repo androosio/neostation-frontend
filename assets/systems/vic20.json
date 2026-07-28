@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "vic20",
+    "multidisc": false,
     "name": "VIC-20",
     "short_name": "VIC-20",
     "details": {

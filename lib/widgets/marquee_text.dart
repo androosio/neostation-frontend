@@ -40,8 +40,8 @@ class MarqueeText extends StatelessWidget {
         // `textHeight` shears the bottoms off those glyphs. Add a small
         // descender allowance (font-size relative) so the clip region covers
         // them. Only applied when no explicit height is supplied.
-        final double descenderGuard = (effectiveStyle.fontSize ?? textHeight) *
-            0.2;
+        final double descenderGuard =
+            (effectiveStyle.fontSize ?? textHeight) * 0.2;
         final double contentHeight = height ?? (textHeight + descenderGuard);
 
         return SizedBox(

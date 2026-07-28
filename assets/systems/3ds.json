@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "3ds",
+    "multidisc": false,
     "name": "Nintendo 3DS",
     "short_name": "3DS",
     "details": {

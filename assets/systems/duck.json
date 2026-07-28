@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "duck",
+    "multidisc": false,
     "name": "Mega Duck",
     "short_name": "Duck",
     "details": {

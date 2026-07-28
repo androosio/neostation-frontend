@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "palm",
+    "multidisc": false,
     "name": "Palm OS",
     "short_name": "Palm",
     "details": {

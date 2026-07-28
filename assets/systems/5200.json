@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "5200",
+    "multidisc": false,
     "name": "Atari 5200",
     "short_name": "A5200",
     "details": {

@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "a2001",
+    "multidisc": false,
     "name": "Emerson Arcadia 2001",
     "short_name": "A2001",
     "details": {

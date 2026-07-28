@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "ard",
+    "multidisc": false,
     "name": "Arduboy",
     "short_name": "ARD",
     "details": {

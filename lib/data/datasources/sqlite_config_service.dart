@@ -82,7 +82,22 @@ class SqliteConfigService {
   static Future<ConfigModel> loadConfig() async {
     try {
       final userConfig = await SqliteService.getUserConfig();
-      final romFolders = await SqliteService.getUserRomFolders();
+      var romFolders = await SqliteService.getUserRomFolders();
+      if (Platform.isAndroid && romFolders.isEmpty) {
+        final recoveredFolders =
+            await SqliteService.recoverRomFoldersFromStoredRoms();
+        if (recoveredFolders.isNotEmpty) {
+          // Keep the existing library intact after a legacy-path migration (or
+          // an interrupted save) has removed its folder table. Persist the
+          // recovered roots immediately so the next startup uses the same
+          // configured folders instead of treating the library as folderless.
+          romFolders = recoveredFolders;
+          await SqliteService.saveUserRomFolders(romFolders);
+          _log.w(
+            'Recovered ${romFolders.length} ROM folder(s) from stored games',
+          );
+        }
+      }
       final detectedEmulators = await SqliteService.getUserDetectedEmulators();
       final detectedSystems = await SqliteService.getUserDetectedSystems();
 

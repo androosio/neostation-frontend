@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "ast",
+    "multidisc": false,
     "name": "Atari ST",
     "short_name": "AST",
     "details": {

@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "gg",
+    "multidisc": false,
     "name": "Sega Game Gear",
     "short_name": "GG",
     "details": {

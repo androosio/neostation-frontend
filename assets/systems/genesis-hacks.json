@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "gen-hacks",
+    "multidisc": false,
     "name": "Sega Genesis Hacks",
     "short_name": "GENH",
     "details": {

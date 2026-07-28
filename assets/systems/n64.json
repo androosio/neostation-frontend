@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "n64",
+    "multidisc": false,
     "name": "Nintendo 64",
     "short_name": "N64",
     "details": {

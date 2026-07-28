@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "chf",
+    "multidisc": false,
     "name": "Fairchild Channel F",
     "short_name": "CHF",
     "details": {

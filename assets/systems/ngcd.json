@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "ngcd",
+    "multidisc": false,
     "name": "Neo Geo CD",
     "short_name": "NGCD",
     "details": {

@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "mark3",
+    "multidisc": false,
     "name": "Sega Mark III",
     "short_name": "Mark3",
     "details": {

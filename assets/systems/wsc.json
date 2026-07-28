@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "wsc",
+    "multidisc": false,
     "name": "WonderSwan Color",
     "short_name": "WSC",
     "details": {

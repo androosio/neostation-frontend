@@ -250,17 +250,6 @@
       }
     },
     {
-      "name": "Standalone ARMSX2 (Nightly)",
-      "unique_id": "ps2.com.nanodata.armsx2.debug",
-      "description": "Supported extensions: iso, chd, gz, mdf, bin, ciso, img.",
-      "is_retroachievements_compatible": false,
-      "platforms": {
-        "android": {
-          "launch_arguments": "-n come.nanodata.armsx2.debug/kr.co.iefriends.pcsx2.activities.MainActivity -a android.intent.action.VIEW -d \"{file.uri}\""
-        }
-      }
-    },
-    {
       "name": "Standalone ARMSX2 Refresh",
       "unique_id": "ps2.com.armsx2",
       "description": "Supported extensions: iso, chd, gz, mdf, bin, ciso, img.",
@@ -271,7 +260,17 @@
         }
       }
     },
-
+    {
+      "name": "Standalone ARMSX2 (Nightly)",
+      "unique_id": "ps2.com.nanodata.armsx2.debug",
+      "description": "Supported extensions: iso, chd, gz, mdf, bin, ciso, img.",
+      "is_retroachievements_compatible": false,
+      "platforms": {
+        "android": {
+          "launch_arguments": "-n come.nanodata.armsx2.debug/kr.co.iefriends.pcsx2.activities.MainActivity -a android.intent.action.VIEW -d \"{file.uri}\""
+        }
+      }
+    },
     {
       "name": "Standalone PCSX2",
       "unique_id": "ps2.net.pcsx2.android",

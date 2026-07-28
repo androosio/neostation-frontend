@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "mame",
+    "multidisc": false,
     "name": "M.A.M.E.",
     "short_name": "MAME",
     "details": {

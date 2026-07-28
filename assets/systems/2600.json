@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "2600",
+    "multidisc": false,
     "name": "Atari 2600",
     "short_name": "A2600",
     "details": {

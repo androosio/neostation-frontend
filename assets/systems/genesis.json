@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "genesis",
+    "multidisc": false,
     "name": "Sega Genesis",
     "short_name": "Genesis",
     "details": {

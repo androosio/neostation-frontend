@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "cv",
+    "multidisc": false,
     "name": "ColecoVision",
     "short_name": "CV",
     "details": {

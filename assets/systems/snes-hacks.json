@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "snes-hacks",
+    "multidisc": false,
     "name": "Super Nintendo Entertainment System Hacks",
     "short_name": "SNESH",
     "details": {

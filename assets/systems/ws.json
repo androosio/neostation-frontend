@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "ws",
+    "multidisc": false,
     "name": "WonderSwan",
     "short_name": "WS",
     "details": {

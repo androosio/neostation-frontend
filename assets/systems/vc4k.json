@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "vc4k",
+    "multidisc": false,
     "name": "Interton VC 4000",
     "short_name": "VC4K",
     "details": {

@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "gbc-hacks",
+    "multidisc": false,
     "name": "Game Boy Color Hacks",
     "short_name": "GBCH",
     "details": {

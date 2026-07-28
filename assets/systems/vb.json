@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "vb",
+    "multidisc": false,
     "name": "Virtual Boy",
     "short_name": "VB",
     "details": {

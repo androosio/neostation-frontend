@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "sfc",
+    "multidisc": false,
     "name": "Super Family Computer",
     "short_name": "SFC",
     "details": {

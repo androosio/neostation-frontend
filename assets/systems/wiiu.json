@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "wiiu",
+    "multidisc": false,
     "name": "Nintendo Wii U",
     "short_name": "Wii U",
     "details": {

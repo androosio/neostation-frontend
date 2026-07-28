@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "arc",
+    "multidisc": false,
     "name": "Arcade",
     "short_name": "Arcade",
     "details": {

@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "gw",
+    "multidisc": false,
     "name": "Game & Watch",
     "short_name": "G&W",
     "details": {

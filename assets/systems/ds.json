@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "ds",
+    "multidisc": false,
     "name": "Nintendo DS",
     "short_name": "DS",
     "details": {

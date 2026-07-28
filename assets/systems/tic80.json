@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "tic80",
+    "multidisc": false,
     "name": "TIC-80",
     "short_name": "TIC-80",
     "details": {

@@ -165,7 +165,9 @@ class GameDetailsFooter extends StatelessWidget {
                               context,
                               availableWidth: constraints.maxWidth,
                               hasPlayTime:
-                                  GameUtils.formatPlayTime(game.playTime ?? 0) !=
+                                  GameUtils.formatPlayTime(
+                                    game.playTime ?? 0,
+                                  ) !=
                                   '0s',
                             ),
                           ),
@@ -500,10 +502,7 @@ class _SteamStyleRating extends StatelessWidget {
                 opacity: 0,
                 child: Text(
                   '10',
-                  style: TextStyle(
-                    fontSize: 22.r,
-                    fontWeight: FontWeight.w900,
-                  ),
+                  style: TextStyle(fontSize: 22.r, fontWeight: FontWeight.w900),
                 ),
               ),
               Text(

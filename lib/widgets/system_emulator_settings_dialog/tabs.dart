@@ -90,8 +90,9 @@ extension _Tabs on _SystemEmulatorSettingsDialogState {
         color: isFocused
             ? theme.colorScheme.primary.withValues(alpha: 0.1)
             : Colors.transparent,
-        borderRadius: Theme.of(context).extension<CornerRadii>()?.radiusExternal ??
-                  BorderRadius.circular(9.r),
+        borderRadius:
+            Theme.of(context).extension<CornerRadii>()?.radiusExternal ??
+            BorderRadius.circular(9.r),
         border: isFocused
             ? Border.all(
                 color: theme.colorScheme.primary.withValues(alpha: 0.5),
@@ -108,7 +109,8 @@ extension _Tabs on _SystemEmulatorSettingsDialogState {
             clipBehavior: Clip.antiAlias,
             decoration: BoxDecoration(
               color: Colors.black26,
-              borderRadius: Theme.of(context).extension<CornerRadii>()?.radiusInternal ??
+              borderRadius:
+                  Theme.of(context).extension<CornerRadii>()?.radiusInternal ??
                   BorderRadius.circular(9.r),
             ),
             child: currentPath.isEmpty
@@ -537,16 +539,18 @@ extension _Tabs on _SystemEmulatorSettingsDialogState {
         color: isFocused
             ? theme.colorScheme.primary.withValues(alpha: 0.2)
             : Colors.transparent,
-        borderRadius: Theme.of(context).extension<CornerRadii>()?.radiusInternal ??
-                  BorderRadius.circular(9.r),
+        borderRadius:
+            Theme.of(context).extension<CornerRadii>()?.radiusInternal ??
+            BorderRadius.circular(9.r),
       ),
       child: InkWell(
         onTap: () {
           SfxService().playNavSound();
           onChanged(!value);
         },
-        borderRadius: Theme.of(context).extension<CornerRadii>()?.radiusInternal ??
-                  BorderRadius.circular(9.r),
+        borderRadius:
+            Theme.of(context).extension<CornerRadii>()?.radiusInternal ??
+            BorderRadius.circular(9.r),
         child: Padding(
           padding: EdgeInsets.symmetric(horizontal: 12.r, vertical: 6.r),
           child: Row(

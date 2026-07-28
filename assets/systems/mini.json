@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "mini",
+    "multidisc": false,
     "name": "Pokémon Mini",
     "short_name": "Mini",
     "details": {

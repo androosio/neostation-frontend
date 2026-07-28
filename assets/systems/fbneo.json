@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "fbneo",
+    "multidisc": false,
     "name": "FinalBurn Neo",
     "short_name": "FBNeo",
     "details": {

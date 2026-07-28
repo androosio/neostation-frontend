@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "bbcmicro",
+    "multidisc": false,
     "name": "BBC Micro",
     "short_name": "BBCM",
     "details": {

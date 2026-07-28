@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "32x",
+    "multidisc": false,
     "name": "Sega 32X",
     "short_name": "32X",
     "details": {

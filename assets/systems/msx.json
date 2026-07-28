@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "msx",
+    "multidisc": false,
     "name": "MSX",
     "short_name": "MSX",
     "details": {

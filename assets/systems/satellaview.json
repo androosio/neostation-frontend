@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "satellaview",
+    "multidisc": false,
     "name": "Nintendo Satellaview",
     "short_name": "SV",
     "details": {

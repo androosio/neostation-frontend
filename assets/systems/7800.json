@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "7800",
+    "multidisc": false,
     "name": "Atari 7800",
     "short_name": "A7800",
     "details": {

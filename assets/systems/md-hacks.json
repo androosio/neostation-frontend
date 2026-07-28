@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "md-hacks",
+    "multidisc": false,
     "name": "Sega Mega Drive Hacks",
     "short_name": "MDH",
     "details": {

@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "sfc-hacks",
+    "multidisc": false,
     "name": "Super Family Computer Hacks",
     "short_name": "SFCH",
     "details": {

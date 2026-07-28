@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "gbc",
+    "multidisc": false,
     "name": "Game Boy Color",
     "short_name": "GBC",
     "details": {

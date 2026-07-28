@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "md",
+    "multidisc": false,
     "name": "Sega Mega Drive",
     "short_name": "MD",
     "details": {

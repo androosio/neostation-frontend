@@ -6,7 +6,12 @@ import '../models/retro_achievements_dashboard_models.dart';
 /// Repository for RetroAchievements data access.
 class RetroAchievementsRepository {
   static const String _raApiKeyStorageKey = 'ra_api_key';
-  static const FlutterSecureStorage _storage = FlutterSecureStorage();
+  // Do not let a transient Android Keystore error erase credentials. This can
+  // happen during cold boot on some launchers, and the default resetOnError
+  // behaviour turns a temporary read failure into a permanent logout.
+  static const FlutterSecureStorage _storage = FlutterSecureStorage(
+    aOptions: AndroidOptions(resetOnError: false, migrateWithBackup: true),
+  );
 
   /// Returns local ROM counts: total and RA-compatible (has ra_hash).
   static Future<({int totalRoms, int raCompatibleRoms})>

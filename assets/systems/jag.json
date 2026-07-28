@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "jag",
+    "multidisc": false,
     "name": "Atari Jaguar",
     "short_name": "Jaguar",
     "details": {

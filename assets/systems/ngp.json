@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "ngp",
+    "multidisc": false,
     "name": "NeoGeo Pocket",
     "short_name": "NGP",
     "details": {

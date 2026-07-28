@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:neostation/data/datasources/sqlite_service.dart';
 import 'package:neostation/repositories/retro_achievements_repository.dart';
 
 import 'database_test_helper.dart';
@@ -57,6 +58,25 @@ void main() {
       await RetroAchievementsRepository.clearRAUser();
       final user = await RetroAchievementsRepository.getRAUser();
       expect(user, isNull);
+    });
+
+    test('recovers ROM roots from stored SAF and legacy paths', () async {
+      await db.execute(
+        "INSERT INTO user_roms (filename, rom_path, app_system_id) VALUES ('a.nes', 'content://com.android.externalstorage.documents/tree/1234-5678%3ARoms/document/1234-5678%3ARoms%2Fnes%2Fa.nes', 'nes')",
+      );
+      await db.execute(
+        "INSERT INTO user_roms (filename, rom_path, app_system_id) VALUES ('b.nes', '/storage/1234-5678/ROMs/nes/b.nes', 'nes')",
+      );
+
+      final roots = await SqliteService.recoverRomFoldersFromStoredRoms();
+
+      expect(
+        roots,
+        contains(
+          'content://com.android.externalstorage.documents/tree/1234-5678%3ARoms',
+        ),
+      );
+      expect(roots, contains('/storage/1234-5678/ROMs'));
     });
 
     test('updateRomRaGameId persists game id', () async {

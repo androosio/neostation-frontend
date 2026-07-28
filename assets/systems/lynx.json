@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "lynx",
+    "multidisc": false,
     "name": "Atari Lynx",
     "short_name": "Lynx",
     "details": {

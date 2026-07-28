@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "aw",
+    "multidisc": false,
     "name": "Atomiswave",
     "short_name": "AW",
     "details": {

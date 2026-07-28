@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "sms",
+    "multidisc": false,
     "name": "Sega Master System",
     "short_name": "SMS",
     "details": {

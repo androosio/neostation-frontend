@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "vita",
+    "multidisc": false,
     "name": "Sony PS Vita",
     "short_name": "Vita",
     "details": {

@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "neogeo",
+    "multidisc": false,
     "name": "Neo Geo",
     "short_name": "Neo Geo",
     "details": {

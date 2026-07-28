@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "naomi2",
+    "multidisc": false,
     "name": "Sega Naomi 2",
     "short_name": "Naomi 2",
     "details": {

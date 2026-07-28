@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "gba",
+    "multidisc": false,
     "name": "Game Boy Advance",
     "short_name": "GBA",
     "details": {

@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "wsv",
+    "multidisc": false,
     "name": "Watara Supervision",
     "short_name": "WSV",
     "details": {

@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "wasm4",
+    "multidisc": false,
     "name": "WASM-4",
     "short_name": "WASM-4",
     "details": {

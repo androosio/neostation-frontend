@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "pc88",
+    "multidisc": false,
     "name": "NEC PC-8801",
     "short_name": "PC88",
     "details": {

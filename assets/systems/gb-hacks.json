@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "gb-hacks",
+    "multidisc": false,
     "name": "Game Boy Hacks",
     "short_name": "GBH",
     "details": {

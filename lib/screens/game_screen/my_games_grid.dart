@@ -647,11 +647,20 @@ class _GamesGridState extends State<GamesGrid> {
         } catch (_) {}
       },
       onLeftStickClick: widget.onRandom,
+      onSelectButton: _toggleVideoMute, // Select tap - Mute preview video.
       onSelectModifierA: widget.onScrape, // Select + A - Scrape.
       onSelectModifierB: _toggleLegend, // Select + B - Hide/show legend.
       onSelectModifierY: widget.onRandom, // Select + Y - Random game.
       onSettings: widget.onSettings,
     );
+  }
+
+  /// Select tap — toggles global video sound. The preview plays on the
+  /// secondary display in this view; the config mutator propagates the new
+  /// mute state to it, so there is nothing local to re-apply.
+  void _toggleVideoMute() {
+    if (!mounted) return;
+    context.read<SqliteConfigProvider>().toggleVideoSound();
   }
 
   /// Select + B — toggles the (session-global) vertical action-button legend.
@@ -1207,7 +1216,7 @@ class _GamesGridState extends State<GamesGrid> {
           duration: const Duration(milliseconds: 250),
           curve: Curves.easeOutCubic,
           top: 12.r,
-          left: GameLegendVisibility.hidden.value ? -60.r : 12.r,
+          left: GameLegendVisibility.hidden.value ? -60.r : 10.r,
           child: AnimatedOpacity(
             duration: const Duration(milliseconds: 250),
             opacity: GameLegendVisibility.hidden.value ? 0.0 : 1.0,
@@ -1242,6 +1251,7 @@ class _GamesGridState extends State<GamesGrid> {
       isLoadingAchievements: _isLoadingAchievements,
       currentGameInfo: _currentGameInfo,
       onShowAchievements: _showAchievementsDialog,
+      onToggleMute: _toggleVideoMute,
     );
     // Positioning/visibility is applied at the Stack level (AnimatedPositioned)
     // so Select + B can animate it without invalidating this memoized subtree.

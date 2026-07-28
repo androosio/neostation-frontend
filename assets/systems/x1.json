@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "x1",
+    "multidisc": false,
     "name": "Sharp X1",
     "short_name": "X1",
     "details": {

@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "pce",
+    "multidisc": false,
     "name": "PC Engine",
     "short_name": "PCE",
     "details": {

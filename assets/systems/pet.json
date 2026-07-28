@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "pet",
+    "multidisc": false,
     "name": "Commodore - PET",
     "short_name": "PET",
     "details": {

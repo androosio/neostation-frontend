@@ -390,6 +390,9 @@ class SqliteMigrations {
       case 107:
         await _migrateToVersion107(db);
         break;
+      case 108:
+        await _migrateToVersion108(db);
+        break;
       default:
         _log.w('No migration defined for version $version');
     }
@@ -3664,19 +3667,16 @@ class SqliteMigrations {
       }
 
       if (hasLegacyPath) {
-        _log.i('Resetting setup for legacy paths...');
+        _log.i('Marking setup incomplete for legacy paths...');
         db.execute('BEGIN TRANSACTION');
         try {
-          // Clear ROM folders
-          db.execute('DELETE FROM user_rom_folders');
-
-          // Reset setup_completed in user_config
+          // Preserve the paths and their existing library. Deleting them makes
+          // the next automatic scan run with zero roots and can prune every
+          // stored game before the user has a chance to select SAF again.
           db.execute('UPDATE user_config SET setup_completed = 0');
 
           db.execute('COMMIT');
-          _log.i(
-            'Setup reset successfully. User will see SetupWizard on next launch.',
-          );
+          _log.i('Setup marked incomplete; legacy ROM folders were preserved.');
         } catch (e) {
           db.execute('ROLLBACK');
           _log.e('Error resetting setup: $e');
@@ -5030,7 +5030,7 @@ class SqliteMigrations {
     }
   }
 
-  /// Migration v107: Makes `app_neo_sync_state` provider-scoped so RomM and
+  /// Migration v108: Makes `app_neo_sync_state` provider-scoped so RomM and
   /// NeoSync no longer corrupt each other's recorded cloud timestamps.
   ///
   /// The legacy table keyed on `file_path` alone (`file_path ... UNIQUE`), so a
@@ -5038,8 +5038,8 @@ class SqliteMigrations {
   /// can't drop that column-level UNIQUE in place, so we rebuild the table with
   /// a composite `UNIQUE(provider, file_path)` and backfill every existing row
   /// to 'neosync' — the only provider that wrote these rows historically.
-  static Future<void> _migrateToVersion107(Database db) async {
-    _log.i('Migration v107: Adding provider column to app_neo_sync_state');
+  static Future<void> _migrateToVersion108(Database db) async {
+    _log.i('Migration v108: Adding provider column to app_neo_sync_state');
     try {
       final tableExists = db
           .select(
@@ -5051,7 +5051,7 @@ class SqliteMigrations {
         // Fresh/absent table → just create the new provider-scoped schema.
         db.execute(createAppNeoSyncStateTableSql);
         db.execute(createAppNeoSyncStateIndexSql);
-        _log.i('app_neo_sync_state created with provider column (v107)');
+        _log.i('app_neo_sync_state created with provider column (v108)');
         return;
       }
 
@@ -5061,7 +5061,7 @@ class SqliteMigrations {
         'provider',
       );
       if (alreadyMigrated) {
-        _log.i('app_neo_sync_state already provider-scoped, skipping v107');
+        _log.i('app_neo_sync_state already provider-scoped, skipping v108');
         return;
       }
 
@@ -5086,9 +5086,9 @@ class SqliteMigrations {
         db.execute('ROLLBACK');
         rethrow;
       }
-      _log.i('app_neo_sync_state migrated to (provider, file_path) via v107');
+      _log.i('app_neo_sync_state migrated to (provider, file_path) via v108');
     } catch (e, stackTrace) {
-      _log.e('Error in migration v107: $e');
+      _log.e('Error in migration v108: $e');
       _log.e('   StackTrace: $stackTrace');
       rethrow;
     }
@@ -5139,16 +5139,53 @@ class SqliteMigrations {
     }
   }
 
-  /// Migration v105: Adds the singleton user_romm_config table used to store
-  /// RomM server credentials and tokens for remote library browse/download.
+  /// Migration v105: Collapse duplicate system-default emulators.
   ///
-  /// (RomM feature originally landed as v97 on its branch; renumbered as main
-  /// added its own v98–v104, so the RomM migrations now start at v105.)
+  /// `user_emulator_config.is_user_default` is the user's explicit "this is the
+  /// emulator for this system" pick, and [getUserDefaultEmulatorForSystem] reads
+  /// it with a `LIMIT 1`. `setDefaultCore` *set* that flag but never cleared it
+  /// for a previously-chosen core, so switching emulators left two winners on the
+  /// same system and the unordered read returned the *oldest* one — pick a core,
+  /// then a standalone, and the core still launches (and vice versa for
+  /// core → core). The setters now clear every competing marker first, but that
+  /// only helps the next selection: installs already carrying two flagged rows
+  /// stay broken until the persisted state is repaired. That is this migration.
+  ///
+  /// For each system we keep the most recently updated flagged emulator and
+  /// clear the rest. `updated_at` is stamped on every user selection, so the
+  /// keeper is the user's latest choice — exactly what they expect to launch.
+  /// Config rows with no matching `app_emulators` entry are left alone: they
+  /// belong to no system, so they can't be part of a per-system conflict.
   static Future<void> _migrateToVersion105(Database db) async {
-    _log.i('Migration v105: Creating user_romm_config table');
+    _log.i('Migration v105: Collapsing duplicate system-default emulators');
     try {
-      db.execute(createUserRommConfigTableSql);
-      _log.i('Table user_romm_config created via v105');
+      db.execute('DROP TABLE IF EXISTS temp._emu_default_keepers');
+
+      // Bare-column-with-MAX(): SQLite guarantees the non-aggregate columns come
+      // from the row holding the max, so `uid` is the latest pick per system.
+      db.execute('''
+        CREATE TEMP TABLE _emu_default_keepers AS
+        SELECT e.system_id AS sid,
+               uc.emulator_unique_id AS uid,
+               MAX(uc.updated_at) AS upd
+        FROM user_emulator_config uc
+        JOIN app_emulators e ON e.unique_identifier = uc.emulator_unique_id
+        WHERE uc.is_user_default = 1
+        GROUP BY e.system_id
+      ''');
+
+      db.execute('''
+        UPDATE user_emulator_config
+        SET is_user_default = 0
+        WHERE is_user_default = 1
+          AND emulator_unique_id IN (SELECT unique_identifier FROM app_emulators)
+          AND emulator_unique_id NOT IN (SELECT uid FROM _emu_default_keepers)
+      ''');
+
+      final cleared = db.updatedRows;
+      db.execute('DROP TABLE IF EXISTS temp._emu_default_keepers');
+
+      _log.i('Migration v105 completed (cleared $cleared stale default(s))');
     } catch (e, stackTrace) {
       _log.e('Error in migration v105: $e');
       _log.e('   StackTrace: $stackTrace');
@@ -5156,17 +5193,34 @@ class SqliteMigrations {
     }
   }
 
-  /// Migration v106: Adds the [app_romm_rom_map] table, which links a local game
+  /// Migration v106: Adds the singleton user_romm_config table used to store
+  /// RomM server credentials and tokens for remote library browse/download.
+  ///
+  /// (RomM feature originally landed as v97 on its branch; renumbered as main
+  /// added its own v98–v105, so the RomM migrations now start at v106.)
+  static Future<void> _migrateToVersion106(Database db) async {
+    _log.i('Migration v106: Creating user_romm_config table');
+    try {
+      db.execute(createUserRommConfigTableSql);
+      _log.i('Table user_romm_config created via v106');
+    } catch (e, stackTrace) {
+      _log.e('Error in migration v106: $e');
+      _log.e('   StackTrace: $stackTrace');
+      rethrow;
+    }
+  }
+
+  /// Migration v107: Adds the [app_romm_rom_map] table, which links a local game
   /// (romname + system folder) to its RomM ROM id so save/state sync can target
   /// the right `rom_id`. Populated when a ROM is downloaded from RomM.
-  static Future<void> _migrateToVersion106(Database db) async {
-    _log.i('Migration v106: Creating app_romm_rom_map table');
+  static Future<void> _migrateToVersion107(Database db) async {
+    _log.i('Migration v107: Creating app_romm_rom_map table');
     try {
       db.execute(createAppRommRomMapTableSql);
       db.execute(createAppRommRomMapIndexSql);
-      _log.i('Table app_romm_rom_map created via v106');
+      _log.i('Table app_romm_rom_map created via v107');
     } catch (e, stackTrace) {
-      _log.e('Error in migration v106: $e');
+      _log.e('Error in migration v107: $e');
       _log.e('   StackTrace: $stackTrace');
       rethrow;
     }

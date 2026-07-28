@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "sharpx68000",
+    "multidisc": false,
     "name": "Sharp X68000",
     "short_name": "X68K",
     "details": {

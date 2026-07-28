@@ -13,6 +13,7 @@ import 'package:neostation/providers/system_background_provider.dart';
 import 'package:neostation/services/game_service.dart';
 import 'package:neostation/services/sfx_service.dart';
 import 'package:neostation/utils/gamepad_nav.dart';
+import 'package:neostation/utils/letter_jump.dart';
 import 'package:neostation/screens/app_screen.dart';
 import 'package:neostation/widgets/game_view_mode_dropdown.dart';
 import 'package:neostation/widgets/game_action_buttons.dart';
@@ -303,7 +304,10 @@ class _GamesCarouselState extends State<GamesCarousel> {
           GameViewModeDropdown.globalKey.currentState?.showDropdown();
         } catch (_) {}
       },
+      onLetterJump: _letterJump, // Held D-pad left/right → alphabet skipping.
+      letterJumpAxis: LetterJumpAxis.horizontal,
       onLeftStickClick: widget.onRandom,
+      onSelectButton: _toggleVideoMute, // Select tap - Mute preview video.
       onSelectModifierA: widget.onScrape, // Select + A - Scrape.
       onSelectModifierB: _toggleLegend, // Select + B - Hide/show legend.
       onSelectModifierY: widget.onRandom, // Select + Y - Random game.
@@ -322,6 +326,34 @@ class _GamesCarouselState extends State<GamesCarousel> {
         onDeactivate: () => _gamepadNav.deactivate(),
       );
     });
+  }
+
+  /// Skips to the neighbouring alphabetical group once left/right has been
+  /// held long enough (ES-DE style). Returns false at the ends of the alphabet
+  /// so the caller falls back to a normal page step.
+  bool _letterJump(bool forward) {
+    if (widget.games.isEmpty) return false;
+
+    final target = LetterJump.targetIndex(
+      length: widget.games.length,
+      currentIndex: _currentIndex,
+      forward: forward,
+      letterAt: (index) => _getLetterForGame(widget.games[index]),
+    );
+    if (target == null) return false;
+
+    // Jump rather than animate: at letter-jump cadence an animated page slide
+    // across dozens of entries would still be running when the next hop fires.
+    _carouselKey.currentState?.jumpToPage(target);
+    return true;
+  }
+
+  /// Select tap — toggles global video sound. The preview plays on the
+  /// secondary display in this view; the config mutator propagates the new
+  /// mute state to it, so there is nothing local to re-apply.
+  void _toggleVideoMute() {
+    if (!mounted) return;
+    context.read<SqliteConfigProvider>().toggleVideoSound();
   }
 
   void _cleanupGamepad() {
@@ -388,6 +420,7 @@ class _GamesCarouselState extends State<GamesCarousel> {
       isLoadingAchievements: _isLoadingAchievements,
       currentGameInfo: _currentGameInfo,
       onShowAchievements: _showAchievementsDialog,
+      onToggleMute: _toggleVideoMute,
     );
     // Positioning/visibility is applied at the Stack level (AnimatedPositioned)
     // so Select + B can slide it without invalidating this memoized subtree.
@@ -1079,7 +1112,7 @@ class _GamesCarouselState extends State<GamesCarousel> {
           duration: const Duration(milliseconds: 250),
           curve: Curves.easeOutCubic,
           top: 12.r,
-          left: GameLegendVisibility.hidden.value ? -60.r : 12.r,
+          left: GameLegendVisibility.hidden.value ? -60.r : 10.r,
           child: AnimatedOpacity(
             duration: const Duration(milliseconds: 250),
             opacity: GameLegendVisibility.hidden.value ? 0.0 : 1.0,

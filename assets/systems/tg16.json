@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "tg16",
+    "multidisc": false,
     "name": "TurboGrafx-16",
     "short_name": "TG-16",
     "details": {

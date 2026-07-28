@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "nes",
+    "multidisc": false,
     "name": "Nintendo Entertainment System",
     "short_name": "NES",
     "details": {

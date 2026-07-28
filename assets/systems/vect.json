@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "vect",
+    "multidisc": false,
     "name": "Vectrex",
     "short_name": "Vect",
     "details": {

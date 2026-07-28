@@ -30,8 +30,9 @@ extension _RowBuilders on _SystemEmulatorSettingsDialogState {
         color: isSelected
             ? theme.colorScheme.primary.withValues(alpha: 0.2)
             : Colors.transparent,
-        borderRadius: Theme.of(context).extension<CornerRadii>()?.radiusInternal ??
-                  BorderRadius.circular(9.r),
+        borderRadius:
+            Theme.of(context).extension<CornerRadii>()?.radiusInternal ??
+            BorderRadius.circular(9.r),
       ),
       child: Material(
         color: Colors.transparent,
@@ -43,8 +44,9 @@ extension _RowBuilders on _SystemEmulatorSettingsDialogState {
           splashColor: Colors.transparent,
           overlayColor: WidgetStateProperty.all(Colors.transparent),
           splashFactory: NoSplash.splashFactory,
-          borderRadius: Theme.of(context).extension<CornerRadii>()?.radiusInternal ??
-                  BorderRadius.circular(9.r),
+          borderRadius:
+              Theme.of(context).extension<CornerRadii>()?.radiusInternal ??
+              BorderRadius.circular(9.r),
           focusNode: _coreItemFocusNodes[index],
           onTap: () {
             SfxService().playNavSound();
@@ -78,8 +80,11 @@ extension _RowBuilders on _SystemEmulatorSettingsDialogState {
                                 : theme.colorScheme.primary.withValues(
                                     alpha: 0.1,
                                   ),
-                            borderRadius: Theme.of(context).extension<CornerRadii>()?.radiusInternal ??
-                  BorderRadius.circular(9.r),
+                            borderRadius:
+                                Theme.of(
+                                  context,
+                                ).extension<CornerRadii>()?.radiusInternal ??
+                                BorderRadius.circular(9.r),
                           ),
                           child: Padding(
                             padding: EdgeInsets.all(4.r),
@@ -186,10 +191,14 @@ extension _RowBuilders on _SystemEmulatorSettingsDialogState {
                           padding: EdgeInsets.symmetric(horizontal: 8.r),
                           decoration: BoxDecoration(
                             color: selectedCore != null
-                                ? customColors.successColor// Green when a core is selected
+                                ? customColors
+                                      .successColor // Green when a core is selected
                                 : Theme.of(context).colorScheme.surface,
-                            borderRadius: Theme.of(context).extension<CornerRadii>()?.radiusInternal ??
-                  BorderRadius.circular(9.r),
+                            borderRadius:
+                                Theme.of(
+                                  context,
+                                ).extension<CornerRadii>()?.radiusInternal ??
+                                BorderRadius.circular(9.r),
                           ),
                           child: Theme(
                             data: theme.copyWith(
@@ -224,12 +233,14 @@ extension _RowBuilders on _SystemEmulatorSettingsDialogState {
                                 ),
                                 shape: WidgetStateProperty.all(
                                   RoundedRectangleBorder(
-                                    borderRadius: Theme.of(context).extension<CornerRadii>()?.radiusInternal ??
-                  BorderRadius.circular(9.r),
+                                    borderRadius:
+                                        Theme.of(context)
+                                            .extension<CornerRadii>()
+                                            ?.radiusInternal ??
+                                        BorderRadius.circular(9.r),
                                     side: BorderSide(
-                                      color: theme.colorScheme.onSurface.withValues(
-                                        alpha: 0.1,
-                                      ),
+                                      color: theme.colorScheme.onSurface
+                                          .withValues(alpha: 0.1),
                                       width: 1.r,
                                     ),
                                   ),
@@ -279,7 +290,9 @@ extension _RowBuilders on _SystemEmulatorSettingsDialogState {
                                             .replaceAll(' (64-bit)', ''),
                                         style: TextStyle(
                                           fontSize: 11.r,
-                                          color: Theme.of(context).colorScheme.onSurface,
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.onSurface,
                                         ),
                                       ),
                                       if (core.isDefault) ...[
@@ -368,9 +381,14 @@ extension _RowBuilders on _SystemEmulatorSettingsDialogState {
                     child: Container(
                       margin: EdgeInsets.only(left: 8.r),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.1),
-                        borderRadius: Theme.of(context).extension<CornerRadii>()?.radiusInternal ??
-                  BorderRadius.circular(9.r),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withValues(alpha: 0.1),
+                        borderRadius:
+                            Theme.of(
+                              context,
+                            ).extension<CornerRadii>()?.radiusInternal ??
+                            BorderRadius.circular(9.r),
                       ),
                       child: Material(
                         color: Colors.transparent,
@@ -380,8 +398,11 @@ extension _RowBuilders on _SystemEmulatorSettingsDialogState {
                           hoverColor: Colors.transparent,
                           highlightColor: Colors.transparent,
                           splashColor: Colors.transparent,
-                          borderRadius: Theme.of(context).extension<CornerRadii>()?.radiusInternal ??
-                  BorderRadius.circular(9.r),
+                          borderRadius:
+                              Theme.of(
+                                context,
+                              ).extension<CornerRadii>()?.radiusInternal ??
+                              BorderRadius.circular(9.r),
                           onTap: () {
                             SfxService().playNavSound();
                             _configureRetroArchPath();
@@ -420,8 +441,9 @@ extension _RowBuilders on _SystemEmulatorSettingsDialogState {
         color: isSelected
             ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.15)
             : Colors.transparent,
-        borderRadius: Theme.of(context).extension<CornerRadii>()?.radiusInternal ??
-                  BorderRadius.circular(9.r),
+        borderRadius:
+            Theme.of(context).extension<CornerRadii>()?.radiusInternal ??
+            BorderRadius.circular(9.r),
       ),
       child: Material(
         color: Colors.transparent,
@@ -433,8 +455,9 @@ extension _RowBuilders on _SystemEmulatorSettingsDialogState {
           splashColor: Colors.transparent,
           overlayColor: WidgetStateProperty.all(Colors.transparent),
           splashFactory: NoSplash.splashFactory,
-          borderRadius: Theme.of(context).extension<CornerRadii>()?.radiusInternal ??
-                  BorderRadius.circular(9.r),
+          borderRadius:
+              Theme.of(context).extension<CornerRadii>()?.radiusInternal ??
+              BorderRadius.circular(9.r),
           focusNode: _coreItemFocusNodes[index],
           onTap: () {
             SfxService().playNavSound();
@@ -462,8 +485,11 @@ extension _RowBuilders on _SystemEmulatorSettingsDialogState {
                         : Theme.of(
                             context,
                           ).colorScheme.primary.withValues(alpha: 0.1),
-                    borderRadius: Theme.of(context).extension<CornerRadii>()?.radiusInternal ??
-                  BorderRadius.circular(9.r),
+                    borderRadius:
+                        Theme.of(
+                          context,
+                        ).extension<CornerRadii>()?.radiusInternal ??
+                        BorderRadius.circular(9.r),
                   ),
                   child: Padding(
                     padding: EdgeInsets.all(4.r),
@@ -514,8 +540,11 @@ extension _RowBuilders on _SystemEmulatorSettingsDialogState {
                               ),
                               decoration: BoxDecoration(
                                 color: Theme.of(context).colorScheme.onSurface,
-                                borderRadius: Theme.of(context).extension<CornerRadii>()?.radiusInternal ??
-                  BorderRadius.circular(9.r),
+                                borderRadius:
+                                    Theme.of(context)
+                                        .extension<CornerRadii>()
+                                        ?.radiusInternal ??
+                                    BorderRadius.circular(9.r),
                                 border: Border.all(
                                   color: customColors.warningColor,
                                   width: 0.5.r,
@@ -608,9 +637,14 @@ extension _RowBuilders on _SystemEmulatorSettingsDialogState {
                     child: Container(
                       margin: EdgeInsets.only(left: 8.r, right: 8.r),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.1),
-                        borderRadius: Theme.of(context).extension<CornerRadii>()?.radiusInternal ??
-                  BorderRadius.circular(9.r),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withValues(alpha: 0.1),
+                        borderRadius:
+                            Theme.of(
+                              context,
+                            ).extension<CornerRadii>()?.radiusInternal ??
+                            BorderRadius.circular(9.r),
                       ),
                       child: Material(
                         color: Colors.transparent,
@@ -620,8 +654,11 @@ extension _RowBuilders on _SystemEmulatorSettingsDialogState {
                           hoverColor: Colors.transparent,
                           highlightColor: Colors.transparent,
                           splashColor: Colors.transparent,
-                          borderRadius: Theme.of(context).extension<CornerRadii>()?.radiusInternal ??
-                  BorderRadius.circular(9.r),
+                          borderRadius:
+                              Theme.of(
+                                context,
+                              ).extension<CornerRadii>()?.radiusInternal ??
+                              BorderRadius.circular(9.r),
                           onTap: () {
                             SfxService().playNavSound();
                             _configureRetroArchPath();
@@ -656,8 +693,11 @@ extension _RowBuilders on _SystemEmulatorSettingsDialogState {
                           color: core.isDefault
                               ? customColors.successColor
                               : Theme.of(context).colorScheme.onSurface,
-                          borderRadius: Theme.of(context).extension<CornerRadii>()?.radiusInternal ??
-                  BorderRadius.circular(9.r),
+                          borderRadius:
+                              Theme.of(
+                                context,
+                              ).extension<CornerRadii>()?.radiusInternal ??
+                              BorderRadius.circular(9.r),
                         ),
                         child: Material(
                           color: Colors.transparent,
@@ -671,8 +711,11 @@ extension _RowBuilders on _SystemEmulatorSettingsDialogState {
                               Colors.transparent,
                             ),
                             splashFactory: NoSplash.splashFactory,
-                            borderRadius: Theme.of(context).extension<CornerRadii>()?.radiusInternal ??
-                  BorderRadius.circular(9.r),
+                            borderRadius:
+                                Theme.of(
+                                  context,
+                                ).extension<CornerRadii>()?.radiusInternal ??
+                                BorderRadius.circular(9.r),
                             focusNode: _setDefaultButtonFocusNodes[index],
                             onTap: (core.isDefault || isDisabled)
                                 ? null
@@ -692,7 +735,9 @@ extension _RowBuilders on _SystemEmulatorSettingsDialogState {
                                     Icon(
                                       Symbols.check_circle_rounded,
                                       size: 12.r,
-                                      color: Theme.of(context).colorScheme.onSurface,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurface,
                                     )
                                   else
                                     SizedBox(
@@ -700,7 +745,9 @@ extension _RowBuilders on _SystemEmulatorSettingsDialogState {
                                       width: 12.r,
                                       child: Image.asset(
                                         'assets/images/gamepad/Xbox_A_button.png',
-                                        color: Theme.of(context).colorScheme.onSurface,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onSurface,
                                         colorBlendMode: BlendMode.srcIn,
                                       ),
                                     ),
@@ -713,8 +760,12 @@ extension _RowBuilders on _SystemEmulatorSettingsDialogState {
                                       fontSize: 10.r,
                                       fontWeight: FontWeight.bold,
                                       color: core.isDefault
-                                          ? Theme.of(context).colorScheme.primary
-                                          : Theme.of(context).colorScheme.onSurface,
+                                          ? Theme.of(
+                                              context,
+                                            ).colorScheme.primary
+                                          : Theme.of(
+                                              context,
+                                            ).colorScheme.onSurface,
                                     ),
                                   ),
                                 ],
@@ -758,8 +809,9 @@ extension _RowBuilders on _SystemEmulatorSettingsDialogState {
         color: isSelected
             ? theme.colorScheme.primary.withValues(alpha: 0.15)
             : Colors.transparent,
-        borderRadius: Theme.of(context).extension<CornerRadii>()?.radiusInternal ??
-                  BorderRadius.circular(9.r),
+        borderRadius:
+            Theme.of(context).extension<CornerRadii>()?.radiusInternal ??
+            BorderRadius.circular(9.r),
       ),
       child: Material(
         color: Colors.transparent,
@@ -771,8 +823,9 @@ extension _RowBuilders on _SystemEmulatorSettingsDialogState {
           splashColor: Colors.transparent,
           overlayColor: WidgetStateProperty.all(Colors.transparent),
           splashFactory: NoSplash.splashFactory,
-          borderRadius: Theme.of(context).extension<CornerRadii>()?.radiusInternal ??
-                  BorderRadius.circular(9.r),
+          borderRadius:
+              Theme.of(context).extension<CornerRadii>()?.radiusInternal ??
+              BorderRadius.circular(9.r),
           focusNode: _coreItemFocusNodes[index],
           onTap: () {
             SfxService().playNavSound();
@@ -806,8 +859,11 @@ extension _RowBuilders on _SystemEmulatorSettingsDialogState {
                                 : theme.colorScheme.primary.withValues(
                                     alpha: 0.1,
                                   ),
-                            borderRadius: Theme.of(context).extension<CornerRadii>()?.radiusInternal ??
-                  BorderRadius.circular(9.r),
+                            borderRadius:
+                                Theme.of(
+                                  context,
+                                ).extension<CornerRadii>()?.radiusInternal ??
+                                BorderRadius.circular(9.r),
                           ),
                           child: Padding(
                             padding: EdgeInsets.all(4.r),
@@ -846,9 +902,14 @@ extension _RowBuilders on _SystemEmulatorSettingsDialogState {
                                         vertical: 2.r,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: Theme.of(context).colorScheme.onSurface,
-                                        borderRadius: Theme.of(context).extension<CornerRadii>()?.radiusInternal ??
-                  BorderRadius.circular(9.r),
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onSurface,
+                                        borderRadius:
+                                            Theme.of(context)
+                                                .extension<CornerRadii>()
+                                                ?.radiusInternal ??
+                                            BorderRadius.circular(9.r),
                                         border: Border.all(
                                           color: customColors.warningColor,
                                           width: 0.5.r,
@@ -931,8 +992,11 @@ extension _RowBuilders on _SystemEmulatorSettingsDialogState {
                       color: standalone.isUserDefault == true
                           ? customColors.successColor
                           : Theme.of(context).colorScheme.tertiary,
-                      borderRadius: Theme.of(context).extension<CornerRadii>()?.radiusInternal ??
-                  BorderRadius.circular(9.r),
+                      borderRadius:
+                          Theme.of(
+                            context,
+                          ).extension<CornerRadii>()?.radiusInternal ??
+                          BorderRadius.circular(9.r),
                     ),
                     child: Material(
                       color: Colors.transparent,
@@ -942,8 +1006,11 @@ extension _RowBuilders on _SystemEmulatorSettingsDialogState {
                         hoverColor: Colors.transparent,
                         highlightColor: Colors.transparent,
                         splashColor: Colors.transparent,
-                        borderRadius: Theme.of(context).extension<CornerRadii>()?.radiusInternal ??
-                  BorderRadius.circular(9.r),
+                        borderRadius:
+                            Theme.of(
+                              context,
+                            ).extension<CornerRadii>()?.radiusInternal ??
+                            BorderRadius.circular(9.r),
                         onTap: (standalone.isUserDefault == true || isDisabled)
                             ? null
                             : () {
@@ -1002,9 +1069,14 @@ extension _RowBuilders on _SystemEmulatorSettingsDialogState {
                     child: Container(
                       margin: EdgeInsets.only(left: 8.r),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.1),
-                        borderRadius: Theme.of(context).extension<CornerRadii>()?.radiusInternal ??
-                  BorderRadius.circular(9.r),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withValues(alpha: 0.1),
+                        borderRadius:
+                            Theme.of(
+                              context,
+                            ).extension<CornerRadii>()?.radiusInternal ??
+                            BorderRadius.circular(9.r),
                       ),
                       child: Material(
                         color: Colors.transparent,
@@ -1014,8 +1086,11 @@ extension _RowBuilders on _SystemEmulatorSettingsDialogState {
                           hoverColor: Colors.transparent,
                           highlightColor: Colors.transparent,
                           splashColor: Colors.transparent,
-                          borderRadius: Theme.of(context).extension<CornerRadii>()?.radiusInternal ??
-                  BorderRadius.circular(9.r),
+                          borderRadius:
+                              Theme.of(
+                                context,
+                              ).extension<CornerRadii>()?.radiusInternal ??
+                              BorderRadius.circular(9.r),
                           onTap: () {
                             SfxService().playNavSound();
                             _configureStandalonePath(standalone);

@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "sg1k",
+    "multidisc": false,
     "name": "Sega SG-1000",
     "short_name": "SG1K",
     "details": {

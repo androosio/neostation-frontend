@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "pcfx",
+    "multidisc": false,
     "name": "NEC PC-FX",
     "short_name": "PC-FX",
     "details": {

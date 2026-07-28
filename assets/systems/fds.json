@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "fds",
+    "multidisc": false,
     "name": "Famicom Disk System",
     "short_name": "FDS",
     "details": {

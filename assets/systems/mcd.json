@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "mcd",
+    "multidisc": false,
     "name": "Sega Mega-CD",
     "short_name": "MCD",
     "details": {

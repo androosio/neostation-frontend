@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "switch",
+    "multidisc": false,
     "name": "Nintendo Switch",
     "short_name": "Switch",
     "details": {

@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "a2",
+    "multidisc": false,
     "name": "Apple II",
     "short_name": "A2",
     "details": {

@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "zx81",
+    "multidisc": false,
     "name": "ZX 81",
     "short_name": "ZX81",
     "details": {

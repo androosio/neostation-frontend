@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "scummvm",
+    "multidisc": false,
     "name": "ScummVM",
     "short_name": "ScummVM",
     "details": {

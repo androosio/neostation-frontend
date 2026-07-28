@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "zxspectrum",
+    "multidisc": false,
     "name": "ZX Spectrum",
     "short_name": "ZXS",
     "details": {

@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "gg-hacks",
+    "multidisc": false,
     "name": "Sega Game Gear Hacks",
     "short_name": "GGH",
     "details": {

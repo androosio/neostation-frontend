@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "cps3",
+    "multidisc": false,
     "name": "CP System III",
     "short_name": "CPSIII",
     "details": {

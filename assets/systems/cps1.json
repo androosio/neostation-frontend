@@ -1,6 +1,7 @@
 {
   "system": {
     "id": "cps1",
+    "multidisc": false,
     "name": "CP System I",
     "short_name": "CPSI",
     "details": {
