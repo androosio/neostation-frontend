@@ -23,6 +23,10 @@ import '../../widgets/core_footer.dart' show kCoreFooterHeight;
 import '../../widgets/custom_notification.dart';
 import '../../widgets/romm_browse_footer.dart';
 import '../app_screen.dart';
+import 'romm_rom_card.dart';
+import 'romm_rom_carousel.dart';
+import 'romm_rom_grid.dart';
+import 'romm_rom_list.dart';
 
 /// Gamepad/touch-navigable browser for a connected RomM server.
 ///
@@ -44,10 +48,6 @@ enum _BrowseView { source, platforms, collections }
 /// list. Searching the library is handled outside this screen.
 enum _SourceCard { collections, platforms }
 
-/// How the ROM view lays out its tiles — mirrors the game library's grid/list
-/// view-mode concept (RomM keeps its own download-aware tiles either way).
-enum _RomLayout { grid, list }
-
 /// Signature shared by the four [GridNavUtils] directional helpers, so the
 /// active top-level card grid can be moved with any of them.
 typedef _GridNavFn =
@@ -62,9 +62,11 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
   _BrowseView _view = _BrowseView.source;
   int _sourceIndex = 0;
 
-  // ROM view layout (grid vs list). Persists for the tab session; defaults to
-  // the artwork-forward grid.
-  _RomLayout _romLayout = _RomLayout.grid;
+  // ROM view layout, cycled with X. Session-local rather than shared with the
+  // local library's `gameViewMode`, so changing how the remote library reads
+  // doesn't silently reshuffle the user's own game list. Defaults to the
+  // artwork-forward grid.
+  RommRomLayout _romLayout = RommRomLayout.grid;
 
   /// Source-menu cards, in display order.
   List<_SourceCard> get _sourceCards => [
@@ -86,10 +88,9 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
   // Selection index per phase (platform list vs. ROM grid). Highlight + the
   // confirm/back actions key off whichever phase is active.
   int _platformIndex = 0;
+  // Focused ROM, kept here only so the selection survives a view-mode switch
+  // and a drill out-and-back. The ROM views own it while they are mounted.
   int _romIndex = 0;
-  // Column count of the ROM grid, recomputed each layout so GridNavUtils math
-  // matches what's actually on screen.
-  int _romColumns = 1;
 
   // The platform list is rebuilt from scratch each time we drill out of a
   // platform, so its scroll offset is restored explicitly via this controller.
@@ -97,7 +98,6 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
   final ScrollController _sourceScroll = ScrollController();
   final ScrollController _platformScroll = ScrollController();
   final ScrollController _collectionScroll = ScrollController();
-  final ScrollController _romScroll = ScrollController();
 
   // Grid geometry per top-level card grid (source menu, platforms, collections),
   // recomputed in each grid's LayoutBuilder so gamepad navigation moves the
@@ -106,14 +106,6 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
   final _GridGeom _sourceGeom = _GridGeom();
   final _GridGeom _platformGeom = _GridGeom();
   final _GridGeom _collectionGeom = _GridGeom();
-
-  // Grid geometry, recomputed in the ROM grid's LayoutBuilder. Used to scroll
-  // the focused cell into view arithmetically — the lazy GridView doesn't build
-  // off-screen cells, so a GlobalKey-based ensureVisible silently no-ops when
-  // the selection jumps past the viewport (the focus box "disappears").
-  double _romRowStride = 1;
-  double _romCellHeight = 1;
-  double _romTopPadding = 12;
 
   /// True while a platform or collection is open (i.e. the ROM grid is showing).
   bool get _inRomGrid =>
@@ -161,7 +153,6 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
     _sourceScroll.dispose();
     _platformScroll.dispose();
     _collectionScroll.dispose();
-    _romScroll.dispose();
     // The post-download rescan + per-system list refresh is handled by
     // RommProvider's debounced settle (see RommProvider.onDownloadsSettled,
     // wired in main.dart). It fires independently of this screen's lifecycle,
@@ -249,87 +240,15 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
 
   // ── Gamepad navigation handlers ─────────────────────────────────────────────
 
-  void _navigateUp() {
-    if (!_inRomGrid) {
-      _moveTopSelection(GridNavUtils.navigateUp);
-      return;
-    }
-    final n = _rommProvider.roms.length;
-    if (n == 0) return;
-    setState(
-      () => _romIndex = GridNavUtils.navigateUp(
-        currentIndex: _romIndex,
-        crossAxisCount: _romColumns,
-        maxItems: n,
-      ),
-    );
-    _scrollRomTo(_romIndex);
-  }
+  // The ROM view owns its own gamepad layer (pushed on top of this screen's),
+  // so these only ever drive the source menu and the platform/collection lists.
+  void _navigateUp() => _moveTopSelection(GridNavUtils.navigateUp);
 
-  void _navigateDown() {
-    if (!_inRomGrid) {
-      _moveTopSelection(GridNavUtils.navigateDown);
-      return;
-    }
-    final n = _rommProvider.roms.length;
-    if (n == 0) return;
-    final next = _romIndex + _romColumns;
-    if (next < n) {
-      setState(() => _romIndex = next);
-    } else if (_rommProvider.romsHasMore) {
-      // At the last loaded row with more pages to come: page in and HOLD the
-      // cursor where it is. Wrapping to the top here is what caused the "cursor
-      // snaps back" when scrolling faster than pages load — the next row simply
-      // isn't loaded yet. Once the page lands, a further press advances into it.
-      if (!_rommProvider.loadingRoms) _rommProvider.loadMoreRoms();
-    } else {
-      // Whole list is loaded — genuine end of grid, so wrap as before.
-      setState(
-        () => _romIndex = GridNavUtils.navigateDown(
-          currentIndex: _romIndex,
-          crossAxisCount: _romColumns,
-          maxItems: n,
-        ),
-      );
-    }
-    _scrollRomTo(_romIndex);
-    _maybeLoadMore();
-  }
+  void _navigateDown() => _moveTopSelection(GridNavUtils.navigateDown);
 
-  void _navigateLeft() {
-    if (!_inRomGrid) {
-      _moveTopSelection(GridNavUtils.navigateLeft);
-      return;
-    }
-    final n = _rommProvider.roms.length;
-    if (n == 0) return;
-    setState(
-      () => _romIndex = GridNavUtils.navigateLeft(
-        currentIndex: _romIndex,
-        crossAxisCount: _romColumns,
-        maxItems: n,
-      ),
-    );
-    _scrollRomTo(_romIndex);
-  }
+  void _navigateLeft() => _moveTopSelection(GridNavUtils.navigateLeft);
 
-  void _navigateRight() {
-    if (!_inRomGrid) {
-      _moveTopSelection(GridNavUtils.navigateRight);
-      return;
-    }
-    final n = _rommProvider.roms.length;
-    if (n == 0) return;
-    setState(
-      () => _romIndex = GridNavUtils.navigateRight(
-        currentIndex: _romIndex,
-        crossAxisCount: _romColumns,
-        maxItems: n,
-      ),
-    );
-    _scrollRomTo(_romIndex);
-    _maybeLoadMore();
-  }
+  void _navigateRight() => _moveTopSelection(GridNavUtils.navigateRight);
 
   /// Item count of whichever top-level card grid is showing.
   int get _activeCount {
@@ -405,17 +324,16 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
     _scrollGridTo(_activeScroll, _activeGeom, next);
   }
 
-  /// Flips the ROM view between grid and list. No-op unless the ROM view is
-  /// showing (the X hint / gamepad button only applies there).
+  /// Cycles the ROM view through grid → carousel → list, the same three modes
+  /// the local library offers. No-op unless the ROM view is showing (the X hint
+  /// / gamepad button only applies there).
   void _toggleRomLayout() {
     if (!_inRomGrid) return;
     SfxService().playNavSound();
+    const order = RommRomLayout.values;
     setState(
-      () => _romLayout = _romLayout == _RomLayout.grid
-          ? _RomLayout.list
-          : _RomLayout.grid,
+      () => _romLayout = order[(order.indexOf(_romLayout) + 1) % order.length],
     );
-    _scrollRomTo(_romIndex);
   }
 
   void _confirmSelection() {
@@ -470,14 +388,20 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
     }
   }
 
+  /// Steps back one level within the browser: ROM view → its list → the source
+  /// menu, where back stops.
+  ///
+  /// The source menu is a dead end on purpose. The RomM library is a top-level
+  /// tab (see [RommTab]), not a pushed route, so there is nothing above it to
+  /// pop — and asking the navigator to pop anyway re-enters this method through
+  /// the PopScope callback in [build], which spins the UI thread forever. Tabs
+  /// are left with L1/R1, exactly as on the systems and games tabs.
   void _handleBack() {
     if (_inRomGrid) {
       _returnToList();
     } else if (_view != _BrowseView.source) {
       // From a platform/collection list, step back to the source menu.
       setState(() => _view = _BrowseView.source);
-    } else {
-      Navigator.of(context).maybePop();
     }
   }
 
@@ -518,45 +442,20 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
     });
   }
 
-  /// Pages in more ROMs when the selection nears the end of the loaded set.
-  void _maybeLoadMore() {
-    final n = _rommProvider.roms.length;
-    if (_rommProvider.romsHasMore &&
-        !_rommProvider.loadingRoms &&
-        _romIndex >= n - _romColumns * 2) {
-      _rommProvider.loadMoreRoms();
-    }
-  }
-
-  /// Scrolls the ROM grid so the focused cell's row is centred. Computed from
-  /// grid geometry (not a GlobalKey) so it works even when the selection jumps
-  /// to a not-yet-built off-screen cell during fast navigation.
-  void _scrollRomTo(int index) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_romScroll.hasClients) return;
-      final pos = _romScroll.position;
-      final row = index ~/ _romColumns;
-      final target =
-          _romTopPadding +
-          row * _romRowStride -
-          (pos.viewportDimension - _romCellHeight) / 2;
-      pos.animateTo(
-        target.clamp(pos.minScrollExtent, pos.maxScrollExtent),
-        duration: const Duration(milliseconds: 140),
-        curve: Curves.easeOut,
-      );
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final provider = context.watch<RommProvider>();
-    // Only the source menu exits the screen; deeper views step back one level.
-    final atRoot = !_inRomGrid && _view == _BrowseView.source;
-
     return PopScope(
-      canPop: atRoot,
+      // Never pop, matching MySystemsGrid and the AppScreen shell: this is a
+      // top-level tab, so back steps *within* the browser and stops at the
+      // source menu. Deriving canPop from "am I at the root?" deadlocks the UI
+      // thread — AppScreen wraps every tab in its own canPop:false PopScope, so
+      // the route's disposition is always doNotPop, which makes Flutter notify
+      // EVERY PopEntry on the route. This callback then ran at the root and
+      // called maybePop() again, and since maybePop is async that recursion is
+      // an endless microtask chain: 100% CPU, no frames, no exception.
+      canPop: false,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _handleBack();
       },
@@ -581,7 +480,7 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
                       );
                     }
                     if (_inRomGrid) {
-                      return _buildRomGrid(theme, provider);
+                      return _buildRomView(theme, provider);
                     }
                     switch (_view) {
                       case _BrowseView.source:
@@ -1136,782 +1035,106 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
     );
   }
 
-  // ── ROM grid ────────────────────────────────────────────────────────────────
+  // ── ROM view ────────────────────────────────────────────────────────────────
 
-  Widget _buildRomGrid(ThemeData theme, RommProvider provider) {
-    return Stack(
-      children: [
-        Positioned.fill(
-          child: _romLayout == _RomLayout.grid
-              ? _buildRomGridBody(theme, provider)
-              : _buildRomListBody(theme, provider),
-        ),
-        // Floated over the tiles (which pad past it) so they run to the bottom
-        // of the screen rather than stopping short in an empty band.
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: _buildRomFooter(provider),
-        ),
-      ],
+  /// The ROM view, in whichever layout is currently selected.
+  ///
+  /// Each layout is a self-contained view that owns its own selection, scroll
+  /// position, gamepad layer, vertical legend and footer — mirroring how the
+  /// local library's list / grid / carousel are built. This screen keeps only
+  /// the pieces they can't know about: the ROM set, the download actions, and
+  /// what the footer should say about the open platform or collection.
+  Widget _buildRomView(ThemeData theme, RommProvider provider) {
+    if (provider.loadingRoms && provider.roms.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (provider.roms.isEmpty) {
+      return _centeredMessage(
+        theme,
+        Symbols.search_off_rounded,
+        AppLocale.rommNoRoms.getString(context),
+      );
+    }
+
+    final romFolders = context.watch<SqliteConfigProvider>().config.romFolders;
+    final roms = provider.roms;
+    _romIndex = _romIndex.clamp(0, roms.length - 1);
+
+    // Re-keyed per source so opening a different platform/collection remounts
+    // the view with a fresh selection and layout, rather than carrying the
+    // previous library's state (and index) into it.
+    final sourceKey = ValueKey(
+      'romm_roms_${provider.currentPlatform?.id}_${provider.currentCollection?.id}',
     );
+    Widget footerBuilder(RommRom? focused) => _buildRomFooter(provider, focused);
+    void onIndexChanged(int index) => _romIndex = index;
+    void onConfirm(RommRom rom) => _confirmRom(rom);
+    void onCancel(RommRom rom) => provider.cancelDownload(rom.id);
+
+    switch (_romLayout) {
+      case RommRomLayout.grid:
+        return RommRomGrid(
+          key: sourceKey,
+          provider: provider,
+          roms: roms,
+          romFolders: romFolders,
+          initialIndex: _romIndex,
+          onIndexChanged: onIndexChanged,
+          onConfirm: onConfirm,
+          onCancel: onCancel,
+          onBack: _handleBack,
+          onToggleView: _toggleRomLayout,
+          footerBuilder: footerBuilder,
+        );
+      case RommRomLayout.carousel:
+        return RommRomCarousel(
+          key: sourceKey,
+          provider: provider,
+          roms: roms,
+          romFolders: romFolders,
+          initialIndex: _romIndex,
+          onIndexChanged: onIndexChanged,
+          onConfirm: onConfirm,
+          onCancel: onCancel,
+          onBack: _handleBack,
+          onToggleView: _toggleRomLayout,
+          footerBuilder: footerBuilder,
+        );
+      case RommRomLayout.list:
+        return RommRomList(
+          key: sourceKey,
+          provider: provider,
+          roms: roms,
+          romFolders: romFolders,
+          initialIndex: _romIndex,
+          onIndexChanged: onIndexChanged,
+          onConfirm: onConfirm,
+          onCancel: onCancel,
+          onBack: _handleBack,
+          onToggleView: _toggleRomLayout,
+          footerBuilder: footerBuilder,
+        );
+    }
   }
 
-  /// Footer for the ROM view: the open platform/collection on the left, gamepad
-  /// hints (toggle view, download, back) on the right. Same [RommBrowseFooter]
-  /// the platform view uses, which in turn matches the local systems footer.
-  Widget _buildRomFooter(RommProvider provider) {
+  /// Footer for the ROM view. Same [RommBrowseFooter] the platform view uses,
+  /// which in turn matches the local systems footer — but the pill names the
+  /// *focused ROM*, as the local game views do, with the open platform or
+  /// collection demoted to the chip beside it. In the grid and carousel the
+  /// cards are artwork only, so this is where the focused game is named.
+  Widget _buildRomFooter(RommProvider provider, RommRom? focused) {
     final platform = provider.currentPlatform;
     final collection = provider.currentCollection;
-    // The library total for the open source, not the paged-in count — the grid
-    // loads a page at a time, so provider.roms.length would keep changing.
-    final total = platform?.romCount ?? collection?.romCount;
+    final source = platform?.name ?? collection?.name ?? '';
     return RommBrowseFooter(
-      label: platform?.name ?? collection?.name ?? '',
-      countText: total == null
-          ? null
-          : '$total ${AppLocale.games.getString(context)}',
+      label: focused?.name ?? source,
+      countText: focused == null ? null : source,
       confirmLabel: AppLocale.download.getString(context),
-      onConfirm: _confirmSelection,
+      onConfirm: () {
+        if (focused != null) _confirmRom(focused);
+      },
       onBack: _handleBack,
       onToggleView: _toggleRomLayout,
-    );
-  }
-
-  Widget _buildRomGridBody(ThemeData theme, RommProvider provider) {
-    if (provider.loadingRoms && provider.roms.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (provider.roms.isEmpty) {
-      return _centeredMessage(
-        theme,
-        Symbols.search_off_rounded,
-        AppLocale.rommNoRoms.getString(context),
-      );
-    }
-
-    final romFolders = context.watch<SqliteConfigProvider>().config.romFolders;
-    _romIndex = _romIndex.clamp(0, provider.roms.length - 1);
-
-    // Smaller target cell width than the top-level card grids so more games
-    // fit on screen at once.
-    const cellExtent = 88.0;
-    final spacing = 10.r;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // Derive the real column count so GridNavUtils moves the selection by
-        // exactly one visual row/column.
-        final usableWidth =
-            constraints.maxWidth - 24.r; // 12.r padding each side
-        _romColumns = ((usableWidth + spacing) / (cellExtent.r + spacing))
-            .floor()
-            .clamp(1, 99);
-
-        // Cache geometry for arithmetic scroll-into-view (see _scrollRomTo).
-        final cellWidth =
-            (usableWidth - (_romColumns - 1) * spacing) / _romColumns;
-        _romCellHeight = cellWidth / 0.62; // childAspectRatio
-        _romRowStride = _romCellHeight + spacing; // mainAxisSpacing
-        _romTopPadding = 12.r;
-
-        return NotificationListener<ScrollNotification>(
-          onNotification: (scroll) {
-            if (scroll.metrics.pixels >=
-                    scroll.metrics.maxScrollExtent - 200.r &&
-                provider.romsHasMore &&
-                !provider.loadingRoms) {
-              provider.loadMoreRoms();
-            }
-            return false;
-          },
-          child: GridView.builder(
-            controller: _romScroll,
-            // Bottom pad by the floating footer so the last row clears it.
-            padding: EdgeInsets.fromLTRB(
-              12.r,
-              12.r,
-              12.r,
-              12.r + kCoreFooterHeight.r,
-            ),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: _romColumns,
-              childAspectRatio: 0.62,
-              crossAxisSpacing: spacing,
-              mainAxisSpacing: spacing,
-            ),
-            itemCount: provider.roms.length,
-            itemBuilder: (context, index) {
-              final rom = provider.roms[index];
-              return _RomCard(
-                rom: rom,
-                provider: provider,
-                romFolders: romFolders,
-                isFocused: _romIndex == index,
-                onDownload: () => _startDownload(rom),
-                onCancel: () => provider.cancelDownload(rom.id),
-                onTap: () => setState(() => _romIndex = index),
-              );
-            },
-          ),
-        );
-      },
-    );
-  }
-
-  /// List layout for the ROM view: full-width rows (thumbnail + name + download
-  /// control), reusing the same download-aware [_RomCard]. A single column, so
-  /// gamepad up/down step one row and scroll-into-view arithmetic is trivial.
-  Widget _buildRomListBody(ThemeData theme, RommProvider provider) {
-    if (provider.loadingRoms && provider.roms.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (provider.roms.isEmpty) {
-      return _centeredMessage(
-        theme,
-        Symbols.search_off_rounded,
-        AppLocale.rommNoRoms.getString(context),
-      );
-    }
-
-    final romFolders = context.watch<SqliteConfigProvider>().config.romFolders;
-    _romIndex = _romIndex.clamp(0, provider.roms.length - 1);
-
-    // Single-column list: fixed row height + spacing gives the geometry that
-    // _scrollRomTo needs to centre any (possibly not-yet-built) row.
-    _romColumns = 1;
-    final itemHeight = 98.r;
-    final spacing = 8.r;
-    _romCellHeight = itemHeight;
-    _romRowStride = itemHeight + spacing;
-    _romTopPadding = 12.r;
-
-    return NotificationListener<ScrollNotification>(
-      onNotification: (scroll) {
-        if (scroll.metrics.pixels >= scroll.metrics.maxScrollExtent - 200.r &&
-            provider.romsHasMore &&
-            !provider.loadingRoms) {
-          provider.loadMoreRoms();
-        }
-        return false;
-      },
-      child: ListView.separated(
-        controller: _romScroll,
-        // Bottom pad by the floating footer so the last row clears it.
-        padding: EdgeInsets.fromLTRB(
-          12.r,
-          12.r,
-          12.r,
-          12.r + kCoreFooterHeight.r,
-        ),
-        itemCount: provider.roms.length,
-        separatorBuilder: (_, _) => SizedBox(height: spacing),
-        itemBuilder: (context, index) {
-          final rom = provider.roms[index];
-          return SizedBox(
-            height: itemHeight,
-            child: _RomCard(
-              rom: rom,
-              provider: provider,
-              romFolders: romFolders,
-              isFocused: _romIndex == index,
-              layout: _RomLayout.list,
-              onDownload: () => _startDownload(rom),
-              onCancel: () => provider.cancelDownload(rom.id),
-              onTap: () => setState(() => _romIndex = index),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-/// A single ROM tile: cover art, name, and a download/progress/done control.
-class _RomCard extends StatefulWidget {
-  final RommRom rom;
-  final RommProvider provider;
-  final List<String> romFolders;
-  final bool isFocused;
-  final VoidCallback onDownload;
-  final VoidCallback onCancel;
-  final VoidCallback onTap;
-  final _RomLayout layout;
-
-  const _RomCard({
-    required this.rom,
-    required this.provider,
-    required this.romFolders,
-    required this.isFocused,
-    required this.onDownload,
-    required this.onCancel,
-    required this.onTap,
-    this.layout = _RomLayout.grid,
-  });
-
-  @override
-  State<_RomCard> createState() => _RomCardState();
-}
-
-class _RomCardState extends State<_RomCard> {
-  bool _alreadyDownloaded = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _checkDownloaded();
-  }
-
-  Future<void> _checkDownloaded() async {
-    final exists = await widget.provider.isDownloadedCached(
-      widget.rom,
-      widget.romFolders,
-    );
-    if (mounted && exists != _alreadyDownloaded) {
-      setState(() => _alreadyDownloaded = exists);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final coverUrl = widget.provider.service.coverUrl(widget.rom);
-    final download = widget.provider.downloadFor(widget.rom.id);
-    final scheme = theme.colorScheme;
-
-    return widget.layout == _RomLayout.list
-        ? _buildListTile(theme, scheme, coverUrl, download)
-        : _buildGridCard(theme, scheme, coverUrl, download);
-  }
-
-  Widget _buildGridCard(
-    ThemeData theme,
-    ColorScheme scheme,
-    String? coverUrl,
-    RommDownload? download,
-  ) {
-    return GestureDetector(
-      onTap: widget.onTap,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Container(
-              // No fill: the cover art is the tile's backdrop; a smaller radius
-              // matches the artwork's rounded corners.
-              decoration: _rommFocusDecoration(
-                scheme,
-                widget.isFocused,
-                radius: 8,
-                fill: false,
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(6.r),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    _buildCover(theme, coverUrl),
-                    if (widget.rom.hasRetroAchievements) _buildRaBadge(),
-                    _buildOverlay(theme, download),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          SizedBox(height: 4.r),
-          Text(
-            widget.rom.name,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 10.r,
-              fontWeight: widget.isFocused
-                  ? FontWeight.w700
-                  : FontWeight.normal,
-              color: widget.isFocused ? scheme.primary : scheme.onSurface,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Full-width list row: square thumbnail (with RA badge) + name, and a compact
-  /// trailing download control. Shares all download state with the grid card;
-  /// only the arrangement differs, so the overlay is swapped for a right-hand
-  /// control that reads clearly at row scale.
-  Widget _buildListTile(
-    ThemeData theme,
-    ColorScheme scheme,
-    String? coverUrl,
-    RommDownload? download,
-  ) {
-    return GestureDetector(
-      onTap: widget.onTap,
-      child: Container(
-        decoration: _rommFocusDecoration(scheme, widget.isFocused, radius: 8),
-        padding: EdgeInsets.symmetric(horizontal: 8.r, vertical: 6.r),
-        child: Row(
-          children: [
-            // Fixed square thumbnail — a hard size avoids any intrinsic/aspect
-            // sizing negotiation inside the Row.
-            SizedBox(
-              width: 72.r,
-              height: 72.r,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(6.r),
-                child: _buildCover(theme, coverUrl),
-              ),
-            ),
-            SizedBox(width: 10.r),
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.start,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Nudge the title down so it doesn't sit flush with the
-                  // thumbnail's top edge.
-                  SizedBox(height: 4.r),
-                  Text(
-                    widget.rom.name,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 12.r,
-                      fontWeight: widget.isFocused
-                          ? FontWeight.w700
-                          : FontWeight.w500,
-                      // Keep the title high-contrast when focused: the focus fill
-                      // is a primary tint, so primary-coloured text washes out —
-                      // white reads cleanly over it.
-                      color: scheme.onSurface,
-                    ),
-                  ),
-                  SizedBox(height: 3.r),
-                  _buildListMeta(theme, scheme),
-                  SizedBox(height: 2.r),
-                  _buildListBottomLine(scheme, download),
-                  SizedBox(height: 2.r),
-                  _buildListSubtitle(scheme),
-                ],
-              ),
-            ),
-            SizedBox(width: 8.r),
-            _buildListControl(theme, download),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Secondary metadata line for the list layout: platform, RA progress, file
-  /// size, and a multi-disc marker — the extra room a taller row buys us.
-  Widget _buildListMeta(ThemeData theme, ColorScheme scheme) {
-    final rom = widget.rom;
-    final muted = scheme.onSurface.withValues(alpha: 0.6);
-    final chips = <Widget>[];
-
-    final platform = _platformLabel();
-    if (platform != null) {
-      chips.add(_metaChip(Symbols.videogame_asset_rounded, platform, muted));
-    }
-
-    if (rom.hasRetroAchievements) {
-      final earned = widget.provider.raEarnedFor(rom);
-      final label = earned != null
-          ? '$earned/${rom.raTotalAchievements}'
-          : '${rom.raTotalAchievements}';
-      chips.add(
-        _metaChip(
-          Symbols.emoji_events_rounded,
-          label,
-          Colors.orangeAccent.withValues(alpha: earned != null ? 0.9 : 0.55),
-        ),
-      );
-    }
-
-    final size = _sizeLabel(rom.fsSizeBytes);
-    if (size != null) {
-      chips.add(_metaChip(null, size, muted));
-    }
-
-    if (rom.isMultiFile) {
-      chips.add(_metaChip(Symbols.album_rounded, 'Multi', muted));
-    }
-
-    if (chips.isEmpty) return const SizedBox.shrink();
-
-    return Row(
-      children: [
-        for (var i = 0; i < chips.length; i++) ...[
-          if (i > 0) SizedBox(width: 8.r),
-          Flexible(fit: FlexFit.loose, child: chips[i]),
-        ],
-      ],
-    );
-  }
-
-  /// Third metadata line: the actual ROM file name (region tags, revision,
-  /// extension) — distinct from the cleaned display name above.
-  Widget _buildListSubtitle(ColorScheme scheme) {
-    final file = widget.rom.fsName;
-    if (file.isEmpty) return const SizedBox.shrink();
-    return Text(
-      file,
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      style: TextStyle(
-        fontSize: 9.r,
-        fontWeight: FontWeight.w500,
-        color: scheme.onSurface.withValues(alpha: 0.45),
-      ),
-    );
-  }
-
-  /// Fourth line: the ROM's genre when known — the right-hand control already
-  /// conveys download state, so the genre is the more useful use of this line.
-  /// While a download is in progress the live percentage takes over (the extra
-  /// feedback is worth it), and when no genre is available the line falls back
-  /// to the download-state chip so the row is never left blank.
-  Widget _buildListBottomLine(ColorScheme scheme, RommDownload? download) {
-    if (download != null && download.status == RommDownloadStatus.downloading) {
-      final fraction = download.fraction;
-      final pct = fraction != null
-          ? ' ${(fraction * 100).clamp(0, 100).round()}%'
-          : '';
-      return _metaChip(
-        Symbols.downloading_rounded,
-        '${AppLocale.rommDownloading.getString(context)}$pct',
-        scheme.primary,
-      );
-    }
-
-    final genre = widget.rom.genre;
-    if (genre != null && genre.isNotEmpty) {
-      return _metaChip(
-        Symbols.category_rounded,
-        genre,
-        scheme.onSurface.withValues(alpha: 0.6),
-      );
-    }
-
-    final isDone =
-        _alreadyDownloaded ||
-        (download != null && download.status == RommDownloadStatus.completed);
-    if (isDone) {
-      return _metaChip(
-        Symbols.check_circle_rounded,
-        AppLocale.rommDownloaded.getString(context),
-        Colors.greenAccent.withValues(alpha: 0.9),
-      );
-    }
-    return _metaChip(
-      Symbols.cloud_download_rounded,
-      AppLocale.download.getString(context),
-      scheme.onSurface.withValues(alpha: 0.5),
-    );
-  }
-
-  /// A single icon+text metadata pill (icon optional).
-  Widget _metaChip(IconData? icon, String label, Color color) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (icon != null) ...[
-          Icon(icon, size: 12.r, color: color),
-          SizedBox(width: 3.r),
-        ],
-        Flexible(
-          child: Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 10.r,
-              fontWeight: FontWeight.w600,
-              color: color,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// Human-readable platform name for this ROM, resolved from the loaded
-  /// platform list (falls back to the upper-cased slug).
-  String? _platformLabel() {
-    final slug = widget.rom.platformSlug;
-    if (slug.isEmpty) return null;
-    for (final p in widget.provider.platforms) {
-      if (p.slug == slug) return p.name;
-    }
-    return slug.toUpperCase();
-  }
-
-  /// Compact size label (e.g. "2.1 MB"); null when the size is unknown.
-  String? _sizeLabel(int bytes) {
-    if (bytes <= 0) return null;
-    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-    var value = bytes.toDouble();
-    var unit = 0;
-    while (value >= 1024 && unit < units.length - 1) {
-      value /= 1024;
-      unit++;
-    }
-    final text = value >= 100 || unit == 0
-        ? value.toStringAsFixed(0)
-        : value.toStringAsFixed(1);
-    return '$text ${units[unit]}';
-  }
-
-  /// Compact trailing download control for the list layout: live progress +
-  /// cancel while downloading, otherwise a download / done affordance.
-  Widget _buildListControl(ThemeData theme, RommDownload? download) {
-    final scheme = theme.colorScheme;
-    if (download != null && download.status == RommDownloadStatus.downloading) {
-      final fraction = download.fraction;
-      return GestureDetector(
-        onTap: widget.onCancel,
-        child: SizedBox(
-          width: 30.r,
-          height: 30.r,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              SizedBox.expand(
-                child: CircularProgressIndicator(
-                  strokeWidth: 3.r,
-                  value: fraction,
-                  color: scheme.primary,
-                ),
-              ),
-              Icon(Symbols.close_rounded, size: 14.r, color: scheme.onSurface),
-            ],
-          ),
-        ),
-      );
-    }
-
-    final isDone =
-        _alreadyDownloaded ||
-        (download != null && download.status == RommDownloadStatus.completed);
-    return IconButton(
-      padding: EdgeInsets.zero,
-      constraints: BoxConstraints.tightFor(width: 34.r, height: 34.r),
-      iconSize: 22.r,
-      onPressed: isDone
-          ? null
-          : () {
-              widget.onDownload();
-              // Re-check presence shortly after a completed download.
-              Future.delayed(const Duration(seconds: 1), _checkDownloaded);
-            },
-      icon: Icon(
-        isDone ? Symbols.check_circle_rounded : Symbols.download_rounded,
-        color: isDone ? Colors.greenAccent : scheme.onSurface,
-      ),
-    );
-  }
-
-  Widget _buildCover(ThemeData theme, String? coverUrl) {
-    if (coverUrl == null) {
-      return _coverPlaceholder(theme);
-    }
-    return Image.network(
-      coverUrl,
-      fit: BoxFit.cover,
-      headers: widget.provider.service.imageHeadersFor(coverUrl),
-      errorBuilder: (_, _, _) => _coverPlaceholder(theme),
-      loadingBuilder: (context, child, progress) {
-        if (progress == null) return child;
-        return _coverPlaceholder(theme);
-      },
-    );
-  }
-
-  Widget _coverPlaceholder(ThemeData theme) {
-    return Container(
-      color: theme.colorScheme.surface,
-      child: Center(
-        child: Icon(
-          Symbols.videogame_asset_rounded,
-          size: 28.r,
-          color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
-        ),
-      ),
-    );
-  }
-
-  /// Top-left badge showing the ROM has RetroAchievements and, when RomM has
-  /// synced the user's progression, their earned/total count. The download
-  /// badge owns the bottom-right corner, so this sits top-left.
-  Widget _buildRaBadge() {
-    final rom = widget.rom;
-    final earned = widget.provider.raEarnedFor(rom);
-    final total = rom.raTotalAchievements;
-    final hasProgress = earned != null;
-    final label = hasProgress ? '$earned/$total' : '$total';
-
-    return Positioned.fill(
-      child: Align(
-        alignment: Alignment.topLeft,
-        child: Padding(
-          padding: EdgeInsets.all(4.r),
-          child: Semantics(
-            label: hasProgress
-                ? 'RetroAchievements: $earned of $total earned'
-                : 'RetroAchievements: $total achievements',
-            child: Container(
-              padding: EdgeInsets.symmetric(horizontal: 6.r, vertical: 3.r),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.82),
-                borderRadius: BorderRadius.circular(10.r),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Symbols.emoji_events_rounded,
-                    size: 14.r,
-                    // Dim the trophy when progress isn't synced.
-                    color: Colors.orangeAccent.withValues(
-                      alpha: hasProgress ? 1.0 : 0.6,
-                    ),
-                  ),
-                  SizedBox(width: 3.r),
-                  Text(
-                    label,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 10.r,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildOverlay(ThemeData theme, RommDownload? download) {
-    // Active download: prominent, unambiguous progress + cancel affordance.
-    if (download != null && download.status == RommDownloadStatus.downloading) {
-      final fraction = download.fraction;
-      final pctLabel = fraction != null
-          ? '${(fraction * 100).clamp(0, 100).round()}%'
-          : null;
-      return GestureDetector(
-        onTap: widget.onCancel,
-        child: Container(
-          color: Colors.black.withValues(alpha: 0.72),
-          padding: EdgeInsets.symmetric(horizontal: 4.r),
-          child: Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Spinner with the live percentage stacked in its centre.
-                SizedBox(
-                  width: 34.r,
-                  height: 34.r,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      SizedBox.expand(
-                        child: CircularProgressIndicator(
-                          strokeWidth: 3.r,
-                          value: fraction,
-                          color: theme.colorScheme.primary,
-                          backgroundColor: Colors.white.withValues(alpha: 0.25),
-                        ),
-                      ),
-                      if (pctLabel != null)
-                        Text(
-                          pctLabel,
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 9.sp,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                SizedBox(height: 6.r),
-                Text(
-                  AppLocale.rommDownloading.getString(context),
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 10.sp,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                SizedBox(height: 5.r),
-                // Explicit cancel chip so it's obvious a press stops the download.
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 8.r, vertical: 2.r),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(10.r),
-                  ),
-                  child: Text(
-                    AppLocale.cancel.getString(context),
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 9.sp,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
-    final isDone =
-        _alreadyDownloaded ||
-        (download != null && download.status == RommDownloadStatus.completed);
-
-    return Positioned.fill(
-      child: Align(
-        alignment: Alignment.bottomRight,
-        child: Padding(
-          padding: EdgeInsets.all(4.r),
-          child: GestureDetector(
-            onTap: isDone
-                ? null
-                : () {
-                    widget.onDownload();
-                    // Re-check presence shortly after a completed download.
-                    Future.delayed(
-                      const Duration(seconds: 1),
-                      _checkDownloaded,
-                    );
-                  },
-            child: Container(
-              padding: EdgeInsets.all(5.r),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.6),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                isDone
-                    ? Symbols.check_circle_rounded
-                    : Symbols.download_rounded,
-                size: 18.r,
-                color: isDone ? Colors.greenAccent : Colors.white,
-              ),
-            ),
-          ),
-        ),
-      ),
     );
   }
 }
@@ -2053,7 +1276,7 @@ class _MenuCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        decoration: _rommFocusDecoration(scheme, isFocused),
+        decoration: rommFocusDecoration(scheme, isFocused),
         padding: EdgeInsets.all(6.r),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -2116,7 +1339,7 @@ class _SourceMenuCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        decoration: _rommFocusDecoration(scheme, isFocused),
+        decoration: rommFocusDecoration(scheme, isFocused),
         padding: EdgeInsets.all(8.r),
         child: Column(
           children: [
@@ -2172,7 +1395,7 @@ class _CollectionCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        decoration: _rommFocusDecoration(scheme, isFocused),
+        decoration: rommFocusDecoration(scheme, isFocused),
         padding: EdgeInsets.all(8.r),
         child: Column(
           children: [
@@ -2289,37 +1512,3 @@ Widget _coverTile(
   );
 }
 
-/// Shared focus/selection decoration for RomM browse tiles: a subtle primary
-/// fill (list tiles), a primary border, and a soft primary glow when focused.
-///
-/// [radius] and [fill] are the only per-tile variations: image tiles (ROM
-/// cards) pass `fill: false` so the cover art shows through, with a tighter
-/// [radius] to match the artwork's corners.
-BoxDecoration _rommFocusDecoration(
-  ColorScheme scheme,
-  bool isFocused, {
-  double radius = 12,
-  bool fill = true,
-}) {
-  return BoxDecoration(
-    color: fill
-        ? (isFocused
-              ? scheme.primary.withValues(alpha: 0.18)
-              : scheme.surface.withValues(alpha: 0.5))
-        : null,
-    borderRadius: BorderRadius.circular(radius.r),
-    border: Border.all(
-      color: isFocused ? scheme.primary : Colors.transparent,
-      width: 2.r,
-    ),
-    boxShadow: isFocused
-        ? [
-            BoxShadow(
-              color: scheme.primary.withValues(alpha: 0.3),
-              blurRadius: 8.r,
-              spreadRadius: 1.r,
-            ),
-          ]
-        : null,
-  );
-}

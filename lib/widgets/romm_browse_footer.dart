@@ -12,6 +12,10 @@ import 'footer_label_pill.dart';
 /// the left, gamepad controls on the right — so the remote library reads like
 /// the local one. Only the controls differ: the ROM view adds an X view-mode
 /// toggle, and both views offer B to step back.
+///
+/// The pill always names the *focused* item: the platform in the platform view,
+/// the focused ROM in the ROM views (where the grid and carousel cards are
+/// artwork only, so this is the one place the game is named).
 class RommBrowseFooter extends CoreFooter {
   /// Name shown in the pill: the focused platform, or the open platform /
   /// collection while its ROMs are being browsed.
