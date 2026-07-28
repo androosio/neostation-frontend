@@ -39,9 +39,9 @@ class RommBrowseScreen extends StatefulWidget {
 /// Which top-level list is showing when not drilled into a ROM grid.
 enum _BrowseView { source, platforms, collections }
 
-/// A card on the intermediate source menu. [search] opens a library-wide ROM
-/// search; [collections]/[platforms] open their list.
-enum _SourceCard { search, collections, platforms }
+/// A card on the intermediate source menu. [collections]/[platforms] open their
+/// list. Searching the library is handled outside this screen.
+enum _SourceCard { collections, platforms }
 
 /// How the ROM view lays out its tiles — mirrors the game library's grid/list
 /// view-mode concept (RomM keeps its own download-aware tiles either way).
@@ -57,9 +57,6 @@ typedef _GridNavFn =
     });
 
 class _RommBrowseScreenState extends State<RommBrowseScreen> {
-  final TextEditingController _searchController = TextEditingController();
-  final FocusNode _searchFocus = FocusNode();
-
   // The intermediate source menu sits ahead of the platform/collection lists.
   _BrowseView _view = _BrowseView.source;
   int _sourceIndex = 0;
@@ -70,7 +67,6 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
 
   /// Source-menu cards, in display order.
   List<_SourceCard> get _sourceCards => [
-    _SourceCard.search,
     _SourceCard.collections,
     _SourceCard.platforms,
   ];
@@ -121,8 +117,7 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
   /// True while a platform or collection is open (i.e. the ROM grid is showing).
   bool get _inRomGrid =>
       _rommProvider.currentPlatform != null ||
-      _rommProvider.currentCollection != null ||
-      _rommProvider.librarySearch;
+      _rommProvider.currentCollection != null;
 
   @override
   void initState() {
@@ -149,7 +144,11 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
         onDeactivate: () => _gamepadNav.deactivate(),
       );
       if (_rommProvider.isConnected) {
+        // Both lists are fetched up front (and cached by the provider): the
+        // source menu previews each one as a cover/icon montage, so the data is
+        // needed before the user drills into either.
         _rommProvider.loadPlatforms();
+        _rommProvider.loadCollections();
       }
     });
   }
@@ -162,8 +161,6 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
     _platformScroll.dispose();
     _collectionScroll.dispose();
     _romScroll.dispose();
-    _searchController.dispose();
-    _searchFocus.dispose();
     // The post-download rescan + per-system list refresh is handled by
     // RommProvider's debounced settle (see RommProvider.onDownloadsSettled,
     // wired in main.dart). It fires independently of this screen's lifecycle,
@@ -436,7 +433,6 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
       case _BrowseView.platforms:
         final platforms = _rommProvider.platforms;
         if (platforms.isEmpty || _platformIndex >= platforms.length) return;
-        _searchController.clear();
         setState(() => _romIndex = 0);
         _rommProvider.selectPlatform(platforms[_platformIndex]);
         break;
@@ -445,7 +441,6 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
         if (collections.isEmpty || _collectionIndex >= collections.length) {
           return;
         }
-        _searchController.clear();
         setState(() => _romIndex = 0);
         _rommProvider.selectCollection(collections[_collectionIndex]);
         break;
@@ -455,9 +450,6 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
   /// Dispatches a source-menu card selection to its destination.
   void _activateSourceCard(_SourceCard card) {
     switch (card) {
-      case _SourceCard.search:
-        _openLibrarySearch();
-        break;
       case _SourceCard.collections:
         _openSource(_BrowseView.collections);
         break;
@@ -477,18 +469,6 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
     }
   }
 
-  /// Enters the library-wide ROM search (its own card on the source menu). Opens
-  /// the ROM grid over the entire library; the grid's search bar narrows it.
-  void _openLibrarySearch() {
-    _searchController.clear();
-    setState(() => _romIndex = 0);
-    _rommProvider.searchLibrary('');
-    // Bring up the keyboard so a search can be typed immediately.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _searchFocus.requestFocus();
-    });
-  }
-
   void _handleBack() {
     if (_inRomGrid) {
       _returnToList();
@@ -504,21 +484,13 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
   /// list's scroll to the drilled-into row (the list is rebuilt fresh, so the
   /// offset is set explicitly).
   void _returnToList() {
-    final wasLibrary = _rommProvider.librarySearch;
     final wasCollection = _rommProvider.currentCollection != null;
-    _searchController.clear();
     setState(() {
       _romIndex = 0;
-      _view = wasLibrary
-          ? _BrowseView.source
-          : wasCollection
-          ? _BrowseView.collections
-          : _BrowseView.platforms;
+      _view = wasCollection ? _BrowseView.collections : _BrowseView.platforms;
     });
     _rommProvider.backToPlatforms();
-    if (wasLibrary) {
-      _scrollGridTo(_sourceScroll, _sourceGeom, _sourceIndex);
-    } else if (wasCollection) {
+    if (wasCollection) {
       _scrollGridTo(_collectionScroll, _collectionGeom, _collectionIndex);
     } else {
       _scrollGridTo(_platformScroll, _platformGeom, _platformIndex);
@@ -598,9 +570,8 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
             children: [
               // In the ROM browse view the title/back bar is redundant: the
               // footer carries the platform name and a B-back hint. Keep the bar
-              // for the source/list views and library search.
-              if (!(_inRomGrid && !provider.librarySearch))
-                _buildTitleBar(theme, provider),
+              // for the source/list views.
+              if (!_inRomGrid) _buildTitleBar(theme, provider),
               Expanded(
                 child: Builder(
                   builder: (context) {
@@ -616,7 +587,7 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
                     }
                     switch (_view) {
                       case _BrowseView.source:
-                        return _buildSourceMenu(theme);
+                        return _buildSourceMenu(theme, provider);
                       case _BrowseView.platforms:
                         return _buildPlatformList(theme, provider);
                       case _BrowseView.collections:
@@ -641,13 +612,20 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
     // who's logged in and a red disconnect affordance.
     final showAccount = atRoot && provider.isConnected;
     return SizedBox(
-      height: showAccount ? 48.r : 40.r,
+      // The list views get a tight bar so their grid starts as high as
+      // possible; only the account header needs the taller two-line strip.
+      height: showAccount ? 48.r : 28.r,
       child: Row(
         children: [
           if (!atRoot)
             IconButton(
               icon: const Icon(Symbols.arrow_back_rounded),
-              iconSize: 20.r,
+              iconSize: 18.r,
+              // Default IconButton padding is a 48px tap target, which alone is
+              // taller than this bar — inset it manually instead.
+              padding: EdgeInsets.symmetric(horizontal: 8.r, vertical: 4.r),
+              constraints: const BoxConstraints(),
+              visualDensity: VisualDensity.compact,
               onPressed: _handleBack,
             )
           else
@@ -659,7 +637,7 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        _appBarTitle(provider),
+                        _appBarTitle(),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -683,10 +661,13 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
                     ],
                   )
                 : Text(
-                    _appBarTitle(provider),
+                    _appBarTitle(),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 16.r, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      fontSize: 16.r,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
           ),
           if (showAccount) ...[
@@ -751,15 +732,9 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
     setState(() {});
   }
 
-  String _appBarTitle(RommProvider provider) {
-    if (_inRomGrid) {
-      if (provider.librarySearch) {
-        return AppLocale.rommSearch.getString(context);
-      }
-      // The platform/collection name is shown in the footer now — leave the
-      // title bar to just the back button here.
-      return '';
-    }
+  /// Title for the in-content header. Only the source/list views show it — the
+  /// ROM view drops the bar entirely and carries its name in the footer.
+  String _appBarTitle() {
     switch (_view) {
       case _BrowseView.platforms:
         return AppLocale.rommPlatforms.getString(context);
@@ -772,34 +747,143 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
 
   // ── Source menu ─────────────────────────────────────────────────────────────
 
-  Widget _buildSourceMenu(ThemeData theme) {
+  /// The two entry cards, centred in the viewport rather than packed into the
+  /// top-left of a grid — with only Collections and Platforms left, a grid
+  /// stranded them in a corner of an otherwise empty screen.
+  Widget _buildSourceMenu(ThemeData theme, RommProvider provider) {
     final scheme = theme.colorScheme;
     final cards = _sourceCards;
-    return _buildCardGrid(
-      controller: _sourceScroll,
-      geom: _sourceGeom,
-      count: cards.length,
-      cellExtent: 150,
-      itemBuilder: (context, index) {
-        final card = cards[index];
-        return _MenuCard(
-          icon: _sourceCardIcon(card),
-          title: _sourceCardTitle(card),
-          isFocused: _sourceIndex == index,
-          scheme: scheme,
-          onTap: () {
-            setState(() => _sourceIndex = index);
-            _activateSourceCard(card);
-          },
+    final spacing = 16.r;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final usableWidth = constraints.maxWidth - 24.r;
+        final usableHeight = constraints.maxHeight - 24.r;
+        // Side by side when the screen is wide enough for two readable cards,
+        // stacked otherwise (portrait / very narrow panels).
+        final columns = usableWidth >= 320.r ? cards.length : 1;
+        final rows = (cards.length / columns).ceil();
+        // Square cards, bounded by both axes so nothing overflows on a short
+        // viewport, and capped so they don't balloon on a large display.
+        final cell = [
+          (usableWidth - (columns - 1) * spacing) / columns,
+          (usableHeight - (rows - 1) * spacing) / rows,
+          240.r,
+        ].reduce((a, b) => a < b ? a : b);
+        // Gamepad navigation and scroll-into-view read this geometry back.
+        _sourceGeom
+          ..columns = columns
+          ..cellHeight = cell
+          ..rowStride = cell + spacing
+          ..topPadding = 12.r;
+        return SingleChildScrollView(
+          controller: _sourceScroll,
+          child: SizedBox(
+            height: constraints.maxHeight,
+            child: Center(
+              child: Wrap(
+                spacing: spacing,
+                runSpacing: spacing,
+                alignment: WrapAlignment.center,
+                children: [
+                  for (var index = 0; index < cards.length; index++)
+                    SizedBox(
+                      width: cell,
+                      height: cell,
+                      child: _buildSourceCard(
+                        cards[index],
+                        index,
+                        scheme,
+                        provider,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
         );
       },
     );
   }
 
+  Widget _buildSourceCard(
+    _SourceCard card,
+    int index,
+    ColorScheme scheme,
+    RommProvider provider,
+  ) {
+    return _SourceMenuCard(
+      icon: _sourceCardIcon(card),
+      title: _sourceCardTitle(card),
+      tiles: _sourceCardTiles(card, scheme, provider),
+      isFocused: _sourceIndex == index,
+      scheme: scheme,
+      onTap: () {
+        setState(() => _sourceIndex = index);
+        _activateSourceCard(card);
+      },
+    );
+  }
+
+  /// Montage tiles previewing what a source card opens: cover art for
+  /// Collections, platform icons for Platforms. Empty until the corresponding
+  /// list has loaded, which drops the card back to its plain icon.
+  List<Widget> _sourceCardTiles(
+    _SourceCard card,
+    ColorScheme scheme,
+    RommProvider provider,
+  ) {
+    switch (card) {
+      case _SourceCard.collections:
+        return [
+          for (final url in _collectionMontageCovers(provider))
+            _coverTile(url, scheme, provider.service.imageHeadersFor),
+        ];
+      case _SourceCard.platforms:
+        return [
+          for (final platform in _montagePlatforms(provider))
+            // Each icon sits on its own panel so the mosaic reads as four
+            // tiles, the way the collection covers do.
+            ColoredBox(
+              color: scheme.surface.withValues(alpha: 0.5),
+              child: _PlatformIcon(
+                key: ValueKey(platform.id),
+                platform: platform,
+                service: provider.service,
+                fill: true,
+              ),
+            ),
+        ];
+    }
+  }
+
+  /// Up to four cover URLs for the Collections montage — one per collection
+  /// first, so the mosaic samples across the library rather than showing four
+  /// covers from the same collection; topped up from the collections' remaining
+  /// covers when the user has fewer than four collections.
+  List<String> _collectionMontageCovers(RommProvider provider) {
+    final service = provider.service;
+    final urls = <String>{};
+    for (final collection in provider.collections) {
+      urls.addAll(service.collectionCovers(collection, limit: 1));
+      if (urls.length == 4) return urls.toList();
+    }
+    for (final collection in provider.collections) {
+      urls.addAll(service.collectionCovers(collection));
+      if (urls.length >= 4) break;
+    }
+    return urls.take(4).toList();
+  }
+
+  /// The four biggest platforms by ROM count — the ones the user is most likely
+  /// to recognise their own library by.
+  List<RommPlatform> _montagePlatforms(RommProvider provider) {
+    final sorted = [...provider.platforms]
+      ..sort((a, b) => b.romCount.compareTo(a.romCount));
+    return sorted.take(4).toList();
+  }
+
   IconData _sourceCardIcon(_SourceCard card) {
     switch (card) {
-      case _SourceCard.search:
-        return Symbols.search_rounded;
       case _SourceCard.collections:
         return Symbols.collections_bookmark_rounded;
       case _SourceCard.platforms:
@@ -809,8 +893,6 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
 
   String _sourceCardTitle(_SourceCard card) {
     switch (card) {
-      case _SourceCard.search:
-        return AppLocale.rommSearch.getString(context);
       case _SourceCard.collections:
         return AppLocale.rommCollections.getString(context);
       case _SourceCard.platforms:
@@ -818,9 +900,9 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
     }
   }
 
-  /// Shared square-card grid backing the three top-level views (source menu,
-  /// platforms, collections). Records its computed layout into [geom] so
-  /// gamepad navigation and scroll-into-view can work off exact geometry.
+  /// Shared square-card grid backing the platform and collection lists. Records
+  /// its computed layout into [geom] so gamepad navigation and scroll-into-view
+  /// can work off exact geometry.
   Widget _buildCardGrid({
     required ScrollController controller,
     required _GridGeom geom,
@@ -830,9 +912,14 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
     double aspectRatio = 1.0,
   }) {
     final spacing = 10.r;
+    // The title bar directly above already separates the grid from the nav
+    // header, so the first row sits close under it rather than repeating that
+    // gap — the screen is short and every row of cards counts.
+    final topPadding = 4.r;
     return LayoutBuilder(
       builder: (context, constraints) {
-        final usableWidth = constraints.maxWidth - 24.r; // 12.r padding each side
+        final usableWidth =
+            constraints.maxWidth - 24.r; // 12.r padding each side
         geom.columns = ((usableWidth + spacing) / (cellExtent.r + spacing))
             .floor()
             .clamp(1, 99);
@@ -840,10 +927,10 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
             (usableWidth - (geom.columns - 1) * spacing) / geom.columns;
         geom.cellHeight = cellWidth / aspectRatio;
         geom.rowStride = geom.cellHeight + spacing;
-        geom.topPadding = 12.r;
+        geom.topPadding = topPadding;
         return GridView.builder(
           controller: controller,
-          padding: EdgeInsets.all(12.r),
+          padding: EdgeInsets.fromLTRB(12.r, topPadding, 12.r, 12.r),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: geom.columns,
             childAspectRatio: aspectRatio,
@@ -888,7 +975,6 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
           isFocused: _collectionIndex == index,
           scheme: scheme,
           onTap: () {
-            _searchController.clear();
             setState(() {
               _collectionIndex = index;
               _romIndex = 0;
@@ -950,13 +1036,16 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
       itemBuilder: (context, index) {
         final platform = provider.platforms[index];
         return _MenuCard(
-          leading: _PlatformIcon(platform: platform, service: provider.service),
+          leading: _PlatformIcon(
+            platform: platform,
+            service: provider.service,
+            fill: true,
+          ),
           title: platform.name,
           subtitle: '${platform.romCount}',
           isFocused: _platformIndex == index,
           scheme: scheme,
           onTap: () {
-            _searchController.clear();
             setState(() {
               _platformIndex = index;
               _romIndex = 0;
@@ -973,23 +1062,8 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
   Widget _buildRomGrid(ThemeData theme, RommProvider provider) {
     return Column(
       children: [
-        // The search box only earns its vertical space in library-search mode,
-        // where typing a query is the whole point. Platform/collection browsing
-        // drops it to reclaim room for ROM rows.
-        if (provider.librarySearch) _buildSearchBar(theme, provider),
         Expanded(
-          child:
-              (provider.librarySearch &&
-                  provider.searchTerm.trim().isEmpty &&
-                  provider.roms.isEmpty)
-              // Library search is query-driven: prompt rather than loading the
-              // whole server library.
-              ? _centeredMessage(
-                  theme,
-                  Symbols.search_rounded,
-                  AppLocale.rommSearch.getString(context),
-                )
-              : _romLayout == _RomLayout.grid
+          child: _romLayout == _RomLayout.grid
               ? _buildRomGridBody(theme, provider)
               : _buildRomListBody(theme, provider),
         ),
@@ -1003,7 +1077,9 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
   /// library's footer layout.
   Widget _buildRomFooter(ThemeData theme, RommProvider provider) {
     final source =
-        provider.currentPlatform?.name ?? provider.currentCollection?.name ?? '';
+        provider.currentPlatform?.name ??
+        provider.currentCollection?.name ??
+        '';
     return Container(
       height: 42.r,
       padding: EdgeInsets.symmetric(horizontal: 12.r),
@@ -1051,34 +1127,6 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
             onTap: _handleBack,
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildSearchBar(ThemeData theme, RommProvider provider) {
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 12.r, vertical: 8.r),
-      child: SizedBox(
-        height: 36.r,
-        child: TextField(
-          controller: _searchController,
-          focusNode: _searchFocus,
-          style: TextStyle(fontSize: 12.r),
-          decoration: InputDecoration(
-            isDense: true,
-            hintText: AppLocale.rommSearch.getString(context),
-            hintStyle: TextStyle(fontSize: 11.r),
-            prefixIcon: Icon(Symbols.search_rounded, size: 18.r),
-            filled: true,
-            fillColor: theme.colorScheme.onSurface.withValues(alpha: 0.05),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8.r),
-              borderSide: BorderSide.none,
-            ),
-          ),
-          textInputAction: TextInputAction.search,
-          onSubmitted: (value) => provider.searchRoms(value),
-        ),
       ),
     );
   }
@@ -1466,8 +1514,7 @@ class _RomCardState extends State<_RomCard> {
   /// feedback is worth it), and when no genre is available the line falls back
   /// to the download-state chip so the row is never left blank.
   Widget _buildListBottomLine(ColorScheme scheme, RommDownload? download) {
-    if (download != null &&
-        download.status == RommDownloadStatus.downloading) {
+    if (download != null && download.status == RommDownloadStatus.downloading) {
       final fraction = download.fraction;
       final pct = fraction != null
           ? ' ${(fraction * 100).clamp(0, 100).round()}%'
@@ -1816,7 +1863,16 @@ class _PlatformIcon extends StatefulWidget {
   final RommPlatform platform;
   final RommService service;
 
-  const _PlatformIcon({required this.platform, required this.service});
+  /// When true the icon fills whatever space its parent gives it (platform
+  /// cards, montage cells) instead of sitting at a fixed size.
+  final bool fill;
+
+  const _PlatformIcon({
+    super.key,
+    required this.platform,
+    required this.service,
+    this.fill = false,
+  });
 
   @override
   State<_PlatformIcon> createState() => _PlatformIconState();
@@ -1886,8 +1942,18 @@ class _PlatformIconState extends State<_PlatformIcon> {
   }
 
   /// Frames an icon at a consistent size with no background — the artwork
-  /// (colour SVG or logo) carries its own colours on the dark surface.
+  /// (colour SVG or logo) carries its own colours on the dark surface. In
+  /// [_PlatformIcon.fill] mode it instead expands into whatever space it was
+  /// given, inset slightly so it doesn't run into the tile's edge.
   Widget _frame(Widget child) {
+    if (widget.fill) {
+      // SizedBox.expand (not a bare Padding) so the artwork gets *tight*
+      // constraints: an SvgPicture/Image handed loose ones falls back to its
+      // intrinsic size and would sit small in the middle of the tile.
+      return SizedBox.expand(
+        child: Padding(padding: EdgeInsets.all(4.r), child: child),
+      );
+    }
     return SizedBox(width: 40.r, height: 40.r, child: child);
   }
 }
@@ -1903,12 +1969,10 @@ class _GridGeom {
   double topPadding = 12;
 }
 
-/// Square selectable card for the top-level grids (source menu, platforms,
-/// collections): a centred icon or custom [leading] widget, a title, and an
-/// optional [subtitle] (e.g. ROM count).
+/// Square selectable card for the platform grid: a centred [leading] widget
+/// (the platform's icon), a title, and an optional [subtitle] (e.g. ROM count).
 class _MenuCard extends StatelessWidget {
-  final IconData? icon;
-  final Widget? leading;
+  final Widget leading;
   final String title;
   final String? subtitle;
   final bool isFocused;
@@ -1916,8 +1980,7 @@ class _MenuCard extends StatelessWidget {
   final VoidCallback onTap;
 
   const _MenuCard({
-    this.icon,
-    this.leading,
+    required this.leading,
     required this.title,
     this.subtitle,
     required this.isFocused,
@@ -1931,19 +1994,14 @@ class _MenuCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         decoration: _rommFocusDecoration(scheme, isFocused),
-        padding: EdgeInsets.all(8.r),
+        padding: EdgeInsets.all(6.r),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            SizedBox(
-              height: 44.r,
-              child: Center(
-                child:
-                    leading ??
-                    Icon(icon, color: scheme.primary, size: 34.r),
-              ),
-            ),
-            SizedBox(height: 8.r),
+            // The icon takes every pixel the label and count don't need, so the
+            // artwork rather than the card padding is what fills the tile.
+            Expanded(child: Center(child: leading)),
+            SizedBox(height: 4.r),
             Text(
               title,
               maxLines: 2,
@@ -1965,6 +2023,63 @@ class _MenuCard extends StatelessWidget {
                 ),
               ),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Source-menu tile: a montage previewing what the card opens (collection
+/// covers / platform icons) above its title, so the two entry points read as
+/// the library they lead into rather than as bare icons. Falls back to [icon]
+/// until the lists have loaded, or when the server has no artwork to show.
+class _SourceMenuCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final List<Widget> tiles;
+  final bool isFocused;
+  final ColorScheme scheme;
+  final VoidCallback onTap;
+
+  const _SourceMenuCard({
+    required this.icon,
+    required this.title,
+    required this.tiles,
+    required this.isFocused,
+    required this.scheme,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: _rommFocusDecoration(scheme, isFocused),
+        padding: EdgeInsets.all(8.r),
+        child: Column(
+          children: [
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8.r),
+                child: tiles.isEmpty
+                    ? _montagePlaceholder(scheme, icon)
+                    : _buildTileMontage(tiles, scheme),
+              ),
+            ),
+            SizedBox(height: 8.r),
+            Text(
+              title,
+              maxLines: 1,
+              textAlign: TextAlign.center,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 13.r,
+                fontWeight: FontWeight.w600,
+                color: isFocused ? scheme.primary : scheme.onSurface,
+              ),
+            ),
           ],
         ),
       ),
@@ -2035,58 +2150,83 @@ class _CollectionCard extends StatelessWidget {
 
   Widget _buildMontage() {
     if (covers.isEmpty) {
-      return Container(
-        color: scheme.surface.withValues(alpha: 0.5),
-        child: Center(
-          child: Icon(
-            collection.isVirtual
-                ? Symbols.auto_awesome_motion_rounded
-                : Symbols.collections_bookmark_rounded,
-            color: scheme.primary,
-            size: 34.r,
-          ),
-        ),
+      return _montagePlaceholder(
+        scheme,
+        collection.isVirtual
+            ? Symbols.auto_awesome_motion_rounded
+            : Symbols.collections_bookmark_rounded,
       );
     }
-    if (covers.length == 1) return _tile(covers[0]);
-    if (covers.length == 2) {
-      return Row(
-        children: [
-          Expanded(child: _tile(covers[0])),
-          SizedBox(width: 2.r),
-          Expanded(child: _tile(covers[1])),
-        ],
-      );
-    }
-    // 3–4 covers → 2×2 mosaic (blank bottom-right when only 3).
-    Widget cell(int i) => i < covers.length ? _tile(covers[i]) : _blank();
-    Widget row(int a, int b) => Expanded(
-      child: Row(
-        children: [
-          Expanded(child: cell(a)),
-          SizedBox(width: 2.r),
-          Expanded(child: cell(b)),
-        ],
-      ),
-    );
-    return Column(
-      children: [row(0, 1), SizedBox(height: 2.r), row(2, 3)],
+    return _buildTileMontage([
+      for (final url in covers) _coverTile(url, scheme, headersFor),
+    ], scheme);
+  }
+}
+
+/// Arranges up to four [tiles] the way RomM's own web UI arranges a collection
+/// thumbnail: one fills the frame, two split it side by side, and three or four
+/// form a 2×2 mosaic (the empty corner is filled with a blank panel). Shared by
+/// the collection tiles and the source-menu cards.
+Widget _buildTileMontage(List<Widget> tiles, ColorScheme scheme) {
+  if (tiles.isEmpty) return _montageBlank(scheme);
+  if (tiles.length == 1) return tiles[0];
+  if (tiles.length == 2) {
+    return Row(
+      children: [
+        Expanded(child: tiles[0]),
+        SizedBox(width: 2.r),
+        Expanded(child: tiles[1]),
+      ],
     );
   }
+  Widget cell(int i) => i < tiles.length ? tiles[i] : _montageBlank(scheme);
+  Widget row(int a, int b) => Expanded(
+    child: Row(
+      children: [
+        Expanded(child: cell(a)),
+        SizedBox(width: 2.r),
+        Expanded(child: cell(b)),
+      ],
+    ),
+  );
+  return Column(
+    children: [
+      row(0, 1),
+      SizedBox(height: 2.r),
+      row(2, 3),
+    ],
+  );
+}
 
-  Widget _blank() => ColoredBox(color: scheme.surface.withValues(alpha: 0.5));
+Widget _montageBlank(ColorScheme scheme) =>
+    ColoredBox(color: scheme.surface.withValues(alpha: 0.5));
 
-  Widget _tile(String url) {
-    return Image.network(
-      url,
-      fit: BoxFit.cover,
-      width: double.infinity,
-      height: double.infinity,
-      headers: headersFor(url),
-      gaplessPlayback: true,
-      errorBuilder: (context, error, stackTrace) => _blank(),
-    );
-  }
+/// Stand-in for a montage that has no artwork to show (nothing loaded yet, or a
+/// server that reports no covers): the card's own icon on a blank panel.
+Widget _montagePlaceholder(ColorScheme scheme, IconData icon) {
+  return Container(
+    color: scheme.surface.withValues(alpha: 0.5),
+    child: Center(
+      child: Icon(icon, color: scheme.primary, size: 34.r),
+    ),
+  );
+}
+
+/// A single cover-art tile in a montage, cropped to fill its cell.
+Widget _coverTile(
+  String url,
+  ColorScheme scheme,
+  Map<String, String> Function(String url) headersFor,
+) {
+  return Image.network(
+    url,
+    fit: BoxFit.cover,
+    width: double.infinity,
+    height: double.infinity,
+    headers: headersFor(url),
+    gaplessPlayback: true,
+    errorBuilder: (context, error, stackTrace) => _montageBlank(scheme),
+  );
 }
 
 /// Shared focus/selection decoration for RomM browse tiles: a subtle primary
