@@ -51,6 +51,52 @@ class SqliteMigrations {
     ON app_romm_rom_map(romm_rom_id);
   ''';
 
+  /// CREATE for the play-session outbox (v109).
+  ///
+  /// A finished game session is written here the moment it ends — including
+  /// while offline — and pushed to RomM's `/api/play-sessions` on the next
+  /// sync. `UNIQUE(romm_rom_id, start_time)` mirrors RomM's own duplicate key
+  /// so a session can never be queued (or counted) twice.
+  static const String createAppRommPlaySessionsTableSql = '''
+    CREATE TABLE IF NOT EXISTS app_romm_play_sessions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      romm_rom_id INTEGER NOT NULL,
+      rom_path TEXT,
+      start_time TEXT NOT NULL,
+      end_time TEXT NOT NULL,
+      duration_ms INTEGER NOT NULL,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(romm_rom_id, start_time)
+    );
+  ''';
+
+  /// Lookup index for [createAppRommPlaySessionsTableSql] (v109).
+  static const String createAppRommPlaySessionsIndexSql = '''
+    CREATE INDEX IF NOT EXISTS idx_romm_play_sessions_rom_id
+    ON app_romm_play_sessions(romm_rom_id);
+  ''';
+
+  /// CREATE for the per-ROM playtime reconciliation ledger (v109).
+  ///
+  /// RomM stores playtime as individual sessions, not a total, and it strips
+  /// the `device_id` of clients it doesn't know — so a pulled session list
+  /// cannot be filtered back down to "sessions from other devices" by device.
+  /// Instead we track what this device contributed:
+  ///
+  /// * `pushed_ms` — session time this device successfully pushed (server
+  ///   total minus this = time played elsewhere).
+  /// * `remote_applied_ms` — how much of that elsewhere-time is already folded
+  ///   into `user_roms.play_time`, so repeated pulls are idempotent.
+  static const String createAppRommPlaytimeStateTableSql = '''
+    CREATE TABLE IF NOT EXISTS app_romm_playtime_state (
+      romm_rom_id INTEGER PRIMARY KEY,
+      pushed_ms INTEGER NOT NULL DEFAULT 0,
+      remote_applied_ms INTEGER NOT NULL DEFAULT 0,
+      last_pulled_at TEXT,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+  ''';
+
   /// CREATE for the provider-scoped save-sync state table (v100).
   ///
   /// Keyed on (provider, file_path) so each sync provider (NeoSync, RomM, …)
@@ -392,6 +438,9 @@ class SqliteMigrations {
         break;
       case 108:
         await _migrateToVersion108(db);
+        break;
+      case 109:
+        await _migrateToVersion109(db);
         break;
       default:
         _log.w('No migration defined for version $version');
@@ -5221,6 +5270,26 @@ class SqliteMigrations {
       _log.i('Table app_romm_rom_map created via v107');
     } catch (e, stackTrace) {
       _log.e('Error in migration v107: $e');
+      _log.e('   StackTrace: $stackTrace');
+      rethrow;
+    }
+  }
+
+  /// Migration v109: Adds the RomM playtime-sync tables — the
+  /// [app_romm_play_sessions] outbox of finished sessions awaiting upload, and
+  /// the [app_romm_playtime_state] ledger that keeps repeated pulls from
+  /// double-counting time this device already contributed.
+  static Future<void> _migrateToVersion109(Database db) async {
+    _log.i('Migration v109: Creating RomM playtime sync tables');
+    try {
+      db.execute(createAppRommPlaySessionsTableSql);
+      db.execute(createAppRommPlaySessionsIndexSql);
+      db.execute(createAppRommPlaytimeStateTableSql);
+      _log.i(
+        'Tables app_romm_play_sessions / app_romm_playtime_state created via v109',
+      );
+    } catch (e, stackTrace) {
+      _log.e('Error in migration v109: $e');
       _log.e('   StackTrace: $stackTrace');
       rethrow;
     }

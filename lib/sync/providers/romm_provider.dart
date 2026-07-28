@@ -27,6 +27,7 @@ import 'package:neostation/providers/romm_provider.dart';
 import 'package:neostation/repositories/romm_save_map_repository.dart';
 import 'package:neostation/repositories/sync_repository.dart';
 import 'package:neostation/services/logger_service.dart';
+import 'package:neostation/services/romm_playtime_service.dart';
 import 'package:neostation/services/romm_service.dart';
 
 import '../i_sync_provider.dart';
@@ -236,10 +237,40 @@ class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
       '(${localFiles.length} local, ${remote.length} remote)',
     );
 
+    // Playtime rides along with the upload-capable passes only. The pre-launch
+    // pass is on the launch's critical path and playtime changes nothing about
+    // the game that's about to start, so it stays out of that budget.
+    if (!downloadOnly) {
+      await _syncPlaytime(game, romId);
+    }
+
     if (!anyLocal && !anyRemote) return GameSyncStatus.noSaveFound;
     if (!anyRemote) return GameSyncStatus.localOnly;
     if (!anyLocal && downloaded == 0) return GameSyncStatus.cloudOnly;
     return GameSyncStatus.upToDate;
+  }
+
+  /// Pushes queued play sessions and pulls back playtime recorded elsewhere.
+  ///
+  /// Best-effort by design: playtime is a statistic, so a failure here must
+  /// never change the save-sync status the user is shown, and never throw into
+  /// the launch/close flow. [RommPlaytimeService] throttles the pull itself, so
+  /// this is cheap to call from the per-selection save detection.
+  Future<void> _syncPlaytime(GameModel game, int romId) async {
+    if (!_svc.playtimeSyncAvailable) return;
+    try {
+      await RommPlaytimeService.flushQueuedSessions(_svc);
+      final romPath = game.romPath;
+      if (romPath != null && romPath.isNotEmpty) {
+        await RommPlaytimeService.pullPlaytime(
+          _svc,
+          romId: romId,
+          romPath: romPath,
+        );
+      }
+    } catch (e) {
+      _log.w('RomM playtime sync failed for ${game.romname}: $e');
+    }
   }
 
   /// Extracts the save-folder subpath (e.g. RetroArch's per-core `FCEUmm`

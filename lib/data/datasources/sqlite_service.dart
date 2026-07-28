@@ -421,7 +421,7 @@ class SqliteService {
   SqliteService._internal();
 
   // Database configuration
-  static const int _databaseVersion = 108;
+  static const int _databaseVersion = 109;
   static const String _databaseName = 'data.sqlite';
 
   DatabaseAdapter? _database;
@@ -1861,6 +1861,8 @@ class SqliteService {
       ''',
       SqliteMigrations.createAppNeoSyncStateTableSql,
       SqliteMigrations.createAppRommRomMapTableSql,
+      SqliteMigrations.createAppRommPlaySessionsTableSql,
+      SqliteMigrations.createAppRommPlaytimeStateTableSql,
     ];
 
     for (final sql in tables) {
@@ -1933,6 +1935,8 @@ class SqliteService {
       SqliteMigrations.createAppNeoSyncStateIndexSql,
       // 7. Index for app_romm_rom_map (RomM save-sync mapping)
       SqliteMigrations.createAppRommRomMapIndexSql,
+      // 8. Index for app_romm_play_sessions (RomM playtime outbox)
+      SqliteMigrations.createAppRommPlaySessionsIndexSql,
     ];
 
     for (final sql in indexes) {
@@ -4077,6 +4081,57 @@ class SqliteService {
         whereArgs: [romPath],
       );
     }
+  }
+
+  /// Adds playtime that was accumulated on *another* device (pulled from a
+  /// cloud provider) to a game's total.
+  ///
+  /// Differs from [updatePlayTime] in how `last_played` is treated: local play
+  /// stamps "now", whereas imported play must not — the game was last played
+  /// here whenever it was last played here. [remoteLastPlayed] only moves the
+  /// stamp forward when the remote session is genuinely newer, so a pull can
+  /// never rewrite a more recent local session as older.
+  static Future<void> applyRemotePlayTime(
+    String romPath,
+    int seconds, {
+    DateTime? remoteLastPlayed,
+  }) async {
+    final db = await instance.database;
+    final current = await db.query(
+      'user_roms',
+      columns: ['play_time', 'last_played'],
+      where: 'rom_path = ?',
+      whereArgs: [romPath],
+    );
+    if (current.isEmpty) return;
+
+    final row = current.first;
+    final values = <String, Object?>{};
+
+    if (seconds > 0) {
+      values['play_time'] =
+          (int.tryParse(row['play_time']?.toString() ?? '0') ?? 0) + seconds;
+    }
+
+    if (remoteLastPlayed != null) {
+      final localRaw = row['last_played']?.toString();
+      final local = (localRaw == null || localRaw.isEmpty)
+          ? null
+          : DateTime.tryParse(localRaw);
+      if (local == null || remoteLastPlayed.isAfter(local)) {
+        // Stored local-naive like every other writer of this column, so the
+        // UI's existing parse/format path keeps showing wall-clock time.
+        values['last_played'] = remoteLastPlayed.toLocal().toIso8601String();
+      }
+    }
+
+    if (values.isEmpty) return;
+    await db.update(
+      'user_roms',
+      values,
+      where: 'rom_path = ?',
+      whereArgs: [romPath],
+    );
   }
 
   /// Toggles the favorite status for a given game path.

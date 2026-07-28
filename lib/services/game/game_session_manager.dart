@@ -7,6 +7,7 @@ import '../../models/system_model.dart';
 import '../../repositories/game_repository.dart';
 import '../../repositories/system_repository.dart';
 import '../game_session_persistence.dart';
+import '../romm_playtime_service.dart';
 
 /// Owns the game-session lifecycle and its mutable tracking state.
 ///
@@ -119,6 +120,13 @@ class GameSessionManager {
 
         if (game != null && game.romPath.isNotEmpty) {
           await GameRepository.updatePlayTime(game.romPath, elapsedSeconds);
+          await _recordRommPlaySession(
+            romname: filename,
+            systemFolder: game.systemFolderName ?? systemFolderName,
+            romPath: game.romPath,
+            start: DateTime.fromMillisecondsSinceEpoch(startTimestamp),
+            end: DateTime.fromMillisecondsSinceEpoch(currentTimestamp),
+          );
         }
       }
 
@@ -202,6 +210,21 @@ class GameSessionManager {
           elapsedSinceLastSave,
         );
       }
+
+      // Report the session as a whole (not just the un-persisted tail) to the
+      // RomM outbox: RomM stores playtime as sessions, and the incremental
+      // 10s writes above are a local persistence detail.
+      final game = _currentGame!;
+      if (game.romPath != null) {
+        await _recordRommPlaySession(
+          romname: game.romname,
+          systemFolder:
+              game.systemFolderName ?? _currentGameSystem!.folderName,
+          romPath: game.romPath!,
+          start: _gameLaunchTime!,
+          end: now,
+        );
+      }
     }
 
     _stopPlaytimeTimer();
@@ -233,6 +256,30 @@ class GameSessionManager {
       await GameRepository.updatePlayTime(game.romPath!, elapsedSeconds);
     } catch (e) {
       _log.e('Error saving game time: $e');
+    }
+  }
+
+  /// Queues a finished session for RomM playtime sync. A local DB write only —
+  /// no network — so it costs nothing on the game-exit path and survives being
+  /// offline; the upload happens on the next RomM sync. No-ops for games that
+  /// didn't come from RomM.
+  static Future<void> _recordRommPlaySession({
+    required String romname,
+    required String systemFolder,
+    required String romPath,
+    required DateTime start,
+    required DateTime end,
+  }) async {
+    try {
+      await RommPlaytimeService.recordCompletedSession(
+        romname: romname,
+        systemFolder: systemFolder,
+        romPath: romPath,
+        startTime: start,
+        endTime: end,
+      );
+    } catch (e) {
+      _log.e('Error queueing RomM play session: $e');
     }
   }
 }

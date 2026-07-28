@@ -10,6 +10,7 @@ import 'package:path/path.dart' as path;
 import '../models/romm_asset.dart';
 import '../models/romm_collection.dart';
 import '../models/romm_platform.dart';
+import '../models/romm_play_session.dart';
 import '../models/romm_rom.dart';
 import 'logger_service.dart';
 
@@ -46,6 +47,17 @@ class RommService {
   static const String _readScopes =
       'me.read roms.read platforms.read assets.read assets.write collections.read firmware.read';
 
+  /// Extra scopes needed for playtime sync (`/api/play-sessions`). Requested on
+  /// top of [_readScopes], but *optionally*: RomM's token endpoint rejects the
+  /// whole grant with a 403 if any requested scope is outside the user's
+  /// allowance, and these two don't exist at all on servers older than the
+  /// play-session feature. [authenticate] therefore falls back to the base
+  /// scope set rather than turning "no playtime sync" into "cannot log in".
+  static const String _playtimeScopes = 'roms.user.read roms.user.write';
+
+  /// Maximum sessions RomM accepts in one `/api/play-sessions` POST.
+  static const int maxPlaySessionBatch = 100;
+
   /// Shared client that tolerates self-signed certificates (homelab servers).
   static final http.Client _httpClient = () {
     final inner = HttpClient()
@@ -65,6 +77,20 @@ class RommService {
   String? _accessToken;
   String? _refreshToken;
   int? _tokenExpiresMs;
+
+  /// Whether the server granted the playtime scopes at the last authentication.
+  /// Starts optimistic: a token restored from disk may predate the scopes, and
+  /// the shared 403-retry re-authenticates (picking them up) before giving up.
+  bool _playtimeScopeGranted = true;
+
+  /// Cleared for the rest of this connection once the server proves it has no
+  /// play-session API (404) or won't grant access to it (403 after a re-auth),
+  /// so a RomM older than the feature isn't probed on every sync.
+  bool _playSessionsSupported = true;
+
+  /// Whether playtime sync can be attempted against this server.
+  bool get playtimeSyncAvailable =>
+      _playtimeScopeGranted && _playSessionsSupported;
 
   String get baseUrl => _baseUrl;
   String? get accessToken => _accessToken;
@@ -91,6 +117,11 @@ class RommService {
     _accessToken = accessToken;
     _refreshToken = refreshToken;
     _tokenExpiresMs = tokenExpiresMs;
+    // Playtime support is a property of the server we're pointed at, so a
+    // reconfigure (different server, or the same one after an edit) re-probes
+    // instead of inheriting the previous server's verdict.
+    _playtimeScopeGranted = true;
+    _playSessionsSupported = true;
   }
 
   static String _normalizeBaseUrl(String raw) {
@@ -144,18 +175,32 @@ class RommService {
     if (_baseUrl.isEmpty) {
       throw RommException('Server URL is empty');
     }
-    final body = {
+    Map<String, String> bodyFor(String scope) => {
       'grant_type': 'password',
       'username': _username,
       'password': _password,
       // RomM issues an empty-scope token (403 on every read endpoint) unless
       // the requested scopes are passed explicitly.
-      'scope': _readScopes,
+      'scope': scope,
     };
 
     http.Response resp;
     try {
-      resp = await _postTokenRequest(body);
+      resp = await _postTokenRequest(bodyFor('$_readScopes $_playtimeScopes'));
+      if (resp.statusCode == 403) {
+        // Either the account lacks the playtime scopes or the server predates
+        // them — indistinguishable here, and both mean the same thing: keep the
+        // connection, drop playtime sync. Bad credentials fail the retry too,
+        // so the error path below is unchanged for them.
+        final base = await _postTokenRequest(bodyFor(_readScopes));
+        if (base.statusCode == 200) {
+          _playtimeScopeGranted = false;
+          _log.w('RomM denied $_playtimeScopes — playtime sync disabled');
+        }
+        resp = base.statusCode == 200 ? base : resp;
+      } else if (resp.statusCode == 200) {
+        _playtimeScopeGranted = true;
+      }
     } on TimeoutException {
       throw RommException('Connection timed out');
     } on HandshakeException {
@@ -862,5 +907,107 @@ class RommService {
       decoded as Map<String, dynamic>,
       isState: isState,
     );
+  }
+
+  // ── Play sessions (playtime sync) ─────────────────────────────────────────
+
+  /// Uploads finished play sessions (`POST /api/play-sessions`).
+  ///
+  /// RomM caps a batch at 100 and dedupes on `(rom_id, start_time)`, so a
+  /// re-push of a session it already holds is reported back as `duplicate`
+  /// rather than added twice. Ingesting also moves the ROM's `last_played`
+  /// forward server-side, which is why there's no separate props call.
+  ///
+  /// Throws [RommException]; a 404 (server predates the feature) or a 403 that
+  /// survives the shared re-auth retry also disables further attempts for this
+  /// connection — see [playtimeSyncAvailable].
+  Future<RommPlaySessionIngestResult> ingestPlaySessions(
+    List<RommPlaySession> sessions,
+  ) async {
+    if (sessions.isEmpty) {
+      return const RommPlaySessionIngestResult(
+        acceptedIndexes: {},
+        rejectedIndexes: {},
+        createdCount: 0,
+        skippedCount: 0,
+      );
+    }
+    if (sessions.length > maxPlaySessionBatch) {
+      throw RommException(
+        'Play-session batch exceeds RomM\'s limit of $maxPlaySessionBatch',
+      );
+    }
+
+    final body = jsonEncode({
+      'sessions': [for (final s in sessions) s.toIngestJson()],
+    });
+
+    final resp = await _sendWithAuthRetry<http.Response>(
+      () => _httpClient
+          .post(
+            _uri('/api/play-sessions'),
+            headers: {..._authHeaders, 'Content-Type': 'application/json'},
+            body: body,
+          )
+          .timeout(const Duration(seconds: 30)),
+      statusOf: (r) => r.statusCode,
+    );
+
+    if (resp.statusCode != 200 && resp.statusCode != 201) {
+      _notePlaySessionFailure(resp.statusCode);
+      throw RommException(
+        'Play-session upload failed (${resp.statusCode})',
+        statusCode: resp.statusCode,
+      );
+    }
+
+    final decoded = jsonDecode(resp.body);
+    if (decoded is! Map<String, dynamic>) {
+      throw RommException('Unexpected play-session response');
+    }
+    return RommPlaySessionIngestResult.fromJson(decoded);
+  }
+
+  /// Every play session the current user has for [romId], across all devices
+  /// (`GET /api/play-sessions?rom_id=`).
+  ///
+  /// RomM only applies its default 50-row page cap when no time filter is
+  /// given, so an epoch `start_after` is passed to get the complete history —
+  /// the aggregate is meaningless if it silently stops at the newest 50.
+  Future<List<RommPlaySession>> getPlaySessions({required int romId}) async {
+    final uri = Uri.parse('$_baseUrl/api/play-sessions').replace(
+      queryParameters: {
+        'rom_id': '$romId',
+        'start_after': '1970-01-01T00:00:00Z',
+      },
+    );
+
+    final http.Response resp;
+    try {
+      resp = await _authedGetUri(uri);
+    } on RommException catch (e) {
+      if (e.statusCode != null) _notePlaySessionFailure(e.statusCode!);
+      rethrow;
+    }
+
+    return _itemsOf(jsonDecode(resp.body))
+        .whereType<Map<String, dynamic>>()
+        .map(RommPlaySession.fromJson)
+        .toList();
+  }
+
+  /// Marks the play-session API unusable when the server's answer says it will
+  /// never work on this connection: `404` (endpoint absent) or a `403` that has
+  /// already survived one re-authentication, i.e. a genuine scope denial.
+  void _notePlaySessionFailure(int statusCode) {
+    if (statusCode == 404 || statusCode == 403) {
+      if (_playSessionsSupported) {
+        _log.w(
+          'RomM play-session API unavailable ($statusCode) — '
+          'playtime sync disabled for this connection',
+        );
+      }
+      _playSessionsSupported = false;
+    }
   }
 }

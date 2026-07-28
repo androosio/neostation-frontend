@@ -15,6 +15,7 @@ import '../repositories/romm_save_map_repository.dart';
 import '../repositories/scraper_repository.dart';
 import '../repositories/system_repository.dart';
 import '../services/logger_service.dart';
+import '../services/romm_playtime_service.dart';
 import '../services/romm_service.dart';
 import '../services/user_data_location_service.dart';
 import 'file_provider.dart';
@@ -254,6 +255,7 @@ class RommProvider extends ChangeNotifier {
       _lastPersistedAccessToken = config['access_token'] as String?;
       _status = RommConnectionStatus.connected;
       notifyListeners();
+      _flushQueuedPlaytime();
     } catch (e) {
       _log.e('RomM initialize failed: $e');
       _status = RommConnectionStatus.disconnected;
@@ -326,7 +328,24 @@ class RommProvider extends ChangeNotifier {
     _username = username;
     _status = RommConnectionStatus.connected;
     notifyListeners();
+    _flushQueuedPlaytime();
     return null;
+  }
+
+  /// Drains the play-session outbox in the background once a connection exists.
+  ///
+  /// Sessions are queued at game exit whether or not the server was reachable
+  /// (and whether or not RomM is the active *save* sync provider), so this is
+  /// the catch-up that gets play from an offline stretch onto the server.
+  /// Fire-and-forget: nothing in the UI waits on a statistic.
+  void _flushQueuedPlaytime() {
+    if (!_service.playtimeSyncAvailable) return;
+    unawaited(
+      RommPlaytimeService.flushQueuedSessions(_service).catchError((Object e) {
+        _log.w('RomM playtime flush on connect failed: $e');
+        return 0;
+      }),
+    );
   }
 
   /// Clears stored credentials and resets all browse state.

@@ -156,6 +156,18 @@ class GameRepository {
   static Future<void> updatePlayTime(String romPath, int seconds) =>
       SqliteService.updatePlayTime(romPath, seconds);
 
+  /// Folds playtime played on another device (pulled from a cloud provider)
+  /// into a game's total, without stamping `last_played` as "now".
+  static Future<void> applyRemotePlayTime(
+    String romPath,
+    int seconds, {
+    DateTime? remoteLastPlayed,
+  }) => SqliteService.applyRemotePlayTime(
+    romPath,
+    seconds,
+    remoteLastPlayed: remoteLastPlayed,
+  );
+
   static Future<void> toggleRomFavoriteByPath(String romPath) =>
       SqliteService.toggleRomFavorite(romPath);
 
