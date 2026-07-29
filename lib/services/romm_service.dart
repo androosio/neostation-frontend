@@ -10,6 +10,7 @@ import 'package:path/path.dart' as path;
 import '../models/romm_asset.dart';
 import '../models/romm_collection.dart';
 import '../models/romm_platform.dart';
+import '../models/romm_rom_page.dart';
 import '../models/romm_play_session.dart';
 import '../models/romm_rom.dart';
 import 'logger_service.dart';
@@ -443,6 +444,8 @@ class RommService {
   /// [collectionId] (user collection) or [virtualCollectionId] (RomM virtual
   /// collection). RomM paginates via `limit`/`offset`; [search] filters by name
   /// server-side.
+  ///
+  /// Thin wrapper over [getRomsPage] for callers that only want the rows.
   Future<List<RommRom>> getRoms({
     int? platformId,
     int? collectionId,
@@ -451,14 +454,54 @@ class RommService {
     int limit = 50,
     int offset = 0,
   }) async {
-    final params = <String, String>{
+    final page = await getRomsPage(
+      platformIds: platformId == null ? const [] : [platformId],
+      collectionId: collectionId,
+      virtualCollectionId: virtualCollectionId,
+      search: search,
+      limit: limit,
+      offset: offset,
+    );
+    return page.items;
+  }
+
+  /// Returns one page of ROMs along with RomM's result [RommRomPage.total] and
+  /// the filter values still available for the query.
+  ///
+  /// [genres] and [companies] are matched server-side across the whole library,
+  /// so they narrow far more than post-filtering a fetched page can. Multiple
+  /// values are OR-ed via RomM's `*_logic=any` default.
+  ///
+  /// Matching is exact and case-sensitive against RomM's own vocabulary:
+  /// `Adventure` matches, `adventure` and `Advent` match nothing, and
+  /// `Capcom` does not match a ROM credited to "Capcom Production Studio 1".
+  /// Callers must therefore pass values RomM actually publishes — see the
+  /// `filter_values` on [RommRomPage] — rather than values derived from a
+  /// local library, which will silently return nothing when the two
+  /// vocabularies disagree.
+  ///
+  /// Note RomM has no release-year filter — year has to stay a client-side
+  /// concern.
+  Future<RommRomPage> getRomsPage({
+    List<int> platformIds = const [],
+    int? collectionId,
+    String? virtualCollectionId,
+    String? search,
+    List<String> genres = const [],
+    List<String> companies = const [],
+    int limit = 50,
+    int offset = 0,
+  }) async {
+    // Repeated keys (platform_ids, genres, companies) need a list-valued map,
+    // which Uri's queryParameters accepts as List<String>.
+    final params = <String, dynamic>{
       'limit': '$limit',
       'offset': '$offset',
       'order_by': 'name',
     };
-    if (platformId != null) {
+    if (platformIds.isNotEmpty) {
       // RomM filters by the plural `platform_ids`; `platform_id` is ignored.
-      params['platform_ids'] = '$platformId';
+      params['platform_ids'] = platformIds.map((id) => '$id').toList();
     }
     if (collectionId != null) {
       params['collection_id'] = '$collectionId';
@@ -469,14 +512,47 @@ class RommService {
     if (search != null && search.trim().isNotEmpty) {
       params['search_term'] = search.trim();
     }
+    if (genres.isNotEmpty) params['genres'] = genres;
+    if (companies.isNotEmpty) params['companies'] = companies;
+
     final resp = await _authedGetUri(
       Uri.parse('$_baseUrl/api/roms').replace(queryParameters: params),
     );
+    final decoded = jsonDecode(resp.body);
     // RomM may return either a bare list or a paginated `{items: [...]}` object.
-    return _itemsOf(jsonDecode(resp.body))
-        .whereType<Map<String, dynamic>>()
-        .map(RommRom.fromJson)
-        .toList();
+    final items = _itemsOf(
+      decoded,
+    ).whereType<Map<String, dynamic>>().map(RommRom.fromJson).toList();
+
+    if (decoded is! Map<String, dynamic>) {
+      return RommRomPage(items: items, total: items.length);
+    }
+    return RommRomPage(
+      items: items,
+      total: (decoded['total'] as num?)?.toInt() ?? items.length,
+      filterValues: _filterValuesOf(decoded['filter_values']),
+    );
+  }
+
+  /// Normalizes RomM's `filter_values` object into string lists.
+  ///
+  /// `platforms` is dropped: it holds platform *ids*, not names, so it has no
+  /// place alongside the string-valued dimensions.
+  static Map<String, List<String>> _filterValuesOf(Object? raw) {
+    if (raw is! Map) return const {};
+    final out = <String, List<String>>{};
+    for (final entry in raw.entries) {
+      final key = entry.key.toString();
+      if (key == 'platforms') continue;
+      final value = entry.value;
+      if (value is! List) continue;
+      final values = [
+        for (final v in value)
+          if ((v?.toString() ?? '').trim().isNotEmpty) v.toString().trim(),
+      ];
+      if (values.isNotEmpty) out[key] = values;
+    }
+    return out;
   }
 
   /// Returns full detail for a single ROM.
@@ -990,10 +1066,9 @@ class RommService {
       rethrow;
     }
 
-    return _itemsOf(jsonDecode(resp.body))
-        .whereType<Map<String, dynamic>>()
-        .map(RommPlaySession.fromJson)
-        .toList();
+    return _itemsOf(
+      jsonDecode(resp.body),
+    ).whereType<Map<String, dynamic>>().map(RommPlaySession.fromJson).toList();
   }
 
   /// Marks the play-session API unusable when the server's answer says it will

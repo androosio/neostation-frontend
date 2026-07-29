@@ -97,10 +97,22 @@ class SearchCriteria {
   /// Whether every active dimension can be evaluated against a RomM result.
   ///
   /// Rating is the one that can't: local scores come from the scraper on a
-  /// 0..20 scale while RomM carries IGDB's 0..100, so the same chip would
-  /// return inconsistent sets across the two sources. The screen surfaces this
-  /// rather than quietly leaving remote rows unfiltered.
+  /// 0..20 scale while RomM carries IGDB's 0..100 and populates it sparsely, so
+  /// the same chip would return inconsistent sets across the two sources. The
+  /// screen surfaces this rather than quietly leaving remote rows unfiltered.
   bool get rommFilterable => rating == null;
+
+  /// The part of this selection RomM cannot apply server-side.
+  ///
+  /// Platform, genre and developer go to `/api/roms` as query parameters and
+  /// are matched across the whole library. RomM has no release-year filter, so
+  /// year is the one dimension still applied to the rows that come back — which
+  /// means it only narrows the pages fetched so far.
+  SearchCriteria get remoteClientSide => SearchCriteria(year: year);
+
+  /// Whether any dimension still has to be applied client-side; used to decide
+  /// whether the loaded-pages caveat applies at all.
+  bool get hasClientSideRemoteFilter => year != null;
 }
 
 /// Extracts a 4-digit year from a raw year / ISO release-date string.

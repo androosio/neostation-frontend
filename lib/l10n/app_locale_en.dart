@@ -918,6 +918,7 @@ const Map<String, dynamic> appLocaleEn = {
   AppLocale.sourceLocal: 'On this device',
   AppLocale.searchRatingLocalOnly:
       'The rating filter applies to local games only',
+  AppLocale.searchNoRommEquivalent: 'RomM has nothing filed under “{value}”',
   AppLocale.resetPlayTimeConfirm: 'Reset Play Time',
   AppLocale.resetPlayTimeConfirmBody:
       'This will permanently reset the recorded play time for this game to zero. This cannot be undone.',

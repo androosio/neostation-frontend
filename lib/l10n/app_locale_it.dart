@@ -944,6 +944,8 @@ const Map<String, dynamic> appLocaleIt = {
   AppLocale.sourceLocal: 'Su questo dispositivo',
   AppLocale.searchRatingLocalOnly:
       'Il filtro valutazione si applica solo ai giochi locali',
+  AppLocale.searchNoRommEquivalent:
+      'RomM non ha nulla classificato come «{value}»',
   AppLocale.resetPlayTimeConfirm: 'Reimposta tempo di gioco',
   AppLocale.resetPlayTimeConfirmBody:
       'Questa operazione azzererà in modo permanente il tempo di gioco registrato per questo gioco. Non può essere annullata.',

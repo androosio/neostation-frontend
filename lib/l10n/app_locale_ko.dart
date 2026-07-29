@@ -939,4 +939,5 @@ const Map<String, dynamic> appLocaleKo = {
   AppLocale.filterSource: '출처',
   AppLocale.sourceLocal: '이 기기',
   AppLocale.searchRatingLocalOnly: '평점 필터는 로컬 게임에만 적용됩니다',
+  AppLocale.searchNoRommEquivalent: 'RomM에 ‘{value}’로 분류된 항목이 없습니다',
 };

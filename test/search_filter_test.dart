@@ -447,4 +447,49 @@ void main() {
       );
     });
   });
+
+  group('SearchCriteria.remoteClientSide', () {
+    test('keeps only year — the rest go to RomM as query parameters', () {
+      const c = SearchCriteria(
+        query: 'mario',
+        platform: 'Super Nintendo',
+        developer: 'Nintendo',
+        genre: 'Platform',
+        year: '1990',
+      );
+      final remainder = c.remoteClientSide;
+      expect(remainder.year, '1990');
+      expect(remainder.platform, isNull);
+      expect(remainder.developer, isNull);
+      expect(remainder.genre, isNull);
+      // The server already applied search_term; re-applying it locally would
+      // drop rows RomM matched more loosely than a substring test.
+      expect(remainder.query, isEmpty);
+    });
+
+    test('reports whether anything is left to filter client-side', () {
+      expect(const SearchCriteria().hasClientSideRemoteFilter, isFalse);
+      expect(
+        const SearchCriteria(genre: 'Platform').hasClientSideRemoteFilter,
+        isFalse,
+      );
+      expect(
+        const SearchCriteria(year: '1990').hasClientSideRemoteFilter,
+        isTrue,
+      );
+    });
+
+    test('the remainder matches remote rows on year alone', () {
+      const rom = RemoteGameFields(name: 'Super Mario World', year: '1990');
+      const c = SearchCriteria(genre: 'Anything At All', year: '1990');
+      expect(matchesRemoteCriteria(rom, c.remoteClientSide), isTrue);
+      expect(
+        matchesRemoteCriteria(
+          rom,
+          const SearchCriteria(year: '1991').remoteClientSide,
+        ),
+        isFalse,
+      );
+    });
+  });
 }

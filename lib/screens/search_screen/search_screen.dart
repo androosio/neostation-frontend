@@ -11,6 +11,7 @@ import 'package:provider/provider.dart';
 import 'package:neostation/l10n/app_locale.dart';
 import 'package:neostation/models/database_game_model.dart';
 import 'package:neostation/models/romm_rom.dart';
+import 'package:neostation/models/romm_rom_page.dart';
 import 'package:neostation/models/game_model.dart';
 import 'package:neostation/models/secondary_display_state.dart';
 import 'package:neostation/data/datasources/sqlite_service.dart';
@@ -91,7 +92,7 @@ class _RemoteRow extends _ResultRow {
 
 /// The remote section's trailing line: a spinner, an error, "load more", or a
 /// note that the active filters can't be applied to RomM results.
-enum _RemoteStatus { loading, error, loadMore, unsupported }
+enum _RemoteStatus { loading, error, loadMore, unsupported, noEquivalent }
 
 class _RemoteStatusRow extends _ResultRow {
   const _RemoteStatusRow(this.status);
@@ -162,6 +163,24 @@ class _SearchScreenState extends State<SearchScreen> {
   /// Local system name each RomM ROM resolves to, by ROM id, so the platform
   /// chip filters both sources with one vocabulary. Absent until resolved.
   final Map<int, String> _remotePlatform = {};
+
+  /// RomM's exact match count for the live query, across the whole library
+  /// rather than the pages fetched so far.
+  int _remoteTotal = 0;
+
+  /// Filter values RomM reports as still available for the live query, keyed by
+  /// the screen's dimension keys. Merged into the chip options so a genre only
+  /// RomM knows about is still selectable.
+  Map<String, List<String>> _remoteFacets = const {};
+
+  /// The filter values RomM published for the live *query*, captured only from
+  /// responses that carried no genre/company filter — an already-narrowed
+  /// response reports only the values surviving it, which would make every
+  /// selection look like the sole option.
+  ///
+  /// Used to tell "RomM has nothing under this name" apart from "RomM has
+  /// nothing matching", since its matching is exact and case-sensitive.
+  Map<String, List<String>> _remoteVocab = const {};
 
   // ── RomM section ──────────────────────────────────────────────────────────
   // Local results filter synchronously on every keystroke; RomM is a paginated
@@ -332,6 +351,8 @@ class _SearchScreenState extends State<SearchScreen> {
         // A rating filter is active and can't be evaluated remotely; say so
         // instead of listing rows the filter never touched.
         rows.add(const _RemoteStatusRow(_RemoteStatus.unsupported));
+      } else if (_remoteUnmatchedFilter != null) {
+        rows.add(const _RemoteStatusRow(_RemoteStatus.noEquivalent));
       } else {
         rows.addAll(_visibleRemote.map(_RemoteRow.new));
         if (_remoteError != null) {
@@ -364,13 +385,16 @@ class _SearchScreenState extends State<SearchScreen> {
     _RemoteHeaderRow() => false,
   };
 
-  /// Fetched RomM results that survive the active filters.
+  /// Fetched RomM results that survive the filters RomM couldn't apply itself.
   ///
-  /// Filtering happens over the pages already loaded rather than server-side,
-  /// so narrowing by genre only narrows what has been paged in so far. Paging
-  /// further widens it.
+  /// Platform, genre and developer were already matched server-side across the
+  /// whole library, so only year is applied here — and because it runs over the
+  /// rows fetched so far, a year filter narrows the loaded pages rather than
+  /// the library. Paging further widens it.
   List<RommRom> get _visibleRemote {
     if (!_criteria.rommFilterable) return const [];
+    final remainder = _criteria.remoteClientSide;
+    if (!_criteria.hasClientSideRemoteFilter) return _remote;
     return _remote
         .where(
           (rom) => matchesRemoteCriteria(
@@ -381,10 +405,51 @@ class _SearchScreenState extends State<SearchScreen> {
               companies: rom.companies,
               year: rom.releaseYear,
             ),
-            _criteria,
+            remainder,
           ),
         )
         .toList(growable: false);
+  }
+
+  /// The active filter value RomM has no vocabulary entry for, if any.
+  ///
+  /// RomM matches exactly, so a genre or developer taken from the local library
+  /// that RomM files under a different name ("Role-Playing" vs "Role-playing
+  /// (RPG)") returns nothing. Detecting that up front lets the section say so
+  /// instead of rendering an unexplained empty list — and the merged chip
+  /// options mean RomM's own spelling is right there to pick instead.
+  String? get _remoteUnmatchedFilter {
+    for (final entry in [('genre', _genre), ('developer', _developer)]) {
+      final value = entry.$2;
+      if (value == null) continue;
+      final vocab = _remoteVocab[entry.$1] ?? const <String>[];
+      if (vocab.isNotEmpty && !vocab.contains(value)) return value;
+    }
+    return null;
+  }
+
+  /// Translates RomM's `filter_values` keys onto the screen's dimension keys.
+  Map<String, List<String>> _mapRemoteFacets(RommRomPage page) => {
+    'genre': page.valuesFor('genres'),
+    'developer': page.valuesFor('companies'),
+  };
+
+  /// Chip options for [key]: the local facet values, plus anything RomM offers
+  /// for the same dimension that the local library has never seen.
+  ///
+  /// Merging rather than switching keeps one vocabulary on screen whichever
+  /// source is selected. RomM matches these leniently server-side, so a value
+  /// derived from the local library usually narrows the remote side too.
+  List<String> _mergedOptions(String key) {
+    final local = _facets.optionsFor(key);
+    final remote = _remoteSectionVisible
+        ? (_remoteVocab[key] ?? _remoteFacets[key] ?? const <String>[])
+        : const <String>[];
+    if (remote.isEmpty) return local;
+
+    final merged = {...local, ...remote}.toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return merged;
   }
 
   /// Whether the RomM section should appear at all.
@@ -461,6 +526,8 @@ class _SearchScreenState extends State<SearchScreen> {
         _remoteHasMore = false;
         _remoteDownloaded.clear();
         _remotePlatform.clear();
+        _remoteTotal = 0;
+        _remoteVocab = const {};
       }
       _remoteLoading = true;
       _remoteError = null;
@@ -468,22 +535,50 @@ class _SearchScreenState extends State<SearchScreen> {
     });
 
     try {
-      final page = await provider.service.getRoms(
+      // Platform, genre and developer are matched by RomM across the whole
+      // library; only year is left for the rows to be filtered on afterwards.
+      final platformIds = _platform == null
+          ? const <int>[]
+          : await provider.platformIdsForSystemName(_platform!);
+      if (!mounted || seq != _remoteSeq) return;
+
+      if (_platform != null && platformIds.isEmpty) {
+        // RomM has no platform mapping onto the selected system, so nothing
+        // remote can match — an unfiltered fetch would be actively wrong.
+        setState(() {
+          _remote = [];
+          _remoteTotal = 0;
+          _remoteHasMore = false;
+          _remoteLoading = false;
+          _rebuildRows();
+        });
+        return;
+      }
+
+      final page = await provider.service.getRomsPage(
         search: term,
+        platformIds: platformIds,
+        genres: _genre == null ? const [] : [_genre!],
+        companies: _developer == null ? const [] : [_developer!],
         limit: _remotePageSize,
         offset: _remoteOffset,
       );
       if (!mounted || seq != _remoteSeq) return;
 
       setState(() {
-        _remote = [..._remote, ...page];
-        _remoteOffset += page.length;
-        _remoteHasMore = page.length >= _remotePageSize;
+        _remote = [..._remote, ...page.items];
+        _remoteOffset += page.items.length;
+        _remoteHasMore = page.items.length >= _remotePageSize;
+        _remoteTotal = page.total;
+        _remoteFacets = _mapRemoteFacets(page);
+        if (_genre == null && _developer == null) {
+          _remoteVocab = _remoteFacets;
+        }
         _remoteLoading = false;
         _rebuildRows();
       });
 
-      await _resolveDownloadedFlags(page, seq);
+      await _resolveDownloadedFlags(page.items, seq);
     } on RommException catch (e) {
       if (!mounted || seq != _remoteSeq) return;
       setState(() {
@@ -953,9 +1048,9 @@ class _SearchScreenState extends State<SearchScreen> {
       _menuKey = null;
       _region = _FocusRegion.filters;
     });
-    // Backing out restores the pre-open value, which for the source chip can
-    // re-include RomM after the live preview had excluded it.
-    if (key == kFilterSource) _scheduleRemoteSearch();
+    // Backing out restores the pre-open value, so whatever the live preview
+    // sent to RomM has to be re-queried with the original selection.
+    if (key != null && _affectsRemoteQuery(key)) _scheduleRemoteSearch();
   }
 
   /// Moves the menu cursor by [delta], previewing the result live.
@@ -973,7 +1068,7 @@ class _SearchScreenState extends State<SearchScreen> {
       }
       _recompute();
     });
-    if (key == kFilterSource) _scheduleRemoteSearch();
+    if (_affectsRemoteQuery(key)) _scheduleRemoteSearch();
     _scrollMenuIntoView();
   }
 
@@ -989,12 +1084,25 @@ class _SearchScreenState extends State<SearchScreen> {
       _menuKey = null;
       _region = _FocusRegion.filters;
     });
-    if (key == kFilterSource) _scheduleRemoteSearch();
+    if (_affectsRemoteQuery(key)) _scheduleRemoteSearch();
   }
+
+  /// Whether changing [key] invalidates the current RomM results.
+  ///
+  /// Source decides whether to query at all; platform, genre and developer are
+  /// sent as query parameters, so a new value needs a new request. Year and
+  /// rating are applied to what's already fetched (or gate the section), so
+  /// they don't. The live-preview menu calls this on every D-pad tick — the
+  /// debounce is what keeps that from becoming a request per tick.
+  bool _affectsRemoteQuery(String key) =>
+      key == kFilterSource ||
+      key == 'platform' ||
+      key == 'genre' ||
+      key == 'developer';
 
   List<String> _menuOptions(String key) => key == kFilterSource
       ? const [kSourceLocal, kSourceRomm]
-      : _facets.optionsFor(key);
+      : _mergedOptions(key);
 
   String? _currentFilterValue(String key) => switch (key) {
     kFilterSource => _source,
@@ -1887,6 +1995,13 @@ class _SearchScreenState extends State<SearchScreen> {
   /// Divider introducing the RomM section beneath the local results.
   Widget _buildRemoteHeader(ThemeData theme) {
     final scheme = theme.colorScheme;
+    // RomM reports the match count for the whole library, so this is the real
+    // total rather than however many rows have been paged in.
+    final count = _remoteTotal > 0
+        ? AppLocale.searchResultsCount
+              .getString(context)
+              .replaceFirst('{count}', '$_remoteTotal')
+        : null;
     return Row(
       children: [
         Text(
@@ -1898,6 +2013,17 @@ class _SearchScreenState extends State<SearchScreen> {
             color: scheme.primary.withValues(alpha: 0.9),
           ),
         ),
+        if (count != null) ...[
+          SizedBox(width: 6.r),
+          Text(
+            count,
+            style: TextStyle(
+              fontSize: 10.r,
+              fontWeight: FontWeight.w600,
+              color: scheme.onSurface.withValues(alpha: 0.5),
+            ),
+          ),
+        ],
         SizedBox(width: 8.r),
         Expanded(
           child: Divider(
@@ -1925,7 +2051,13 @@ class _SearchScreenState extends State<SearchScreen> {
       );
     }
 
-    if (status == _RemoteStatus.unsupported) {
+    if (status == _RemoteStatus.unsupported ||
+        status == _RemoteStatus.noEquivalent) {
+      final text = status == _RemoteStatus.unsupported
+          ? AppLocale.searchRatingLocalOnly.getString(context)
+          : AppLocale.searchNoRommEquivalent
+                .getString(context)
+                .replaceFirst('{value}', _remoteUnmatchedFilter ?? '');
       return Padding(
         padding: EdgeInsets.symmetric(horizontal: 10.r),
         child: Row(
@@ -1938,7 +2070,7 @@ class _SearchScreenState extends State<SearchScreen> {
             SizedBox(width: 6.r),
             Expanded(
               child: Text(
-                AppLocale.searchRatingLocalOnly.getString(context),
+                text,
                 maxLines: 2,
                 style: TextStyle(
                   fontSize: 11.r,

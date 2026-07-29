@@ -828,6 +828,7 @@ const Map<String, dynamic> appLocaleZhHant = {
   AppLocale.filterSource: '來源',
   AppLocale.sourceLocal: '本機',
   AppLocale.searchRatingLocalOnly: '評分篩選僅適用於本機遊戲',
+  AppLocale.searchNoRommEquivalent: 'RomM 中沒有歸類為「{value}」的內容',
   AppLocale.resetPlayTimeConfirm: '重設遊玩時間',
   AppLocale.resetPlayTimeConfirmBody: '這將永久將此遊戲記錄的遊玩時間重設為零。此操作無法復原。',
   AppLocale.removeRomFolderConfirmBody: '這將從您的媒體庫來源中移除此 ROM 資料夾。磁碟上的檔案不會被刪除。',

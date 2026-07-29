@@ -979,6 +979,7 @@ mixin AppLocale {
   static const String filterSource = 'filter_source';
   static const String sourceLocal = 'source_local';
   static const String searchRatingLocalOnly = 'search_rating_local_only';
+  static const String searchNoRommEquivalent = 'search_no_romm_equivalent';
   // Destructive-action confirmation prompts
   static const String resetPlayTimeConfirm = 'reset_play_time_confirm';
   static const String resetPlayTimeConfirmBody = 'reset_play_time_confirm_body';

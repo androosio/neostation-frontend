@@ -356,6 +356,7 @@ class RommProvider extends ChangeNotifier {
     _serverUrl = '';
     _username = '';
     _platforms = [];
+    _platformIdsBySystemName = null;
     _collections = [];
     _currentPlatform = null;
     _currentCollection = null;
@@ -582,6 +583,50 @@ class RommProvider extends ChangeNotifier {
     return null;
   }
 
+  /// Local system name -> the RomM platform ids that map onto it, built once.
+  ///
+  /// The inverse of [resolveSystem]: the search screen knows which *local*
+  /// system the user picked from the platform chip and needs the RomM ids to
+  /// send as `platform_ids`. Several RomM platforms can share one local system
+  /// (slug aliases), hence a list per name.
+  Map<String, List<int>>? _platformIdsBySystemName;
+
+  /// RomM platform ids whose ROMs belong to the local system called [realName].
+  ///
+  /// Returns empty when RomM has no platform for that system, which callers
+  /// should treat as "this filter excludes every remote result" rather than
+  /// "no filter".
+  Future<List<int>> platformIdsForSystemName(String realName) async {
+    final index = _platformIdsBySystemName ??= await _buildPlatformIdIndex();
+    return index[realName] ?? const [];
+  }
+
+  Future<Map<String, List<int>>> _buildPlatformIdIndex() async {
+    await loadPlatforms();
+    final index = <String, List<int>>{};
+    for (final platform in _platforms) {
+      final system = await _systemForPlatform(platform);
+      if (system == null) continue;
+      (index[system.realName] ??= <int>[]).add(platform.id);
+    }
+    return index;
+  }
+
+  /// Local system for a RomM platform, using the same slug/alias candidates
+  /// [_resolveSystemUncached] tries for a ROM.
+  Future<SystemModel?> _systemForPlatform(RommPlatform platform) async {
+    for (final candidate in <String>[
+      platform.slug,
+      platform.fsSlug ?? '',
+      _slugAliases[platform.slug] ?? '',
+    ]) {
+      if (candidate.isEmpty) continue;
+      final system = await SystemRepository.getSystemByFolderName(candidate);
+      if (system != null) return system;
+    }
+    return null;
+  }
+
   RommPlatform? _platformFor(RommRom rom) {
     for (final platform in _platforms) {
       if (platform.id == rom.platformId) return platform;
@@ -642,10 +687,7 @@ class RommProvider extends ChangeNotifier {
   /// Path of an existing subdirectory of [base] whose name matches one of
   /// [aliases] (case-insensitively, mirroring how the library scan matches
   /// folders), or null if none exists / [base] can't be listed.
-  Future<String?> _existingAliasDir(
-    String base,
-    List<String> aliases,
-  ) async {
+  Future<String?> _existingAliasDir(String base, List<String> aliases) async {
     final wanted = {for (final a in aliases) a.toLowerCase()};
     try {
       await for (final entity in Directory(base).list(followLinks: false)) {
@@ -817,8 +859,10 @@ class RommProvider extends ChangeNotifier {
     // Only append .zip when fsName doesn't already end in it (avoid foo.zip.zip).
     final appendZipExt =
         isArchive && !rom.fsName.toLowerCase().endsWith('.zip');
-    final destPath =
-        p.join(destDir, appendZipExt ? '${rom.fsName}.zip' : rom.fsName);
+    final destPath = p.join(
+      destDir,
+      appendZipExt ? '${rom.fsName}.zip' : rom.fsName,
+    );
     try {
       await _service.downloadRom(
         rom,
@@ -867,7 +911,11 @@ class RommProvider extends ChangeNotifier {
       // (PS1, Saturn, Dreamcast, SegaCD, PCE-CD, 3DO, the m3u home computers…).
       // Others (e.g. single-disc DVD systems) keep the archive untouched.
       if (exts.contains('m3u')) {
-        final m3uName = await extractMultiDiscZip(destPath, destDir, rom.fsName);
+        final m3uName = await extractMultiDiscZip(
+          destPath,
+          destDir,
+          rom.fsName,
+        );
         if (m3uName != null) indexedName = m3uName;
       }
     }
@@ -962,9 +1010,7 @@ class RommProvider extends ChangeNotifier {
           final b = p.basename(t);
           if (extractedDiscs.contains(b)) referenced.add(b);
         }
-        ordered = referenced.isNotEmpty
-            ? referenced
-            : (extractedDiscs..sort());
+        ordered = referenced.isNotEmpty ? referenced : (extractedDiscs..sort());
       } else {
         m3uName = '$fallbackBaseName.m3u';
         ordered = extractedDiscs..sort();
@@ -1077,7 +1123,13 @@ class RommProvider extends ChangeNotifier {
           (detail['path_cover_large']?.toString().isNotEmpty ?? false)
           ? detail['path_cover_large'].toString()
           : detail['path_cover_small']?.toString();
-      await _saveRommMedia(coverPath, 'box2d', system, indexedName, fileProvider);
+      await _saveRommMedia(
+        coverPath,
+        'box2d',
+        system,
+        indexedName,
+        fileProvider,
+      );
 
       // Fanart -> fanarts (card/detail background). When RomM has no cached
       // fanart, the cover doubles as the background so the card is never blank.
@@ -1126,9 +1178,7 @@ class RommProvider extends ChangeNotifier {
           _rommResourcePath(ss['video_path']) ??
           _rommResourcePath(detail['path_video']);
       if (videoPath != null) {
-        final vext = videoPath.toLowerCase().contains('.webm')
-            ? 'webm'
-            : 'mp4';
+        final vext = videoPath.toLowerCase().contains('.webm') ? 'webm' : 'mp4';
         await _saveRommMedia(
           videoPath,
           'videos',
@@ -1187,7 +1237,12 @@ class RommProvider extends ChangeNotifier {
     for (final other in siblingExts) {
       if (other == ext) continue;
       final stale = File(
-        fileProvider.getMediaPath(system.folderName, folder, indexedName, other),
+        fileProvider.getMediaPath(
+          system.folderName,
+          folder,
+          indexedName,
+          other,
+        ),
       );
       if (await stale.exists()) await stale.delete();
     }
