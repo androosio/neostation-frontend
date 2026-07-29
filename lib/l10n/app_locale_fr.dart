@@ -950,6 +950,10 @@ const Map<String, dynamic> appLocaleFr = {
   AppLocale.filterRating: 'Note',
   AppLocale.filterYear: 'Année',
   AppLocale.filterAny: 'Tous',
+  AppLocale.filterSource: 'Source',
+  AppLocale.sourceLocal: 'Sur cet appareil',
+  AppLocale.searchRatingLocalOnly:
+      'Le filtre de note ne s’applique qu’aux jeux locaux',
   AppLocale.resetPlayTimeConfirm: 'Réinitialiser le temps de jeu',
   AppLocale.resetPlayTimeConfirmBody:
       'Cela réinitialisera définitivement à zéro le temps de jeu enregistré pour ce jeu. Cette action est irréversible.',

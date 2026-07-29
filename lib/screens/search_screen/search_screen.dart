@@ -89,8 +89,9 @@ class _RemoteRow extends _ResultRow {
   final RommRom rom;
 }
 
-/// The remote section's trailing line: a spinner, an error, or "load more".
-enum _RemoteStatus { loading, error, loadMore }
+/// The remote section's trailing line: a spinner, an error, "load more", or a
+/// note that the active filters can't be applied to RomM results.
+enum _RemoteStatus { loading, error, loadMore, unsupported }
 
 class _RemoteStatusRow extends _ResultRow {
   const _RemoteStatusRow(this.status);
@@ -118,6 +119,7 @@ class _SearchScreenState extends State<SearchScreen> {
   String? _genre;
   String? _year;
   int? _rating;
+  String? _source;
 
   _FocusRegion _region = _FocusRegion.search;
   int _barIndex = 0;
@@ -152,6 +154,14 @@ class _SearchScreenState extends State<SearchScreen> {
   List<_ResultAction> _actionOptions = const [];
 
   List<DatabaseGameModel> _results = [];
+
+  /// The selection the current rows were built from; kept so the RomM section
+  /// can be filtered without rebuilding it from the widget fields.
+  SearchCriteria _criteria = const SearchCriteria();
+
+  /// Local system name each RomM ROM resolves to, by ROM id, so the platform
+  /// chip filters both sources with one vocabulary. Absent until resolved.
+  final Map<int, String> _remotePlatform = {};
 
   // ── RomM section ──────────────────────────────────────────────────────────
   // Local results filter synchronously on every keystroke; RomM is a paginated
@@ -284,9 +294,13 @@ class _SearchScreenState extends State<SearchScreen> {
       genre: _genre,
       year: _year,
       rating: _rating,
+      source: _source,
     );
 
-    _results = filterAndSortGames(_all, criteria);
+    _criteria = criteria;
+    _results = criteria.includesLocal
+        ? filterAndSortGames(_all, criteria)
+        : const [];
     _rebuildRows();
 
     final focusedKey = _barIndex < _barItems.length
@@ -313,13 +327,20 @@ class _SearchScreenState extends State<SearchScreen> {
 
     if (_remoteSectionVisible) {
       rows.add(const _RemoteHeaderRow());
-      rows.addAll(_remote.map(_RemoteRow.new));
-      if (_remoteError != null) {
-        rows.add(const _RemoteStatusRow(_RemoteStatus.error));
-      } else if (_remoteLoading) {
-        rows.add(const _RemoteStatusRow(_RemoteStatus.loading));
-      } else if (_remoteHasMore) {
-        rows.add(const _RemoteStatusRow(_RemoteStatus.loadMore));
+
+      if (!_criteria.rommFilterable) {
+        // A rating filter is active and can't be evaluated remotely; say so
+        // instead of listing rows the filter never touched.
+        rows.add(const _RemoteStatusRow(_RemoteStatus.unsupported));
+      } else {
+        rows.addAll(_visibleRemote.map(_RemoteRow.new));
+        if (_remoteError != null) {
+          rows.add(const _RemoteStatusRow(_RemoteStatus.error));
+        } else if (_remoteLoading) {
+          rows.add(const _RemoteStatusRow(_RemoteStatus.loading));
+        } else if (_remoteHasMore) {
+          rows.add(const _RemoteStatusRow(_RemoteStatus.loadMore));
+        }
       }
     }
 
@@ -343,12 +364,37 @@ class _SearchScreenState extends State<SearchScreen> {
     _RemoteHeaderRow() => false,
   };
 
+  /// Fetched RomM results that survive the active filters.
+  ///
+  /// Filtering happens over the pages already loaded rather than server-side,
+  /// so narrowing by genre only narrows what has been paged in so far. Paging
+  /// further widens it.
+  List<RommRom> get _visibleRemote {
+    if (!_criteria.rommFilterable) return const [];
+    return _remote
+        .where(
+          (rom) => matchesRemoteCriteria(
+            RemoteGameFields(
+              name: rom.name,
+              platform: _remotePlatform[rom.id],
+              genres: rom.genres,
+              companies: rom.companies,
+              year: rom.releaseYear,
+            ),
+            _criteria,
+          ),
+        )
+        .toList(growable: false);
+  }
+
   /// Whether the RomM section should appear at all.
   ///
-  /// Hidden outright when RomM isn't configured or the query is blank, so an
-  /// unconfigured install sees exactly the search screen it saw before.
+  /// Hidden outright when RomM isn't configured, the source filter excludes it
+  /// or the query is blank, so an unconfigured install sees exactly the search
+  /// screen it saw before.
   bool get _remoteSectionVisible =>
       _rommConfigured &&
+      _criteria.includesRomm &&
       _nameController.text.trim().isNotEmpty &&
       (_remote.isNotEmpty || _remoteLoading || _remoteError != null);
 
@@ -375,7 +421,9 @@ class _SearchScreenState extends State<SearchScreen> {
   void _scheduleRemoteSearch() {
     _remoteTimer?.cancel();
 
-    if (!_rommConfigured || _nameController.text.trim().isEmpty) {
+    if (!_rommConfigured ||
+        _source == kSourceLocal ||
+        _nameController.text.trim().isEmpty) {
       _remoteSeq++;
       setState(() {
         _remote = [];
@@ -399,7 +447,9 @@ class _SearchScreenState extends State<SearchScreen> {
   /// browsing over there.
   Future<void> _runRemoteSearch({required bool reset}) async {
     final term = _nameController.text.trim();
-    if (term.isEmpty || !_rommConfigured) return;
+    // "On this device" means don't go to the server at all, not just don't
+    // render what comes back.
+    if (term.isEmpty || !_rommConfigured || _source == kSourceLocal) return;
 
     final provider = context.read<RommProvider>();
     final seq = ++_remoteSeq;
@@ -410,6 +460,7 @@ class _SearchScreenState extends State<SearchScreen> {
         _remoteOffset = 0;
         _remoteHasMore = false;
         _remoteDownloaded.clear();
+        _remotePlatform.clear();
       }
       _remoteLoading = true;
       _remoteError = null;
@@ -456,12 +507,20 @@ class _SearchScreenState extends State<SearchScreen> {
     final flags = await Future.wait(
       page.map((rom) => provider.isDownloadedCached(rom, romFolders)),
     );
+    // resolveSystem memoizes per RomM platform id, so this is one lookup per
+    // distinct platform on the page rather than one per ROM.
+    final systems = await Future.wait(page.map(provider.resolveSystem));
     if (!mounted || seq != _remoteSeq) return;
 
     setState(() {
       for (var i = 0; i < page.length; i++) {
         _remoteDownloaded[page[i].id] = flags[i];
+        final system = systems[i];
+        if (system != null) _remotePlatform[page[i].id] = system.realName;
       }
+      // Platform values only arrive now, so a platform filter can't be applied
+      // to this page until the rows are rebuilt with them.
+      _rebuildRows();
     });
   }
 
@@ -484,6 +543,8 @@ class _SearchScreenState extends State<SearchScreen> {
     bool shown(String key) =>
         _menuOptions(key).isNotEmpty || _isFilterActive(key);
     return [
+      // Source only means something with a second library to choose between.
+      if (_rommConfigured) kFilterSource,
       if (shown('platform')) 'platform',
       if (_facets.ratings.isNotEmpty || _rating != null) 'rating',
       if (shown('developer')) 'developer',
@@ -498,7 +559,13 @@ class _SearchScreenState extends State<SearchScreen> {
   /// Number of filters currently narrowing the results (shown on the toggle
   /// so applied filters stay visible even while the chip row is collapsed).
   int get _activeFilterCount =>
-      [_platform, _developer, _genre, _year].where((v) => v != null).length +
+      [
+        _platform,
+        _developer,
+        _genre,
+        _year,
+        _source,
+      ].where((v) => v != null).length +
       (_rating != null ? 1 : 0);
 
   /// Focusable items in the search band, left-to-right. The clear button only
@@ -886,6 +953,9 @@ class _SearchScreenState extends State<SearchScreen> {
       _menuKey = null;
       _region = _FocusRegion.filters;
     });
+    // Backing out restores the pre-open value, which for the source chip can
+    // re-include RomM after the live preview had excluded it.
+    if (key == kFilterSource) _scheduleRemoteSearch();
   }
 
   /// Moves the menu cursor by [delta], previewing the result live.
@@ -903,6 +973,7 @@ class _SearchScreenState extends State<SearchScreen> {
       }
       _recompute();
     });
+    if (key == kFilterSource) _scheduleRemoteSearch();
     _scrollMenuIntoView();
   }
 
@@ -918,11 +989,15 @@ class _SearchScreenState extends State<SearchScreen> {
       _menuKey = null;
       _region = _FocusRegion.filters;
     });
+    if (key == kFilterSource) _scheduleRemoteSearch();
   }
 
-  List<String> _menuOptions(String key) => _facets.optionsFor(key);
+  List<String> _menuOptions(String key) => key == kFilterSource
+      ? const [kSourceLocal, kSourceRomm]
+      : _facets.optionsFor(key);
 
   String? _currentFilterValue(String key) => switch (key) {
+    kFilterSource => _source,
     'platform' => _platform,
     'developer' => _developer,
     'genre' => _genre,
@@ -932,6 +1007,8 @@ class _SearchScreenState extends State<SearchScreen> {
 
   void _setFilterValue(String key, String? value) {
     switch (key) {
+      case kFilterSource:
+        _source = value;
       case 'platform':
         _platform = value;
       case 'developer':
@@ -967,8 +1044,10 @@ class _SearchScreenState extends State<SearchScreen> {
       _genre = null;
       _year = null;
       _rating = null;
+      _source = null;
       _recompute();
     });
+    _scheduleRemoteSearch();
     SfxService().playNavSound();
   }
 
@@ -1705,6 +1784,7 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   String _filterLabel(String key) => switch (key) {
+    kFilterSource => AppLocale.filterSource.getString(context),
     'platform' => AppLocale.filterPlatform.getString(context),
     'developer' => AppLocale.filterDeveloper.getString(context),
     'genre' => AppLocale.filterGenre.getString(context),
@@ -1719,6 +1799,9 @@ class _SearchScreenState extends State<SearchScreen> {
     if (key == 'rating') {
       return [any, ..._facets.ratings.map(_ratingDisplay)];
     }
+    if (key == kFilterSource) {
+      return [any, ..._menuOptions(key).map(_sourceDisplay)];
+    }
     return [any, ..._menuOptions(key)];
   }
 
@@ -1726,7 +1809,15 @@ class _SearchScreenState extends State<SearchScreen> {
   /// "4+" threshold — each option matches one score, like every other filter.
   String _ratingDisplay(int score) => '★ $score';
 
+  /// Display label for a [kFilterSource] value.
+  String _sourceDisplay(String value) => switch (value) {
+    kSourceLocal => AppLocale.sourceLocal.getString(context),
+    kSourceRomm => AppLocale.rommLibrary.getString(context),
+    _ => AppLocale.filterAny.getString(context),
+  };
+
   bool _isFilterActive(String key) => switch (key) {
+    kFilterSource => _source != null,
     'platform' => _platform != null,
     'developer' => _developer != null,
     'genre' => _genre != null,
@@ -1738,6 +1829,9 @@ class _SearchScreenState extends State<SearchScreen> {
   String _filterValueLabel(String key) {
     final any = AppLocale.filterAny.getString(context);
     switch (key) {
+      case kFilterSource:
+        final src = _source;
+        return src == null ? any : _sourceDisplay(src);
       case 'platform':
         return _platform ?? any;
       case 'developer':
@@ -1827,6 +1921,32 @@ class _SearchScreenState extends State<SearchScreen> {
           width: 18.r,
           height: 18.r,
           child: CircularProgressIndicator(strokeWidth: 2.r),
+        ),
+      );
+    }
+
+    if (status == _RemoteStatus.unsupported) {
+      return Padding(
+        padding: EdgeInsets.symmetric(horizontal: 10.r),
+        child: Row(
+          children: [
+            Icon(
+              Symbols.info_rounded,
+              size: 15.r,
+              color: scheme.onSurface.withValues(alpha: 0.5),
+            ),
+            SizedBox(width: 6.r),
+            Expanded(
+              child: Text(
+                AppLocale.searchRatingLocalOnly.getString(context),
+                maxLines: 2,
+                style: TextStyle(
+                  fontSize: 11.r,
+                  color: scheme.onSurface.withValues(alpha: 0.55),
+                ),
+              ),
+            ),
+          ],
         ),
       );
     }

@@ -73,9 +73,20 @@ class RommRom {
   /// Total number of achievements in the RA set (0 when unknown / no set).
   final int raTotalAchievements;
 
-  /// Primary genre from RomM's `metadatum.genres`, or null when unknown. Only
-  /// the first genre is kept — the list UI shows a single compact label.
-  final String? genre;
+  /// Every genre from RomM's `metadatum.genres`. Empty when unknown.
+  ///
+  /// RomM carries `metadatum` on both the list and detail endpoints, so search
+  /// filtering gets these without a per-ROM detail fetch.
+  final List<String> genres;
+
+  /// Companies credited by RomM (`metadatum.companies`). RomM keeps one flat
+  /// list rather than splitting developer from publisher, which is why the
+  /// download path files them under the local `developer` column — the search
+  /// developer filter matches them the same way.
+  final List<String> companies;
+
+  /// 4-digit release year from `metadatum.first_release_date`, or null.
+  final String? releaseYear;
 
   const RommRom({
     required this.id,
@@ -91,8 +102,14 @@ class RommRom {
     this.urlCover,
     this.raId,
     this.raTotalAchievements = 0,
-    this.genre,
+    this.genres = const [],
+    this.companies = const [],
+    this.releaseYear,
   });
+
+  /// Primary genre, or null when unknown — the list UI shows a single compact
+  /// label rather than the whole set.
+  String? get genre => genres.isEmpty ? null : genres.first;
 
   /// True when RomM serves this ROM as a multi-file zip archive. Uses RomM's
   /// `has_multiple_files` flag (reliable on both endpoints) and falls back to
@@ -128,25 +145,35 @@ class RommRom {
       urlCover: json['url_cover']?.toString(),
       raId: (json['ra_id'] as num?)?.toInt(),
       raTotalAchievements: _parseRaTotal(json),
-      genre: _parseGenre(json),
+      genres: _parseStringList(json, 'genres'),
+      companies: _parseStringList(json, 'companies'),
+      releaseYear: _parseReleaseYear(json),
     );
   }
 
-  /// First genre from `metadatum.genres`, or null when none is present. RomM
-  /// carries `metadatum` on both the list and detail endpoints, so the browse
-  /// list gets the genre without a per-ROM detail fetch.
-  static String? _parseGenre(Map<String, dynamic> json) {
+  /// Non-empty strings under `metadatum.<key>`, in server order.
+  static List<String> _parseStringList(Map<String, dynamic> json, String key) {
     final md = json['metadatum'];
-    if (md is Map) {
-      final genres = md['genres'];
-      if (genres is List) {
-        for (final g in genres) {
-          final s = g?.toString() ?? '';
-          if (s.isNotEmpty) return s;
-        }
-      }
-    }
-    return null;
+    if (md is! Map) return const [];
+    final list = md[key];
+    if (list is! List) return const [];
+    return [
+      for (final v in list)
+        if ((v?.toString() ?? '').trim().isNotEmpty) v.toString().trim(),
+    ];
+  }
+
+  /// Year from `metadatum.first_release_date`, which RomM sends as epoch
+  /// milliseconds (the same field the download path turns into release_date).
+  static String? _parseReleaseYear(Map<String, dynamic> json) {
+    final md = json['metadatum'];
+    if (md is! Map) return null;
+    final frd = md['first_release_date'];
+    if (frd is! num) return null;
+    return DateTime.fromMillisecondsSinceEpoch(
+      frd.toInt(),
+      isUtc: true,
+    ).year.toString().padLeft(4, '0');
   }
 
   /// Total achievements in the RA set. Prefers the length of the merged

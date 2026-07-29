@@ -28,6 +28,16 @@ const String kFilterGenre = 'genre';
 const String kFilterYear = 'year';
 const String kFilterRating = 'rating';
 
+/// Which library a result comes from. Only offered while RomM is connected —
+/// with no remote source there is nothing to choose between.
+const String kFilterSource = 'source';
+
+/// Values for [kFilterSource]. [kSourceAny] is the "Any" option and is never
+/// stored on [SearchCriteria] (null means Any there, as for every dimension).
+const String kSourceAny = 'any';
+const String kSourceLocal = 'local';
+const String kSourceRomm = 'romm';
+
 /// Active filter selection. A null field means "Any" for that dimension.
 class SearchCriteria {
   const SearchCriteria({
@@ -37,6 +47,7 @@ class SearchCriteria {
     this.genre,
     this.year,
     this.rating,
+    this.source,
   });
 
   final String query;
@@ -47,6 +58,11 @@ class SearchCriteria {
 
   /// Whole 1..10 score to match exactly (null == Any); see [searchRatingBucket].
   final int? rating;
+
+  /// [kSourceLocal] / [kSourceRomm], or null for both. Partitions which
+  /// sections the screen renders; it never participates in per-game matching,
+  /// which is why [matchesCriteria] ignores it.
+  final String? source;
 
   /// This selection with [dimension] reset to "Any".
   ///
@@ -59,6 +75,7 @@ class SearchCriteria {
     genre: dimension == kFilterGenre ? null : genre,
     year: dimension == kFilterYear ? null : year,
     rating: dimension == kFilterRating ? null : rating,
+    source: dimension == kFilterSource ? null : source,
   );
 
   /// The active value for a string-valued [dimension] (null == Any).
@@ -67,8 +84,23 @@ class SearchCriteria {
     kFilterDeveloper => developer,
     kFilterGenre => genre,
     kFilterYear => year,
+    kFilterSource => source,
     _ => null,
   };
+
+  /// Whether the local library should be shown at all.
+  bool get includesLocal => source != kSourceRomm;
+
+  /// Whether the RomM section should be shown at all.
+  bool get includesRomm => source != kSourceLocal;
+
+  /// Whether every active dimension can be evaluated against a RomM result.
+  ///
+  /// Rating is the one that can't: local scores come from the scraper on a
+  /// 0..20 scale while RomM carries IGDB's 0..100, so the same chip would
+  /// return inconsistent sets across the two sources. The screen surfaces this
+  /// rather than quietly leaving remote rows unfiltered.
+  bool get rommFilterable => rating == null;
 }
 
 /// Extracts a 4-digit year from a raw year / ISO release-date string.
@@ -125,6 +157,54 @@ bool matchesCriteria(DatabaseGameModel g, SearchCriteria criteria) {
       searchRatingBucket(g.rating) != criteria.rating) {
     return false;
   }
+  return true;
+}
+
+/// The subset of a RomM result the filters can be evaluated against.
+///
+/// Deliberately a plain value type rather than `RommRom` itself: [platform] is
+/// the *local* system name the ROM resolves to, not RomM's platform slug, so
+/// the platform chip keeps offering one vocabulary across both sources. The
+/// screen resolves that per page and hands it in here.
+class RemoteGameFields {
+  const RemoteGameFields({
+    required this.name,
+    this.platform,
+    this.genres = const [],
+    this.companies = const [],
+    this.year,
+  });
+
+  final String name;
+  final String? platform;
+  final List<String> genres;
+  final List<String> companies;
+  final String? year;
+}
+
+/// Whether a RomM result satisfies every dimension of [criteria] that can be
+/// evaluated remotely.
+///
+/// Genre and developer match if *any* of the ROM's values match, because RomM
+/// carries lists where the local database carries one joined string — a game
+/// filed under "Role-playing, Adventure" should still answer an Adventure
+/// filter. Rating is not evaluated here; see [SearchCriteria.rommFilterable].
+bool matchesRemoteCriteria(RemoteGameFields g, SearchCriteria criteria) {
+  final query = criteria.query.trim().toLowerCase();
+  if (query.isNotEmpty && !g.name.toLowerCase().contains(query)) return false;
+
+  if (criteria.platform != null && g.platform != criteria.platform) {
+    return false;
+  }
+  if (criteria.developer != null &&
+      !g.companies.any((c) => c.trim() == criteria.developer)) {
+    return false;
+  }
+  if (criteria.genre != null &&
+      !g.genres.any((v) => v.trim() == criteria.genre)) {
+    return false;
+  }
+  if (criteria.year != null && g.year != criteria.year) return false;
   return true;
 }
 

@@ -946,6 +946,10 @@ const Map<String, dynamic> appLocaleDe = {
   AppLocale.filterRating: 'Bewertung',
   AppLocale.filterYear: 'Jahr',
   AppLocale.filterAny: 'Alle',
+  AppLocale.filterSource: 'Quelle',
+  AppLocale.sourceLocal: 'Auf diesem Gerät',
+  AppLocale.searchRatingLocalOnly:
+      'Der Bewertungsfilter gilt nur für lokale Spiele',
   AppLocale.resetPlayTimeConfirm: 'Spielzeit zurücksetzen',
   AppLocale.resetPlayTimeConfirmBody:
       'Dadurch wird die erfasste Spielzeit dieses Spiels dauerhaft auf null zurückgesetzt. Dies kann nicht rückgängig gemacht werden.',

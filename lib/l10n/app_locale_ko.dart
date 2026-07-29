@@ -936,4 +936,7 @@ const Map<String, dynamic> appLocaleKo = {
   AppLocale.filterRating: '평점',
   AppLocale.filterYear: '연도',
   AppLocale.filterAny: '전체',
+  AppLocale.filterSource: '출처',
+  AppLocale.sourceLocal: '이 기기',
+  AppLocale.searchRatingLocalOnly: '평점 필터는 로컬 게임에만 적용됩니다',
 };

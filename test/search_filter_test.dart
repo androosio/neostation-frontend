@@ -304,4 +304,147 @@ void main() {
       expect(cycleFilterValue(options, 'X', 1), 'A');
     });
   });
+
+  group('SearchCriteria source partitioning', () {
+    test('a null source includes both libraries', () {
+      const c = SearchCriteria();
+      expect(c.includesLocal, isTrue);
+      expect(c.includesRomm, isTrue);
+    });
+
+    test('local excludes RomM and vice versa', () {
+      expect(const SearchCriteria(source: kSourceLocal).includesRomm, isFalse);
+      expect(const SearchCriteria(source: kSourceLocal).includesLocal, isTrue);
+      expect(const SearchCriteria(source: kSourceRomm).includesLocal, isFalse);
+      expect(const SearchCriteria(source: kSourceRomm).includesRomm, isTrue);
+    });
+
+    test('without() clears the source like any other dimension', () {
+      const c = SearchCriteria(source: kSourceRomm, genre: 'RPG');
+      expect(c.without(kFilterSource).source, isNull);
+      expect(c.without(kFilterSource).genre, 'RPG');
+      expect(c.without(kFilterGenre).source, kSourceRomm);
+    });
+
+    test('a rating filter makes the selection unfilterable remotely', () {
+      expect(const SearchCriteria().rommFilterable, isTrue);
+      expect(const SearchCriteria(genre: 'RPG').rommFilterable, isTrue);
+      expect(const SearchCriteria(rating: 8).rommFilterable, isFalse);
+    });
+  });
+
+  group('matchesRemoteCriteria', () {
+    const rom = RemoteGameFields(
+      name: 'Chrono Trigger',
+      platform: 'Super Nintendo',
+      genres: ['Role-playing (RPG)', 'Adventure'],
+      companies: ['Square', 'Nintendo'],
+      year: '1995',
+    );
+
+    test('an empty selection matches everything', () {
+      expect(matchesRemoteCriteria(rom, const SearchCriteria()), isTrue);
+    });
+
+    test('the query matches the name case-insensitively as a substring', () {
+      expect(
+        matchesRemoteCriteria(rom, const SearchCriteria(query: 'CHRONO')),
+        isTrue,
+      );
+      expect(
+        matchesRemoteCriteria(rom, const SearchCriteria(query: 'trigger')),
+        isTrue,
+      );
+      expect(
+        matchesRemoteCriteria(rom, const SearchCriteria(query: 'zelda')),
+        isFalse,
+      );
+    });
+
+    test('genre matches any of the ROM\'s genres, not just the first', () {
+      expect(
+        matchesRemoteCriteria(rom, const SearchCriteria(genre: 'Adventure')),
+        isTrue,
+      );
+      expect(
+        matchesRemoteCriteria(rom, const SearchCriteria(genre: 'Puzzle')),
+        isFalse,
+      );
+    });
+
+    test('developer matches any credited company', () {
+      // RomM keeps one flat company list rather than splitting dev/publisher.
+      expect(
+        matchesRemoteCriteria(rom, const SearchCriteria(developer: 'Nintendo')),
+        isTrue,
+      );
+      expect(
+        matchesRemoteCriteria(rom, const SearchCriteria(developer: 'Konami')),
+        isFalse,
+      );
+    });
+
+    test('platform matches the resolved local system name, not a slug', () {
+      expect(
+        matchesRemoteCriteria(
+          rom,
+          const SearchCriteria(platform: 'Super Nintendo'),
+        ),
+        isTrue,
+      );
+      expect(
+        matchesRemoteCriteria(rom, const SearchCriteria(platform: 'snes')),
+        isFalse,
+      );
+    });
+
+    test('an unresolved platform never matches a platform filter', () {
+      const unresolved = RemoteGameFields(name: 'Chrono Trigger');
+      expect(
+        matchesRemoteCriteria(
+          unresolved,
+          const SearchCriteria(platform: 'Super Nintendo'),
+        ),
+        isFalse,
+      );
+      expect(matchesRemoteCriteria(unresolved, const SearchCriteria()), isTrue);
+    });
+
+    test('year matches exactly', () {
+      expect(
+        matchesRemoteCriteria(rom, const SearchCriteria(year: '1995')),
+        isTrue,
+      );
+      expect(
+        matchesRemoteCriteria(rom, const SearchCriteria(year: '1996')),
+        isFalse,
+      );
+    });
+
+    test('every active dimension must match', () {
+      expect(
+        matchesRemoteCriteria(
+          rom,
+          const SearchCriteria(genre: 'Adventure', year: '1995'),
+        ),
+        isTrue,
+      );
+      expect(
+        matchesRemoteCriteria(
+          rom,
+          const SearchCriteria(genre: 'Adventure', year: '1996'),
+        ),
+        isFalse,
+      );
+    });
+
+    test('rating is not evaluated here — it is gated by rommFilterable', () {
+      // The screen hides the section instead; the matcher must not silently
+      // pass or fail rows on a dimension RomM has no equivalent for.
+      expect(
+        matchesRemoteCriteria(rom, const SearchCriteria(rating: 9)),
+        isTrue,
+      );
+    });
+  });
 }

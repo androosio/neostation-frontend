@@ -917,6 +917,10 @@ const Map<String, dynamic> appLocaleRu = {
   AppLocale.filterRating: 'Рейтинг',
   AppLocale.filterYear: 'Год',
   AppLocale.filterAny: 'Любой',
+  AppLocale.filterSource: 'Источник',
+  AppLocale.sourceLocal: 'На этом устройстве',
+  AppLocale.searchRatingLocalOnly:
+      'Фильтр рейтинга применяется только к локальным играм',
   AppLocale.resetPlayTimeConfirm: 'Сбросить время игры',
   AppLocale.resetPlayTimeConfirmBody:
       'Записанное время игры для этой игры будет безвозвратно сброшено до нуля. Это действие нельзя отменить.',

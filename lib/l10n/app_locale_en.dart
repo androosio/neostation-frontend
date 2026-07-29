@@ -914,6 +914,10 @@ const Map<String, dynamic> appLocaleEn = {
   AppLocale.filterRating: 'Rating',
   AppLocale.filterYear: 'Year',
   AppLocale.filterAny: 'Any',
+  AppLocale.filterSource: 'Source',
+  AppLocale.sourceLocal: 'On this device',
+  AppLocale.searchRatingLocalOnly:
+      'The rating filter applies to local games only',
   AppLocale.resetPlayTimeConfirm: 'Reset Play Time',
   AppLocale.resetPlayTimeConfirmBody:
       'This will permanently reset the recorded play time for this game to zero. This cannot be undone.',

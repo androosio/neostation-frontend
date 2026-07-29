@@ -943,6 +943,10 @@ const Map<String, dynamic> appLocaleEs = {
   AppLocale.filterRating: 'Valoración',
   AppLocale.filterYear: 'Año',
   AppLocale.filterAny: 'Cualquiera',
+  AppLocale.filterSource: 'Origen',
+  AppLocale.sourceLocal: 'En este dispositivo',
+  AppLocale.searchRatingLocalOnly:
+      'El filtro de valoración solo se aplica a los juegos locales',
   AppLocale.resetPlayTimeConfirm: 'Restablecer tiempo de juego',
   AppLocale.resetPlayTimeConfirmBody:
       'Esto restablecerá permanentemente a cero el tiempo de juego registrado de este juego. Esta acción no se puede deshacer.',

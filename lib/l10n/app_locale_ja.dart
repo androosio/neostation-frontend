@@ -835,6 +835,9 @@ const Map<String, dynamic> appLocaleJa = {
   AppLocale.filterRating: '評価',
   AppLocale.filterYear: '年',
   AppLocale.filterAny: 'すべて',
+  AppLocale.filterSource: 'ソース',
+  AppLocale.sourceLocal: 'この端末',
+  AppLocale.searchRatingLocalOnly: '評価フィルターはローカルのゲームにのみ適用されます',
   AppLocale.resetPlayTimeConfirm: 'プレイ時間をリセット',
   AppLocale.resetPlayTimeConfirmBody:
       'このゲームの記録されたプレイ時間を完全にゼロにリセットします。この操作は元に戻せません。',
