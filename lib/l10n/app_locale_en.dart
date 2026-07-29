@@ -175,6 +175,8 @@ const Map<String, dynamic> appLocaleEn = {
   AppLocale.showScraperTab: 'Show Scraper tab',
   AppLocale.showScraperTabSubtitle:
       'Display the Scraping tab in the navigation bar',
+  AppLocale.showRommTab: 'Show RomM tab',
+  AppLocale.showRommTabSubtitle: 'Display the RomM tab in the navigation bar',
 
   AppLocale.configureDirectories: 'Directories',
   AppLocale.configureRomsFolder: 'Configure ROMs folder',

@@ -180,6 +180,8 @@ const Map<String, dynamic> appLocaleRu = {
   AppLocale.showScraperTab: 'Показывать вкладку скрапера',
   AppLocale.showScraperTabSubtitle:
       'Отображает вкладку скрапинга на панели навигации',
+  AppLocale.showRommTab: 'Показывать вкладку RomM',
+  AppLocale.showRommTabSubtitle: 'Отображает вкладку RomM на панели навигации',
 
   AppLocale.configureDirectories: 'Директории',
   AppLocale.configureRomsFolder: 'Настроить папку ROM',

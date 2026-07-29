@@ -184,6 +184,8 @@ mixin AppLocale {
       'show_achievements_tab_subtitle';
   static const String showScraperTab = 'show_scraper_tab';
   static const String showScraperTabSubtitle = 'show_scraper_tab_subtitle';
+  static const String showRommTab = 'show_romm_tab';
+  static const String showRommTabSubtitle = 'show_romm_tab_subtitle';
 
   // ---------------------------------------------------------------------------
   // Directories

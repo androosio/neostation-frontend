@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:neostation/utils/gamepad_nav.dart';
@@ -121,6 +122,7 @@ class _NeoSyncTabState extends State<NeoSyncTab> {
                 index: 1,
                 selectedIndex: _selectedIndex,
                 icon: Symbols.storage_rounded,
+                iconAsset: 'assets/images/icons/romm-light.svg',
                 name: 'RomM',
                 subtitle: 'ROM manager',
                 // RomM is a real, working provider, so its card highlights like
@@ -190,6 +192,11 @@ class _ProviderCard extends StatefulWidget {
   final int index;
   final int selectedIndex;
   final IconData icon;
+
+  /// Brand mark drawn instead of [icon] when the provider ships a real logo
+  /// (RomM). SVG so it stays crisp at any card scale and can be tinted.
+  final String? iconAsset;
+
   final String name;
   final String subtitle;
   final bool isActive;
@@ -199,6 +206,7 @@ class _ProviderCard extends StatefulWidget {
     required this.index,
     required this.selectedIndex,
     required this.icon,
+    this.iconAsset,
     required this.name,
     required this.subtitle,
     required this.isActive,
@@ -328,14 +336,32 @@ class _ProviderCardState extends State<_ProviderCard>
                             color: iconBgColor,
                             borderRadius: BorderRadius.circular(10.r),
                           ),
-                          child: Icon(
-                            widget.icon,
-                            size: 20.r,
-                            color: showActive
-                                ? accent
-                                : theme.colorScheme.onSurface.withValues(
-                                    alpha: 0.45,
+                          child: Builder(
+                            builder: (context) {
+                              final tint = showActive
+                                  ? accent
+                                  : theme.colorScheme.onSurface.withValues(
+                                      alpha: 0.45,
+                                    );
+                              if (widget.iconAsset == null) {
+                                return Icon(
+                                  widget.icon,
+                                  size: 20.r,
+                                  color: tint,
+                                );
+                              }
+                              return Padding(
+                                padding: EdgeInsets.all(9.r),
+                                child: SvgPicture.asset(
+                                  widget.iconAsset!,
+                                  colorFilter: ColorFilter.mode(
+                                    tint,
+                                    BlendMode.srcIn,
                                   ),
+                                  fit: BoxFit.contain,
+                                ),
+                              );
+                            },
                           ),
                         ),
                         SizedBox(height: 10.r),

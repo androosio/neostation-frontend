@@ -182,6 +182,9 @@ const Map<String, dynamic> appLocaleEs = {
   AppLocale.showScraperTab: 'Mostrar pestaña Scraper',
   AppLocale.showScraperTabSubtitle:
       'Muestra la pestaña de scraping en la barra de navegación',
+  AppLocale.showRommTab: 'Mostrar pestaña RomM',
+  AppLocale.showRommTabSubtitle:
+      'Muestra la pestaña de RomM en la barra de navegación',
 
   AppLocale.configureDirectories: 'Directorios',
   AppLocale.configureRomsFolder: 'Configurar carpeta de ROMs',

@@ -98,6 +98,10 @@ const Map<NavTab, NavTabSpec> navTabSpecs = {
   NavTab.romm: NavTabSpec(
     icon: 'assets/images/icons/romm-light.svg',
     labelKey: AppLocale.rommLibrary,
+    hidden: _hideTabRomm,
+    withHidden: _withHideTabRomm,
+    settingsTitleKey: AppLocale.showRommTab,
+    settingsSubtitleKey: AppLocale.showRommTabSubtitle,
   ),
   NavTab.settings: NavTabSpec(
     icon: 'assets/images/icons/setting.webp',
@@ -109,6 +113,7 @@ const Map<NavTab, NavTabSpec> navTabSpecs = {
 bool _hideTabSync(ConfigModel c) => c.hideTabSync;
 bool _hideTabAchievements(ConfigModel c) => c.hideTabAchievements;
 bool _hideTabScraper(ConfigModel c) => c.hideTabScraper;
+bool _hideTabRomm(ConfigModel c) => c.hideTabRomm;
 
 ConfigModel _withHideTabSync(ConfigModel c, bool hidden) =>
     c.copyWith(hideTabSync: hidden);
@@ -116,6 +121,8 @@ ConfigModel _withHideTabAchievements(ConfigModel c, bool hidden) =>
     c.copyWith(hideTabAchievements: hidden);
 ConfigModel _withHideTabScraper(ConfigModel c, bool hidden) =>
     c.copyWith(hideTabScraper: hidden);
+ConfigModel _withHideTabRomm(ConfigModel c, bool hidden) =>
+    c.copyWith(hideTabRomm: hidden);
 
 /// Description of [tab], never null — see [_fallbackSpec].
 NavTabSpec navTabSpec(NavTab tab) => navTabSpecs[tab] ?? _fallbackSpec;

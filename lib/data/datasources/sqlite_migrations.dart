@@ -448,6 +448,9 @@ class SqliteMigrations {
       case 111:
         await _migrateToVersion111(db);
         break;
+      case 112:
+        await _migrateToVersion112(db);
+        break;
       default:
         _log.w('No migration defined for version $version');
     }
@@ -5258,7 +5261,7 @@ class SqliteMigrations {
   static Future<void> _migrateToVersion106(Database db) async {
     _log.i('Migration v106: Adding nav tab visibility flags to user_config');
     try {
-      _addNavTabVisibilityColumns(db, 'v106');
+      _addNavTabVisibilityColumns(db, 'v106', _navTabColumnsV106);
       _log.i('Migration v106 completed');
     } catch (e, stackTrace) {
       _log.e('Error in migration v106: $e');
@@ -5267,17 +5270,22 @@ class SqliteMigrations {
     }
   }
 
-  /// Adds any missing `hide_tab_*` column to `user_config`, logging against
+  /// The `hide_tab_*` columns introduced by v106, replayed by v111.
+  static const List<String> _navTabColumnsV106 = [
+    'hide_tab_sync',
+    'hide_tab_achievements',
+    'hide_tab_scraper',
+  ];
+
+  /// Adds any missing entry of [newColumns] to `user_config`, logging against
   /// [version]. Idempotent, so it is safe to replay from a later migration.
-  static void _addNavTabVisibilityColumns(Database db, String version) {
+  static void _addNavTabVisibilityColumns(
+    Database db,
+    String version,
+    List<String> newColumns,
+  ) {
     final tableInfo = db.select('PRAGMA table_info(user_config)');
     final columns = tableInfo.map((c) => c['name'].toString()).toList();
-
-    const newColumns = [
-      'hide_tab_sync',
-      'hide_tab_achievements',
-      'hide_tab_scraper',
-    ];
 
     for (final column in newColumns) {
       if (!columns.contains(column)) {
@@ -5354,10 +5362,26 @@ class SqliteMigrations {
   static Future<void> _migrateToVersion111(Database db) async {
     _log.i('Migration v111: Backfilling nav tab visibility flags');
     try {
-      _addNavTabVisibilityColumns(db, 'v111');
+      _addNavTabVisibilityColumns(db, 'v111', _navTabColumnsV106);
       _log.i('Migration v111 completed');
     } catch (e, stackTrace) {
       _log.e('Error in migration v111: $e');
+      _log.e('   StackTrace: $stackTrace');
+      rethrow;
+    }
+  }
+
+  /// Migration v112: Lets the RomM navigation tab be hidden like Sync,
+  /// Achievements and Scraper.
+  ///
+  /// Defaults to `0` (visible), so nobody's strip changes on upgrade.
+  static Future<void> _migrateToVersion112(Database db) async {
+    _log.i('Migration v112: Adding RomM tab visibility flag to user_config');
+    try {
+      _addNavTabVisibilityColumns(db, 'v112', const ['hide_tab_romm']);
+      _log.i('Migration v112 completed');
+    } catch (e, stackTrace) {
+      _log.e('Error in migration v112: $e');
       _log.e('   StackTrace: $stackTrace');
       rethrow;
     }
