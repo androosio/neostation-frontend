@@ -143,6 +143,13 @@ const Map<String, dynamic> appLocaleKo = {
   AppLocale.bartopShutdown: '종료할 때 BarTOP 전원 끄기',
   AppLocale.bartopShutdownSubtitle: '앱을 종료할 때 컴퓨터도 함께 종료합니다',
 
+  AppLocale.showSyncTab: '동기화 탭 표시',
+  AppLocale.showSyncTabSubtitle: '내비게이션 바에 클라우드 동기화 탭을 표시합니다',
+  AppLocale.showAchievementsTab: '업적 탭 표시',
+  AppLocale.showAchievementsTabSubtitle: '내비게이션 바에 RetroAchievements 탭을 표시합니다',
+  AppLocale.showScraperTab: '스크레이퍼 탭 표시',
+  AppLocale.showScraperTabSubtitle: '내비게이션 바에 스크래핑 탭을 표시합니다',
+
   AppLocale.configureDirectories: '폴더',
   AppLocale.configureRomsFolder: 'ROM 폴더 설정',
   AppLocale.cannotAccessFolder: '폴더에 접근할 수 없습니다',
@@ -387,6 +394,7 @@ const Map<String, dynamic> appLocaleKo = {
   AppLocale.stoppingScraping: '게임 정보 가져오기를 중지하는 중...',
   AppLocale.syncError: '시스템 ID를 동기화하는 중 오류가 발생했습니다',
   AppLocale.metadataError: '게임 정보 가져오기 오류',
+  AppLocale.scrapeQuotaExceeded: 'ScreenScraper 일일 스크래핑 할당량 초과',
   AppLocale.start: '시작',
   AppLocale.systemsSub: '게임 정보를 가져올 시스템을 선택합니다',
   AppLocale.disableAll: '모두 비활성화',
@@ -909,4 +917,21 @@ const Map<String, dynamic> appLocaleKo = {
       '아트 팩이 설치되었습니다! 나중에 설정에서 더 많은 테마를 살펴볼 수 있습니다.',
   AppLocale.wizardArtPackUnavailable:
       '현재 아트 팩에 접근할 수 없습니다. 온라인 상태가 되면 설정에서 설치할 수 있습니다.',
+
+  // Library search & filtering.
+  AppLocale.searchTitle: '검색',
+  AppLocale.searchNameHint: '검색...',
+  AppLocale.searchNoResults: '게임을 찾을 수 없습니다',
+  AppLocale.searchResultsCount: '결과 {count}개',
+  AppLocale.searchClearFilters: '필터 지우기',
+  AppLocale.searchFilters: '필터',
+  AppLocale.searchViewResults: '결과 보기',
+  AppLocale.searchOpen: '검색',
+  AppLocale.searchGoToGame: '게임으로 이동',
+  AppLocale.filterPlatform: '플랫폼',
+  AppLocale.filterDeveloper: '개발사',
+  AppLocale.filterGenre: '장르',
+  AppLocale.filterRating: '평점',
+  AppLocale.filterYear: '연도',
+  AppLocale.filterAny: '전체',
 };

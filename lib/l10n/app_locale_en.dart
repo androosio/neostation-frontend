@@ -166,6 +166,16 @@ const Map<String, dynamic> appLocaleEn = {
   AppLocale.bartopShutdownSubtitle:
       'Shut down the computer when exiting the application',
 
+  AppLocale.showSyncTab: 'Show Sync tab',
+  AppLocale.showSyncTabSubtitle:
+      'Display the Cloud Sync tab in the navigation bar',
+  AppLocale.showAchievementsTab: 'Show Achievements tab',
+  AppLocale.showAchievementsTabSubtitle:
+      'Display the RetroAchievements tab in the navigation bar',
+  AppLocale.showScraperTab: 'Show Scraper tab',
+  AppLocale.showScraperTabSubtitle:
+      'Display the Scraping tab in the navigation bar',
+
   AppLocale.configureDirectories: 'Directories',
   AppLocale.configureRomsFolder: 'Configure ROMs folder',
   AppLocale.cannotAccessFolder: 'Cannot Access Folder',
@@ -427,6 +437,7 @@ const Map<String, dynamic> appLocaleEn = {
   AppLocale.stoppingScraping: 'Stopping scraping process...',
   AppLocale.syncError: 'Error synchronizing system IDs',
   AppLocale.metadataError: 'Error during metadata scraping',
+  AppLocale.scrapeQuotaExceeded: 'ScreenScraper daily scraping quota exceeded',
   AppLocale.start: 'Start',
   AppLocale.systemsSub: 'Select which systems to scrape',
   AppLocale.disableAll: 'Disable All',
@@ -886,6 +897,21 @@ const Map<String, dynamic> appLocaleEn = {
   AppLocale.rommNoWritableFolder:
       'Could not write to your ROM folder. Grant "All files access" to NeoStation and try again.',
   AppLocale.rommNotConnected: 'Connect to a RomM server in Settings first',
+  AppLocale.searchTitle: 'Search',
+  AppLocale.searchNameHint: 'Search...',
+  AppLocale.searchNoResults: 'No games found',
+  AppLocale.searchResultsCount: '{count} results',
+  AppLocale.searchClearFilters: 'Clear filters',
+  AppLocale.searchFilters: 'Filters',
+  AppLocale.searchViewResults: 'View results',
+  AppLocale.searchOpen: 'Search',
+  AppLocale.searchGoToGame: 'Go to game',
+  AppLocale.filterPlatform: 'Platform',
+  AppLocale.filterDeveloper: 'Developer',
+  AppLocale.filterGenre: 'Genre',
+  AppLocale.filterRating: 'Rating',
+  AppLocale.filterYear: 'Year',
+  AppLocale.filterAny: 'Any',
   AppLocale.resetPlayTimeConfirm: 'Reset Play Time',
   AppLocale.resetPlayTimeConfirmBody:
       'This will permanently reset the recorded play time for this game to zero. This cannot be undone.',

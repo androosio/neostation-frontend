@@ -6,7 +6,7 @@ import 'package:neostation/services/sfx_service.dart';
 import '../../../../themes/corner_radii.dart';
 
 /// Defines the navigable sections within the game details card.
-enum DetailTab { general, gameInfo, achievements }
+enum DetailTab { wheel, box2d, screenshotVideo, gameInfo, achievements }
 
 /// A navigation header component that manages tab switching and global card actions.
 ///
@@ -14,36 +14,43 @@ enum DetailTab { general, gameInfo, achievements }
 /// navigation and uses fluid animations for tab transitions. Dynamically adjusts
 /// its layout based on the availability of metadata and system features.
 class GameDetailsTabsHeader extends StatelessWidget {
-  final bool isGameInfoHidden;
+  final bool isScreenshotVideoHidden;
   final bool hasRetroAchievements;
   final DetailTab currentTab;
   final ValueChanged<DetailTab> onTabChanged;
 
   const GameDetailsTabsHeader({
     super.key,
-    required this.isGameInfoHidden,
+    required this.isScreenshotVideoHidden,
     required this.hasRetroAchievements,
     required this.currentTab,
     required this.onTabChanged,
   });
 
+  /// Ordered list of always-visible tab enums.
+  static const List<DetailTab> _baseTabs = [
+    DetailTab.wheel,
+    DetailTab.box2d,
+    DetailTab.screenshotVideo,
+    DetailTab.gameInfo,
+  ];
+
   @override
   Widget build(BuildContext context) {
     // Dynamically calculate the active tab count for layout arbitration.
-    int numTabs = 1; // General is always present.
-    if (!isGameInfoHidden) numTabs++;
-    if (hasRetroAchievements) numTabs++;
+    final List<DetailTab> visibleTabs = [
+      ..._baseTabs.where(
+        (t) => t != DetailTab.screenshotVideo || !isScreenshotVideoHidden,
+      ),
+      if (hasRetroAchievements) DetailTab.achievements,
+    ];
 
+    final int numTabs = visibleTabs.length;
     final double tabWidth = 36.r;
     final double totalTabsWidth = numTabs * tabWidth;
 
     // Resolve the visual index for the cursor animation, accounting for hidden tabs.
-    int visualIndex = 0;
-    if (currentTab == DetailTab.gameInfo) {
-      visualIndex = 1;
-    } else if (currentTab == DetailTab.achievements) {
-      visualIndex = isGameInfoHidden ? 1 : 2;
-    }
+    final int visualIndex = visibleTabs.indexOf(currentTab).clamp(0, numTabs - 1);
 
     final theme = Theme.of(context);
 
@@ -117,28 +124,12 @@ class GameDetailsTabsHeader extends StatelessWidget {
                           ),
                           Row(
                             children: [
-                              _TabItem(
-                                icon: Symbols.gamepad_rounded,
-                                tab: DetailTab.general,
-                                width: tabWidth,
-                                isSelected: currentTab == DetailTab.general,
-                                onTap: onTabChanged,
-                              ),
-                              if (!isGameInfoHidden)
+                              for (final tab in visibleTabs)
                                 _TabItem(
-                                  icon: Symbols.image_rounded,
-                                  tab: DetailTab.gameInfo,
+                                  icon: _iconForTab(tab),
+                                  tab: tab,
                                   width: tabWidth,
-                                  isSelected: currentTab == DetailTab.gameInfo,
-                                  onTap: onTabChanged,
-                                ),
-                              if (hasRetroAchievements)
-                                _TabItem(
-                                  icon: Symbols.emoji_events_rounded,
-                                  tab: DetailTab.achievements,
-                                  width: tabWidth,
-                                  isSelected:
-                                      currentTab == DetailTab.achievements,
+                                  isSelected: currentTab == tab,
                                   onTap: onTabChanged,
                                 ),
                             ],
@@ -161,6 +152,16 @@ class GameDetailsTabsHeader extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  static IconData _iconForTab(DetailTab tab) {
+    return switch (tab) {
+      DetailTab.wheel => Symbols.gamepad_rounded,
+      DetailTab.box2d => Symbols.widgets_rounded,
+      DetailTab.screenshotVideo => Symbols.image_rounded,
+      DetailTab.gameInfo => Symbols.description_rounded,
+      DetailTab.achievements => Symbols.emoji_events_rounded,
+    };
   }
 }
 

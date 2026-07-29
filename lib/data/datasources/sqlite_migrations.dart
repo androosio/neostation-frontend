@@ -442,6 +442,9 @@ class SqliteMigrations {
       case 109:
         await _migrateToVersion109(db);
         break;
+      case 110:
+        await _migrateToVersion110(db);
+        break;
       default:
         _log.w('No migration defined for version $version');
     }
@@ -5079,7 +5082,7 @@ class SqliteMigrations {
     }
   }
 
-  /// Migration v108: Makes `app_neo_sync_state` provider-scoped so RomM and
+  /// Migration v109: Makes `app_neo_sync_state` provider-scoped so RomM and
   /// NeoSync no longer corrupt each other's recorded cloud timestamps.
   ///
   /// The legacy table keyed on `file_path` alone (`file_path ... UNIQUE`), so a
@@ -5087,8 +5090,8 @@ class SqliteMigrations {
   /// can't drop that column-level UNIQUE in place, so we rebuild the table with
   /// a composite `UNIQUE(provider, file_path)` and backfill every existing row
   /// to 'neosync' — the only provider that wrote these rows historically.
-  static Future<void> _migrateToVersion108(Database db) async {
-    _log.i('Migration v108: Adding provider column to app_neo_sync_state');
+  static Future<void> _migrateToVersion109(Database db) async {
+    _log.i('Migration v109: Adding provider column to app_neo_sync_state');
     try {
       final tableExists = db
           .select(
@@ -5100,7 +5103,7 @@ class SqliteMigrations {
         // Fresh/absent table → just create the new provider-scoped schema.
         db.execute(createAppNeoSyncStateTableSql);
         db.execute(createAppNeoSyncStateIndexSql);
-        _log.i('app_neo_sync_state created with provider column (v108)');
+        _log.i('app_neo_sync_state created with provider column (v109)');
         return;
       }
 
@@ -5110,7 +5113,7 @@ class SqliteMigrations {
         'provider',
       );
       if (alreadyMigrated) {
-        _log.i('app_neo_sync_state already provider-scoped, skipping v108');
+        _log.i('app_neo_sync_state already provider-scoped, skipping v109');
         return;
       }
 
@@ -5135,9 +5138,9 @@ class SqliteMigrations {
         db.execute('ROLLBACK');
         rethrow;
       }
-      _log.i('app_neo_sync_state migrated to (provider, file_path) via v108');
+      _log.i('app_neo_sync_state migrated to (provider, file_path) via v109');
     } catch (e, stackTrace) {
-      _log.e('Error in migration v108: $e');
+      _log.e('Error in migration v109: $e');
       _log.e('   StackTrace: $stackTrace');
       rethrow;
     }
@@ -5242,16 +5245,37 @@ class SqliteMigrations {
     }
   }
 
-  /// Migration v106: Adds the singleton user_romm_config table used to store
-  /// RomM server credentials and tokens for remote library browse/download.
+  /// Migration v106: Persist per-tab visibility for the main navigation strip.
   ///
-  /// (RomM feature originally landed as v97 on its branch; renumbered as main
-  /// added its own v98–v105, so the RomM migrations now start at v106.)
+  /// Each column stores *hidden*, not *shown*, and defaults to `0`. SQLite
+  /// backfills existing rows with that default on ALTER, so upgrading users keep
+  /// every tab they already had — and a tab introduced in a future version, added
+  /// here as another `DEFAULT 0` column, shows up rather than silently staying
+  /// hidden.
   static Future<void> _migrateToVersion106(Database db) async {
-    _log.i('Migration v106: Creating user_romm_config table');
+    _log.i('Migration v106: Adding nav tab visibility flags to user_config');
     try {
-      db.execute(createUserRommConfigTableSql);
-      _log.i('Table user_romm_config created via v106');
+      final tableInfo = db.select('PRAGMA table_info(user_config)');
+      final columns = tableInfo.map((c) => c['name'].toString()).toList();
+
+      const newColumns = [
+        'hide_tab_sync',
+        'hide_tab_achievements',
+        'hide_tab_scraper',
+      ];
+
+      for (final column in newColumns) {
+        if (!columns.contains(column)) {
+          db.execute(
+            'ALTER TABLE user_config ADD COLUMN $column INTEGER DEFAULT 0',
+          );
+          _log.i('Column $column added via v106');
+        } else {
+          _log.i('Column $column already exists');
+        }
+      }
+
+      _log.i('Migration v106 completed');
     } catch (e, stackTrace) {
       _log.e('Error in migration v106: $e');
       _log.e('   StackTrace: $stackTrace');
@@ -5259,15 +5283,16 @@ class SqliteMigrations {
     }
   }
 
-  /// Migration v107: Adds the [app_romm_rom_map] table, which links a local game
-  /// (romname + system folder) to its RomM ROM id so save/state sync can target
-  /// the right `rom_id`. Populated when a ROM is downloaded from RomM.
+  /// Migration v107: Adds the singleton user_romm_config table used to store
+  /// RomM server credentials and tokens for remote library browse/download.
+  ///
+  /// (RomM feature originally landed as v97 on its branch; it keeps getting
+  /// renumbered as main lands its own migrations — now starting at v107.)
   static Future<void> _migrateToVersion107(Database db) async {
-    _log.i('Migration v107: Creating app_romm_rom_map table');
+    _log.i('Migration v107: Creating user_romm_config table');
     try {
-      db.execute(createAppRommRomMapTableSql);
-      db.execute(createAppRommRomMapIndexSql);
-      _log.i('Table app_romm_rom_map created via v107');
+      db.execute(createUserRommConfigTableSql);
+      _log.i('Table user_romm_config created via v107');
     } catch (e, stackTrace) {
       _log.e('Error in migration v107: $e');
       _log.e('   StackTrace: $stackTrace');
@@ -5275,21 +5300,37 @@ class SqliteMigrations {
     }
   }
 
-  /// Migration v109: Adds the RomM playtime-sync tables — the
+  /// Migration v108: Adds the [app_romm_rom_map] table, which links a local game
+  /// (romname + system folder) to its RomM ROM id so save/state sync can target
+  /// the right `rom_id`. Populated when a ROM is downloaded from RomM.
+  static Future<void> _migrateToVersion108(Database db) async {
+    _log.i('Migration v108: Creating app_romm_rom_map table');
+    try {
+      db.execute(createAppRommRomMapTableSql);
+      db.execute(createAppRommRomMapIndexSql);
+      _log.i('Table app_romm_rom_map created via v108');
+    } catch (e, stackTrace) {
+      _log.e('Error in migration v108: $e');
+      _log.e('   StackTrace: $stackTrace');
+      rethrow;
+    }
+  }
+
+  /// Migration v110: Adds the RomM playtime-sync tables — the
   /// [app_romm_play_sessions] outbox of finished sessions awaiting upload, and
   /// the [app_romm_playtime_state] ledger that keeps repeated pulls from
   /// double-counting time this device already contributed.
-  static Future<void> _migrateToVersion109(Database db) async {
-    _log.i('Migration v109: Creating RomM playtime sync tables');
+  static Future<void> _migrateToVersion110(Database db) async {
+    _log.i('Migration v110: Creating RomM playtime sync tables');
     try {
       db.execute(createAppRommPlaySessionsTableSql);
       db.execute(createAppRommPlaySessionsIndexSql);
       db.execute(createAppRommPlaytimeStateTableSql);
       _log.i(
-        'Tables app_romm_play_sessions / app_romm_playtime_state created via v109',
+        'Tables app_romm_play_sessions / app_romm_playtime_state created via v110',
       );
     } catch (e, stackTrace) {
-      _log.e('Error in migration v109: $e');
+      _log.e('Error in migration v110: $e');
       _log.e('   StackTrace: $stackTrace');
       rethrow;
     }

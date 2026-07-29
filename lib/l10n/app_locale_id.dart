@@ -167,6 +167,16 @@ const Map<String, dynamic> appLocaleId = {
   AppLocale.bartopShutdown: 'Matikan BarTOP saat keluar',
   AppLocale.bartopShutdownSubtitle: 'Mematikan komputer saat menutup aplikasi',
 
+  AppLocale.showSyncTab: 'Tampilkan tab Sinkronisasi',
+  AppLocale.showSyncTabSubtitle:
+      'Menampilkan tab sinkronisasi cloud di bilah navigasi',
+  AppLocale.showAchievementsTab: 'Tampilkan tab Pencapaian',
+  AppLocale.showAchievementsTabSubtitle:
+      'Menampilkan tab RetroAchievements di bilah navigasi',
+  AppLocale.showScraperTab: 'Tampilkan tab Scraper',
+  AppLocale.showScraperTabSubtitle:
+      'Menampilkan tab scraping di bilah navigasi',
+
   AppLocale.configureDirectories: 'Konfigurasi Direktori',
   AppLocale.configureRomsFolder: 'Konfigurasi Folder ROM',
   AppLocale.cannotAccessFolder: 'Tidak dapat mengakses folder',
@@ -427,6 +437,8 @@ const Map<String, dynamic> appLocaleId = {
   AppLocale.stoppingScraping: 'Menghentikan proses scraping...',
   AppLocale.syncError: 'Kesalahan saat menyinkronkan ID sistem',
   AppLocale.metadataError: 'Kesalahan selama proses scraping',
+  AppLocale.scrapeQuotaExceeded:
+      'Kuota harian scraping ScreenScraper terlampaui',
   AppLocale.start: 'Mulai',
   AppLocale.systemsSub: 'Pilih sistem yang akan di-scrape',
   AppLocale.disableAll: 'Nonaktifkan Semua',
@@ -891,6 +903,21 @@ const Map<String, dynamic> appLocaleId = {
       'Tidak dapat menulis ke folder ROM Anda. Berikan "Akses Semua File" ke NeoStation lalu coba lagi.',
   AppLocale.rommNotConnected:
       'Hubungkan ke server RomM di Pengaturan terlebih dahulu',
+  AppLocale.searchTitle: 'Cari',
+  AppLocale.searchNameHint: 'Cari...',
+  AppLocale.searchNoResults: 'Tidak ada gim ditemukan',
+  AppLocale.searchResultsCount: '{count} hasil',
+  AppLocale.searchClearFilters: 'Hapus filter',
+  AppLocale.searchFilters: 'Filter',
+  AppLocale.searchViewResults: 'Lihat hasil',
+  AppLocale.searchOpen: 'Cari',
+  AppLocale.searchGoToGame: 'Buka di daftar',
+  AppLocale.filterPlatform: 'Platform',
+  AppLocale.filterDeveloper: 'Pengembang',
+  AppLocale.filterGenre: 'Genre',
+  AppLocale.filterRating: 'Peringkat',
+  AppLocale.filterYear: 'Tahun',
+  AppLocale.filterAny: 'Semua',
   AppLocale.resetPlayTimeConfirm: 'Atur Ulang Waktu Bermain',
   AppLocale.resetPlayTimeConfirmBody:
       'Ini akan mengatur ulang waktu bermain yang tercatat untuk game ini menjadi nol secara permanen. Tindakan ini tidak dapat dibatalkan.',

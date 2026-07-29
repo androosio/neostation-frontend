@@ -171,6 +171,16 @@ const Map<String, dynamic> appLocaleDe = {
   AppLocale.bartopShutdownSubtitle:
       'Schaltet den Computer beim Schließen der App aus',
 
+  AppLocale.showSyncTab: 'Sync-Tab anzeigen',
+  AppLocale.showSyncTabSubtitle:
+      'Zeigt den Cloud-Sync-Tab in der Navigationsleiste an',
+  AppLocale.showAchievementsTab: 'Erfolge-Tab anzeigen',
+  AppLocale.showAchievementsTabSubtitle:
+      'Zeigt den RetroAchievements-Tab in der Navigationsleiste an',
+  AppLocale.showScraperTab: 'Scraper-Tab anzeigen',
+  AppLocale.showScraperTabSubtitle:
+      'Zeigt den Scraping-Tab in der Navigationsleiste an',
+
   AppLocale.configureDirectories: 'Verzeichnisse konfigurieren',
   AppLocale.configureRomsFolder: 'ROM-Ordner konfigurieren',
   AppLocale.cannotAccessFolder: 'Zugriff auf den Ordner nicht möglich',
@@ -445,6 +455,8 @@ const Map<String, dynamic> appLocaleDe = {
   AppLocale.stoppingScraping: 'Scraping-Prozess wird gestoppt...',
   AppLocale.syncError: 'Fehler beim Synchronisieren der System-IDs',
   AppLocale.metadataError: 'Fehler während des Scraping-Prozesses',
+  AppLocale.scrapeQuotaExceeded:
+      'ScreenScraper Tages-Scraping-Kontingent überschritten',
   AppLocale.start: 'Start',
   AppLocale.systemsSub: 'Wähle die Systeme zum Scrapen',
   AppLocale.disableAll: 'Alle deaktivieren',
@@ -916,6 +928,21 @@ const Map<String, dynamic> appLocaleDe = {
       'Dein ROM-Ordner konnte nicht beschrieben werden. Erteile NeoStation "Zugriff auf alle Dateien" und versuche es erneut.',
   AppLocale.rommNotConnected:
       'Verbinde dich zuerst in den Einstellungen mit einem RomM-Server',
+  AppLocale.searchTitle: 'Suche',
+  AppLocale.searchNameHint: 'Suchen...',
+  AppLocale.searchNoResults: 'Keine Spiele gefunden',
+  AppLocale.searchResultsCount: '{count} Ergebnisse',
+  AppLocale.searchClearFilters: 'Filter zurücksetzen',
+  AppLocale.searchFilters: 'Filter',
+  AppLocale.searchViewResults: 'Ergebnisse anzeigen',
+  AppLocale.searchOpen: 'Suche',
+  AppLocale.searchGoToGame: 'Zum Spiel springen',
+  AppLocale.filterPlatform: 'Plattform',
+  AppLocale.filterDeveloper: 'Entwickler',
+  AppLocale.filterGenre: 'Genre',
+  AppLocale.filterRating: 'Bewertung',
+  AppLocale.filterYear: 'Jahr',
+  AppLocale.filterAny: 'Alle',
   AppLocale.resetPlayTimeConfirm: 'Spielzeit zurücksetzen',
   AppLocale.resetPlayTimeConfirmBody:
       'Dadurch wird die erfasste Spielzeit dieses Spiels dauerhaft auf null zurückgesetzt. Dies kann nicht rückgängig gemacht werden.',

@@ -177,6 +177,13 @@ mixin AppLocale {
       'disable_secondary_screen_sub';
   static const String bartopShutdown = 'bartop_shutdown';
   static const String bartopShutdownSubtitle = 'bartop_shutdown_subtitle';
+  static const String showSyncTab = 'show_sync_tab';
+  static const String showSyncTabSubtitle = 'show_sync_tab_subtitle';
+  static const String showAchievementsTab = 'show_achievements_tab';
+  static const String showAchievementsTabSubtitle =
+      'show_achievements_tab_subtitle';
+  static const String showScraperTab = 'show_scraper_tab';
+  static const String showScraperTabSubtitle = 'show_scraper_tab_subtitle';
 
   // ---------------------------------------------------------------------------
   // Directories
@@ -833,6 +840,7 @@ mixin AppLocale {
   static const String scrapeUnexpectedError = 'scrape_unexpected_error';
   static const String scrapeSuccessful = 'scrape_successful';
   static const String scrapeErrorGame = 'scrape_error_game';
+  static const String scrapeQuotaExceeded = 'scrape_quota_exceeded';
 
   // ---------------------------------------------------------------------------
   // User data location
@@ -949,6 +957,23 @@ mixin AppLocale {
   static const String rommNoSystemMatch = 'romm_no_system_match';
   static const String rommNoWritableFolder = 'romm_no_writable_folder';
   static const String rommNotConnected = 'romm_not_connected';
+
+  // Library search & filtering.
+  static const String searchTitle = 'search_title';
+  static const String searchNameHint = 'search_name_hint';
+  static const String searchNoResults = 'search_no_results';
+  static const String searchResultsCount = 'search_results_count';
+  static const String searchClearFilters = 'search_clear_filters';
+  static const String searchFilters = 'search_filters';
+  static const String searchViewResults = 'search_view_results';
+  static const String searchOpen = 'search_open';
+  static const String searchGoToGame = 'search_go_to_game';
+  static const String filterPlatform = 'filter_platform';
+  static const String filterDeveloper = 'filter_developer';
+  static const String filterGenre = 'filter_genre';
+  static const String filterRating = 'filter_rating';
+  static const String filterYear = 'filter_year';
+  static const String filterAny = 'filter_any';
   // Destructive-action confirmation prompts
   static const String resetPlayTimeConfirm = 'reset_play_time_confirm';
   static const String resetPlayTimeConfirmBody = 'reset_play_time_confirm_body';

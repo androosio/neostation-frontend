@@ -42,11 +42,20 @@ class GamesGrid extends StatefulWidget {
   final VoidCallback? onScrape;
   final Set<String> scrapingGameRomnames;
   final Map<String, double> scrapeProgress;
+  final int artworkVersion;
 
-  /// No-op stub retained for API compatibility with the current scraping tab.
-  /// This pre-#188 grid keeps no static artwork caches; the Flutter image
-  /// cache is evicted separately by the caller.
-  static void evictArtworkCaches(Iterable<String> paths) {}
+  /// Clears path-derived caches after artwork is added or overwritten.
+  static void evictArtworkCaches(Iterable<String> paths) {
+    if (paths.isEmpty) {
+      _GamesGridState._imageSizeCache.clear();
+      _GameCardImageState._existsCache.clear();
+      return;
+    }
+    for (final path in paths) {
+      _GamesGridState._imageSizeCache.remove(path);
+      _GameCardImageState._existsCache.remove(path);
+    }
+  }
 
   const GamesGrid({
     super.key,
@@ -63,6 +72,7 @@ class GamesGrid extends StatefulWidget {
     this.onScrape,
     this.scrapingGameRomnames = const {},
     this.scrapeProgress = const {},
+    this.artworkVersion = 0,
   });
 
   @override
@@ -615,6 +625,7 @@ class _GamesGridState extends State<GamesGrid> {
     // them (a changed game set / cols also invalidates via _layoutGen, but the
     // scrape props do not touch layout — clear explicitly).
     if (widget.games != oldWidget.games ||
+        widget.artworkVersion != oldWidget.artworkVersion ||
         widget.scrapingGameRomnames != oldWidget.scrapingGameRomnames ||
         widget.scrapeProgress != oldWidget.scrapeProgress) {
       _rowCache.clear();
@@ -1324,7 +1335,7 @@ class _GamesGridState extends State<GamesGrid> {
               ),
               clipBehavior: Clip.antiAlias,
               child: _GameCardImage(
-                key: ValueKey('img_${game.romname}'),
+                key: ValueKey('img_${game.romname}_${widget.artworkVersion}'),
                 box2dPath: box2dPath,
                 game: game,
                 targetWidth: targetWidth,

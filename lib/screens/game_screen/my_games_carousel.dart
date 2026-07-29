@@ -42,11 +42,18 @@ class GamesCarousel extends StatefulWidget {
   final VoidCallback? onScrape;
   final Set<String> scrapingGameRomnames;
   final Map<String, double> scrapeProgress;
+  final int artworkVersion;
 
-  /// No-op stub retained for API compatibility with the current scraping tab.
-  /// This pre-#188 carousel keeps no static artwork caches; the Flutter image
-  /// cache is evicted separately by the caller.
-  static void evictArtworkCaches(Iterable<String> paths) {}
+  /// Clears artwork dimension caches after files are added or overwritten.
+  static void evictArtworkCaches(Iterable<String> paths) {
+    if (paths.isEmpty) {
+      _GamesCarouselState._imgSizeCache.clear();
+      return;
+    }
+    for (final path in paths) {
+      _GamesCarouselState._imgSizeCache.remove(path);
+    }
+  }
 
   const GamesCarousel({
     super.key,
@@ -63,6 +70,7 @@ class GamesCarousel extends StatefulWidget {
     this.onScrape,
     this.scrapingGameRomnames = const {},
     this.scrapeProgress = const {},
+    this.artworkVersion = 0,
   });
 
   @override
@@ -262,6 +270,11 @@ class _GamesCarouselState extends State<GamesCarousel> {
       if (_currentIndex >= widget.games.length) {
         _currentIndex = 0;
       }
+    }
+    if (widget.artworkVersion != oldWidget.artworkVersion) {
+      _fileExistsCache.clear();
+      _lastBgIndex = -1;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _updateBackground());
     }
   }
 

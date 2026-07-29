@@ -421,7 +421,7 @@ class SqliteService {
   SqliteService._internal();
 
   // Database configuration
-  static const int _databaseVersion = 109;
+  static const int _databaseVersion = 110;
   static const String _databaseName = 'data.sqlite';
 
   DatabaseAdapter? _database;
@@ -1287,11 +1287,11 @@ class SqliteService {
     // installs get the provider-scoped schema (v100); pre-existing tables are
     // upgraded by migration v100, so IF NOT EXISTS here never masks that.
     await db.execute(SqliteMigrations.createAppNeoSyncStateTableSql);
-    // The index spans `provider`, which migration v108 adds — and this runs
-    // *before* migrations. On a database still at the pre-v108 schema the
+    // The index spans `provider`, which migration v109 adds — and this runs
+    // *before* migrations. On a database still at the pre-v109 schema the
     // CREATE INDEX raises "no such column: provider" and aborts init before
-    // v108 can ever run, leaving every launch to fail the same way. Create it
-    // only once the column is there; v108 creates it as part of the upgrade.
+    // v109 can ever run, leaving every launch to fail the same way. Create it
+    // only once the column is there; v109 creates it as part of the upgrade.
     final neoSyncColumns = await db.rawQuery(
       'PRAGMA table_info(app_neo_sync_state);',
     );
@@ -1685,6 +1685,9 @@ class SqliteService {
         active_theme TEXT DEFAULT '',
         hide_recent_card INTEGER DEFAULT 0,
         legend_hidden INTEGER DEFAULT 0,
+        hide_tab_sync INTEGER DEFAULT 0,
+        hide_tab_achievements INTEGER DEFAULT 0,
+        hide_tab_scraper INTEGER DEFAULT 0,
         active_sync_provider TEXT DEFAULT 'neosync',
         systems_version TEXT DEFAULT '',
         neostation_app_version TEXT DEFAULT '',
@@ -2451,6 +2454,9 @@ class SqliteService {
     String? activeTheme,
     int? hideRecentCard,
     int? legendHidden,
+    int? hideTabSync,
+    int? hideTabAchievements,
+    int? hideTabScraper,
     String? activeSyncProvider,
     String? systemsVersion,
     String? neostationAppVersion,
@@ -2528,6 +2534,15 @@ class SqliteService {
     }
     if (legendHidden != null) {
       newConfig['legend_hidden'] = legendHidden;
+    }
+    if (hideTabSync != null) {
+      newConfig['hide_tab_sync'] = hideTabSync;
+    }
+    if (hideTabAchievements != null) {
+      newConfig['hide_tab_achievements'] = hideTabAchievements;
+    }
+    if (hideTabScraper != null) {
+      newConfig['hide_tab_scraper'] = hideTabScraper;
     }
     if (activeSyncProvider != null) {
       newConfig['active_sync_provider'] = activeSyncProvider;

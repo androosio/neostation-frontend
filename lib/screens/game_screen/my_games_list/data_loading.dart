@@ -140,6 +140,11 @@ extension _DataLoading on _SystemGamesListState {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           _startVideoTimer();
           _performBackgroundOperationsForSelectedGame();
+          // Reveal a deep-linked selection (search "Go to game", RA dashboard)
+          // in the list; without this it is selected but stays off-screen.
+          if (isInitialLoad && _selectedGameIndex > 0) {
+            _scrollToSelectedItem();
+          }
         });
       }
     } catch (e) {

@@ -170,6 +170,16 @@ const Map<String, dynamic> appLocaleIt = {
   AppLocale.bartopShutdown: 'Spegni BarTOP all’uscita',
   AppLocale.bartopShutdownSubtitle: 'Spegne il computer alla chiusura dell’app',
 
+  AppLocale.showSyncTab: 'Mostra scheda Sincronizzazione',
+  AppLocale.showSyncTabSubtitle:
+      'Mostra la scheda di sincronizzazione cloud nella barra di navigazione',
+  AppLocale.showAchievementsTab: 'Mostra scheda Obiettivi',
+  AppLocale.showAchievementsTabSubtitle:
+      'Mostra la scheda RetroAchievements nella barra di navigazione',
+  AppLocale.showScraperTab: 'Mostra scheda Scraper',
+  AppLocale.showScraperTabSubtitle:
+      'Mostra la scheda di scraping nella barra di navigazione',
+
   AppLocale.configureDirectories: 'Configura Directory',
   AppLocale.configureRomsFolder: 'Configura Cartella ROM',
   AppLocale.cannotAccessFolder: 'Impossibile accedere alla cartella',
@@ -439,6 +449,8 @@ const Map<String, dynamic> appLocaleIt = {
   AppLocale.stoppingScraping: 'Arresto processo scraping...',
   AppLocale.syncError: 'Errore durante la sincronizzazione degli ID di sistema',
   AppLocale.metadataError: 'Errore durante il processo di scraping',
+  AppLocale.scrapeQuotaExceeded:
+      'Quota giornaliera di scraping di ScreenScraper superata',
   AppLocale.start: 'Inizia',
   AppLocale.systemsSub: 'Seleziona i sistemi da cercare',
   AppLocale.disableAll: 'Disabilita Tutti',
@@ -910,6 +922,21 @@ const Map<String, dynamic> appLocaleIt = {
       'Impossibile scrivere nella cartella delle ROM. Concedi l’"Accesso a Tutti i File" a NeoStation e riprova.',
   AppLocale.rommNotConnected:
       'Collegati prima a un server RomM nelle Impostazioni',
+  AppLocale.searchTitle: 'Cerca',
+  AppLocale.searchNameHint: 'Cerca...',
+  AppLocale.searchNoResults: 'Nessun gioco trovato',
+  AppLocale.searchResultsCount: '{count} risultati',
+  AppLocale.searchClearFilters: 'Cancella filtri',
+  AppLocale.searchFilters: 'Filtri',
+  AppLocale.searchViewResults: 'Mostra risultati',
+  AppLocale.searchOpen: 'Cerca',
+  AppLocale.searchGoToGame: 'Vai al gioco',
+  AppLocale.filterPlatform: 'Piattaforma',
+  AppLocale.filterDeveloper: 'Sviluppatore',
+  AppLocale.filterGenre: 'Genere',
+  AppLocale.filterRating: 'Valutazione',
+  AppLocale.filterYear: 'Anno',
+  AppLocale.filterAny: 'Tutti',
   AppLocale.resetPlayTimeConfirm: 'Reimposta tempo di gioco',
   AppLocale.resetPlayTimeConfirmBody:
       'Questa operazione azzererà in modo permanente il tempo di gioco registrato per questo gioco. Non può essere annullata.',
