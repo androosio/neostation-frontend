@@ -445,6 +445,9 @@ class SqliteMigrations {
       case 110:
         await _migrateToVersion110(db);
         break;
+      case 111:
+        await _migrateToVersion111(db);
+        break;
       default:
         _log.w('No migration defined for version $version');
     }
@@ -5255,31 +5258,36 @@ class SqliteMigrations {
   static Future<void> _migrateToVersion106(Database db) async {
     _log.i('Migration v106: Adding nav tab visibility flags to user_config');
     try {
-      final tableInfo = db.select('PRAGMA table_info(user_config)');
-      final columns = tableInfo.map((c) => c['name'].toString()).toList();
-
-      const newColumns = [
-        'hide_tab_sync',
-        'hide_tab_achievements',
-        'hide_tab_scraper',
-      ];
-
-      for (final column in newColumns) {
-        if (!columns.contains(column)) {
-          db.execute(
-            'ALTER TABLE user_config ADD COLUMN $column INTEGER DEFAULT 0',
-          );
-          _log.i('Column $column added via v106');
-        } else {
-          _log.i('Column $column already exists');
-        }
-      }
-
+      _addNavTabVisibilityColumns(db, 'v106');
       _log.i('Migration v106 completed');
     } catch (e, stackTrace) {
       _log.e('Error in migration v106: $e');
       _log.e('   StackTrace: $stackTrace');
       rethrow;
+    }
+  }
+
+  /// Adds any missing `hide_tab_*` column to `user_config`, logging against
+  /// [version]. Idempotent, so it is safe to replay from a later migration.
+  static void _addNavTabVisibilityColumns(Database db, String version) {
+    final tableInfo = db.select('PRAGMA table_info(user_config)');
+    final columns = tableInfo.map((c) => c['name'].toString()).toList();
+
+    const newColumns = [
+      'hide_tab_sync',
+      'hide_tab_achievements',
+      'hide_tab_scraper',
+    ];
+
+    for (final column in newColumns) {
+      if (!columns.contains(column)) {
+        db.execute(
+          'ALTER TABLE user_config ADD COLUMN $column INTEGER DEFAULT 0',
+        );
+        _log.i('Column $column added via $version');
+      } else {
+        _log.i('Column $column already exists');
+      }
     }
   }
 
@@ -5331,6 +5339,25 @@ class SqliteMigrations {
       );
     } catch (e, stackTrace) {
       _log.e('Error in migration v110: $e');
+      _log.e('   StackTrace: $stackTrace');
+      rethrow;
+    }
+  }
+
+  /// Migration v111: Replays v106's nav-tab columns for databases that skipped
+  /// it.
+  ///
+  /// The RomM branch had already claimed v106–v109 for its own tables before
+  /// main shipped its v106, so a device upgraded from a pre-merge RomM build
+  /// sits at v109 with none of the nav-tab columns — and never runs v106 again.
+  /// Replaying it here is a no-op for every database that did get it.
+  static Future<void> _migrateToVersion111(Database db) async {
+    _log.i('Migration v111: Backfilling nav tab visibility flags');
+    try {
+      _addNavTabVisibilityColumns(db, 'v111');
+      _log.i('Migration v111 completed');
+    } catch (e, stackTrace) {
+      _log.e('Error in migration v111: $e');
       _log.e('   StackTrace: $stackTrace');
       rethrow;
     }
