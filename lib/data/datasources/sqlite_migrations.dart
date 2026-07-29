@@ -14,11 +14,11 @@ class SqliteMigrations {
   static final _log = LoggerService.instance;
 
   // ── RomM schema — single source of truth ──────────────────────────────────
-  // Referenced by the versioned migrations (v98/v99/v100), the fresh-install table
-  // list, and the on-launch "even if migrations were skipped" safety net, so a
-  // future column change is made in exactly one place.
+  // Referenced by the versioned migrations (v107/v108/v110), the v113 replay
+  // that repairs databases which skipped them, and the fresh-install table
+  // list, so a future column change is made in exactly one place.
 
-  /// CREATE for the singleton RomM credentials/token table (v98).
+  /// CREATE for the singleton RomM credentials/token table (v107).
   static const String createUserRommConfigTableSql = '''
     CREATE TABLE IF NOT EXISTS user_romm_config (
       id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -33,7 +33,7 @@ class SqliteMigrations {
     );
   ''';
 
-  /// CREATE for the local-game → RomM rom_id save-sync map (v99).
+  /// CREATE for the local-game → RomM rom_id save-sync map (v108).
   static const String createAppRommRomMapTableSql = '''
     CREATE TABLE IF NOT EXISTS app_romm_rom_map (
       romname TEXT NOT NULL,
@@ -45,13 +45,13 @@ class SqliteMigrations {
     );
   ''';
 
-  /// Lookup index for [createAppRommRomMapTableSql] (v99).
+  /// Lookup index for [createAppRommRomMapTableSql] (v108).
   static const String createAppRommRomMapIndexSql = '''
     CREATE INDEX IF NOT EXISTS idx_romm_rom_map_id
     ON app_romm_rom_map(romm_rom_id);
   ''';
 
-  /// CREATE for the play-session outbox (v109).
+  /// CREATE for the play-session outbox (v110).
   ///
   /// A finished game session is written here the moment it ends — including
   /// while offline — and pushed to RomM's `/api/play-sessions` on the next
@@ -70,13 +70,13 @@ class SqliteMigrations {
     );
   ''';
 
-  /// Lookup index for [createAppRommPlaySessionsTableSql] (v109).
+  /// Lookup index for [createAppRommPlaySessionsTableSql] (v110).
   static const String createAppRommPlaySessionsIndexSql = '''
     CREATE INDEX IF NOT EXISTS idx_romm_play_sessions_rom_id
     ON app_romm_play_sessions(romm_rom_id);
   ''';
 
-  /// CREATE for the per-ROM playtime reconciliation ledger (v109).
+  /// CREATE for the per-ROM playtime reconciliation ledger (v110).
   ///
   /// RomM stores playtime as individual sessions, not a total, and it strips
   /// the `device_id` of clients it doesn't know — so a pulled session list
@@ -97,7 +97,7 @@ class SqliteMigrations {
     );
   ''';
 
-  /// CREATE for the provider-scoped save-sync state table (v100).
+  /// CREATE for the provider-scoped save-sync state table (v109).
   ///
   /// Keyed on (provider, file_path) so each sync provider (NeoSync, RomM, …)
   /// owns its own row for a given local file — a foreign provider's cloud
@@ -450,6 +450,9 @@ class SqliteMigrations {
         break;
       case 112:
         await _migrateToVersion112(db);
+        break;
+      case 113:
+        await _migrateToVersion113(db);
         break;
       default:
         _log.w('No migration defined for version $version');
@@ -5382,6 +5385,40 @@ class SqliteMigrations {
       _log.i('Migration v112 completed');
     } catch (e, stackTrace) {
       _log.e('Error in migration v112: $e');
+      _log.e('   StackTrace: $stackTrace');
+      rethrow;
+    }
+  }
+
+  /// Migration v113: Replays the RomM table creations for databases that
+  /// skipped them.
+  ///
+  /// Same hazard v111 fixed for the nav-tab columns, from the other side of the
+  /// renumbering: this branch has moved its RomM tables through v97/v98/v106
+  /// and now v107/v108/v110, so a device upgraded by an older RomM build sits
+  /// at a user_version at or above the number that now creates
+  /// `user_romm_config` — and never runs it. The table is then missing forever,
+  /// and every launch logs "no such table: user_romm_config" while the RomM
+  /// tab, save sync and playtime sync all fail.
+  ///
+  /// Every statement is CREATE ... IF NOT EXISTS and the v109 replay checks the
+  /// column itself, so this is a no-op for databases that did get the earlier
+  /// migrations.
+  static Future<void> _migrateToVersion113(Database db) async {
+    _log.i('Migration v113: Backfilling RomM tables skipped by renumbering');
+    try {
+      db.execute(createUserRommConfigTableSql);
+      db.execute(createAppRommRomMapTableSql);
+      db.execute(createAppRommRomMapIndexSql);
+      db.execute(createAppRommPlaySessionsTableSql);
+      db.execute(createAppRommPlaySessionsIndexSql);
+      db.execute(createAppRommPlaytimeStateTableSql);
+      // Same hazard for the provider-scoping rebuild: a database that passed
+      // v109 under its old meaning still keys sync state on file_path alone.
+      await _migrateToVersion109(db);
+      _log.i('Migration v113 completed');
+    } catch (e, stackTrace) {
+      _log.e('Error in migration v113: $e');
       _log.e('   StackTrace: $stackTrace');
       rethrow;
     }

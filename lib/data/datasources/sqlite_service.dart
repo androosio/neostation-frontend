@@ -421,7 +421,7 @@ class SqliteService {
   SqliteService._internal();
 
   // Database configuration
-  static const int _databaseVersion = 112;
+  static const int _databaseVersion = 113;
   static const String _databaseName = 'data.sqlite';
 
   DatabaseAdapter? _database;
@@ -1284,8 +1284,8 @@ class SqliteService {
     }
 
     // FIX: Ensure app_neo_sync_state exists (legacy support for v58). New
-    // installs get the provider-scoped schema (v100); pre-existing tables are
-    // upgraded by migration v100, so IF NOT EXISTS here never masks that.
+    // installs get the provider-scoped schema (v109); pre-existing tables are
+    // upgraded by migration v109, so IF NOT EXISTS here never masks that.
     await db.execute(SqliteMigrations.createAppNeoSyncStateTableSql);
     // The index spans `provider`, which migration v109 adds — and this runs
     // *before* migrations. On a database still at the pre-v109 schema the
@@ -1302,11 +1302,14 @@ class SqliteService {
       await db.execute(SqliteMigrations.createAppNeoSyncStateIndexSql);
     }
 
-    // RomM tables (user_romm_config v98, app_romm_rom_map v99) are created by
-    // their versioned migrations and the fresh-install table list — the only
-    // two sources, per the maintainer's versioned-migrations-only policy. No
-    // on-launch CREATE safety net here: it would only mask a failed migration
-    // as a later runtime "no such table" error instead of surfacing it.
+    // RomM tables (user_romm_config v107, app_romm_rom_map v108, playtime
+    // v110) are created by their versioned migrations and the fresh-install
+    // table list — the only two sources, per the maintainer's
+    // versioned-migrations-only policy. No on-launch CREATE safety net here:
+    // it would only mask a failed migration as a later runtime "no such table"
+    // error instead of surfacing it. A database that skipped those versions
+    // because the branch renumbered them is repaired by the v113 replay, not
+    // by an unversioned CREATE.
   }
 
   /// Ensures the unique_identifier column exists in app_emulators.
