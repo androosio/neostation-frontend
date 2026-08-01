@@ -59,7 +59,7 @@ void main() {
       db.execute(SqliteMigrations.createAppRommPlaytimeStateTableSql);
       db.execute(
         "INSERT INTO user_romm_config (id, server_url, username) "
-        "VALUES (1, 'https://romm.local', 'neil')",
+        "VALUES (1, 'https://romm.local', 'testuser')",
       );
 
       await runV113();
@@ -69,7 +69,7 @@ void main() {
       );
       expect(rows, hasLength(1));
       expect(rows.first['server_url'], 'https://romm.local');
-      expect(rows.first['username'], 'neil');
+      expect(rows.first['username'], 'testuser');
     },
   );
 

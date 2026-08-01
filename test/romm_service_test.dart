@@ -15,7 +15,7 @@ RommService _service({
   final s = RommService();
   s.configure(
     serverUrl: serverUrl,
-    username: 'neil',
+    username: 'testuser',
     password: 's3cret',
     accessToken: accessToken,
   );
@@ -167,7 +167,7 @@ void main() {
   group('parseRaProgression', () {
     test('maps rom_ra_id to num_awarded', () {
       const body = '''
-        {"username":"neil","ra_username":"neil",
+        {"username":"testuser","ra_username":"testuser",
          "ra_progression":{"total":2,"results":[
            {"rom_ra_id":14402,"num_awarded":5,"max_possible":30},
            {"rom_ra_id":777,"num_awarded":0,"max_possible":12}
@@ -179,7 +179,7 @@ void main() {
     });
 
     test('returns empty map when no ra_progression', () {
-      expect(RommService.parseRaProgression('{"username":"neil"}'), isEmpty);
+      expect(RommService.parseRaProgression('{"username":"testuser"}'), isEmpty);
       expect(
         RommService.parseRaProgression('{"ra_progression":null}'),
         isEmpty,

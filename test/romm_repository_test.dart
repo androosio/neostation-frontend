@@ -50,7 +50,7 @@ void main() {
     test('saveConfig persists credentials and getConfig round-trips', () async {
       final ok = await RommRepository.saveConfig(
         serverUrl: 'https://romm.local',
-        username: 'neil',
+        username: 'testuser',
         password: 's3cret',
       );
       expect(ok, isTrue);
@@ -58,7 +58,7 @@ void main() {
       final config = await RommRepository.getConfig();
       expect(config, isNotNull);
       expect(config!['server_url'], 'https://romm.local');
-      expect(config['username'], 'neil');
+      expect(config['username'], 'testuser');
       expect(config['password'], 's3cret');
       // Tokens are cleared on credential change.
       expect(config['access_token'], isNull);
@@ -69,7 +69,7 @@ void main() {
     test('password is stored base64-encoded, not in plaintext', () async {
       await RommRepository.saveConfig(
         serverUrl: 'https://romm.local',
-        username: 'neil',
+        username: 'testuser',
         password: 's3cret',
       );
       final row = (await db.query('user_romm_config')).first;
@@ -96,7 +96,7 @@ void main() {
 
     test('getConfig returns null when server_url is empty', () async {
       await db.execute(
-        "INSERT INTO user_romm_config (id, server_url, username) VALUES (1, '', 'neil')",
+        "INSERT INTO user_romm_config (id, server_url, username) VALUES (1, '', 'testuser')",
       );
       expect(await RommRepository.getConfig(), isNull);
     });
@@ -113,7 +113,7 @@ void main() {
     test('saveTokens caches JWTs retrievable via getConfig', () async {
       await RommRepository.saveConfig(
         serverUrl: 'https://romm.local',
-        username: 'neil',
+        username: 'testuser',
         password: 's3cret',
       );
       final ok = await RommRepository.saveTokens(
@@ -133,7 +133,7 @@ void main() {
     test('saveTokens leaves refresh token untouched when omitted', () async {
       await RommRepository.saveConfig(
         serverUrl: 'https://romm.local',
-        username: 'neil',
+        username: 'testuser',
         password: 's3cret',
       );
       await RommRepository.saveTokens(
@@ -151,7 +151,7 @@ void main() {
     test('clearConfig removes all stored configuration', () async {
       await RommRepository.saveConfig(
         serverUrl: 'https://romm.local',
-        username: 'neil',
+        username: 'testuser',
         password: 's3cret',
       );
       final ok = await RommRepository.clearConfig();
