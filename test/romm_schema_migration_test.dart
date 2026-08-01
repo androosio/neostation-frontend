@@ -2,30 +2,27 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sqlite3/sqlite3.dart';
 import 'package:neostation/data/datasources/sqlite_migrations.dart';
 
-/// Tests for migration v116, which repairs databases that skipped the RomM
-/// table creations because this branch renumbered them.
+/// Tests for migration v110, which creates the entire RomM schema in one step:
+/// the config/rom-map/playtime tables, the `hide_tab_romm` flag, and the
+/// provider-scoping rebuild of `app_neo_sync_state`.
 ///
-/// Background: the RomM tables have moved versions repeatedly as main landed
-/// its own migrations (v97 → v98 → v106 → v107/v108/v110 → v110/v111/v113).
-/// A device upgraded
-/// by an older RomM build therefore sits at a `user_version` at or above the
-/// number that *now* creates `user_romm_config`, so that migration never runs
-/// again and the table is missing forever — every launch then logs
-/// "no such table: user_romm_config" and the RomM tab, save sync and playtime
-/// sync all fail. v116 replays the creations; it must be a no-op for databases
-/// that already have them.
+/// Each half has to stay a no-op on a database that already has it — a fresh
+/// install gets these tables from the create-table list and then runs the
+/// migration anyway.
 void main() {
   late Database db;
 
   setUp(() {
     db = sqlite3.openInMemory();
+    // v110 adds a column to user_config, which every real database has by then.
+    db.execute('CREATE TABLE user_config (id INTEGER PRIMARY KEY)');
   });
 
   tearDown(() {
     db.close();
   });
 
-  Future<void> runV116() => SqliteMigrations.migrateToVersion(db, 116);
+  Future<void> runV110() => SqliteMigrations.migrateToVersion(db, 110);
 
   bool tableExists(String name) => db.select(
     "SELECT name FROM sqlite_master WHERE type='table' AND name=? LIMIT 1",
@@ -37,16 +34,17 @@ void main() {
       .map((r) => r['name'].toString())
       .toSet();
 
-  test('creates every RomM table on a database that skipped them', () async {
+  test('creates every RomM table and the nav-tab flag', () async {
     expect(tableExists('user_romm_config'), isFalse);
 
-    await runV116();
+    await runV110();
 
     expect(tableExists('user_romm_config'), isTrue);
     expect(tableExists('app_romm_rom_map'), isTrue);
     expect(tableExists('app_romm_play_sessions'), isTrue);
     expect(tableExists('app_romm_playtime_state'), isTrue);
     expect(tableExists('app_neo_sync_state'), isTrue);
+    expect(columnsOf('user_config'), contains('hide_tab_romm'));
   });
 
   test(
@@ -63,7 +61,7 @@ void main() {
         "VALUES (1, 'https://romm.local', 'testuser')",
       );
 
-      await runV116();
+      await runV110();
 
       final rows = db.select(
         'SELECT server_url, username FROM user_romm_config',
@@ -74,8 +72,8 @@ void main() {
     },
   );
 
-  test('provider-scopes a legacy app_neo_sync_state that skipped v112', () async {
-    // The pre-v112 shape: keyed on file_path alone, no provider column.
+  test('provider-scopes a legacy app_neo_sync_state', () async {
+    // The pre-v110 shape: keyed on file_path alone, no provider column.
     db.execute('''
       CREATE TABLE app_neo_sync_state (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -92,7 +90,7 @@ void main() {
       "VALUES ('/saves/game.srm', 1, 2, 3, 'abc')",
     );
 
-    await runV116();
+    await runV110();
 
     expect(columnsOf('app_neo_sync_state'), contains('provider'));
     final rows = db.select(
@@ -107,7 +105,7 @@ void main() {
   });
 
   test('lets both providers hold state for the same file afterwards', () async {
-    await runV116();
+    await runV110();
 
     db.execute(
       "INSERT INTO app_neo_sync_state "
