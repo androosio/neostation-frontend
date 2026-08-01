@@ -178,6 +178,9 @@ const Map<String, dynamic> appLocaleId = {
       'Menampilkan tab scraping di bilah navigasi',
   AppLocale.showRommTab: 'Tampilkan tab RomM',
   AppLocale.showRommTabSubtitle: 'Menampilkan tab RomM di bilah navigasi',
+  AppLocale.showSearchTab: 'Tampilkan tab Cari',
+  AppLocale.showSearchTabSubtitle:
+      'Menampilkan tab pencarian di bilah navigasi',
 
   AppLocale.configureDirectories: 'Konfigurasi Direktori',
   AppLocale.configureRomsFolder: 'Konfigurasi Folder ROM',

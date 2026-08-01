@@ -151,6 +151,8 @@ const Map<String, dynamic> appLocaleKo = {
   AppLocale.showScraperTabSubtitle: '내비게이션 바에 스크래핑 탭을 표시합니다',
   AppLocale.showRommTab: 'RomM 탭 표시',
   AppLocale.showRommTabSubtitle: '내비게이션 바에 RomM 탭을 표시합니다',
+  AppLocale.showSearchTab: '검색 탭 표시',
+  AppLocale.showSearchTabSubtitle: '내비게이션 바에 검색 탭을 표시합니다',
 
   AppLocale.configureDirectories: '폴더',
   AppLocale.configureRomsFolder: 'ROM 폴더 설정',

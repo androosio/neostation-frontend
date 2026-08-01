@@ -150,6 +150,8 @@ const Map<String, dynamic> appLocaleZh = {
   AppLocale.showScraperTabSubtitle: '在导航栏中显示刮削选项卡',
   AppLocale.showRommTab: '显示 RomM 选项卡',
   AppLocale.showRommTabSubtitle: '在导航栏中显示 RomM 选项卡',
+  AppLocale.showSearchTab: '显示搜索选项卡',
+  AppLocale.showSearchTabSubtitle: '在导航栏中显示搜索选项卡',
 
   AppLocale.configureDirectories: '目录设置',
   AppLocale.configureRomsFolder: '配置 ROM 文件夹',

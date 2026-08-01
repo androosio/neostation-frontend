@@ -182,6 +182,9 @@ const Map<String, dynamic> appLocaleIt = {
   AppLocale.showRommTab: 'Mostra scheda RomM',
   AppLocale.showRommTabSubtitle:
       'Mostra la scheda RomM nella barra di navigazione',
+  AppLocale.showSearchTab: 'Mostra scheda Cerca',
+  AppLocale.showSearchTabSubtitle:
+      'Mostra la scheda di ricerca nella barra di navigazione',
 
   AppLocale.configureDirectories: 'Configura Directory',
   AppLocale.configureRomsFolder: 'Configura Cartella ROM',

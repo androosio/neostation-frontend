@@ -14,11 +14,11 @@ class SqliteMigrations {
   static final _log = LoggerService.instance;
 
   // ── RomM schema — single source of truth ──────────────────────────────────
-  // Referenced by the versioned migrations (v107/v108/v110), the v113 replay
+  // Referenced by the versioned migrations (v110/v111/v113), the v116 replay
   // that repairs databases which skipped them, and the fresh-install table
   // list, so a future column change is made in exactly one place.
 
-  /// CREATE for the singleton RomM credentials/token table (v107).
+  /// CREATE for the singleton RomM credentials/token table (v110).
   static const String createUserRommConfigTableSql = '''
     CREATE TABLE IF NOT EXISTS user_romm_config (
       id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -33,7 +33,7 @@ class SqliteMigrations {
     );
   ''';
 
-  /// CREATE for the local-game → RomM rom_id save-sync map (v108).
+  /// CREATE for the local-game → RomM rom_id save-sync map (v111).
   static const String createAppRommRomMapTableSql = '''
     CREATE TABLE IF NOT EXISTS app_romm_rom_map (
       romname TEXT NOT NULL,
@@ -45,13 +45,13 @@ class SqliteMigrations {
     );
   ''';
 
-  /// Lookup index for [createAppRommRomMapTableSql] (v108).
+  /// Lookup index for [createAppRommRomMapTableSql] (v111).
   static const String createAppRommRomMapIndexSql = '''
     CREATE INDEX IF NOT EXISTS idx_romm_rom_map_id
     ON app_romm_rom_map(romm_rom_id);
   ''';
 
-  /// CREATE for the play-session outbox (v110).
+  /// CREATE for the play-session outbox (v113).
   ///
   /// A finished game session is written here the moment it ends — including
   /// while offline — and pushed to RomM's `/api/play-sessions` on the next
@@ -70,13 +70,13 @@ class SqliteMigrations {
     );
   ''';
 
-  /// Lookup index for [createAppRommPlaySessionsTableSql] (v110).
+  /// Lookup index for [createAppRommPlaySessionsTableSql] (v113).
   static const String createAppRommPlaySessionsIndexSql = '''
     CREATE INDEX IF NOT EXISTS idx_romm_play_sessions_rom_id
     ON app_romm_play_sessions(romm_rom_id);
   ''';
 
-  /// CREATE for the per-ROM playtime reconciliation ledger (v110).
+  /// CREATE for the per-ROM playtime reconciliation ledger (v113).
   ///
   /// RomM stores playtime as individual sessions, not a total, and it strips
   /// the `device_id` of clients it doesn't know — so a pulled session list
@@ -97,7 +97,7 @@ class SqliteMigrations {
     );
   ''';
 
-  /// CREATE for the provider-scoped save-sync state table (v109).
+  /// CREATE for the provider-scoped save-sync state table (v112).
   ///
   /// Keyed on (provider, file_path) so each sync provider (NeoSync, RomM, …)
   /// owns its own row for a given local file — a foreign provider's cloud
@@ -453,6 +453,15 @@ class SqliteMigrations {
         break;
       case 113:
         await _migrateToVersion113(db);
+        break;
+      case 114:
+        await _migrateToVersion114(db);
+        break;
+      case 115:
+        await _migrateToVersion115(db);
+        break;
+      case 116:
+        await _migrateToVersion116(db);
         break;
       default:
         _log.w('No migration defined for version $version');
@@ -5091,7 +5100,7 @@ class SqliteMigrations {
     }
   }
 
-  /// Migration v109: Makes `app_neo_sync_state` provider-scoped so RomM and
+  /// Migration v112: Makes `app_neo_sync_state` provider-scoped so RomM and
   /// NeoSync no longer corrupt each other's recorded cloud timestamps.
   ///
   /// The legacy table keyed on `file_path` alone (`file_path ... UNIQUE`), so a
@@ -5099,8 +5108,8 @@ class SqliteMigrations {
   /// can't drop that column-level UNIQUE in place, so we rebuild the table with
   /// a composite `UNIQUE(provider, file_path)` and backfill every existing row
   /// to 'neosync' — the only provider that wrote these rows historically.
-  static Future<void> _migrateToVersion109(Database db) async {
-    _log.i('Migration v109: Adding provider column to app_neo_sync_state');
+  static Future<void> _migrateToVersion112(Database db) async {
+    _log.i('Migration v112: Adding provider column to app_neo_sync_state');
     try {
       final tableExists = db
           .select(
@@ -5112,7 +5121,7 @@ class SqliteMigrations {
         // Fresh/absent table → just create the new provider-scoped schema.
         db.execute(createAppNeoSyncStateTableSql);
         db.execute(createAppNeoSyncStateIndexSql);
-        _log.i('app_neo_sync_state created with provider column (v109)');
+        _log.i('app_neo_sync_state created with provider column (v112)');
         return;
       }
 
@@ -5122,7 +5131,7 @@ class SqliteMigrations {
         'provider',
       );
       if (alreadyMigrated) {
-        _log.i('app_neo_sync_state already provider-scoped, skipping v109');
+        _log.i('app_neo_sync_state already provider-scoped, skipping v112');
         return;
       }
 
@@ -5147,9 +5156,9 @@ class SqliteMigrations {
         db.execute('ROLLBACK');
         rethrow;
       }
-      _log.i('app_neo_sync_state migrated to (provider, file_path) via v109');
+      _log.i('app_neo_sync_state migrated to (provider, file_path) via v112');
     } catch (e, stackTrace) {
-      _log.e('Error in migration v109: $e');
+      _log.e('Error in migration v112: $e');
       _log.e('   StackTrace: $stackTrace');
       rethrow;
     }
@@ -5273,7 +5282,7 @@ class SqliteMigrations {
     }
   }
 
-  /// The `hide_tab_*` columns introduced by v106, replayed by v111.
+  /// The `hide_tab_*` columns introduced by v106, replayed by v114.
   static const List<String> _navTabColumnsV106 = [
     'hide_tab_sync',
     'hide_tab_achievements',
@@ -5302,52 +5311,16 @@ class SqliteMigrations {
     }
   }
 
-  /// Migration v107: Adds the singleton user_romm_config table used to store
+  /// Migration v110: Adds the singleton user_romm_config table used to store
   /// RomM server credentials and tokens for remote library browse/download.
   ///
   /// (RomM feature originally landed as v97 on its branch; it keeps getting
-  /// renumbered as main lands its own migrations — now starting at v107.)
-  static Future<void> _migrateToVersion107(Database db) async {
-    _log.i('Migration v107: Creating user_romm_config table');
+  /// renumbered as main lands its own migrations — now starting at v110.)
+  static Future<void> _migrateToVersion110(Database db) async {
+    _log.i('Migration v110: Creating user_romm_config table');
     try {
       db.execute(createUserRommConfigTableSql);
-      _log.i('Table user_romm_config created via v107');
-    } catch (e, stackTrace) {
-      _log.e('Error in migration v107: $e');
-      _log.e('   StackTrace: $stackTrace');
-      rethrow;
-    }
-  }
-
-  /// Migration v108: Adds the [app_romm_rom_map] table, which links a local game
-  /// (romname + system folder) to its RomM ROM id so save/state sync can target
-  /// the right `rom_id`. Populated when a ROM is downloaded from RomM.
-  static Future<void> _migrateToVersion108(Database db) async {
-    _log.i('Migration v108: Creating app_romm_rom_map table');
-    try {
-      db.execute(createAppRommRomMapTableSql);
-      db.execute(createAppRommRomMapIndexSql);
-      _log.i('Table app_romm_rom_map created via v108');
-    } catch (e, stackTrace) {
-      _log.e('Error in migration v108: $e');
-      _log.e('   StackTrace: $stackTrace');
-      rethrow;
-    }
-  }
-
-  /// Migration v110: Adds the RomM playtime-sync tables — the
-  /// [app_romm_play_sessions] outbox of finished sessions awaiting upload, and
-  /// the [app_romm_playtime_state] ledger that keeps repeated pulls from
-  /// double-counting time this device already contributed.
-  static Future<void> _migrateToVersion110(Database db) async {
-    _log.i('Migration v110: Creating RomM playtime sync tables');
-    try {
-      db.execute(createAppRommPlaySessionsTableSql);
-      db.execute(createAppRommPlaySessionsIndexSql);
-      db.execute(createAppRommPlaytimeStateTableSql);
-      _log.i(
-        'Tables app_romm_play_sessions / app_romm_playtime_state created via v110',
-      );
+      _log.i('Table user_romm_config created via v110');
     } catch (e, stackTrace) {
       _log.e('Error in migration v110: $e');
       _log.e('   StackTrace: $stackTrace');
@@ -5355,18 +5328,15 @@ class SqliteMigrations {
     }
   }
 
-  /// Migration v111: Replays v106's nav-tab columns for databases that skipped
-  /// it.
-  ///
-  /// The RomM branch had already claimed v106–v109 for its own tables before
-  /// main shipped its v106, so a device upgraded from a pre-merge RomM build
-  /// sits at v109 with none of the nav-tab columns — and never runs v106 again.
-  /// Replaying it here is a no-op for every database that did get it.
+  /// Migration v111: Adds the [app_romm_rom_map] table, which links a local game
+  /// (romname + system folder) to its RomM ROM id so save/state sync can target
+  /// the right `rom_id`. Populated when a ROM is downloaded from RomM.
   static Future<void> _migrateToVersion111(Database db) async {
-    _log.i('Migration v111: Backfilling nav tab visibility flags');
+    _log.i('Migration v111: Creating app_romm_rom_map table');
     try {
-      _addNavTabVisibilityColumns(db, 'v111', _navTabColumnsV106);
-      _log.i('Migration v111 completed');
+      db.execute(createAppRommRomMapTableSql);
+      db.execute(createAppRommRomMapIndexSql);
+      _log.i('Table app_romm_rom_map created via v111');
     } catch (e, stackTrace) {
       _log.e('Error in migration v111: $e');
       _log.e('   StackTrace: $stackTrace');
@@ -5374,38 +5344,78 @@ class SqliteMigrations {
     }
   }
 
-  /// Migration v112: Lets the RomM navigation tab be hidden like Sync,
-  /// Achievements and Scraper.
-  ///
-  /// Defaults to `0` (visible), so nobody's strip changes on upgrade.
-  static Future<void> _migrateToVersion112(Database db) async {
-    _log.i('Migration v112: Adding RomM tab visibility flag to user_config');
+  /// Migration v113: Adds the RomM playtime-sync tables — the
+  /// [app_romm_play_sessions] outbox of finished sessions awaiting upload, and
+  /// the [app_romm_playtime_state] ledger that keeps repeated pulls from
+  /// double-counting time this device already contributed.
+  static Future<void> _migrateToVersion113(Database db) async {
+    _log.i('Migration v113: Creating RomM playtime sync tables');
     try {
-      _addNavTabVisibilityColumns(db, 'v112', const ['hide_tab_romm']);
-      _log.i('Migration v112 completed');
+      db.execute(createAppRommPlaySessionsTableSql);
+      db.execute(createAppRommPlaySessionsIndexSql);
+      db.execute(createAppRommPlaytimeStateTableSql);
+      _log.i(
+        'Tables app_romm_play_sessions / app_romm_playtime_state created via v113',
+      );
     } catch (e, stackTrace) {
-      _log.e('Error in migration v112: $e');
+      _log.e('Error in migration v113: $e');
       _log.e('   StackTrace: $stackTrace');
       rethrow;
     }
   }
 
-  /// Migration v113: Replays the RomM table creations for databases that
+  /// Migration v114: Replays v106's nav-tab columns for databases that skipped
+  /// it.
+  ///
+  /// The RomM branch had already claimed v106–v109 for its own tables before
+  /// main shipped its v106, so a device upgraded from a pre-merge RomM build
+  /// sits at v109 with none of the nav-tab columns — and never runs v106 again.
+  /// Replaying it here is a no-op for every database that did get it.
+  static Future<void> _migrateToVersion114(Database db) async {
+    _log.i('Migration v114: Backfilling nav tab visibility flags');
+    try {
+      _addNavTabVisibilityColumns(db, 'v114', _navTabColumnsV106);
+      _log.i('Migration v114 completed');
+    } catch (e, stackTrace) {
+      _log.e('Error in migration v114: $e');
+      _log.e('   StackTrace: $stackTrace');
+      rethrow;
+    }
+  }
+
+  /// Migration v115: Lets the RomM navigation tab be hidden like Sync,
+  /// Achievements and Scraper.
+  ///
+  /// Defaults to `0` (visible), so nobody's strip changes on upgrade.
+  static Future<void> _migrateToVersion115(Database db) async {
+    _log.i('Migration v115: Adding RomM tab visibility flag to user_config');
+    try {
+      _addNavTabVisibilityColumns(db, 'v115', const ['hide_tab_romm']);
+      _log.i('Migration v115 completed');
+    } catch (e, stackTrace) {
+      _log.e('Error in migration v115: $e');
+      _log.e('   StackTrace: $stackTrace');
+      rethrow;
+    }
+  }
+
+  /// Migration v116: Replays the RomM table creations for databases that
   /// skipped them.
   ///
-  /// Same hazard v111 fixed for the nav-tab columns, from the other side of the
-  /// renumbering: this branch has moved its RomM tables through v97/v98/v106
-  /// and now v107/v108/v110, so a device upgraded by an older RomM build sits
+  /// Same hazard v114 fixed for the nav-tab columns, from the other side of the
+  /// renumbering: this branch has moved its RomM tables through v97/v98/v106,
+  /// then v107/v108/v110, and now v110/v111/v113, so a device upgraded by an
+  /// older RomM build sits
   /// at a user_version at or above the number that now creates
   /// `user_romm_config` — and never runs it. The table is then missing forever,
   /// and every launch logs "no such table: user_romm_config" while the RomM
   /// tab, save sync and playtime sync all fail.
   ///
-  /// Every statement is CREATE ... IF NOT EXISTS and the v109 replay checks the
+  /// Every statement is CREATE ... IF NOT EXISTS and the v112 replay checks the
   /// column itself, so this is a no-op for databases that did get the earlier
   /// migrations.
-  static Future<void> _migrateToVersion113(Database db) async {
-    _log.i('Migration v113: Backfilling RomM tables skipped by renumbering');
+  static Future<void> _migrateToVersion116(Database db) async {
+    _log.i('Migration v116: Backfilling RomM tables skipped by renumbering');
     try {
       db.execute(createUserRommConfigTableSql);
       db.execute(createAppRommRomMapTableSql);
@@ -5415,12 +5425,162 @@ class SqliteMigrations {
       db.execute(createAppRommPlaytimeStateTableSql);
       // Same hazard for the provider-scoping rebuild: a database that passed
       // v109 under its old meaning still keys sync state on file_path alone.
-      await _migrateToVersion109(db);
-      _log.i('Migration v113 completed');
+      await _migrateToVersion112(db);
+      _log.i('Migration v116 completed');
     } catch (e, stackTrace) {
-      _log.e('Error in migration v113: $e');
+      _log.e('Error in migration v116: $e');
       _log.e('   StackTrace: $stackTrace');
       rethrow;
     }
   }
+  /// Migration v107: Adds the Search tab's visibility flag.
+  ///
+  /// Search shipped after the v106 flags, so it gets its own column on the same
+  /// hidden-defaults-to-`0` terms — upgrading users keep the tab they already
+  /// have and can hide it from General settings.
+  static Future<void> _migrateToVersion107(Database db) async {
+    _log.i('Migration v107: Adding hide_tab_search to user_config');
+    try {
+      final tableInfo = db.select('PRAGMA table_info(user_config)');
+      final columns = tableInfo.map((c) => c['name'].toString()).toList();
+
+      if (!columns.contains('hide_tab_search')) {
+        db.execute(
+          'ALTER TABLE user_config ADD COLUMN hide_tab_search INTEGER DEFAULT 0',
+        );
+        _log.i('Column hide_tab_search added via v107');
+      } else {
+        _log.i('Column hide_tab_search already exists');
+      }
+
+      _log.i('Migration v107 completed');
+    } catch (e, stackTrace) {
+      _log.e('Error in migration v107: $e');
+      _log.e('   StackTrace: $stackTrace');
+      rethrow;
+    }
+  }
+
+  /// Migration v108: Repairs databases that hold more than one app-provided
+  /// default emulator for the same (system_id, os_id).
+  ///
+  /// `app_emulators.is_default` is meant to be single-valued per system and OS:
+  /// it is the app's recommendation, and the launch path takes whichever row the
+  /// query happens to return first. Duplicates therefore turn emulator choice
+  /// into a coin flip — on Android this was observed as `xbox360` flipping
+  /// between the paid `aenu.ax360e` and the free `aenu.ax360e.free`, and
+  /// `switch` flipping between Eden and Benji-SC.
+  ///
+  /// The seed data (`assets/systems/*.json`) is the authority on which emulator
+  /// wins, and no SQL rule can reproduce its choice (it is neither "first" nor
+  /// "last" nor "lowest id"). So rather than guess a winner, this migration
+  /// demotes *every* row in an offending (system_id, os_id) group to
+  /// `is_default = 0`. The JSON sync in `SqliteService._syncEmulators` then
+  /// re-applies the single `default_core` / `default_standalone` row for that
+  /// group on the next scan, and on Android the RetroArch detection pass
+  /// re-picks the installed RetroArch variant. Groups that already satisfy the
+  /// invariant are left untouched, so this is safe to re-run.
+  static Future<void> _migrateToVersion108(Database db) async {
+    _log.i(
+      'Migration v108: Collapsing duplicate app_emulators.is_default rows',
+    );
+
+    try {
+      final tables = db.select(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'app_emulators'",
+      );
+      if (tables.isEmpty) {
+        _log.i('Migration v108: app_emulators table missing, nothing to do');
+        return;
+      }
+
+      const duplicateGroups = '''
+        SELECT system_id, os_id
+        FROM app_emulators
+        WHERE is_default = 1
+        GROUP BY system_id, os_id
+        HAVING COUNT(*) > 1
+      ''';
+
+      final offenders = db.select(duplicateGroups);
+      if (offenders.isEmpty) {
+        _log.i('Migration v108: No duplicate defaults found');
+        return;
+      }
+
+      // Collect the offending groups first and update them explicitly. Doing it
+      // as a single UPDATE with the HAVING sub-select would re-evaluate the
+      // aggregate as rows are written, so a group could stop qualifying halfway
+      // through and keep an arbitrary survivor.
+      for (final row in offenders) {
+        final systemId = row['system_id'];
+        final osId = row['os_id'];
+        _log.w(
+          'Migration v108: system $systemId os $osId had multiple is_default '
+          'rows; clearing so the seed data re-decides',
+        );
+        db.execute(
+          'UPDATE app_emulators SET is_default = 0 '
+          'WHERE system_id = ? AND os_id = ? AND is_default = 1',
+          [systemId, osId],
+        );
+      }
+
+      _log.i(
+        'Migration v108 completed (${offenders.length} group(s) reset)',
+      );
+    } catch (e, stackTrace) {
+      _log.e('Error in migration v108: $e');
+      _log.e('   StackTrace: $stackTrace');
+      rethrow;
+    }
+  }
+
+  /// Migration v109: Records which standalone emulator the systems JSON
+  /// designates, in `app_emulators.is_default_standalone`.
+  ///
+  /// `is_default_core` has always persisted the JSON's `default_core` flag, but
+  /// its `default_standalone` counterpart was only ever consumed in memory
+  /// during the sync and then thrown away. Anything that later had to pick a
+  /// standalone — [SqliteService.clearRetroArchDefaultsForAndroid] when no
+  /// RetroArch is installed, or the launch-time normalizer when a system has no
+  /// default at all — had no way to ask which one the seed meant, so it guessed
+  /// by name and could land on the wrong build entirely (the paid `aenu.ax360e`
+  /// ahead of the free `aenu.ax360e.free`).
+  ///
+  /// The column backfills to `0` and the next emulator sync writes the real
+  /// values, so both consumers degrade to the old name-ordered guess until then
+  /// rather than breaking.
+  static Future<void> _migrateToVersion109(Database db) async {
+    _log.i('Migration v109: Adding is_default_standalone to app_emulators');
+    try {
+      final tables = db.select(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'app_emulators'",
+      );
+      if (tables.isEmpty) {
+        _log.i('Migration v109: app_emulators table missing, nothing to do');
+        return;
+      }
+
+      final tableInfo = db.select('PRAGMA table_info(app_emulators)');
+      final columns = tableInfo.map((c) => c['name'].toString()).toList();
+
+      if (!columns.contains('is_default_standalone')) {
+        db.execute(
+          'ALTER TABLE app_emulators '
+          'ADD COLUMN is_default_standalone INTEGER NOT NULL DEFAULT 0',
+        );
+        _log.i('Column is_default_standalone added via v109');
+      } else {
+        _log.i('Column is_default_standalone already exists');
+      }
+
+      _log.i('Migration v109 completed');
+    } catch (e, stackTrace) {
+      _log.e('Error in migration v109: $e');
+      _log.e('   StackTrace: $stackTrace');
+      rethrow;
+    }
+  }
+
 }

@@ -272,6 +272,17 @@
       }
     },
     {
+      "name": "EmuCoreX",
+      "unique_id": "ps2.com.sbro.emucorex",
+      "description": "Supported extensions: iso, chd, bin.",
+      "is_retroachievements_compatible": true,
+      "platforms": {
+        "android": {
+          "launch_arguments": "-n com.sbro.emucorex/.MainActivity -a com.sbro.emucorex.action.LAUNCH_GAME --es com.sbro.emucorex.extra.GAME_PATH \"{file.uri}\" --activity-clear-task --activity-clear-top"
+        }
+      }
+    },
+    {
       "name": "Standalone PCSX2",
       "unique_id": "ps2.net.pcsx2.android",
       "description": "Supported extensions: iso, chd, gz, mdf, bin, ciso, img.",

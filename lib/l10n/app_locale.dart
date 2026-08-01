@@ -186,6 +186,8 @@ mixin AppLocale {
   static const String showScraperTabSubtitle = 'show_scraper_tab_subtitle';
   static const String showRommTab = 'show_romm_tab';
   static const String showRommTabSubtitle = 'show_romm_tab_subtitle';
+  static const String showSearchTab = 'show_search_tab';
+  static const String showSearchTabSubtitle = 'show_search_tab_subtitle';
 
   // ---------------------------------------------------------------------------
   // Directories

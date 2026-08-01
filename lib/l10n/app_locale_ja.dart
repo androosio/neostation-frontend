@@ -152,6 +152,8 @@ const Map<String, dynamic> appLocaleJa = {
   AppLocale.showScraperTabSubtitle: 'ナビゲーションバーにスクレイピングタブを表示します',
   AppLocale.showRommTab: 'RomM タブを表示',
   AppLocale.showRommTabSubtitle: 'ナビゲーションバーに RomM タブを表示します',
+  AppLocale.showSearchTab: '検索タブを表示',
+  AppLocale.showSearchTabSubtitle: 'ナビゲーションバーに検索タブを表示します',
 
   AppLocale.configureDirectories: 'ディレクトリの設定',
   AppLocale.configureRomsFolder: 'ROMフォルダの設定',
