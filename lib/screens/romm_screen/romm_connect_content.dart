@@ -15,6 +15,7 @@ import '../../sync/providers/neo_sync_adapter.dart';
 import '../../sync/providers/romm_provider.dart';
 import '../../sync/sync_manager.dart';
 import '../../utils/gamepad_nav.dart';
+import '../../utils/login_form_selection.dart';
 import '../../widgets/custom_notification.dart';
 import '../app_screen.dart';
 
@@ -36,9 +37,10 @@ class RommConnectContent extends StatefulWidget {
   State<RommConnectContent> createState() => _RommConnectContentState();
 }
 
-class _RommConnectContentState extends State<RommConnectContent> {
+class _RommConnectContentState extends State<RommConnectContent>
+    with LoginFormSelection<RommConnectContent> {
   final ScrollController _scrollController = ScrollController();
-  final List<GlobalKey> _itemKeys = List.generate(6, (_) => GlobalKey());
+  final List<GlobalKey> _itemKeys = List.generate(4, (_) => GlobalKey());
 
   final TextEditingController _urlController = TextEditingController();
   final TextEditingController _userController = TextEditingController();
@@ -48,21 +50,43 @@ class _RommConnectContentState extends State<RommConnectContent> {
   final FocusNode _passwordFocus = FocusNode();
 
   late final GamepadNavigation _gamepadNav;
-  int _index = 0;
   bool _busy = false;
+
+  /// The slots the D-pad walks, which change with the connection state:
+  /// disconnected the panel is three credential fields plus connect, connected
+  /// it is three action rows and no field at all. Read live, so the cursor is
+  /// clamped into range the moment a connection is made or dropped — including
+  /// by something other than this panel's own buttons.
+  @override
+  List<FocusNode?> get selectionSlots =>
+      context.read<RommProvider>().isConnected
+      ? const [null, null, null]
+      : [_urlFocus, _userFocus, _passwordFocus, null];
+
+  /// Every node the panel owns, not just the ones the current state shows, so
+  /// focus tracking survives the switch to the connected view.
+  @override
+  List<FocusNode> get ownedFocusNodes => [
+    _urlFocus,
+    _userFocus,
+    _passwordFocus,
+  ];
 
   @override
   void initState() {
     super.initState();
+    attachFocusSelectionListeners();
     _gamepadNav = GamepadNavigation(
-      onNavigateUp: _moveUp,
-      onNavigateDown: _moveDown,
+      onNavigateUp: _navigateUp,
+      onNavigateDown: _navigateDown,
       onSelectItem: _selectCurrent,
       onBack: _handleBack,
       onPreviousTab: AppNavigation.previousTab,
       onNextTab: AppNavigation.nextTab,
       onLeftBumper: AppNavigation.previousTab,
       onRightBumper: AppNavigation.nextTab,
+      allowRepeat: false,
+      isTextFieldFocused: isAnyFieldFocused,
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -82,6 +106,7 @@ class _RommConnectContentState extends State<RommConnectContent> {
   void dispose() {
     GamepadNavigationManager.popLayer('romm_connect');
     _gamepadNav.dispose();
+    detachFocusSelectionListeners();
     _scrollController.dispose();
     _urlController.dispose();
     _userController.dispose();
@@ -94,61 +119,40 @@ class _RommConnectContentState extends State<RommConnectContent> {
 
   // ── Gamepad navigation ──────────────────────────────────────────────────────
 
-  int get _itemCount => context.read<RommProvider>().isConnected ? 3 : 4;
+  /// Returns whether the cursor actually moved, so the gamepad handler can
+  /// suppress the nav sound when the move was refused.
+  bool _navigateUp() => _moveAndScroll(-1);
 
-  void _moveUp() {
-    final n = _itemCount;
-    setState(() => _index = (_index - 1 + n) % n);
-    _scrollToIndex(_index);
-  }
+  bool _navigateDown() => _moveAndScroll(1);
 
-  void _moveDown() {
-    final n = _itemCount;
-    setState(() => _index = (_index + 1) % n);
-    _scrollToIndex(_index);
+  bool _moveAndScroll(int delta) {
+    if (!moveSelection(delta)) return false;
+    _scrollToIndex(selectedSlot);
+    return true;
   }
 
   void _selectCurrent() {
-    final provider = context.read<RommProvider>();
-    if (provider.isConnected) {
-      switch (_index) {
-        case 0:
-          widget.onBrowse?.call();
-          break;
-        case 1:
-          _toggleSaveSync();
-          break;
-        case 2:
-          _disconnect();
-          break;
+    if (context.read<RommProvider>().isConnected) {
+      if (isSelected(0)) {
+        widget.onBrowse?.call();
+      } else if (isSelected(1)) {
+        _toggleSaveSync();
+      } else if (isSelected(2)) {
+        _disconnect();
       }
       return;
     }
-    switch (_index) {
-      case 0:
-        _urlFocus.requestFocus();
-        break;
-      case 1:
-        _userFocus.requestFocus();
-        break;
-      case 2:
-        _passwordFocus.requestFocus();
-        break;
-      case 3:
-        _connect();
-        break;
-    }
+    if (focusSelectedField()) return;
+    _connect();
   }
 
+  /// B leaves a focused field first — that is what it does everywhere else in
+  /// the app — and only steps back to the library once nothing is focused.
   void _handleBack() {
-    // If a field currently holds the on-screen keyboard, the B button drops it
-    // (only LB/RB/B pass through while a TextField is focused on Android).
-    final primary = FocusManager.instance.primaryFocus;
-    if (primary != null && primary.hasFocus && primary.context != null) {
-      FocusManager.instance.primaryFocus?.unfocus();
+    if (isAnyFieldFocused()) {
+      exitTextEntry();
       return;
     }
-    // Otherwise, when connected, back returns to the library browser.
     widget.onBrowse?.call();
   }
 
@@ -200,7 +204,7 @@ class _RommConnectContentState extends State<RommConnectContent> {
     } else {
       _passwordController.clear();
       // Reset selection so the connected view starts on the first row.
-      setState(() => _index = 0);
+      resetSelection();
       AppNotification.showNotification(
         context,
         AppLocale.rommConnectionSuccess.getString(context),
@@ -214,7 +218,7 @@ class _RommConnectContentState extends State<RommConnectContent> {
     await provider.disconnect();
     if (!mounted) return;
     _passwordController.clear();
-    setState(() => _index = 0);
+    resetSelection();
   }
 
   bool get _isSaveSyncActive =>
@@ -287,8 +291,8 @@ class _RommConnectContentState extends State<RommConnectContent> {
         color: theme.cardColor.withValues(alpha: 0.25),
         borderRadius: BorderRadius.circular(12.r),
         border: Border.all(
-          color: theme.colorScheme.primary.withValues(alpha: 0.15),
-          width: 1.r,
+          color: theme.colorScheme.primary.withValues(alpha: 0.2),
+          width: 1,
         ),
       ),
       child: Column(
@@ -332,8 +336,8 @@ class _RommConnectContentState extends State<RommConnectContent> {
         color: theme.cardColor.withValues(alpha: 0.25),
         borderRadius: BorderRadius.circular(12.r),
         border: Border.all(
-          color: theme.colorScheme.primary.withValues(alpha: 0.15),
-          width: 1.r,
+          color: theme.colorScheme.primary.withValues(alpha: 0.2),
+          width: 1,
         ),
       ),
       child: Column(
@@ -560,7 +564,7 @@ class _RommConnectContentState extends State<RommConnectContent> {
     required FocusNode focusNode,
     bool obscure = false,
   }) {
-    final selected = _index == index;
+    final selected = isSelected(index);
     // Mirror the ScreenScraper / RetroAchievements field: a filled input with
     // the label floating inside it, constrained to 220.r, plus a soft primary
     // glow when the gamepad cursor is on this row.
@@ -635,10 +639,10 @@ class _RommConnectContentState extends State<RommConnectContent> {
   /// button (full-width elevated button with a gamepad-selection glow).
   Widget _buildConnectButton(ThemeData theme) {
     const index = 3;
-    final selected = _index == index;
+    final selected = isSelected(index);
     return Container(
       key: _itemKeys[index],
-      constraints: BoxConstraints(maxWidth: 220.r),
+      constraints: BoxConstraints(maxWidth: 320.r),
       decoration: selected
           ? BoxDecoration(
               borderRadius: BorderRadius.circular(8.r),
@@ -663,6 +667,7 @@ class _RommConnectContentState extends State<RommConnectContent> {
               borderRadius: BorderRadius.circular(8.r),
             ),
             elevation: 0,
+            padding: EdgeInsets.zero,
           ),
           child: _busy
               ? SizedBox(
@@ -671,7 +676,7 @@ class _RommConnectContentState extends State<RommConnectContent> {
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
                     valueColor: AlwaysStoppedAnimation<Color>(
-                      theme.colorScheme.onPrimary.withValues(alpha: 0.8),
+                      theme.colorScheme.onPrimary,
                     ),
                   ),
                 )
@@ -693,7 +698,7 @@ class _RommConnectContentState extends State<RommConnectContent> {
     bool primary = false,
     bool? toggleValue,
   }) {
-    final selected = _index == index;
+    final selected = isSelected(index);
     final scheme = theme.colorScheme;
     final borderColor = selected ? scheme.primary : scheme.outline;
     final bgColor = primary
