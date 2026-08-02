@@ -11,6 +11,11 @@ class RetroAchievementsRepository {
   // behaviour turns a temporary read failure into a permanent logout.
   static const FlutterSecureStorage _storage = FlutterSecureStorage(
     aOptions: AndroidOptions(resetOnError: false, migrateWithBackup: true),
+    // NeoStation's macOS builds are also distributed outside the App Store.
+    // The classic Keychain remains encrypted by macOS without requiring the
+    // restricted Keychain Sharing entitlement used by the data-protection
+    // Keychain, so ad-hoc-signed builds can persist the API key securely.
+    mOptions: MacOsOptions(usesDataProtectionKeychain: false),
   );
 
   /// Returns local ROM counts: total and RA-compatible (has ra_hash).

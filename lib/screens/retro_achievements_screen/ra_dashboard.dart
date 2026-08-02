@@ -7,7 +7,6 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
 
 import '../../l10n/app_locale.dart';
-import '../../widgets/confirm_action_dialog.dart';
 import '../../models/retro_achievements_dashboard_models.dart';
 import '../../models/retro_achievements_user_awards.dart';
 import '../../providers/file_provider.dart';
@@ -19,8 +18,15 @@ import '../../models/system_model.dart';
 
 class RADashboardHub extends StatefulWidget {
   final ScrollController? scrollController;
+  final bool logoutSelected;
+  final VoidCallback onDisconnectRequested;
 
-  const RADashboardHub({super.key, this.scrollController});
+  const RADashboardHub({
+    super.key,
+    this.scrollController,
+    required this.logoutSelected,
+    required this.onDisconnectRequested,
+  });
 
   @override
   State<RADashboardHub> createState() => _RADashboardHubState();
@@ -259,30 +265,25 @@ class _RADashboardHubState extends State<RADashboardHub> {
               ],
             ),
           ),
-          IconButton(
-            onPressed: () async {
-              final confirmed = await ConfirmActionDialog.show(
-                context,
-                title: AppLocale.disconnectRaConfirm.getString(context),
-                body: AppLocale.disconnectRaConfirmBody.getString(context),
-                confirmLabel: AppLocale.logout.getString(context),
-                icon: Symbols.logout_rounded,
-              );
-              if (!confirmed || !context.mounted) return;
-              raProvider.disconnect(clearSavedUser: true);
-              if (!context.mounted) return;
-              AppNotification.showNotification(
-                context,
-                AppLocale.disconnectedRA.getString(context),
-                type: NotificationType.info,
-              );
-            },
-            icon: Icon(
-              Symbols.logout_rounded,
-              color: theme.colorScheme.error,
-              size: 20.r,
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8.r),
+              border: Border.all(
+                color: widget.logoutSelected
+                    ? theme.colorScheme.primary
+                    : Colors.transparent,
+                width: 2.r,
+              ),
             ),
-            tooltip: AppLocale.logout.getString(context),
+            child: IconButton(
+              onPressed: widget.onDisconnectRequested,
+              icon: Icon(
+                Symbols.logout_rounded,
+                color: theme.colorScheme.error,
+                size: 20.r,
+              ),
+              tooltip: AppLocale.logout.getString(context),
+            ),
           ),
         ],
       ),

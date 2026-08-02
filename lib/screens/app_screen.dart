@@ -416,11 +416,13 @@ class AppScreenState extends State<AppScreen> with WidgetsBindingObserver {
 
   /// Returns whether the selection moved, so the gamepad handler can suppress
   /// the nav sound when repeating against the start/end of a list.
+  ///
+  /// The achievements tab is absent: `RAContent` pushes its own navigation
+  /// layer unconditionally, so this handler is deactivated whenever that tab is
+  /// mounted. Keeping a second route to the same screen is what caused the
+  /// double-dispatch bug fixed in #255.
   bool _navigateContentDown() {
     if (_selectedTabIndex == AppTabs.systems) return true;
-    if (_selectedTabIndex == AppTabs.achievements) {
-      return RAContent.navigateDown();
-    }
     if (_selectedTabIndex == AppTabs.scraper) {
       NewScraperOptionsScreen.navigateDown();
       return true;
@@ -433,9 +435,6 @@ class AppScreenState extends State<AppScreen> with WidgetsBindingObserver {
 
   bool _navigateContentUp() {
     if (_selectedTabIndex == AppTabs.systems) return true;
-    if (_selectedTabIndex == AppTabs.achievements) {
-      return RAContent.navigateUp();
-    }
     if (_selectedTabIndex == AppTabs.scraper) {
       NewScraperOptionsScreen.navigateUp();
       return true;
@@ -498,7 +497,11 @@ class AppScreenState extends State<AppScreen> with WidgetsBindingObserver {
 
     // Re-verify navigation focus after tab transition.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _gamepadNav.activate();
+      // The destination tab may have pushed its own navigation layer during
+      // the rebuild. Reactivate the stack's top layer instead of unconditionally
+      // reactivating AppScreen, which would leave two controllers handling the
+      // same D-pad event (e.g. Username -> API Key -> Connect in one press).
+      GamepadNavigationManager.reactivate();
     });
   }
 

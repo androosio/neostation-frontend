@@ -154,6 +154,7 @@ extension _GamepadNav on _SystemEmulatorSettingsDialogState {
       return;
     }
     if (_currentTab == 1) {
+      if (_totalEmulators == 0) return;
       _setSelectedAsDefault();
     } else if (_currentTab == 0) {
       if (_generalIndex == 0) {
