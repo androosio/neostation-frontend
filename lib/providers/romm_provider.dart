@@ -91,6 +91,16 @@ class RommProvider extends ChangeNotifier {
 
   final Map<int, RommDownload> _downloads = {};
 
+  /// Backs [activeDownloadIds] / [downloadsRevision]; maintained by
+  /// [_notifyDownloadState].
+  final Set<int> _activeDownloadIds = {};
+  int _downloadsRevision = 0;
+
+  /// Whole percent last published per ROM, so a chunk that doesn't move the
+  /// figure the UI renders doesn't notify at all (see
+  /// [_notifyDownloadProgress]).
+  final Map<int, int> _publishedPercent = {};
+
   /// Drives "download this whole platform/collection" (see [syncSource]).
   ///
   /// Owned here rather than by the browse screen so a sync survives leaving the
@@ -169,8 +179,23 @@ class RommProvider extends ChangeNotifier {
   bool get librarySearch => _librarySearch;
 
   RommService get service => _service;
-  Map<int, RommDownload> get downloads => Map.unmodifiable(_downloads);
   RommDownload? downloadFor(int romId) => _downloads[romId];
+
+  /// Ids transferring right now — at most one per worker, however many ROMs
+  /// have been downloaded this session.
+  ///
+  /// Exists so a view can fingerprint "what is downloading" in constant time.
+  /// [downloads] accumulates every ROM fetched since connecting, so scanning it
+  /// on every build costs more the longer a bulk sync runs.
+  Set<int> get activeDownloadIds => Set.unmodifiable(_activeDownloadIds);
+
+  /// Bumped whenever a download's *state* changes — started, finished, failed,
+  /// cancelled or cleared — and never for byte progress.
+  ///
+  /// Pairs with [activeDownloadIds]: together they tell a view that the set of
+  /// downloads changed shape, including the case where one starts and finishes
+  /// between two builds and so never appears in the active set at all.
+  int get downloadsRevision => _downloadsRevision;
 
   /// The user's earned achievement count for [rom], or null when the game has
   /// no RA set or the user's RA progress hasn't been synced in RomM.
@@ -913,14 +938,14 @@ class RommProvider extends ChangeNotifier {
   }) async {
     final tracker = RommDownload(romId: rom.id);
     _downloads[rom.id] = tracker;
-    notifyListeners();
+    _notifyDownloadState();
 
     final system = await resolveSystem(rom);
     if (system == null) {
       tracker
         ..status = RommDownloadStatus.failed
         ..error = RommDownloadError.noSystemMatch;
-      notifyListeners();
+      _notifyDownloadState();
       return tracker;
     }
 
@@ -934,7 +959,7 @@ class RommProvider extends ChangeNotifier {
       tracker
         ..status = RommDownloadStatus.failed
         ..error = RommDownloadError.noWritableFolder;
-      notifyListeners();
+      _notifyDownloadState();
       return tracker;
     }
 
@@ -960,7 +985,9 @@ class RommProvider extends ChangeNotifier {
           tracker
             ..received = received
             ..total = total;
-          notifyListeners();
+          // Progress, not state: this fires per network chunk, so it publishes
+          // only when the rendered percentage moves.
+          _notifyDownloadProgress(tracker);
         },
         shouldCancel: () => tracker.cancelRequested,
       );
@@ -969,21 +996,21 @@ class RommProvider extends ChangeNotifier {
       // User-cancelled: a distinct type (not a message-string match) keeps this
       // from being reported as a network failure if the message ever changes.
       tracker.status = RommDownloadStatus.cancelled;
-      notifyListeners();
+      _notifyDownloadState();
       return tracker;
     } on RommException catch (e) {
       tracker
         ..status = RommDownloadStatus.failed
         ..error = RommDownloadError.network
         ..errorDetail = e.message;
-      notifyListeners();
+      _notifyDownloadState();
       return tracker;
     } catch (e) {
       tracker
         ..status = RommDownloadStatus.failed
         ..error = RommDownloadError.network
         ..errorDetail = '$e';
-      notifyListeners();
+      _notifyDownloadState();
       return tracker;
     }
 
@@ -1029,7 +1056,7 @@ class RommProvider extends ChangeNotifier {
       rommRomId: rom.id,
       fsName: indexedName,
     );
-    notifyListeners();
+    _notifyDownloadState();
     // Arm the debounced rescan so this ROM (and any others finishing around the
     // same time) get indexed + their lists refreshed shortly, without waiting
     // for the whole batch or the browse screen to close.
@@ -1414,15 +1441,59 @@ class RommProvider extends ChangeNotifier {
     final d = _downloads[romId];
     if (d != null && d.status == RommDownloadStatus.downloading) {
       d.cancelRequested = true;
-      notifyListeners();
+      _notifyDownloadState();
     }
   }
 
   /// Clears a finished download entry (so its UI badge resets).
   void clearDownload(int romId) {
     _downloads.remove(romId);
+    _notifyDownloadState();
+  }
+
+  /// Publishes a change to *which* downloads exist or what state they are in.
+  ///
+  /// Recomputing the active set here rather than at every mutation site is
+  /// affordable because state changes are rare — two per ROM — where progress
+  /// ticks are not.
+  void _notifyDownloadState() {
+    _downloadsRevision++;
+    _activeDownloadIds
+      ..clear()
+      ..addAll(
+        _downloads.entries
+            .where((e) => e.value.status == RommDownloadStatus.downloading)
+            .map((e) => e.key),
+      );
+    _publishedPercent.removeWhere((id, _) => !_activeDownloadIds.contains(id));
     notifyListeners();
   }
+
+  /// Publishes byte progress, but only when the figure the UI draws actually
+  /// moves.
+  ///
+  /// The browse screen watches this provider, so every notification rebuilds
+  /// its subtree — coalesced to one rebuild per frame, which means notifying
+  /// per chunk pins the whole browser at a full rebuild every frame for the
+  /// length of a transfer, times however many run at once. Nothing renders the
+  /// raw byte count: the card draws a bar and a rounded percentage, so a chunk
+  /// that leaves that percentage unchanged has nothing to say.
+  void _notifyDownloadProgress(RommDownload tracker) {
+    final percent = renderedPercent(tracker.fraction);
+    // An unknown content length draws an indeterminate bar with no figure
+    // beside it, so no chunk of it is worth a rebuild.
+    if (percent == null) return;
+    if (_publishedPercent[tracker.romId] == percent) return;
+    _publishedPercent[tracker.romId] = percent;
+    notifyListeners();
+  }
+
+  /// The whole percent a card draws for [fraction], or null when there is no
+  /// figure to draw. Two chunks that round to the same number are the same
+  /// frame as far as the UI is concerned.
+  @visibleForTesting
+  static int? renderedPercent(double? fraction) =>
+      fraction == null ? null : (fraction * 100).clamp(0, 100).round();
 
   @override
   void dispose() {

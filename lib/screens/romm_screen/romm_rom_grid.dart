@@ -223,14 +223,27 @@ class _RommRomGridState extends State<RommRomGrid> {
     }
   }
 
-  /// Cheap fingerprint of every in-flight/finished download, used to decide
-  /// whether the memoized rows still show the right overlays.
+  /// Cheap fingerprint of the download state the memoized rows draw.
+  ///
+  /// Bounded by what is in flight — at most one per sync worker — plus the
+  /// provider's revision, which covers a download that starts *and* finishes
+  /// between two builds and so is never seen in the active set.
+  ///
+  /// It used to fingerprint the whole download map, which accumulates every
+  /// ROM fetched since connecting: by the end of a 636-ROM platform sync that
+  /// was a 636-entry list, a sort and a multi-KB string built on every frame.
+  /// It also carried the raw `fraction`, which moves with every network chunk,
+  /// so the row cache was thrown away every frame by the very traffic it
+  /// exists to survive. The cards only ever draw the rounded percentage.
   String _downloadsSig() {
-    final entries = widget.provider.downloads.entries.toList()
-      ..sort((a, b) => a.key.compareTo(b.key));
-    return entries
-        .map((e) => '${e.key}:${e.value.status}:${e.value.fraction}')
-        .join(',');
+    final provider = widget.provider;
+    final active = provider.activeDownloadIds.toList()..sort();
+    final sig = StringBuffer()..write(provider.downloadsRevision);
+    for (final id in active) {
+      final fraction = provider.downloadFor(id)?.fraction;
+      sig.write(';$id:${fraction == null ? -1 : (fraction * 100).round()}');
+    }
+    return sig.toString();
   }
 
   void _initializeGamepad() {

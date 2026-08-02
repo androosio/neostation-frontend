@@ -282,6 +282,8 @@ void main() {
 
   _preflightTests();
 
+  _renderedPercentTests();
+
   group('cancellation', () {
     test(
       'stops handing out work and cancels the transfers in flight',
@@ -672,6 +674,43 @@ void _preflightTests() {
       );
 
       expect(seen!.requiredBytes, 300);
+    });
+  });
+}
+
+/// The rule behind the download-progress notification gate.
+///
+/// `RommProvider` notifies its listeners — and so rebuilds the whole browse
+/// subtree — once per network chunk unless the tick is filtered. Nothing
+/// renders the raw byte count; the card draws a bar and this rounded figure,
+/// so chunks that land on the same percent have nothing to say.
+void _renderedPercentTests() {
+  group('renderedPercent', () {
+    test('an unknown content length has no figure to draw', () {
+      expect(RommProvider.renderedPercent(null), isNull);
+    });
+
+    test('collapses the chunks that round to the same percent', () {
+      // Consecutive 8 KB chunks of a 1 GB ROM.
+      const total = 1 << 30;
+      const chunk = 8 * 1024;
+      final percents = <int?>{};
+      for (var received = 0; received < total ~/ 100; received += chunk) {
+        percents.add(RommProvider.renderedPercent(received / total));
+      }
+      expect(
+        percents.length,
+        lessThanOrEqualTo(2),
+        reason: 'the first 1% of a 1 GB ROM is ~1300 chunks and one figure',
+      );
+    });
+
+    test('never leaves the 0–100 range', () {
+      expect(RommProvider.renderedPercent(0), 0);
+      expect(RommProvider.renderedPercent(1), 100);
+      // A server that under-reports content-length would otherwise overshoot.
+      expect(RommProvider.renderedPercent(1.4), 100);
+      expect(RommProvider.renderedPercent(-0.2), 0);
     });
   });
 }
