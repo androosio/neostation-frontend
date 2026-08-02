@@ -17,6 +17,7 @@ import '../repositories/system_repository.dart';
 import '../services/logger_service.dart';
 import '../services/romm_playtime_service.dart';
 import '../services/romm_service.dart';
+import '../services/storage_space_service.dart';
 import '../services/user_data_location_service.dart';
 import 'file_provider.dart';
 import 'romm_bulk_sync.dart';
@@ -727,6 +728,28 @@ class RommProvider extends ChangeNotifier {
     return null;
   }
 
+  /// Free space available to a download across [romFolders], or null when none
+  /// of them can be measured.
+  ///
+  /// Reports the *roomiest* folder rather than a specific destination. Which
+  /// folder a given ROM lands in is decided per system by [_resolveDestDir],
+  /// and a sync spans systems, so there is no single destination to measure
+  /// before the queue runs. On the usual single-ROM-folder setup the two are
+  /// the same number; on a multi-volume one this is the optimistic reading,
+  /// which suits a check whose whole design is to warn rather than obstruct.
+  @visibleForTesting
+  Future<int?> romFoldersFreeSpace(List<String> romFolders) async {
+    int? most;
+    for (final folder in romFolders) {
+      final base = _folderToRealBase(folder);
+      if (base == null) continue;
+      final free = await StorageSpaceService.freeSpaceBytes(base);
+      if (free == null) continue;
+      if (most == null || free > most) most = free;
+    }
+    return most;
+  }
+
   /// Path of an existing subdirectory of [base] whose name matches one of
   /// [aliases] (case-insensitively, mirroring how the library scan matches
   /// folders), or null if none exists / [base] can't be listed.
@@ -1029,6 +1052,11 @@ class RommProvider extends ChangeNotifier {
   /// thousands of ROMs into the grid the user is looking at would cost a tile
   /// per ROM for no benefit.
   ///
+  /// [confirm] is asked to approve the queue once the enumeration has priced
+  /// it (count, bytes, free space) — see [RommBulkSync.run]. It is optional
+  /// only so tests and non-interactive callers can skip it; the UI always
+  /// passes one.
+  ///
   /// Progress and cancellation live on [bulkSync]. Returns when the queue is
   /// drained; no-op while another sync is running.
   Future<void> syncSource({
@@ -1036,6 +1064,7 @@ class RommProvider extends ChangeNotifier {
     RommCollection? collection,
     required List<String> romFolders,
     FileProvider? fileProvider,
+    RommBulkSyncConfirm? confirm,
   }) async {
     // An explicit argument wins outright: a sync started from the list must not
     // inherit the other kind of source from whatever the browser has open.
@@ -1072,6 +1101,8 @@ class RommProvider extends ChangeNotifier {
       download: (rom) =>
           downloadRom(rom, romFolders: romFolders, fileProvider: fileProvider),
       cancelDownload: cancelDownload,
+      confirm: confirm,
+      freeSpace: () => romFoldersFreeSpace(romFolders),
     );
     // The queue's downloads each refreshed the token as they went; persist
     // whatever the last one ended up with.

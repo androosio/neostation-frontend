@@ -906,8 +906,12 @@ const Map<String, dynamic> appLocaleEn = {
   AppLocale.rommSyncAll: 'Sync all',
   AppLocale.rommSyncCancel: 'Cancel sync',
   AppLocale.rommSyncConfirmTitle: 'Sync {name}?',
-  AppLocale.rommSyncConfirmBody:
-      'Downloads every game in {name} that is not already on this device. This can take a long time and use a lot of storage.',
+  AppLocale.rommSyncConfirmPlan:
+      'Downloads {count} games — {size}. This can take a long time.',
+  AppLocale.rommSyncConfirmSkipped: '{count} already on this device.',
+  AppLocale.rommSyncConfirmFree: '{free} free.',
+  AppLocale.rommSyncConfirmNoSpace:
+      'Not enough space: needs {size}, only {free} free.',
   AppLocale.rommSyncPreparing: 'Preparing…',
   AppLocale.rommSyncCancelling: 'Cancelling…',
   AppLocale.rommSyncComplete: 'Synced {count} games',

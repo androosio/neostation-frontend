@@ -966,7 +966,10 @@ mixin AppLocale {
   static const String rommSyncAll = 'romm_sync_all';
   static const String rommSyncCancel = 'romm_sync_cancel';
   static const String rommSyncConfirmTitle = 'romm_sync_confirm_title';
-  static const String rommSyncConfirmBody = 'romm_sync_confirm_body';
+  static const String rommSyncConfirmPlan = 'romm_sync_confirm_plan';
+  static const String rommSyncConfirmSkipped = 'romm_sync_confirm_skipped';
+  static const String rommSyncConfirmFree = 'romm_sync_confirm_free';
+  static const String rommSyncConfirmNoSpace = 'romm_sync_confirm_no_space';
   static const String rommSyncPreparing = 'romm_sync_preparing';
   static const String rommSyncCancelling = 'romm_sync_cancelling';
   static const String rommSyncComplete = 'romm_sync_complete';

@@ -412,6 +412,14 @@ class MainActivity: MultiDisplayFlutterActivity(), GamepadsCompatibleActivity {
                         result.error("INVALID_ARGUMENTS", "URI is required", null)
                     }
                 }
+                "getFreeSpace" -> {
+                    val path = call.argument<String>("path")
+                    if (path != null) {
+                        getFreeSpace(path, result)
+                    } else {
+                        result.error("INVALID_ARGUMENTS", "Path is required", null)
+                    }
+                }
                 "findEmulatorDocumentProvider" -> {
                     val packageName = call.argument<String>("packageName")
                     if (packageName != null) {
@@ -1535,6 +1543,34 @@ class MainActivity: MultiDisplayFlutterActivity(), GamepadsCompatibleActivity {
             } catch (e: Exception) {
                 runOnUiThread { result.error("WRITE_FILE_FAILED", e.message, null) }
             }
+        }.start()
+    }
+
+    /**
+     * Bytes still writable by this app on the volume holding [path], or null
+     * when that can't be answered.
+     *
+     * Backs the RomM bulk sync's pre-flight check ("does this platform fit?").
+     * usableSpace — rather than freeSpace — is the honest number: it accounts
+     * for the reserve the OS keeps back, so it matches what a download can
+     * actually claim.
+     *
+     * Returns null rather than 0 for an unknown or missing volume: the Dart
+     * side treats null as "no opinion" and lets the sync proceed, and a 0
+     * would read as a full disk and warn about a problem that isn't there.
+     * The caller passes a path that exists (it walks up to the nearest
+     * existing ancestor first), so 0 here really does mean "not on a volume
+     * this app can see".
+     */
+    private fun getFreeSpace(path: String, result: MethodChannel.Result) {
+        Thread {
+            val bytes = try {
+                java.io.File(path).usableSpace.takeIf { it > 0L }
+            } catch (e: Exception) {
+                android.util.Log.w("MainActivity", "Free space for $path unavailable: ${e.message}")
+                null
+            }
+            runOnUiThread { result.success(bytes) }
         }.start()
     }
 

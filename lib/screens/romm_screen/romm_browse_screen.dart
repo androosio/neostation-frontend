@@ -364,34 +364,79 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
     if (label == null) return;
 
     // Y is one press away from pulling an entire console down over the network,
-    // so it always asks first.
-    final confirmed = await ConfirmActionDialog.show(
-      context,
-      title: AppLocale.rommSyncConfirmTitle
-          .getString(context)
-          .replaceFirst('{name}', label),
-      body: AppLocale.rommSyncConfirmBody
-          .getString(context)
-          .replaceFirst('{name}', label),
-      confirmLabel: AppLocale.rommSyncAll.getString(context),
-      icon: Symbols.cloud_download_rounded,
-      accentColor: Theme.of(context).colorScheme.primary,
-    );
-    if (!confirmed || !mounted) return;
-
+    // so it always asks first — but only once the enumeration has priced the
+    // job, so the question comes with a count, a size and the free space to
+    // weigh them against. The band shows "Preparing…" in the meantime and Y
+    // cancels it, so a slow server doesn't leave the user stuck.
     await _rommProvider.syncSource(
       platform: platform,
       collection: collection,
       romFolders: context.read<SqliteConfigProvider>().config.romFolders,
       fileProvider: context.read<FileProvider>(),
+      confirm: (plan) => _confirmSyncPlan(label, plan),
     );
     if (!mounted) return;
     _reportSyncOutcome(sync);
   }
 
+  /// Asks the user to approve a priced sync.
+  ///
+  /// A plan that doesn't fit is flagged rather than refused: the free-space
+  /// figure is the roomiest ROM folder, not the exact destination of every ROM
+  /// in the queue (see `RommProvider.romFoldersFreeSpace`), so the user is
+  /// better placed than this check is to know whether it is really a problem.
+  Future<bool> _confirmSyncPlan(String label, RommBulkSyncPlan plan) async {
+    if (!mounted) return false;
+
+    final lines = <String>[
+      AppLocale.rommSyncConfirmPlan
+          .getString(context)
+          .replaceFirst('{count}', '${plan.romCount}')
+          .replaceFirst('{size}', rommFormatBytes(plan.downloadBytes)),
+    ];
+    if (plan.skipped > 0) {
+      lines.add(
+        AppLocale.rommSyncConfirmSkipped
+            .getString(context)
+            .replaceFirst('{count}', '${plan.skipped}'),
+      );
+    }
+    if (!plan.fits) {
+      lines.add(
+        AppLocale.rommSyncConfirmNoSpace
+            .getString(context)
+            .replaceFirst('{size}', rommFormatBytes(plan.requiredBytes))
+            .replaceFirst('{free}', rommFormatBytes(plan.freeBytes!)),
+      );
+    } else if (!plan.spaceUnknown) {
+      lines.add(
+        AppLocale.rommSyncConfirmFree
+            .getString(context)
+            .replaceFirst('{free}', rommFormatBytes(plan.freeBytes!)),
+      );
+    }
+
+    final scheme = Theme.of(context).colorScheme;
+    return ConfirmActionDialog.show(
+      context,
+      title: AppLocale.rommSyncConfirmTitle
+          .getString(context)
+          .replaceFirst('{name}', label),
+      body: lines.join('\n'),
+      confirmLabel: AppLocale.rommSyncAll.getString(context),
+      icon: plan.fits
+          ? Symbols.cloud_download_rounded
+          : Symbols.warning_rounded,
+      accentColor: plan.fits ? scheme.primary : scheme.error,
+    );
+  }
+
   /// Summarises a finished sync in a single toast. The band showed the detail
   /// while it ran; this is the "what did I end up with" line.
   void _reportSyncOutcome(RommBulkSync sync) {
+    // Turning down the confirmation is its own answer — a toast repeating what
+    // the user just declined is noise.
+    if (sync.declined) return;
     if (sync.cancelRequested) {
       AppNotification.showNotification(
         context,

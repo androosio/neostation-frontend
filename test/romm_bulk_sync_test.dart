@@ -15,7 +15,7 @@ import 'package:neostation/providers/romm_provider.dart';
 /// this can be exercised without a RomM server or a filesystem — the fakes
 /// below stand in for `getRomsPage`, `isDownloadedCached` and `downloadRom`.
 
-RommRom _rom(int id, {int sizeBytes = 0}) => RommRom(
+RommRom _rom(int id, {int sizeBytes = 0, bool multiFile = false}) => RommRom(
   id: id,
   name: 'Game $id',
   platformId: 1,
@@ -24,6 +24,7 @@ RommRom _rom(int id, {int sizeBytes = 0}) => RommRom(
   fsNameNoExt: 'game$id',
   fsExtension: 'sfc',
   fsSizeBytes: sizeBytes,
+  hasMultipleFiles: multiFile,
 );
 
 RommDownload _completed(RommRom rom) =>
@@ -279,6 +280,8 @@ void main() {
 
   _writeProbeTests();
 
+  _preflightTests();
+
   group('cancellation', () {
     test(
       'stops handing out work and cancels the transfers in flight',
@@ -428,6 +431,247 @@ void _writeProbeTests() {
         await RommProvider.dirIfWritable(p.join(blocker.path, 'sub')),
         isNull,
       );
+    });
+  });
+}
+
+/// The pre-flight check: the queue is priced and the destination measured
+/// *after* the enumeration, then put to the user before a byte is fetched.
+void _preflightTests() {
+  group('pre-flight confirmation', () {
+    test('prices the queue and reports free space', () async {
+      final all = [
+        for (var i = 0; i < 4; i++) _rom(i, sizeBytes: 1000),
+        _rom(99, sizeBytes: 500),
+      ];
+      RommBulkSyncPlan? seen;
+      final sync = RommBulkSync();
+
+      await sync.run(
+        sourceLabel: 'SNES',
+        fetchPage: _pagesOver(all),
+        // The last ROM is already on disk, so it is priced out of the plan.
+        isDownloaded: (rom) async => rom.id == 99,
+        download: (rom) async => _completed(rom),
+        freeSpace: () async => 10000,
+        confirm: (plan) async {
+          seen = plan;
+          return true;
+        },
+        concurrency: 1,
+      );
+
+      expect(seen, isNotNull);
+      expect(seen!.sourceLabel, 'SNES');
+      expect(seen!.romCount, 4);
+      expect(seen!.skipped, 1);
+      expect(seen!.downloadBytes, 4000);
+      expect(seen!.requiredBytes, 4000, reason: 'no multi-disc ROMs to unpack');
+      expect(seen!.freeBytes, 10000);
+      expect(seen!.fits, isTrue);
+      expect(seen!.spaceUnknown, isFalse);
+      expect(sync.completed, 4, reason: 'approving runs the queue');
+    });
+
+    test('declining downloads nothing and is not a cancellation', () async {
+      final all = [for (var i = 0; i < 5; i++) _rom(i, sizeBytes: 1000)];
+      var downloads = 0;
+      final sync = RommBulkSync();
+
+      await sync.run(
+        sourceLabel: 'SNES',
+        fetchPage: _pagesOver(all),
+        isDownloaded: _nothingDownloaded,
+        download: (rom) async {
+          downloads++;
+          return _completed(rom);
+        },
+        confirm: (_) async => false,
+      );
+
+      expect(downloads, 0);
+      expect(sync.declined, isTrue);
+      expect(sync.cancelRequested, isFalse);
+      expect(sync.completed, 0);
+      expect(sync.phase, RommBulkSyncPhase.idle);
+    });
+
+    test('is never asked when everything is already on disk', () async {
+      final all = [for (var i = 0; i < 5; i++) _rom(i, sizeBytes: 1000)];
+      var asked = 0;
+      final sync = RommBulkSync();
+
+      await sync.run(
+        sourceLabel: 'SNES',
+        fetchPage: _pagesOver(all),
+        isDownloaded: (_) async => true,
+        download: (rom) async => _completed(rom),
+        confirm: (_) async {
+          asked++;
+          return true;
+        },
+      );
+
+      expect(asked, 0, reason: 'an empty queue has nothing to confirm');
+      expect(sync.skipped, 5);
+      expect(sync.declined, isFalse);
+    });
+
+    test('an unmeasurable volume fits by default', () async {
+      final all = [for (var i = 0; i < 3; i++) _rom(i, sizeBytes: 1 << 30)];
+      RommBulkSyncPlan? seen;
+      final sync = RommBulkSync();
+
+      await sync.run(
+        sourceLabel: 'SNES',
+        fetchPage: _pagesOver(all),
+        isDownloaded: _nothingDownloaded,
+        download: (rom) async => _completed(rom),
+        freeSpace: () async => null,
+        confirm: (plan) async {
+          seen = plan;
+          return true;
+        },
+      );
+
+      expect(seen!.spaceUnknown, isTrue);
+      expect(seen!.fits, isTrue, reason: 'a missing number must not obstruct');
+      expect(seen!.shortfallBytes, 0);
+    });
+
+    test('a probe that throws is as good as no probe', () async {
+      final all = [_rom(1, sizeBytes: 10)];
+      RommBulkSyncPlan? seen;
+      final sync = RommBulkSync();
+
+      await sync.run(
+        sourceLabel: 'SNES',
+        fetchPage: _pagesOver(all),
+        isDownloaded: _nothingDownloaded,
+        download: (rom) async => _completed(rom),
+        freeSpace: () async => throw const FileSystemException('nope'),
+        confirm: (plan) async {
+          seen = plan;
+          return true;
+        },
+      );
+
+      expect(seen!.spaceUnknown, isTrue);
+      expect(sync.completed, 1, reason: 'the sync still ran');
+    });
+
+    test('reports the shortfall when the queue does not fit', () async {
+      final all = [for (var i = 0; i < 3; i++) _rom(i, sizeBytes: 1000)];
+      RommBulkSyncPlan? seen;
+      final sync = RommBulkSync();
+
+      await sync.run(
+        sourceLabel: 'SNES',
+        fetchPage: _pagesOver(all),
+        isDownloaded: _nothingDownloaded,
+        download: (rom) async => _completed(rom),
+        freeSpace: () async => 2500,
+        confirm: (plan) async {
+          seen = plan;
+          // Warned, not refused — the caller still decides.
+          return false;
+        },
+      );
+
+      expect(seen!.fits, isFalse);
+      expect(seen!.shortfallBytes, 500);
+      expect(sync.declined, isTrue);
+    });
+
+    test('cancelling during the confirmation stays a cancellation', () async {
+      final all = [for (var i = 0; i < 3; i++) _rom(i, sizeBytes: 1000)];
+      var downloads = 0;
+      final sync = RommBulkSync();
+
+      await sync.run(
+        sourceLabel: 'SNES',
+        fetchPage: _pagesOver(all),
+        isDownloaded: _nothingDownloaded,
+        download: (rom) async {
+          downloads++;
+          return _completed(rom);
+        },
+        confirm: (_) async {
+          sync.cancel();
+          return true;
+        },
+      );
+
+      expect(downloads, 0);
+      expect(sync.cancelRequested, isTrue);
+      expect(sync.declined, isFalse);
+    });
+  });
+
+  group('transient headroom', () {
+    test('single-file queues need nothing beyond their download size', () {
+      final sync = RommBulkSync();
+      expect(sync.transientHeadroomBytes(3), 0);
+    });
+
+    test(
+      'a multi-disc ROM is counted twice, but only while it is unpacking',
+      () async {
+        // 4 multi-disc ROMs, 3 workers: at most 3 zips exist beside their
+        // extracted discs at once, so the peak overshoot is the 3 largest.
+        final all = [
+          _rom(1, sizeBytes: 100, multiFile: true),
+          _rom(2, sizeBytes: 400, multiFile: true),
+          _rom(3, sizeBytes: 300, multiFile: true),
+          _rom(4, sizeBytes: 200, multiFile: true),
+          _rom(5, sizeBytes: 50),
+        ];
+        RommBulkSyncPlan? seen;
+        final sync = RommBulkSync();
+
+        await sync.run(
+          sourceLabel: 'PS1',
+          fetchPage: _pagesOver(all),
+          isDownloaded: _nothingDownloaded,
+          download: (rom) async => _completed(rom),
+          confirm: (plan) async {
+            seen = plan;
+            return false;
+          },
+          concurrency: 3,
+        );
+
+        expect(seen!.downloadBytes, 1050);
+        expect(
+          seen!.requiredBytes,
+          1050 + 400 + 300 + 200,
+          reason: 'the three largest multi-disc ROMs, not the whole queue',
+        );
+      },
+    );
+
+    test('the headroom never exceeds what the queue holds', () async {
+      final all = [
+        _rom(1, sizeBytes: 100, multiFile: true),
+        _rom(2, sizeBytes: 100),
+      ];
+      RommBulkSyncPlan? seen;
+      final sync = RommBulkSync();
+
+      await sync.run(
+        sourceLabel: 'PS1',
+        fetchPage: _pagesOver(all),
+        isDownloaded: _nothingDownloaded,
+        download: (rom) async => _completed(rom),
+        confirm: (plan) async {
+          seen = plan;
+          return false;
+        },
+        // More workers than there are multi-disc ROMs to unpack.
+        concurrency: 8,
+      );
+
+      expect(seen!.requiredBytes, 300);
     });
   });
 }

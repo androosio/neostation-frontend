@@ -837,8 +837,12 @@ const Map<String, dynamic> appLocaleKo = {
   AppLocale.rommSyncAll: '모두 동기화',
   AppLocale.rommSyncCancel: '동기화 취소',
   AppLocale.rommSyncConfirmTitle: '{name}을(를) 동기화할까요?',
-  AppLocale.rommSyncConfirmBody:
-      '이 기기에 아직 없는 {name}의 모든 게임을 내려받습니다. 시간이 오래 걸리고 저장 공간을 많이 사용할 수 있습니다.',
+  AppLocale.rommSyncConfirmPlan:
+      '게임 {count}개를 내려받습니다 — {size}. 시간이 오래 걸릴 수 있습니다.',
+  AppLocale.rommSyncConfirmSkipped: '{count}개는 이미 이 기기에 있습니다.',
+  AppLocale.rommSyncConfirmFree: '여유 공간 {free}.',
+  AppLocale.rommSyncConfirmNoSpace:
+      '공간이 부족합니다: {size}이(가) 필요하지만 {free}만 남았습니다.',
   AppLocale.rommSyncPreparing: '준비 중…',
   AppLocale.rommSyncCancelling: '취소하는 중…',
   AppLocale.rommSyncComplete: '게임 {count}개를 동기화했습니다',

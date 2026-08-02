@@ -16,6 +16,14 @@ typedef RommDownloadedCheck = Future<bool> Function(RommRom rom);
 /// Downloads one ROM, resolving to its final [RommDownload] record.
 typedef RommRomDownloader = Future<RommDownload> Function(RommRom rom);
 
+/// Free bytes on the volume the downloads will land on, or null when the
+/// number can't be obtained (see [RommBulkSyncPlan.freeBytes]).
+typedef RommFreeSpaceProbe = Future<int?> Function();
+
+/// Last chance to call the sync off, once its real size is known. Returning
+/// false abandons the queue before anything is downloaded.
+typedef RommBulkSyncConfirm = Future<bool> Function(RommBulkSyncPlan plan);
+
 /// What a bulk sync is doing right now.
 enum RommBulkSyncPhase {
   /// No sync running (either never started or finished).
@@ -25,8 +33,59 @@ enum RommBulkSyncPhase {
   /// already on disk. The download queue isn't known yet.
   preparing,
 
+  /// The queue is known and priced; waiting on the user to approve it.
+  confirming,
+
   /// Working through the queue.
   downloading,
+}
+
+/// The measured shape of a sync, handed to [RommBulkSyncConfirm] so the
+/// confirmation can quote real numbers instead of warning in prose.
+///
+/// Everything here is known only *after* the enumeration pass — which is why
+/// the confirmation happens in the middle of [RommBulkSync.run] rather than
+/// before it.
+class RommBulkSyncPlan {
+  /// Platform/collection being synced.
+  final String sourceLabel;
+
+  /// ROMs actually queued (the source minus what is already on disk).
+  final int romCount;
+
+  /// ROMs the pass found already on disk and won't fetch again.
+  final int skipped;
+
+  /// Sum of the queue's `fs_size_bytes` — what will be transferred.
+  final int downloadBytes;
+
+  /// [downloadBytes] plus the transient headroom multi-disc extraction needs
+  /// (see [RommBulkSync.transientHeadroomBytes]). This is the number to
+  /// compare against free space.
+  final int requiredBytes;
+
+  /// Free bytes on the destination volume, or null when nothing could measure
+  /// it. Null means "don't know", never "none" — the sync goes ahead.
+  final int? freeBytes;
+
+  const RommBulkSyncPlan({
+    required this.sourceLabel,
+    required this.romCount,
+    required this.skipped,
+    required this.downloadBytes,
+    required this.requiredBytes,
+    required this.freeBytes,
+  });
+
+  /// True when free space couldn't be measured, so [fits] means nothing.
+  bool get spaceUnknown => freeBytes == null;
+
+  /// True when the sync should fit. Unknown free space counts as fitting: a
+  /// missing number must not stand in the way of a sync the user asked for.
+  bool get fits => freeBytes == null || requiredBytes <= freeBytes!;
+
+  /// How much more space the sync needs than the volume has (0 when it fits).
+  int get shortfallBytes => fits ? 0 : requiredBytes - freeBytes!;
 }
 
 /// Downloads an entire RomM platform or collection in one action.
@@ -67,6 +126,7 @@ class RommBulkSync extends ChangeNotifier {
   RommBulkSyncPhase _phase = RommBulkSyncPhase.idle;
   String _sourceLabel = '';
   bool _cancelRequested = false;
+  bool _declined = false;
 
   int _enumerated = 0;
   int _enumerateTotal = 0;
@@ -112,6 +172,11 @@ class RommBulkSync extends ChangeNotifier {
   /// True once cancellation was asked for, while the queue winds down.
   bool get cancelRequested => _cancelRequested;
 
+  /// True when the last run ended because the user turned down the plan at the
+  /// confirmation, before anything was downloaded. Distinct from
+  /// [cancelRequested]: nothing was started, so there is nothing to report.
+  bool get declined => _declined;
+
   /// ROMs seen so far by the enumeration pass, and the server's reported total
   /// for the query. Both are 0 outside [RommBulkSyncPhase.preparing].
   int get enumerated => _enumerated;
@@ -156,6 +221,13 @@ class RommBulkSync extends ChangeNotifier {
   /// [cancelDownload] is invoked for each in-flight ROM when [cancel] is
   /// called, so cancelling stops the transfers as well as the queue.
   ///
+  /// When [confirm] is given it is asked to approve the queue once its size is
+  /// known — after the enumeration, before the first byte is fetched — with
+  /// free space from [freeSpace] folded into the plan. Returning false ends
+  /// the run with [declined] set and nothing downloaded. Without [confirm] the
+  /// queue runs unconditionally (the enumeration is still the only thing that
+  /// knows the size, so the check simply doesn't happen).
+  ///
   /// Never throws: a failure to enumerate ends the sync with [lastError] set,
   /// and a failing ROM is counted and stepped over. Returns when the queue is
   /// drained (or abandoned).
@@ -167,6 +239,8 @@ class RommBulkSync extends ChangeNotifier {
     required RommDownloadedCheck isDownloaded,
     required RommRomDownloader download,
     void Function(int romId)? cancelDownload,
+    RommBulkSyncConfirm? confirm,
+    RommFreeSpaceProbe? freeSpace,
     int concurrency = defaultConcurrency,
     int pageSize = defaultPageSize,
   }) async {
@@ -180,6 +254,20 @@ class RommBulkSync extends ChangeNotifier {
     try {
       await _enumerate(fetchPage, isDownloaded, pageSize);
       if (_cancelRequested || _queue.isEmpty) return;
+
+      if (confirm != null) {
+        _phase = RommBulkSyncPhase.confirming;
+        _notify();
+        final plan = await _plan(freeSpace, concurrency);
+        final approved = await confirm(plan);
+        // A cancel landing while the dialog was up stays a cancel: it is the
+        // stronger statement, and the outcome toast reads better for it.
+        if (_cancelRequested) return;
+        if (!approved) {
+          _declined = true;
+          return;
+        }
+      }
 
       _phase = RommBulkSyncPhase.downloading;
       _notify();
@@ -218,8 +306,57 @@ class RommBulkSync extends ChangeNotifier {
     _notify();
   }
 
+  /// Prices the queue and measures the destination for the confirmation.
+  ///
+  /// The probe is best-effort by contract: anything it throws is swallowed and
+  /// reported as unknown free space, which the plan treats as "fits".
+  Future<RommBulkSyncPlan> _plan(
+    RommFreeSpaceProbe? freeSpace,
+    int concurrency,
+  ) async {
+    int? free;
+    if (freeSpace != null) {
+      try {
+        free = await freeSpace();
+      } catch (e) {
+        _log.w('RomM bulk sync: free-space probe failed: $e');
+      }
+    }
+    return RommBulkSyncPlan(
+      sourceLabel: _sourceLabel,
+      romCount: _queue.length,
+      skipped: _skipped,
+      downloadBytes: _queuedBytes,
+      requiredBytes: _queuedBytes + transientHeadroomBytes(concurrency),
+      freeBytes: free,
+    );
+  }
+
+  /// Extra bytes the queue needs on top of its download size, at its peak.
+  ///
+  /// A multi-disc ROM arrives as a zip that is unpacked beside itself and only
+  /// then deleted, so while it is being extracted it occupies roughly twice
+  /// its size. That doubling is transient and per ROM, not a property of the
+  /// whole queue: at most [concurrency] of them overlap, so the peak overshoot
+  /// is the sum of the largest that many multi-disc ROMs. Doubling the whole
+  /// queue instead would refuse syncs that fit comfortably.
+  @visibleForTesting
+  int transientHeadroomBytes(int concurrency) {
+    final workers = concurrency < 1 ? 1 : concurrency;
+    final sizes = [
+      for (final rom in _queue)
+        if (rom.isMultiFile) rom.fsSizeBytes,
+    ]..sort((a, b) => b.compareTo(a));
+    var extra = 0;
+    for (var i = 0; i < sizes.length && i < workers; i++) {
+      extra += sizes[i];
+    }
+    return extra;
+  }
+
   void _reset() {
     _cancelRequested = false;
+    _declined = false;
     _sourceLabel = '';
     _enumerated = 0;
     _enumerateTotal = 0;

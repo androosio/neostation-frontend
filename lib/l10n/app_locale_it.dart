@@ -932,8 +932,13 @@ const Map<String, dynamic> appLocaleIt = {
   AppLocale.rommSyncAll: 'Sincronizza tutto',
   AppLocale.rommSyncCancel: 'Annulla sincronizzazione',
   AppLocale.rommSyncConfirmTitle: 'Sincronizzare {name}?',
-  AppLocale.rommSyncConfirmBody:
-      'Scarica tutti i giochi di {name} non ancora presenti su questo dispositivo. Può richiedere molto tempo e spazio.',
+  AppLocale.rommSyncConfirmPlan:
+      'Scarica {count} giochi — {size}. Può richiedere molto tempo.',
+  AppLocale.rommSyncConfirmSkipped:
+      '{count} già presenti su questo dispositivo.',
+  AppLocale.rommSyncConfirmFree: '{free} liberi.',
+  AppLocale.rommSyncConfirmNoSpace:
+      'Spazio insufficiente: servono {size}, solo {free} liberi.',
   AppLocale.rommSyncPreparing: 'Preparazione…',
   AppLocale.rommSyncCancelling: 'Annullamento…',
   AppLocale.rommSyncComplete: '{count} giochi sincronizzati',

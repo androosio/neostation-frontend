@@ -826,8 +826,11 @@ const Map<String, dynamic> appLocaleJa = {
   AppLocale.rommSyncAll: 'すべて同期',
   AppLocale.rommSyncCancel: '同期をキャンセル',
   AppLocale.rommSyncConfirmTitle: '{name} を同期しますか？',
-  AppLocale.rommSyncConfirmBody:
-      'このデバイスにまだない {name} のゲームをすべてダウンロードします。時間とストレージを大量に使う場合があります。',
+  AppLocale.rommSyncConfirmPlan:
+      '{count} 本のゲームをダウンロードします — {size}。時間がかかる場合があります。',
+  AppLocale.rommSyncConfirmSkipped: '{count} 本はすでにこのデバイスにあります。',
+  AppLocale.rommSyncConfirmFree: '空き容量 {free}。',
+  AppLocale.rommSyncConfirmNoSpace: '空き容量が足りません: {size} 必要ですが、空きは {free} だけです。',
   AppLocale.rommSyncPreparing: '準備中…',
   AppLocale.rommSyncCancelling: 'キャンセル中…',
   AppLocale.rommSyncComplete: '{count} 本を同期しました',

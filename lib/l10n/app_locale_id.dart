@@ -912,8 +912,12 @@ const Map<String, dynamic> appLocaleId = {
   AppLocale.rommSyncAll: 'Sinkronkan semua',
   AppLocale.rommSyncCancel: 'Batalkan sinkronisasi',
   AppLocale.rommSyncConfirmTitle: 'Sinkronkan {name}?',
-  AppLocale.rommSyncConfirmBody:
-      'Mengunduh semua gim di {name} yang belum ada di perangkat ini. Ini bisa memakan waktu lama dan banyak penyimpanan.',
+  AppLocale.rommSyncConfirmPlan:
+      'Mengunduh {count} gim — {size}. Ini bisa memakan waktu lama.',
+  AppLocale.rommSyncConfirmSkipped: '{count} sudah ada di perangkat ini.',
+  AppLocale.rommSyncConfirmFree: '{free} tersedia.',
+  AppLocale.rommSyncConfirmNoSpace:
+      'Penyimpanan tidak cukup: perlu {size}, hanya {free} tersedia.',
   AppLocale.rommSyncPreparing: 'Menyiapkan…',
   AppLocale.rommSyncCancelling: 'Membatalkan…',
   AppLocale.rommSyncComplete: '{count} gim disinkronkan',

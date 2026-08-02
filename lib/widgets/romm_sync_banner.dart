@@ -53,7 +53,8 @@ class RommSyncBanner extends StatelessWidget {
   Widget _band(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final preparing = sync.phase == RommBulkSyncPhase.preparing;
+    // Anything before the queue starts draining has no denominator to show.
+    final preparing = sync.phase != RommBulkSyncPhase.downloading;
 
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 10.r, vertical: 6.r),
@@ -134,7 +135,9 @@ class RommSyncBanner extends StatelessWidget {
     if (sync.cancelRequested) {
       return AppLocale.rommSyncCancelling.getString(context);
     }
-    if (sync.phase == RommBulkSyncPhase.preparing) {
+    // The confirmation sits behind its own dialog, so the band keeps saying
+    // "Preparing…" through it rather than flashing a state of its own.
+    if (sync.phase != RommBulkSyncPhase.downloading) {
       final found = sync.enumerated;
       final preparing = AppLocale.rommSyncPreparing.getString(context);
       return found > 0 ? '$preparing $found' : preparing;

@@ -909,8 +909,12 @@ const Map<String, dynamic> appLocaleRu = {
   AppLocale.rommSyncAll: 'Синхронизировать всё',
   AppLocale.rommSyncCancel: 'Отменить синхронизацию',
   AppLocale.rommSyncConfirmTitle: 'Синхронизировать {name}?',
-  AppLocale.rommSyncConfirmBody:
-      'Загрузит все игры из {name}, которых ещё нет на устройстве. Это может занять много времени и места.',
+  AppLocale.rommSyncConfirmPlan:
+      'Загрузит {count} игр — {size}. Это может занять много времени.',
+  AppLocale.rommSyncConfirmSkipped: '{count} уже есть на устройстве.',
+  AppLocale.rommSyncConfirmFree: 'Свободно {free}.',
+  AppLocale.rommSyncConfirmNoSpace:
+      'Недостаточно места: нужно {size}, свободно только {free}.',
   AppLocale.rommSyncPreparing: 'Подготовка…',
   AppLocale.rommSyncCancelling: 'Отмена…',
   AppLocale.rommSyncComplete: 'Синхронизировано игр: {count}',
