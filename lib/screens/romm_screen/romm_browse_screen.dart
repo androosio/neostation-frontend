@@ -36,12 +36,45 @@ import 'romm_rom_list.dart';
 class RommBrowseScreen extends StatefulWidget {
   const RommBrowseScreen({super.key});
 
+  /// Where the browser was when the tab was last left. See
+  /// [RommBrowsePosition] for why this outlives the widget.
+  static final RommBrowsePosition position = RommBrowsePosition();
+
   @override
   State<RommBrowseScreen> createState() => _RommBrowseScreenState();
 }
 
 /// Which top-level list is showing when not drilled into a ROM grid.
-enum _BrowseView { source, platforms, collections }
+enum RommBrowseView { source, platforms, collections }
+
+/// The browser's cursor, kept somewhere that survives the screen.
+///
+/// [AppScreen] builds only the selected tab, so leaving RomM with L1/R1
+/// disposes this screen outright and coming back builds a new one — which
+/// without this would land on the source menu with everything at index 0, no
+/// matter how deep in the library the user was. The open platform/collection
+/// already survives on [RommProvider]; this is the rest of what "where I was"
+/// means.
+///
+/// [owner] is the account the position was recorded under, so a disconnect, a
+/// different login, or a different server starts from the top rather than
+/// restoring indices into somebody else's library. The parked header button is
+/// deliberately not kept: returning to the tab with the cursor down in the grid
+/// is the sane place to resume.
+class RommBrowsePosition {
+  String owner = '';
+  RommBrowseView view = RommBrowseView.source;
+  int sourceIndex = 0;
+  int platformIndex = 0;
+  int collectionIndex = 0;
+  int romIndex = 0;
+  RommRomLayout layout = RommRomLayout.grid;
+
+  /// Identity of the connected account, used to match a saved position to the
+  /// library it was taken in.
+  static String ownerOf(RommProvider provider) =>
+      provider.isConnected ? '${provider.serverUrl}|${provider.username}' : '';
+}
 
 /// A card on the intermediate source menu. [collections]/[platforms] open their
 /// list. Searching the library is handled outside this screen.
@@ -58,7 +91,7 @@ typedef _GridNavFn =
 
 class _RommBrowseScreenState extends State<RommBrowseScreen> {
   // The intermediate source menu sits ahead of the platform/collection lists.
-  _BrowseView _view = _BrowseView.source;
+  RommBrowseView _view = RommBrowseView.source;
   int _sourceIndex = 0;
 
   // ROM view layout, cycled with X. Session-local rather than shared with the
@@ -123,7 +156,9 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
   /// Whether the account header is on screen to be parked on. It rides the
   /// title bar, which only the source menu shows (see [_buildTitleBar]).
   bool get _headerShowing =>
-      !_inRomGrid && _view == _BrowseView.source && _rommProvider.isConnected;
+      !_inRomGrid &&
+      _view == RommBrowseView.source &&
+      _rommProvider.isConnected;
 
   /// The parked button, or null when the header isn't showing — so drilling
   /// into a list can't strand the cursor on a button that is no longer drawn.
@@ -136,6 +171,7 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
   void initState() {
     super.initState();
     _rommProvider = context.read<RommProvider>();
+    _restorePosition();
     _gamepadNav = GamepadNavigation(
       onNavigateUp: _navigateUp,
       onNavigateDown: _navigateDown,
@@ -163,11 +199,47 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
         _rommProvider.loadPlatforms();
         _rommProvider.loadCollections();
       }
+      // A restored selection can be well down the list, and the grid it lives
+      // in was just built at offset 0. Both lists are already cached from the
+      // previous visit, so the grid exists by now and can be scrolled to it.
+      if (!_inRomGrid) {
+        _scrollGridTo(_activeScroll, _activeGeom, _activeIndex);
+      }
     });
+  }
+
+  /// Picks the cursor back up where the tab was left, provided the saved
+  /// position belongs to the account that is connected now.
+  ///
+  /// Every index is clamped by the view that draws it, so a library that has
+  /// shrunk since (or a list that hasn't loaded yet) heals itself rather than
+  /// restoring a selection past the end.
+  void _restorePosition() {
+    final saved = RommBrowseScreen.position;
+    if (saved.owner != RommBrowsePosition.ownerOf(_rommProvider)) return;
+    _view = saved.view;
+    _sourceIndex = saved.sourceIndex.clamp(0, _sourceCount - 1);
+    _platformIndex = saved.platformIndex;
+    _collectionIndex = saved.collectionIndex;
+    _romIndex = saved.romIndex;
+    _romLayout = saved.layout;
+  }
+
+  /// Records the cursor for the next time the tab is opened.
+  void _savePosition() {
+    RommBrowseScreen.position
+      ..owner = RommBrowsePosition.ownerOf(_rommProvider)
+      ..view = _view
+      ..sourceIndex = _sourceIndex
+      ..platformIndex = _platformIndex
+      ..collectionIndex = _collectionIndex
+      ..romIndex = _romIndex
+      ..layout = _romLayout;
   }
 
   @override
   void dispose() {
+    _savePosition();
     GamepadNavigationManager.popLayer('romm_browse_screen');
     _gamepadNav.dispose();
     _sourceScroll.dispose();
@@ -320,35 +392,35 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
   /// Item count of whichever top-level card grid is showing.
   int get _activeCount {
     switch (_view) {
-      case _BrowseView.source:
+      case RommBrowseView.source:
         return _sourceCount;
-      case _BrowseView.platforms:
+      case RommBrowseView.platforms:
         return _rommProvider.platforms.length;
-      case _BrowseView.collections:
+      case RommBrowseView.collections:
         return _rommProvider.collections.length;
     }
   }
 
   int get _activeIndex {
     switch (_view) {
-      case _BrowseView.source:
+      case RommBrowseView.source:
         return _sourceIndex;
-      case _BrowseView.platforms:
+      case RommBrowseView.platforms:
         return _platformIndex;
-      case _BrowseView.collections:
+      case RommBrowseView.collections:
         return _collectionIndex;
     }
   }
 
   set _activeIndex(int value) {
     switch (_view) {
-      case _BrowseView.source:
+      case RommBrowseView.source:
         _sourceIndex = value;
         break;
-      case _BrowseView.platforms:
+      case RommBrowseView.platforms:
         _platformIndex = value;
         break;
-      case _BrowseView.collections:
+      case RommBrowseView.collections:
         _collectionIndex = value;
         break;
     }
@@ -356,22 +428,22 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
 
   _GridGeom get _activeGeom {
     switch (_view) {
-      case _BrowseView.source:
+      case RommBrowseView.source:
         return _sourceGeom;
-      case _BrowseView.platforms:
+      case RommBrowseView.platforms:
         return _platformGeom;
-      case _BrowseView.collections:
+      case RommBrowseView.collections:
         return _collectionGeom;
     }
   }
 
   ScrollController get _activeScroll {
     switch (_view) {
-      case _BrowseView.source:
+      case RommBrowseView.source:
         return _sourceScroll;
-      case _BrowseView.platforms:
+      case RommBrowseView.platforms:
         return _platformScroll;
-      case _BrowseView.collections:
+      case RommBrowseView.collections:
         return _collectionScroll;
     }
   }
@@ -422,18 +494,18 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
       return;
     }
     switch (_view) {
-      case _BrowseView.source:
+      case RommBrowseView.source:
         if (_sourceIndex >= 0 && _sourceIndex < _sourceCount) {
           _activateSourceCard(_sourceCards[_sourceIndex]);
         }
         break;
-      case _BrowseView.platforms:
+      case RommBrowseView.platforms:
         final platforms = _rommProvider.platforms;
         if (platforms.isEmpty || _platformIndex >= platforms.length) return;
         setState(() => _romIndex = 0);
         _rommProvider.selectPlatform(platforms[_platformIndex]);
         break;
-      case _BrowseView.collections:
+      case RommBrowseView.collections:
         final collections = _rommProvider.collections;
         if (collections.isEmpty || _collectionIndex >= collections.length) {
           return;
@@ -448,20 +520,20 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
   void _activateSourceCard(_SourceCard card) {
     switch (card) {
       case _SourceCard.collections:
-        _openSource(_BrowseView.collections);
+        _openSource(RommBrowseView.collections);
         break;
       case _SourceCard.platforms:
-        _openSource(_BrowseView.platforms);
+        _openSource(RommBrowseView.platforms);
         break;
     }
   }
 
   /// Opens one of the source-menu destinations, loading its data on demand.
-  void _openSource(_BrowseView target) {
+  void _openSource(RommBrowseView target) {
     setState(() => _view = target);
-    if (target == _BrowseView.platforms) {
+    if (target == RommBrowseView.platforms) {
       _rommProvider.loadPlatforms();
-    } else if (target == _BrowseView.collections) {
+    } else if (target == RommBrowseView.collections) {
       _rommProvider.loadCollections();
     }
   }
@@ -479,9 +551,9 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
     if (_releaseHeader()) return;
     if (_inRomGrid) {
       _returnToList();
-    } else if (_view != _BrowseView.source) {
+    } else if (_view != RommBrowseView.source) {
       // From a platform/collection list, step back to the source menu.
-      setState(() => _view = _BrowseView.source);
+      setState(() => _view = RommBrowseView.source);
     }
   }
 
@@ -492,7 +564,9 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
     final wasCollection = _rommProvider.currentCollection != null;
     setState(() {
       _romIndex = 0;
-      _view = wasCollection ? _BrowseView.collections : _BrowseView.platforms;
+      _view = wasCollection
+          ? RommBrowseView.collections
+          : RommBrowseView.platforms;
     });
     _rommProvider.backToPlatforms();
     if (wasCollection) {
@@ -563,11 +637,11 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
                       return _buildRomView(theme, provider);
                     }
                     switch (_view) {
-                      case _BrowseView.source:
+                      case RommBrowseView.source:
                         return _buildSourceMenu(theme, provider);
-                      case _BrowseView.platforms:
+                      case RommBrowseView.platforms:
                         return _buildPlatformList(theme, provider);
-                      case _BrowseView.collections:
+                      case RommBrowseView.collections:
                         return _buildCollectionList(theme, provider);
                     }
                   },
@@ -590,11 +664,11 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
   bool _showTitleBar(RommProvider provider) {
     if (_inRomGrid) return false;
     switch (_view) {
-      case _BrowseView.platforms:
+      case RommBrowseView.platforms:
         return provider.platforms.isEmpty;
-      case _BrowseView.collections:
+      case RommBrowseView.collections:
         return provider.collections.isEmpty;
-      case _BrowseView.source:
+      case RommBrowseView.source:
         return true;
     }
   }
@@ -603,7 +677,7 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
   /// and the current view's title. Back is hidden at the source-menu root, where
   /// there is nowhere left to step back to within the browser.
   Widget _buildTitleBar(ThemeData theme, RommProvider provider) {
-    final atRoot = !_inRomGrid && _view == _BrowseView.source;
+    final atRoot = !_inRomGrid && _view == RommBrowseView.source;
     // At the library root, mirror the RetroAchievements dashboard header: show
     // who's logged in and a red disconnect affordance.
     final showAccount = atRoot && provider.isConnected;
@@ -768,11 +842,11 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
   /// ROM view drops the bar entirely and carries its name in the footer.
   String _appBarTitle() {
     switch (_view) {
-      case _BrowseView.platforms:
+      case RommBrowseView.platforms:
         return AppLocale.rommPlatforms.getString(context);
-      case _BrowseView.collections:
+      case RommBrowseView.collections:
         return AppLocale.rommCollections.getString(context);
-      case _BrowseView.source:
+      case RommBrowseView.source:
         return AppLocale.rommLibrary.getString(context);
     }
   }
