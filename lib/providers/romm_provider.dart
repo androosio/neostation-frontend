@@ -19,6 +19,7 @@ import '../services/romm_playtime_service.dart';
 import '../services/romm_service.dart';
 import '../services/user_data_location_service.dart';
 import 'file_provider.dart';
+import 'romm_bulk_sync.dart';
 
 /// High-level connection state for the RomM integration.
 enum RommConnectionStatus { disconnected, connecting, connected, error }
@@ -88,6 +89,13 @@ class RommProvider extends ChangeNotifier {
   static const int _pageSize = 50;
 
   final Map<int, RommDownload> _downloads = {};
+
+  /// Drives "download this whole platform/collection" (see [syncSource]).
+  ///
+  /// Owned here rather than by the browse screen so a sync survives leaving the
+  /// RomM tab, and so [disconnect] can stop it. It notifies separately from this
+  /// provider on purpose — see [RommBulkSync].
+  final RommBulkSync bulkSync = RommBulkSync();
 
   /// Invoked (debounced) after downloads settle so freshly downloaded ROMs get
   /// indexed and the affected systems' game lists refreshed. Wired in main.dart
@@ -350,6 +358,9 @@ class RommProvider extends ChangeNotifier {
 
   /// Clears stored credentials and resets all browse state.
   Future<void> disconnect() async {
+    // Stop a bulk sync before the credentials go: its remaining transfers would
+    // otherwise keep running (and failing) against a server we just forgot.
+    bulkSync.cancel();
     await RommRepository.clearConfig();
     _status = RommConnectionStatus.disconnected;
     _lastError = null;
@@ -948,6 +959,73 @@ class RommProvider extends ChangeNotifier {
     return tracker;
   }
 
+  // ── Bulk sync ───────────────────────────────────────────────────────────────
+
+  /// Downloads every ROM in a platform or collection that isn't already on
+  /// disk, at most [RommBulkSync.defaultConcurrency] at a time.
+  ///
+  /// Defaults to whichever source is open in the browser; pass [platform] or
+  /// [collection] to sync one straight from the list without drilling into it.
+  /// The active [searchTerm] is applied, so syncing while a search is showing
+  /// fetches what the user can see rather than the unfiltered platform.
+  ///
+  /// Paging here is deliberately separate from the browse list's ([roms],
+  /// [loadMoreRoms]): the sync needs the whole result set, but pulling
+  /// thousands of ROMs into the grid the user is looking at would cost a tile
+  /// per ROM for no benefit.
+  ///
+  /// Progress and cancellation live on [bulkSync]. Returns when the queue is
+  /// drained; no-op while another sync is running.
+  Future<void> syncSource({
+    RommPlatform? platform,
+    RommCollection? collection,
+    required List<String> romFolders,
+    FileProvider? fileProvider,
+  }) async {
+    // An explicit argument wins outright: a sync started from the list must not
+    // inherit the other kind of source from whatever the browser has open.
+    final RommPlatform? target;
+    final RommCollection? source;
+    if (platform != null) {
+      target = platform;
+      source = null;
+    } else if (collection != null) {
+      target = null;
+      source = collection;
+    } else {
+      target = _currentPlatform;
+      source = _currentCollection;
+    }
+    if (target == null && source == null) return;
+
+    await bulkSync.run(
+      sourceLabel: target?.name ?? source?.name ?? '',
+      fetchPage: ({required int limit, required int offset}) =>
+          _service.getRomsPage(
+            platformIds: target == null ? const [] : [target.id],
+            collectionId: (source != null && !source.isVirtual)
+                ? int.tryParse(source.id)
+                : null,
+            virtualCollectionId: (source != null && source.isVirtual)
+                ? source.id
+                : null,
+            search: _searchTerm,
+            limit: limit,
+            offset: offset,
+          ),
+      isDownloaded: (rom) => isDownloadedCached(rom, romFolders),
+      download: (rom) => downloadRom(
+        rom,
+        romFolders: romFolders,
+        fileProvider: fileProvider,
+      ),
+      cancelDownload: cancelDownload,
+    );
+    // The queue's downloads each refreshed the token as they went; persist
+    // whatever the last one ended up with.
+    await _persistRefreshedTokens();
+  }
+
   /// Unpacks a downloaded multi-disc zip ([zipPath]) into NeoStation's native
   /// multi-disc layout under [destDir]: the `.m3u` playlist and the disc images
   /// all sit together in the ROM folder root (so the library scan indexes a
@@ -1261,6 +1339,15 @@ class RommProvider extends ChangeNotifier {
   void clearDownload(int romId) {
     _downloads.remove(romId);
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _settleTimer?.cancel();
+    bulkSync
+      ..cancel()
+      ..dispose();
+    super.dispose();
   }
 
   // ── Internal ────────────────────────────────────────────────────────────────
