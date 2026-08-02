@@ -42,7 +42,7 @@ class RommRomGrid extends StatefulWidget {
   final ValueChanged<RommRom> onCancel;
   final VoidCallback onBack;
 
-  /// X — cycles grid → carousel → list.
+  /// X — cycles grid ↔ list.
   final VoidCallback onToggleView;
 
   /// Footer for the settled selection, built by the host so it keeps ownership

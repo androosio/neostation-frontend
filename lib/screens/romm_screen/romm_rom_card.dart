@@ -13,9 +13,6 @@ enum RommRomLayout {
   /// Artwork-forward tile with the name beneath — used by the ROM grid.
   grid,
 
-  /// Bare artwork, sized and shadowed by the carousel around it.
-  carousel,
-
   /// Full-width row: thumbnail, name, metadata lines and a download control.
   list,
 }
@@ -77,40 +74,33 @@ class RommRomCardState extends State<RommRomCard> {
       case RommRomLayout.list:
         return _buildListTile(theme, scheme, coverUrl, download);
       case RommRomLayout.grid:
-        return _buildArtCard(theme, scheme, coverUrl, download, focused: true);
-      case RommRomLayout.carousel:
-        return _buildArtCard(theme, scheme, coverUrl, download, focused: false);
+        return _buildArtCard(theme, scheme, coverUrl, download);
     }
   }
 
   /// Bare artwork tile: the cover fills the cell, with the RetroAchievements
   /// badge and the download affordance floated over it.
   ///
-  /// No name label — the grid and carousel both name the focused ROM in their
-  /// footer instead, matching the local game views (where the card is artwork
-  /// only and the footer carries the title). [focused] draws the selection
-  /// decoration; the carousel leaves it off because its centred card is the
-  /// selection.
+  /// No name label — the grid names the focused ROM in its footer instead,
+  /// matching the local game views (where the card is artwork only and the
+  /// footer carries the title).
   Widget _buildArtCard(
     ThemeData theme,
     ColorScheme scheme,
     String? coverUrl,
-    RommDownload? download, {
-    required bool focused,
-  }) {
+    RommDownload? download,
+  ) {
     return GestureDetector(
       onTap: widget.onTap,
       child: Container(
         // No fill: the cover art is the tile's backdrop; a smaller radius
         // matches the artwork's rounded corners.
-        decoration: focused
-            ? rommFocusDecoration(
-                scheme,
-                widget.isFocused,
-                radius: 8,
-                fill: false,
-              )
-            : null,
+        decoration: rommFocusDecoration(
+          scheme,
+          widget.isFocused,
+          radius: 8,
+          fill: false,
+        ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(6.r),
           child: Stack(

@@ -24,7 +24,6 @@ import '../../widgets/custom_notification.dart';
 import '../../widgets/romm_browse_footer.dart';
 import '../app_screen.dart';
 import 'romm_rom_card.dart';
-import 'romm_rom_carousel.dart';
 import 'romm_rom_grid.dart';
 import 'romm_rom_list.dart';
 
@@ -111,6 +110,27 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
   bool get _inRomGrid =>
       _rommProvider.currentPlatform != null ||
       _rommProvider.currentCollection != null;
+
+  /// Which account-header button the cursor is parked on — 0 save-sync, 1
+  /// disconnect — or null while it is down in the card grid.
+  ///
+  /// Right off the end of the grid's last column parks here and walks the
+  /// buttons; Left walks back and drops into the grid; Up/Down leave outright.
+  /// This is how the RetroAchievements dashboard reaches its logout button, and
+  /// the two buttons are otherwise touch-only.
+  int? _headerSlot;
+
+  /// Whether the account header is on screen to be parked on. It rides the
+  /// title bar, which only the source menu shows (see [_buildTitleBar]).
+  bool get _headerShowing =>
+      !_inRomGrid && _view == _BrowseView.source && _rommProvider.isConnected;
+
+  /// The parked button, or null when the header isn't showing — so drilling
+  /// into a list can't strand the cursor on a button that is no longer drawn.
+  int? get _parkedSlot => _headerShowing ? _headerSlot : null;
+
+  /// Header buttons, in cursor order.
+  static const int _headerSlotCount = 2;
 
   @override
   void initState() {
@@ -242,13 +262,60 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
 
   // The ROM view owns its own gamepad layer (pushed on top of this screen's),
   // so these only ever drive the source menu and the platform/collection lists.
-  void _navigateUp() => _moveTopSelection(GridNavUtils.navigateUp);
+  void _navigateUp() {
+    if (_releaseHeader()) return;
+    _moveTopSelection(GridNavUtils.navigateUp);
+  }
 
-  void _navigateDown() => _moveTopSelection(GridNavUtils.navigateDown);
+  void _navigateDown() {
+    if (_releaseHeader()) return;
+    _moveTopSelection(GridNavUtils.navigateDown);
+  }
 
-  void _navigateLeft() => _moveTopSelection(GridNavUtils.navigateLeft);
+  void _navigateLeft() {
+    final parked = _parkedSlot;
+    if (parked != null) {
+      // Off the first button is the way back down into the grid, which keeps
+      // whichever card it was on.
+      setState(() => _headerSlot = parked == 0 ? null : parked - 1);
+      return;
+    }
+    _moveTopSelection(GridNavUtils.navigateLeft);
+  }
 
-  void _navigateRight() => _moveTopSelection(GridNavUtils.navigateRight);
+  void _navigateRight() {
+    final parked = _parkedSlot;
+    if (parked != null) {
+      if (parked >= _headerSlotCount - 1) return;
+      setState(() => _headerSlot = parked + 1);
+      return;
+    }
+    // Right off the grid's last column reaches the header rather than wrapping
+    // back to the first card, which with two cards was a move to nowhere.
+    if (_headerShowing && _atRowEnd) {
+      setState(() => _headerSlot = 0);
+      return;
+    }
+    _moveTopSelection(GridNavUtils.navigateRight);
+  }
+
+  /// Whether the grid cursor is on the last card of its row, i.e. there is no
+  /// card to its right for Right to move to.
+  bool get _atRowEnd {
+    final count = _activeCount;
+    if (count == 0) return true;
+    final columns = _activeGeom.columns;
+    final rowEnd = (_activeIndex ~/ columns + 1) * columns - 1;
+    return _activeIndex >= (rowEnd < count ? rowEnd : count - 1);
+  }
+
+  /// Drops the header parking if the cursor is up there. Returns whether it
+  /// did, so Up/Down can leave the header without also moving the grid.
+  bool _releaseHeader() {
+    if (_parkedSlot == null) return false;
+    setState(() => _headerSlot = null);
+    return true;
+  }
 
   /// Item count of whichever top-level card grid is showing.
   int get _activeCount {
@@ -324,9 +391,11 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
     _scrollGridTo(_activeScroll, _activeGeom, next);
   }
 
-  /// Cycles the ROM view through grid → carousel → list, the same three modes
-  /// the local library offers. No-op unless the ROM view is showing (the X hint
-  /// / gamepad button only applies there).
+  /// Cycles the ROM view between grid and list. No-op unless the ROM view is
+  /// showing (the X hint / gamepad button only applies there).
+  ///
+  /// The carousel that sat between them is gone for now; when it comes back it
+  /// rejoins [RommRomLayout] and this cycles through it again.
   void _toggleRomLayout() {
     if (!_inRomGrid) return;
     SfxService().playNavSound();
@@ -337,6 +406,15 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
   }
 
   void _confirmSelection() {
+    final parked = _parkedSlot;
+    if (parked != null) {
+      if (parked == 0) {
+        _toggleSaveSync();
+      } else {
+        _disconnect(_rommProvider);
+      }
+      return;
+    }
     if (_inRomGrid) {
       final roms = _rommProvider.roms;
       if (roms.isEmpty || _romIndex >= roms.length) return;
@@ -397,6 +475,8 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
   /// the PopScope callback in [build], which spins the UI thread forever. Tabs
   /// are left with L1/R1, exactly as on the systems and games tabs.
   void _handleBack() {
+    // B is the way out of the header, before it is the way out of a view.
+    if (_releaseHeader()) return;
     if (_inRomGrid) {
       _returnToList();
     } else if (_view != _BrowseView.source) {
@@ -587,7 +667,9 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
                   ),
           ),
           if (showAccount) ...[
-            IconButton(
+            _headerButton(
+              theme,
+              slot: 0,
               icon: Icon(
                 Symbols.cloud_sync_rounded,
                 fill: _isSaveSyncActive ? 1 : 0,
@@ -599,7 +681,9 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
               tooltip: AppLocale.rommUseForSaveSync.getString(context),
               onPressed: _toggleSaveSync,
             ),
-            IconButton(
+            _headerButton(
+              theme,
+              slot: 1,
               icon: Icon(
                 Symbols.logout_rounded,
                 color: theme.colorScheme.error,
@@ -610,6 +694,38 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
             ),
           ],
         ],
+      ),
+    );
+  }
+
+  /// One account-header button, wearing the same parked-selection border the
+  /// RetroAchievements dashboard puts on its logout button.
+  Widget _headerButton(
+    ThemeData theme, {
+    required int slot,
+    required Icon icon,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8.r),
+        border: Border.all(
+          color: _parkedSlot == slot
+              ? theme.colorScheme.primary
+              : Colors.transparent,
+          width: 2.r,
+        ),
+      ),
+      child: IconButton(
+        icon: icon,
+        tooltip: tooltip,
+        // The bar is 48.r tall and the default 48px tap target overflows it
+        // once the border above is added.
+        padding: EdgeInsets.all(6.r),
+        constraints: const BoxConstraints(),
+        visualDensity: VisualDensity.compact,
+        onPressed: onPressed,
       ),
     );
   }
@@ -731,10 +847,15 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
       icon: _sourceCardIcon(card),
       title: _sourceCardTitle(card),
       tiles: _sourceCardTiles(card, scheme, provider),
-      isFocused: _sourceIndex == index,
+      // Parked in the header there is one cursor on screen, up there — leaving
+      // a card lit as well would read as two selections.
+      isFocused: _parkedSlot == null && _sourceIndex == index,
       scheme: scheme,
       onTap: () {
-        setState(() => _sourceIndex = index);
+        setState(() {
+          _sourceIndex = index;
+          _headerSlot = null;
+        });
         _activateSourceCard(card);
       },
     );
@@ -1066,7 +1187,8 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
     final sourceKey = ValueKey(
       'romm_roms_${provider.currentPlatform?.id}_${provider.currentCollection?.id}',
     );
-    Widget footerBuilder(RommRom? focused) => _buildRomFooter(provider, focused);
+    Widget footerBuilder(RommRom? focused) =>
+        _buildRomFooter(provider, focused);
     void onIndexChanged(int index) => _romIndex = index;
     void onConfirm(RommRom rom) => _confirmRom(rom);
     void onCancel(RommRom rom) => provider.cancelDownload(rom.id);
@@ -1074,20 +1196,6 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
     switch (_romLayout) {
       case RommRomLayout.grid:
         return RommRomGrid(
-          key: sourceKey,
-          provider: provider,
-          roms: roms,
-          romFolders: romFolders,
-          initialIndex: _romIndex,
-          onIndexChanged: onIndexChanged,
-          onConfirm: onConfirm,
-          onCancel: onCancel,
-          onBack: _handleBack,
-          onToggleView: _toggleRomLayout,
-          footerBuilder: footerBuilder,
-        );
-      case RommRomLayout.carousel:
-        return RommRomCarousel(
           key: sourceKey,
           provider: provider,
           roms: roms,
@@ -1120,8 +1228,8 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
   /// Footer for the ROM view. Same [RommBrowseFooter] the platform view uses,
   /// which in turn matches the local systems footer — but the pill names the
   /// *focused ROM*, as the local game views do, with the open platform or
-  /// collection demoted to the chip beside it. In the grid and carousel the
-  /// cards are artwork only, so this is where the focused game is named.
+  /// collection demoted to the chip beside it. The grid's cards are artwork
+  /// only, so this is where the focused game is named.
   Widget _buildRomFooter(RommProvider provider, RommRom? focused) {
     final platform = provider.currentPlatform;
     final collection = provider.currentCollection;
@@ -1511,4 +1619,3 @@ Widget _coverTile(
     errorBuilder: (context, error, stackTrace) => _montageBlank(scheme),
   );
 }
-

@@ -18,8 +18,8 @@ import 'romm_rom_card.dart';
 ///
 /// Full-width rows (thumbnail, name, metadata, download control) in a single
 /// column, so up/down step one row and the scroll arithmetic is trivial. Wears
-/// the same vertical legend and settled-selection footer as the grid and
-/// carousel, matching the local library's list view.
+/// the same vertical legend and settled-selection footer as the grid,
+/// matching the local library's list view.
 class RommRomList extends StatefulWidget {
   final RommProvider provider;
   final List<RommRom> roms;
@@ -34,7 +34,7 @@ class RommRomList extends StatefulWidget {
   final ValueChanged<RommRom> onCancel;
   final VoidCallback onBack;
 
-  /// X — cycles grid → carousel → list.
+  /// X — cycles grid ↔ list.
   final VoidCallback onToggleView;
 
   /// Footer for the settled selection, built by the host so it keeps ownership

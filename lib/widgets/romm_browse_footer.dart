@@ -14,8 +14,8 @@ import 'footer_label_pill.dart';
 /// toggle, and both views offer B to step back.
 ///
 /// The pill always names the *focused* item: the platform in the platform view,
-/// the focused ROM in the ROM views (where the grid and carousel cards are
-/// artwork only, so this is the one place the game is named).
+/// the focused ROM in the ROM views (where the grid's cards are artwork
+/// only, so this is the one place the game is named).
 class RommBrowseFooter extends CoreFooter {
   /// Name shown in the pill: the focused platform, or the open platform /
   /// collection while its ROMs are being browsed.
