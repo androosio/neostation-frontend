@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
 import 'package:neostation/models/romm_rom.dart';
 import 'package:neostation/models/romm_rom_page.dart';
 import 'package:neostation/providers/romm_bulk_sync.dart';
@@ -275,6 +277,8 @@ void main() {
     });
   });
 
+  _writeProbeTests();
+
   group('cancellation', () {
     test(
       'stops handing out work and cancels the transfers in flight',
@@ -369,6 +373,61 @@ void main() {
       sync.cancel();
       expect(sync.cancelRequested, isFalse);
       expect(sync.isRunning, isFalse);
+    });
+  });
+}
+
+/// Regression: a bulk sync resolves destinations for several ROMs of the same
+/// system at once, and the writability probe used to be a single shared
+/// filename. Concurrent probes then deleted each other's file, the loser's
+/// delete threw, and the folder was reported unwritable — ROMs failed with
+/// "no writable folder" on a bulk sync and then downloaded fine on a retry.
+void _writeProbeTests() {
+  group('dirIfWritable', () {
+    late Directory temp;
+
+    setUp(() async {
+      temp = await Directory.systemTemp.createTemp('romm_probe_test');
+    });
+    tearDown(() async {
+      if (temp.existsSync()) await temp.delete(recursive: true);
+    });
+
+    test('concurrent probes of the same directory all succeed', () async {
+      final target = p.join(temp.path, 'msx');
+      final results = await Future.wait([
+        for (var i = 0; i < 8; i++) RommProvider.dirIfWritable(target),
+      ]);
+
+      expect(
+        results.where((r) => r == null),
+        isEmpty,
+        reason: 'every concurrent probe must see the folder as writable',
+      );
+      expect(results.every((r) => r == target), isTrue);
+    });
+
+    test('leaves no probe files behind', () async {
+      final target = p.join(temp.path, 'snes');
+      await Future.wait([
+        for (var i = 0; i < 8; i++) RommProvider.dirIfWritable(target),
+      ]);
+
+      final leftovers = Directory(target)
+          .listSync()
+          .map((e) => p.basename(e.path))
+          .where((n) => n.startsWith('.romm_write_test'))
+          .toList();
+      expect(leftovers, isEmpty);
+    });
+
+    test('an unwritable destination still reports null', () async {
+      // A path whose parent is a *file* can never be created as a directory.
+      final blocker = File(p.join(temp.path, 'blocker'))..writeAsStringSync('');
+      expect(
+        await RommProvider.dirIfWritable(p.join(blocker.path, 'sub')),
+        isNull,
+      );
     });
   });
 }

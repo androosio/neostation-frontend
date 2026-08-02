@@ -372,7 +372,17 @@ void main() async {
   // to a full scan only when a genuinely new (not-yet-detected) system appears,
   // since detecting it needs the full re-detect pass.
   rommProvider.onDownloadsSettled = (systems) async {
-    final detected = sqliteConfigProvider.config.detectedSystems;
+    // Read the *scanned* system list, not `config.detectedSystems`. On Android
+    // scanSystems() deliberately leaves the config's copy alone while it scans
+    // in the background (see scanning.dart), so it is stale here — which made
+    // every downloaded system look new (forcing a full rescan each settle) and
+    // then look unregistered afterwards, skipping the refresh that puts the
+    // games on screen.
+    Set<String> detectedFolders() => {
+      for (final s in sqliteConfigProvider.detectedSystems) s.folderName,
+    };
+
+    final detected = detectedFolders();
     final hasNewSystem = systems.any(
       (s) =>
           !detected.contains(s.folderName) && !s.folders.any(detected.contains),
@@ -384,13 +394,12 @@ void main() async {
         await sqliteConfigProvider.rescanSystemSilent(system);
       }
     }
-    // Refresh against the detected set *after* the scan. scanSystems can no-op
-    // when a scan is already in flight (its _isScanning guard), so a genuinely
-    // new system may not be registered yet; refreshing it would load an empty
-    // list and silently drop the freshly downloaded games. Refresh only systems
-    // now known, and log any that didn't register so the gap is diagnosable
-    // rather than silent (the user can force a manual rescan).
-    final registered = sqliteConfigProvider.config.detectedSystems.toSet();
+    // Re-read after the scan: a genuinely new system only becomes known here.
+    // A system still missing at this point really didn't register (scanSystems
+    // no-ops while another scan is in flight), and refreshing it would load an
+    // empty list and silently drop the freshly downloaded games — so skip it
+    // and log, leaving the gap diagnosable rather than silent.
+    final registered = detectedFolders();
     for (final system in systems) {
       final isKnown =
           registered.contains(system.folderName) ||
@@ -400,8 +409,7 @@ void main() async {
       } else {
         debugPrint(
           'RomM: downloaded ROMs for "${system.folderName}" but it is not '
-          'registered after scan (scan likely skipped); a manual rescan is '
-          'needed for them to appear.',
+          'registered after scan; a manual rescan is needed for them to appear.',
         );
       }
     }

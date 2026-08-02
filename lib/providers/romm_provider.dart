@@ -107,6 +107,19 @@ class RommProvider extends ChangeNotifier {
   bool _settling = false;
   static const Duration _settleDebounce = Duration(seconds: 2);
 
+  /// Longest a finished download may sit unindexed while others keep landing.
+  ///
+  /// The debounce alone waits for the transfers to go *quiet*, which a bulk
+  /// sync never does until it ends — so a 300-ROM platform would show nothing
+  /// in the library until the whole sync finished. Past this, the next
+  /// completion settles immediately and the debounce starts over.
+  @visibleForTesting
+  static const Duration settleMaxDefer = Duration(seconds: 45);
+
+  /// When the oldest currently-unindexed completion landed, or null when
+  /// nothing is waiting. Drives [settleMaxDefer].
+  DateTime? _oldestPendingCompletion;
+
   /// Current user's RetroAchievements progress: RA game id → earned count.
   /// Loaded best-effort from `/api/users/me`; empty when RA isn't linked.
   Map<int, int> _raEarnedByGameId = {};
@@ -177,23 +190,42 @@ class RommProvider extends ChangeNotifier {
   /// after the last one, instead of scanning per ROM or waiting for the whole
   /// batch. Fires independently of the browse screen's lifecycle.
   void _scheduleSettle() {
+    final now = DateTime.now();
+    final oldest = _oldestPendingCompletion ??= now;
     _settleTimer?.cancel();
+    // A bulk sync completes something every few seconds, so the quiet period
+    // the debounce waits for never arrives until the whole queue drains. Once
+    // the oldest waiting download has been held long enough, settle now and
+    // let the rest coalesce behind a fresh debounce.
+    if (now.difference(oldest) >= settleMaxDefer) {
+      unawaited(_runSettle());
+      return;
+    }
     _settleTimer = Timer(_settleDebounce, _runSettle);
   }
 
   Future<void> _runSettle() async {
     final handler = onDownloadsSettled;
     if (handler == null) return;
-    // Serialize: if a settle is already scanning, re-arm and let it finish so a
+    // Serialize: if a settle is already scanning, wait for it to finish so a
     // long batch never overlaps scans — completions accumulate and get picked
-    // up by the next run.
+    // up by the next run. Re-arm on the plain debounce rather than through
+    // [_scheduleSettle], whose max-defer path would fire straight back into
+    // here and spin while the first scan is still running.
     if (_settling) {
-      _scheduleSettle();
+      _settleTimer?.cancel();
+      _settleTimer = Timer(_settleDebounce, _runSettle);
       return;
     }
     final systems = downloadedSystems;
-    if (systems.isEmpty) return;
+    if (systems.isEmpty) {
+      _oldestPendingCompletion = null;
+      return;
+    }
     clearDownloadedSystems();
+    // These systems are being indexed now; the clock restarts for whatever
+    // lands while the scan runs.
+    _oldestPendingCompletion = null;
     _settling = true;
     try {
       await handler(systems);
@@ -680,7 +712,7 @@ class RommProvider extends ChangeNotifier {
       if (base == null) continue;
       final existing = await _existingAliasDir(base, aliases);
       if (existing == null) continue;
-      final path = await _dirIfWritable(existing);
+      final path = await dirIfWritable(existing);
       if (path != null) return path;
     }
 
@@ -689,7 +721,7 @@ class RommProvider extends ChangeNotifier {
     for (final folder in romFolders) {
       final base = _folderToRealBase(folder);
       if (base == null) continue;
-      final path = await _dirIfWritable(p.join(base, system.folderName));
+      final path = await dirIfWritable(p.join(base, system.folderName));
       if (path != null) return path;
     }
     return null;
@@ -713,18 +745,41 @@ class RommProvider extends ChangeNotifier {
     return null;
   }
 
+  /// Serial number for [dirIfWritable]'s probe file.
+  ///
+  /// A bulk sync resolves destinations for several ROMs of the same system at
+  /// once, so the probe filename MUST be unique per call: with a shared name
+  /// the concurrent probes clobber each other — one call deletes the file
+  /// another is about to delete, that delete throws, and the folder is reported
+  /// unwritable even though it is perfectly fine. That surfaced as ROMs failing
+  /// with "no writable folder" on a bulk sync and then succeeding on a retry.
+  static int _writeProbeSerial = 0;
+
   /// Ensures [path] exists and is writable via a probe-file round-trip,
   /// returning it on success or null when the folder can't be written to.
-  Future<String?> _dirIfWritable(String path) async {
+  ///
+  /// Safe to call concurrently for the same directory — see [_writeProbeSerial].
+  @visibleForTesting
+  static Future<String?> dirIfWritable(String path) async {
     final dir = Directory(path);
+    final probe = File(
+      p.join(dir.path, '.romm_write_test_${_writeProbeSerial++}'),
+    );
     try {
       await dir.create(recursive: true);
-      final probe = File(p.join(dir.path, '.romm_write_test'));
       await probe.writeAsString('');
-      await probe.delete();
       return dir.path;
     } catch (_) {
       return null;
+    } finally {
+      // Always clean up, including on the failure path where the write landed
+      // but something later threw — a stray probe file would otherwise be
+      // indexed by the library scan.
+      try {
+        if (await probe.exists()) await probe.delete();
+      } catch (_) {
+        // Best-effort: a probe we can't remove is cosmetic, not a failure.
+      }
     }
   }
 
@@ -1014,11 +1069,8 @@ class RommProvider extends ChangeNotifier {
             offset: offset,
           ),
       isDownloaded: (rom) => isDownloadedCached(rom, romFolders),
-      download: (rom) => downloadRom(
-        rom,
-        romFolders: romFolders,
-        fileProvider: fileProvider,
-      ),
+      download: (rom) =>
+          downloadRom(rom, romFolders: romFolders, fileProvider: fileProvider),
       cancelDownload: cancelDownload,
     );
     // The queue's downloads each refreshed the token as they went; persist
