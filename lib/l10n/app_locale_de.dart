@@ -934,6 +934,18 @@ const Map<String, dynamic> appLocaleDe = {
       'Dein ROM-Ordner konnte nicht beschrieben werden. Erteile NeoStation "Zugriff auf alle Dateien" und versuche es erneut.',
   AppLocale.rommNotConnected:
       'Verbinde dich zuerst in den Einstellungen mit einem RomM-Server',
+  // Bulk "sync a whole platform/collection".
+  AppLocale.rommSyncAll: 'Alle synchronisieren',
+  AppLocale.rommSyncCancel: 'Synchronisierung abbrechen',
+  AppLocale.rommSyncConfirmTitle: '{name} synchronisieren?',
+  AppLocale.rommSyncConfirmBody:
+      'Lädt jedes Spiel in {name} herunter, das noch nicht auf diesem Gerät ist. Das kann lange dauern und viel Speicher belegen.',
+  AppLocale.rommSyncPreparing: 'Wird vorbereitet…',
+  AppLocale.rommSyncCancelling: 'Wird abgebrochen…',
+  AppLocale.rommSyncComplete: '{count} Spiele synchronisiert',
+  AppLocale.rommSyncCancelled: 'Synchronisierung abgebrochen',
+  AppLocale.rommSyncNothingToDo: 'Alles ist bereits heruntergeladen',
+  AppLocale.rommSyncFailedCount: '{count} fehlgeschlagen',
   AppLocale.searchTitle: 'Suche',
   AppLocale.searchNameHint: 'Suchen...',
   AppLocale.searchNoResults: 'Keine Spiele gefunden',

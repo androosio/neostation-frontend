@@ -10,8 +10,12 @@ import 'footer_label_pill.dart';
 ///
 /// Same shape and styling as [SystemsGridFooter] — focused item in a pill on
 /// the left, gamepad controls on the right — so the remote library reads like
-/// the local one. Only the controls differ: the ROM view adds an X view-mode
-/// toggle, and both views offer B to step back.
+/// the local one. Only the controls differ: both views offer Y to sync the
+/// whole source and B to step back.
+///
+/// The ROM view's X layout toggle is deliberately *not* here: it lives on the
+/// vertical legend ([RommActionButtons]) alone, so the footer stays short
+/// enough to read at a glance on a handheld.
 ///
 /// The pill always names the *focused* item: the platform in the platform view,
 /// the focused ROM in the ROM views (where the grid's cards are artwork
@@ -30,8 +34,14 @@ class RommBrowseFooter extends CoreFooter {
   final VoidCallback onConfirm;
   final VoidCallback onBack;
 
-  /// Grid/list toggle (X). Null in views that have only one layout.
-  final VoidCallback? onToggleView;
+  /// Bulk sync (Y) — downloads the whole focused/open platform or collection,
+  /// or cancels the sync already running. Null where there is nothing to sync
+  /// (an empty list, or no connection).
+  final VoidCallback? onSyncAll;
+
+  /// Swaps the Y label from "Sync all" to "Cancel sync" while one is running,
+  /// since the same button does both.
+  final bool isSyncing;
 
   const RommBrowseFooter({
     super.key,
@@ -40,7 +50,8 @@ class RommBrowseFooter extends CoreFooter {
     required this.onConfirm,
     required this.onBack,
     this.countText,
-    this.onToggleView,
+    this.onSyncAll,
+    this.isSyncing = false,
   });
 
   @override
@@ -60,12 +71,12 @@ class RommBrowseFooter extends CoreFooter {
     // A sits far right in every footer in the app, so the confirm action is
     // always in the same place; the lesser actions queue up to its left.
     return [
-      // Secondary action, styled like the systems footer's Settings button.
-      if (onToggleView != null) ...[
+      if (onSyncAll != null) ...[
         GamepadControl(
-          label: AppLocale.hintViewMode.getString(context),
-          iconPath: 'assets/images/gamepad/Xbox_X_button.png',
-          onTap: onToggleView,
+          label: (isSyncing ? AppLocale.rommSyncCancel : AppLocale.rommSyncAll)
+              .getString(context),
+          iconPath: 'assets/images/gamepad/Xbox_Y_button.png',
+          onTap: onSyncAll,
           textColor: scheme.onTertiaryFixed,
           backgroundColor: scheme.tertiaryFixed,
         ),

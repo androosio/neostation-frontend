@@ -822,6 +822,18 @@ const Map<String, dynamic> appLocaleJa = {
   AppLocale.rommNoWritableFolder:
       'ROM フォルダーに書き込めませんでした。NeoStation に「すべてのファイルへのアクセス」を許可してから、もう一度お試しください。',
   AppLocale.rommNotConnected: '先に設定で RomM サーバーに接続してください',
+  // Bulk "sync a whole platform/collection".
+  AppLocale.rommSyncAll: 'すべて同期',
+  AppLocale.rommSyncCancel: '同期をキャンセル',
+  AppLocale.rommSyncConfirmTitle: '{name} を同期しますか？',
+  AppLocale.rommSyncConfirmBody:
+      'このデバイスにまだない {name} のゲームをすべてダウンロードします。時間とストレージを大量に使う場合があります。',
+  AppLocale.rommSyncPreparing: '準備中…',
+  AppLocale.rommSyncCancelling: 'キャンセル中…',
+  AppLocale.rommSyncComplete: '{count} 本を同期しました',
+  AppLocale.rommSyncCancelled: '同期をキャンセルしました',
+  AppLocale.rommSyncNothingToDo: 'すべてダウンロード済みです',
+  AppLocale.rommSyncFailedCount: '{count} 件が失敗しました',
   AppLocale.searchTitle: '検索',
   AppLocale.searchNameHint: '検索...',
   AppLocale.searchNoResults: 'ゲームが見つかりません',

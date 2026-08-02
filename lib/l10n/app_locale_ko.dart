@@ -833,6 +833,18 @@ const Map<String, dynamic> appLocaleKo = {
   AppLocale.rommNoWritableFolder:
       'ROM 폴더에 쓸 수 없습니다. NeoStation에 "모든 파일 액세스" 권한을 허용한 후 다시 시도하세요.',
   AppLocale.rommNotConnected: '먼저 설정에서 RomM 서버에 연결하세요',
+  // Bulk "sync a whole platform/collection".
+  AppLocale.rommSyncAll: '모두 동기화',
+  AppLocale.rommSyncCancel: '동기화 취소',
+  AppLocale.rommSyncConfirmTitle: '{name}을(를) 동기화할까요?',
+  AppLocale.rommSyncConfirmBody:
+      '이 기기에 아직 없는 {name}의 모든 게임을 내려받습니다. 시간이 오래 걸리고 저장 공간을 많이 사용할 수 있습니다.',
+  AppLocale.rommSyncPreparing: '준비 중…',
+  AppLocale.rommSyncCancelling: '취소하는 중…',
+  AppLocale.rommSyncComplete: '게임 {count}개를 동기화했습니다',
+  AppLocale.rommSyncCancelled: '동기화가 취소되었습니다',
+  AppLocale.rommSyncNothingToDo: '이미 모두 내려받았습니다',
+  AppLocale.rommSyncFailedCount: '{count}개 실패',
   AppLocale.resetPlayTimeConfirm: '플레이 시간 재설정',
   AppLocale.resetPlayTimeConfirmBody:
       '이 게임의 플레이 시간 기록을 0으로 초기화합니다. 이 작업은 되돌릴 수 없습니다.',

@@ -45,6 +45,9 @@ class RommRomGrid extends StatefulWidget {
   /// X — cycles grid ↔ list.
   final VoidCallback onToggleView;
 
+  /// Y — starts (or cancels) a bulk sync of the open platform/collection.
+  final VoidCallback onSyncAll;
+
   /// Footer for the settled selection, built by the host so it keeps ownership
   /// of the open platform / collection context.
   final Widget Function(RommRom? focused) footerBuilder;
@@ -60,6 +63,7 @@ class RommRomGrid extends StatefulWidget {
     required this.onCancel,
     required this.onBack,
     required this.onToggleView,
+    required this.onSyncAll,
     required this.footerBuilder,
   });
 
@@ -83,6 +87,10 @@ class _RommRomGridState extends State<RommRomGrid> {
   Timer? _settleTimer;
   static const Duration _chromeSettleDelay = Duration(milliseconds: 160);
   String? _chromeSig;
+
+  /// Whether a bulk sync is running, mirrored from
+  /// [RommProvider.bulkSync] so the Y affordance reads "Cancel sync".
+  bool _syncing = false;
   Widget? _chromeFooter;
   Widget? _chromeLegend;
 
@@ -142,6 +150,8 @@ class _RommRomGridState extends State<RommRomGrid> {
     _updateCrossAxisCount();
     _initializeGamepad();
     GameLegendVisibility.hidden.addListener(_onLegendVisibilityChanged);
+    _syncing = widget.provider.bulkSync.isRunning;
+    widget.provider.bulkSync.addListener(_onBulkSyncChanged);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -162,6 +172,7 @@ class _RommRomGridState extends State<RommRomGrid> {
     _measureSettle?.cancel();
     _cardSizeLabel.dispose();
     GameLegendVisibility.hidden.removeListener(_onLegendVisibilityChanged);
+    widget.provider.bulkSync.removeListener(_onBulkSyncChanged);
     GamepadNavigationManager.popLayer(_navLayerId);
     _gamepadNav.dispose();
     _scrollController.dispose();
@@ -231,6 +242,7 @@ class _RommRomGridState extends State<RommRomGrid> {
       onSelectItem: _confirmSelected,
       onBack: widget.onBack,
       onXButton: widget.onToggleView,
+      onFavorite: widget.onSyncAll, // Y — sync the whole source.
       onSelectModifierB: _toggleLegend, // Select + B - Hide/show legend.
       onPreviousTab: AppNavigation.previousTab,
       onNextTab: AppNavigation.nextTab,
@@ -891,11 +903,23 @@ class _RommRomGridState extends State<RommRomGrid> {
 
   /// (Re)builds the footer + legend only when the settled selection or its
   /// download state changes, so a fast-nav burst reuses the same instances.
+  /// Repaints the chrome only when a bulk sync starts or stops.
+  ///
+  /// The sync notifies on every queue step; the only thing this view shows is
+  /// whether one is running, so anything finer is a rebuild for nothing (the
+  /// progress itself lives in the banner, which listens separately).
+  void _onBulkSyncChanged() {
+    if (!mounted) return;
+    final running = widget.provider.bulkSync.isRunning;
+    if (running == _syncing) return;
+    setState(() => _syncing = running);
+  }
+
   void _buildSettledChrome() {
     final rom = _focusedRom;
     final download = rom == null ? null : widget.provider.downloadFor(rom.id);
     final sig =
-        '$_settledIndex|${rom?.id}|${download?.status}|${download?.fraction}';
+        '$_settledIndex|${rom?.id}|${download?.status}|${download?.fraction}|$_syncing';
     if (sig == _chromeSig && _chromeFooter != null && _chromeLegend != null) {
       return;
     }
@@ -913,6 +937,8 @@ class _RommRomGridState extends State<RommRomGrid> {
                 : widget.onConfirm(rom),
       isDownloading: download?.status == RommDownloadStatus.downloading,
       isDownloaded: download?.status == RommDownloadStatus.completed,
+      onSyncAll: widget.onSyncAll,
+      isSyncing: _syncing,
     );
   }
 }

@@ -938,6 +938,18 @@ const Map<String, dynamic> appLocaleFr = {
       'Impossible d’écrire dans votre dossier de ROMs. Accordez "l’Accès à Tous les Fichiers" à NeoStation et réessayez.',
   AppLocale.rommNotConnected:
       'Connectez-vous d’abord à un serveur RomM dans les Paramètres',
+  // Bulk "sync a whole platform/collection".
+  AppLocale.rommSyncAll: 'Tout synchroniser',
+  AppLocale.rommSyncCancel: 'Annuler la synchronisation',
+  AppLocale.rommSyncConfirmTitle: 'Synchroniser {name} ?',
+  AppLocale.rommSyncConfirmBody:
+      'Télécharge tous les jeux de {name} qui ne sont pas déjà sur cet appareil. Cela peut être long et occuper beaucoup d\'espace.',
+  AppLocale.rommSyncPreparing: 'Préparation…',
+  AppLocale.rommSyncCancelling: 'Annulation…',
+  AppLocale.rommSyncComplete: '{count} jeux synchronisés',
+  AppLocale.rommSyncCancelled: 'Synchronisation annulée',
+  AppLocale.rommSyncNothingToDo: 'Tout est déjà téléchargé',
+  AppLocale.rommSyncFailedCount: '{count} en échec',
   AppLocale.searchTitle: 'Rechercher',
   AppLocale.searchNameHint: 'Rechercher...',
   AppLocale.searchNoResults: 'Aucun jeu trouvé',

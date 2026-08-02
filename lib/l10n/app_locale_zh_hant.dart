@@ -812,6 +812,17 @@ const Map<String, dynamic> appLocaleZhHant = {
   AppLocale.rommNoWritableFolder:
       '無法寫入你的 ROM 資料夾。請授予 NeoStation「所有檔案存取權限」後再試一次。',
   AppLocale.rommNotConnected: '請先在設定中連線到 RomM 伺服器',
+  // Bulk "sync a whole platform/collection".
+  AppLocale.rommSyncAll: '全部同步',
+  AppLocale.rommSyncCancel: '取消同步',
+  AppLocale.rommSyncConfirmTitle: '同步 {name}？',
+  AppLocale.rommSyncConfirmBody: '下載 {name} 中所有尚未存在於本裝置的遊戲。這可能需要很長時間並佔用大量儲存空間。',
+  AppLocale.rommSyncPreparing: '準備中…',
+  AppLocale.rommSyncCancelling: '正在取消…',
+  AppLocale.rommSyncComplete: '已同步 {count} 款遊戲',
+  AppLocale.rommSyncCancelled: '已取消同步',
+  AppLocale.rommSyncNothingToDo: '所有內容都已下載',
+  AppLocale.rommSyncFailedCount: '{count} 個失敗',
   AppLocale.searchTitle: '搜尋',
   AppLocale.searchNameHint: '搜尋...',
   AppLocale.searchNoResults: '找不到遊戲',

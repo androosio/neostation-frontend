@@ -30,6 +30,13 @@ class RommActionButtons extends StatelessWidget {
   /// as a completed state rather than an available action.
   final bool isDownloaded;
 
+  /// Y — downloads the whole open platform/collection, or cancels the sync
+  /// already running. Null hides the button entirely.
+  final VoidCallback? onSyncAll;
+
+  /// Swaps the sync button for a stop affordance while a bulk sync is running.
+  final bool isSyncing;
+
   const RommActionButtons({
     super.key,
     required this.onBack,
@@ -37,6 +44,8 @@ class RommActionButtons extends StatelessWidget {
     this.onDownload,
     this.isDownloading = false,
     this.isDownloaded = false,
+    this.onSyncAll,
+    this.isSyncing = false,
   });
 
   @override
@@ -77,6 +86,21 @@ class RommActionButtons extends StatelessWidget {
               sound: GameActionButtonSound.nav,
               onTap: onViewMode,
             ),
+            if (onSyncAll != null) ...[
+              SizedBox(height: 6.r),
+              GameActionButton(
+                iconPath: 'assets/images/gamepad/Xbox_Y_button.png',
+                symbol: isSyncing
+                    ? Symbols.stop_circle_rounded
+                    : Symbols.cloud_download_rounded,
+                color: scheme.tertiaryFixed,
+                foregroundColor: scheme.onTertiaryFixed,
+                sound: isSyncing
+                    ? GameActionButtonSound.back
+                    : GameActionButtonSound.enter,
+                onTap: onSyncAll,
+              ),
+            ],
             SizedBox(height: 6.r),
             GameActionButton(
               iconPath: 'assets/images/gamepad/Xbox_A_button.png',

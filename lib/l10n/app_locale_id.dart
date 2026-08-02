@@ -908,6 +908,18 @@ const Map<String, dynamic> appLocaleId = {
       'Tidak dapat menulis ke folder ROM Anda. Berikan "Akses Semua File" ke NeoStation lalu coba lagi.',
   AppLocale.rommNotConnected:
       'Hubungkan ke server RomM di Pengaturan terlebih dahulu',
+  // Bulk "sync a whole platform/collection".
+  AppLocale.rommSyncAll: 'Sinkronkan semua',
+  AppLocale.rommSyncCancel: 'Batalkan sinkronisasi',
+  AppLocale.rommSyncConfirmTitle: 'Sinkronkan {name}?',
+  AppLocale.rommSyncConfirmBody:
+      'Mengunduh semua gim di {name} yang belum ada di perangkat ini. Ini bisa memakan waktu lama dan banyak penyimpanan.',
+  AppLocale.rommSyncPreparing: 'Menyiapkan…',
+  AppLocale.rommSyncCancelling: 'Membatalkan…',
+  AppLocale.rommSyncComplete: '{count} gim disinkronkan',
+  AppLocale.rommSyncCancelled: 'Sinkronisasi dibatalkan',
+  AppLocale.rommSyncNothingToDo: 'Semuanya sudah diunduh',
+  AppLocale.rommSyncFailedCount: '{count} gagal',
   AppLocale.searchTitle: 'Cari',
   AppLocale.searchNameHint: 'Cari...',
   AppLocale.searchNoResults: 'Tidak ada gim ditemukan',

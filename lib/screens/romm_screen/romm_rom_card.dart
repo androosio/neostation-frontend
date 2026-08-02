@@ -6,6 +6,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../l10n/app_locale.dart';
 import '../../models/romm_rom.dart';
 import '../../providers/romm_provider.dart';
+import '../../widgets/romm_sync_banner.dart' show rommFormatBytes;
 
 /// How a [RommRomCard] arranges itself. Mirrors the local library's view modes
 /// so the remote browser offers the same three ways to read a list of games.
@@ -329,20 +330,7 @@ class RommRomCardState extends State<RommRomCard> {
   }
 
   /// Compact size label (e.g. "2.1 MB"); null when the size is unknown.
-  String? _sizeLabel(int bytes) {
-    if (bytes <= 0) return null;
-    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-    var value = bytes.toDouble();
-    var unit = 0;
-    while (value >= 1024 && unit < units.length - 1) {
-      value /= 1024;
-      unit++;
-    }
-    final text = value >= 100 || unit == 0
-        ? value.toStringAsFixed(0)
-        : value.toStringAsFixed(1);
-    return '$text ${units[unit]}';
-  }
+  String? _sizeLabel(int bytes) => bytes <= 0 ? null : rommFormatBytes(bytes);
 
   /// Compact trailing download control for the list layout: live progress +
   /// cancel while downloading, otherwise a download / done affordance.

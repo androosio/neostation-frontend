@@ -10,6 +10,7 @@ import '../../models/romm_collection.dart';
 import '../../models/romm_platform.dart';
 import '../../models/romm_rom.dart';
 import '../../providers/file_provider.dart';
+import '../../providers/romm_bulk_sync.dart';
 import '../../providers/romm_provider.dart';
 import '../../providers/sqlite_config_provider.dart';
 import '../../services/game_service.dart';
@@ -19,9 +20,11 @@ import '../../sync/providers/neo_sync_adapter.dart';
 import '../../sync/providers/romm_provider.dart';
 import '../../sync/sync_manager.dart';
 import '../../utils/gamepad_nav.dart';
+import '../../widgets/confirm_action_dialog.dart';
 import '../../widgets/core_footer.dart' show kCoreFooterHeight;
 import '../../widgets/custom_notification.dart';
 import '../../widgets/romm_browse_footer.dart';
+import '../../widgets/romm_sync_banner.dart';
 import '../app_screen.dart';
 import 'romm_rom_card.dart';
 import 'romm_rom_grid.dart';
@@ -179,6 +182,7 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
       onNavigateRight: _navigateRight,
       onSelectItem: _confirmSelection,
       onXButton: _toggleRomLayout,
+      onFavorite: _syncFocusedSource, // Y — sync a whole platform/collection.
       onBack: _handleBack,
       onPreviousTab: AppNavigation.previousTab,
       onNextTab: AppNavigation.nextTab,
@@ -316,6 +320,123 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
       case RommDownloadStatus.downloading:
         break;
     }
+  }
+
+  // ── Bulk sync ───────────────────────────────────────────────────────────────
+
+  /// Y — syncs the whole source the cursor is on: the open platform/collection
+  /// in the ROM view, or the focused card in either list. While a sync is
+  /// running the same button cancels it, so Y is the only control the feature
+  /// needs.
+  ///
+  /// The source menu has no source to sync, so Y does nothing there.
+  Future<void> _syncFocusedSource() async {
+    final sync = _rommProvider.bulkSync;
+    if (sync.isRunning) {
+      sync.cancel();
+      return;
+    }
+
+    RommPlatform? platform;
+    RommCollection? collection;
+    if (_inRomGrid) {
+      platform = _rommProvider.currentPlatform;
+      collection = _rommProvider.currentCollection;
+    } else {
+      switch (_view) {
+        case RommBrowseView.platforms:
+          final platforms = _rommProvider.platforms;
+          if (platforms.isEmpty || _platformIndex >= platforms.length) return;
+          platform = platforms[_platformIndex];
+          break;
+        case RommBrowseView.collections:
+          final collections = _rommProvider.collections;
+          if (collections.isEmpty || _collectionIndex >= collections.length) {
+            return;
+          }
+          collection = collections[_collectionIndex];
+          break;
+        case RommBrowseView.source:
+          return;
+      }
+    }
+    final label = platform?.name ?? collection?.name;
+    if (label == null) return;
+
+    // Y is one press away from pulling an entire console down over the network,
+    // so it always asks first.
+    final confirmed = await ConfirmActionDialog.show(
+      context,
+      title: AppLocale.rommSyncConfirmTitle
+          .getString(context)
+          .replaceFirst('{name}', label),
+      body: AppLocale.rommSyncConfirmBody
+          .getString(context)
+          .replaceFirst('{name}', label),
+      confirmLabel: AppLocale.rommSyncAll.getString(context),
+      icon: Symbols.cloud_download_rounded,
+      accentColor: Theme.of(context).colorScheme.primary,
+    );
+    if (!confirmed || !mounted) return;
+
+    await _rommProvider.syncSource(
+      platform: platform,
+      collection: collection,
+      romFolders: context.read<SqliteConfigProvider>().config.romFolders,
+      fileProvider: context.read<FileProvider>(),
+    );
+    if (!mounted) return;
+    _reportSyncOutcome(sync);
+  }
+
+  /// Summarises a finished sync in a single toast. The band showed the detail
+  /// while it ran; this is the "what did I end up with" line.
+  void _reportSyncOutcome(RommBulkSync sync) {
+    if (sync.cancelRequested) {
+      AppNotification.showNotification(
+        context,
+        AppLocale.rommSyncCancelled.getString(context),
+        type: NotificationType.info,
+      );
+      return;
+    }
+    if (sync.failed > 0) {
+      AppNotification.showNotification(
+        context,
+        AppLocale.rommSyncFailedCount
+            .getString(context)
+            .replaceFirst('{count}', '${sync.failed}'),
+        type: NotificationType.error,
+      );
+      return;
+    }
+    if (sync.lastError != null) {
+      // Nothing failed per ROM but an error was recorded: the enumeration pass
+      // itself couldn't reach the server, so there was never a queue. Saying
+      // "already downloaded" here would be a plain lie.
+      AppNotification.showNotification(
+        context,
+        _errorMessage(sync.lastError!),
+        type: NotificationType.error,
+      );
+      return;
+    }
+    if (sync.completed == 0) {
+      // Nothing was queued: every ROM in the source was already on disk.
+      AppNotification.showNotification(
+        context,
+        AppLocale.rommSyncNothingToDo.getString(context),
+        type: NotificationType.info,
+      );
+      return;
+    }
+    AppNotification.showNotification(
+      context,
+      AppLocale.rommSyncComplete
+          .getString(context)
+          .replaceFirst('{count}', '${sync.completed}'),
+      type: NotificationType.success,
+    );
   }
 
   String _errorMessage(RommDownloadError error) {
@@ -624,27 +745,45 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
             children: [
               if (_showTitleBar(provider)) _buildTitleBar(theme, provider),
               Expanded(
-                child: Builder(
-                  builder: (context) {
-                    if (!provider.isConnected) {
-                      return _centeredMessage(
-                        theme,
-                        Symbols.cloud_off_rounded,
-                        AppLocale.rommNotConnected.getString(context),
-                      );
-                    }
-                    if (_inRomGrid) {
-                      return _buildRomView(theme, provider);
-                    }
-                    switch (_view) {
-                      case RommBrowseView.source:
-                        return _buildSourceMenu(theme, provider);
-                      case RommBrowseView.platforms:
-                        return _buildPlatformList(theme, provider);
-                      case RommBrowseView.collections:
-                        return _buildCollectionList(theme, provider);
-                    }
-                  },
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: Builder(
+                        builder: (context) {
+                          if (!provider.isConnected) {
+                            return _centeredMessage(
+                              theme,
+                              Symbols.cloud_off_rounded,
+                              AppLocale.rommNotConnected.getString(context),
+                            );
+                          }
+                          if (_inRomGrid) {
+                            return _buildRomView(theme, provider);
+                          }
+                          switch (_view) {
+                            case RommBrowseView.source:
+                              return _buildSourceMenu(theme, provider);
+                            case RommBrowseView.platforms:
+                              return _buildPlatformList(theme, provider);
+                            case RommBrowseView.collections:
+                              return _buildCollectionList(theme, provider);
+                          }
+                        },
+                      ),
+                    ),
+                    // Bulk-sync progress, floated just above whichever footer
+                    // the current view draws. It sits here rather than in each
+                    // view so a sync stays visible while the user moves
+                    // between the lists and the ROM grid — and deliberately
+                    // *not* in an app-wide overlay, which is what stalled the
+                    // Thor's primary display over the video PlatformViews.
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: kCoreFooterHeight.r,
+                      child: RommSyncBanner(sync: provider.bulkSync),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -1118,13 +1257,20 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
           left: 0,
           right: 0,
           bottom: 0,
-          child: RommBrowseFooter(
-            label: focused.name,
-            countText:
-                '${focused.romCount} ${AppLocale.games.getString(context)}',
-            confirmLabel: AppLocale.enter.getString(context),
-            onConfirm: _confirmSelection,
-            onBack: _handleBack,
+          // The sync affordance rebuilds off the sync itself, not the RomM
+          // provider, so its label flips without the whole list repainting.
+          child: ListenableBuilder(
+            listenable: provider.bulkSync,
+            builder: (context, _) => RommBrowseFooter(
+              label: focused.name,
+              countText:
+                  '${focused.romCount} ${AppLocale.games.getString(context)}',
+              confirmLabel: AppLocale.enter.getString(context),
+              onConfirm: _confirmSelection,
+              onBack: _handleBack,
+              onSyncAll: _syncFocusedSource,
+              isSyncing: provider.bulkSync.isRunning,
+            ),
           ),
         ),
       ],
@@ -1217,13 +1363,20 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
           left: 0,
           right: 0,
           bottom: 0,
-          child: RommBrowseFooter(
-            label: focused.name,
-            countText:
-                '${focused.romCount} ${AppLocale.games.getString(context)}',
-            confirmLabel: AppLocale.enter.getString(context),
-            onConfirm: _confirmSelection,
-            onBack: _handleBack,
+          // The sync affordance rebuilds off the sync itself, not the RomM
+          // provider, so its label flips without the whole list repainting.
+          child: ListenableBuilder(
+            listenable: provider.bulkSync,
+            builder: (context, _) => RommBrowseFooter(
+              label: focused.name,
+              countText:
+                  '${focused.romCount} ${AppLocale.games.getString(context)}',
+              confirmLabel: AppLocale.enter.getString(context),
+              onConfirm: _confirmSelection,
+              onBack: _handleBack,
+              onSyncAll: _syncFocusedSource,
+              isSyncing: provider.bulkSync.isRunning,
+            ),
           ),
         ),
       ],
@@ -1280,6 +1433,7 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
           onCancel: onCancel,
           onBack: _handleBack,
           onToggleView: _toggleRomLayout,
+          onSyncAll: _syncFocusedSource,
           footerBuilder: footerBuilder,
         );
       case RommRomLayout.list:
@@ -1294,6 +1448,7 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
           onCancel: onCancel,
           onBack: _handleBack,
           onToggleView: _toggleRomLayout,
+          onSyncAll: _syncFocusedSource,
           footerBuilder: footerBuilder,
         );
     }
@@ -1316,7 +1471,10 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
         if (focused != null) _confirmRom(focused);
       },
       onBack: _handleBack,
-      onToggleView: _toggleRomLayout,
+      onSyncAll: _syncFocusedSource,
+      // The ROM views memoize this footer against their own sync flag, so
+      // reading the live value here stays in step with their repaints.
+      isSyncing: provider.bulkSync.isRunning,
     );
   }
 }

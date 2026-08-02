@@ -905,6 +905,18 @@ const Map<String, dynamic> appLocaleRu = {
       'Не удалось записать в папку с ROM. Предоставьте NeoStation «Доступ ко всем файлам» и повторите попытку.',
   AppLocale.rommNotConnected:
       'Сначала подключитесь к серверу RomM в Настройках',
+  // Bulk "sync a whole platform/collection".
+  AppLocale.rommSyncAll: 'Синхронизировать всё',
+  AppLocale.rommSyncCancel: 'Отменить синхронизацию',
+  AppLocale.rommSyncConfirmTitle: 'Синхронизировать {name}?',
+  AppLocale.rommSyncConfirmBody:
+      'Загрузит все игры из {name}, которых ещё нет на устройстве. Это может занять много времени и места.',
+  AppLocale.rommSyncPreparing: 'Подготовка…',
+  AppLocale.rommSyncCancelling: 'Отмена…',
+  AppLocale.rommSyncComplete: 'Синхронизировано игр: {count}',
+  AppLocale.rommSyncCancelled: 'Синхронизация отменена',
+  AppLocale.rommSyncNothingToDo: 'Всё уже загружено',
+  AppLocale.rommSyncFailedCount: 'Не удалось: {count}',
   AppLocale.searchTitle: 'Поиск',
   AppLocale.searchNameHint: 'Поиск...',
   AppLocale.searchNoResults: 'Игры не найдены',

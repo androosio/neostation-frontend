@@ -962,6 +962,18 @@ mixin AppLocale {
   static const String rommNoWritableFolder = 'romm_no_writable_folder';
   static const String rommNotConnected = 'romm_not_connected';
 
+  // Bulk "sync a whole platform/collection".
+  static const String rommSyncAll = 'romm_sync_all';
+  static const String rommSyncCancel = 'romm_sync_cancel';
+  static const String rommSyncConfirmTitle = 'romm_sync_confirm_title';
+  static const String rommSyncConfirmBody = 'romm_sync_confirm_body';
+  static const String rommSyncPreparing = 'romm_sync_preparing';
+  static const String rommSyncCancelling = 'romm_sync_cancelling';
+  static const String rommSyncComplete = 'romm_sync_complete';
+  static const String rommSyncCancelled = 'romm_sync_cancelled';
+  static const String rommSyncNothingToDo = 'romm_sync_nothing_to_do';
+  static const String rommSyncFailedCount = 'romm_sync_failed_count';
+
   // Library search & filtering.
   static const String searchTitle = 'search_title';
   static const String searchNameHint = 'search_name_hint';
