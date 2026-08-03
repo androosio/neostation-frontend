@@ -200,7 +200,10 @@ class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
 
     final romId = await _resolveRomId(game);
     if (romId == null) {
-      return GameSyncStatus.noSaveFound; // not a RomM-linked game
+      // Not a RomM-linked game (wasn't downloaded through the app). Report
+      // "disabled" — sync simply doesn't apply — rather than "no save found",
+      // which would be a lie whenever the game has perfectly good local saves.
+      return GameSyncStatus.disabled;
     }
 
     final localFiles = await _locateSaves(game);

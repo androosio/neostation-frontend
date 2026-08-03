@@ -407,7 +407,7 @@ void main() async {
       if (isKnown) {
         await sqliteDatabaseProvider.refreshSystem(system.folderName);
       } else {
-        debugPrint(
+        LoggerService.instance.w(
           'RomM: downloaded ROMs for "${system.folderName}" but it is not '
           'registered after scan; a manual rescan is needed for them to appear.',
         );
