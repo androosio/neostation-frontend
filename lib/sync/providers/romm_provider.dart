@@ -26,11 +26,21 @@ import 'package:neostation/providers/neo_sync_provider.dart';
 import 'package:neostation/providers/romm_provider.dart';
 import 'package:neostation/repositories/romm_save_map_repository.dart';
 import 'package:neostation/repositories/sync_repository.dart';
+import 'package:neostation/repositories/system_repository.dart';
 import 'package:neostation/services/logger_service.dart';
 import 'package:neostation/services/romm_playtime_service.dart';
 import 'package:neostation/services/romm_service.dart';
 
 import '../i_sync_provider.dart';
+
+/// Locates the local save/state files belonging to a game.
+typedef LocateGameSaves =
+    Future<List<LocalSaveFile>> Function(GameModel game);
+
+/// Resolves the candidate local destination paths for a cloud file named
+/// [relativeName] (e.g. `saves/Game.srm`) belonging to a game.
+typedef ResolveSaveTargets =
+    Future<List<String>> Function(GameModel game, String relativeName);
 
 class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
   static const String kProviderId = 'romm';
@@ -52,9 +62,31 @@ class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
   /// Used only to locate/place local save files (path resolution reuse).
   final NeoSyncProvider _neoSync;
 
+  /// Test seams for NeoSync's path resolution. [NeoSyncProvider]'s
+  /// `locateGameSaveFiles`/`resolveLocalTargetPaths` live in an `extension`
+  /// (static dispatch), so they can't be faked by subclassing — tests inject
+  /// replacements here instead, mirroring [RommBulkSync.run]'s callbacks.
+  final LocateGameSaves? _locateOverride;
+  final ResolveSaveTargets? _resolveTargetsOverride;
+
   final Map<String, GameSyncState> _gameSyncStates = {};
 
-  RomMSyncProvider(this._browse, this._neoSync);
+  RomMSyncProvider(
+    this._browse,
+    this._neoSync, {
+    @visibleForTesting LocateGameSaves? locateSaves,
+    @visibleForTesting ResolveSaveTargets? resolveTargets,
+  }) : _locateOverride = locateSaves,
+       _resolveTargetsOverride = resolveTargets;
+
+  Future<List<LocalSaveFile>> _locateSaves(GameModel game) =>
+      (_locateOverride ?? _neoSync.locateGameSaveFiles)(game);
+
+  Future<List<String>> _resolveTargets(GameModel game, String relativeName) =>
+      (_resolveTargetsOverride ?? _neoSync.resolveLocalTargetPaths)(
+        game,
+        relativeName,
+      );
 
   RommService get _svc => _browse.service;
 
@@ -137,7 +169,8 @@ class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
     gameId: game.romname,
     gameName: game.name,
     status: status,
-    cloudEnabled: game.cloudSyncEnabled ?? true,
+    // Null counts as disabled, matching the [_syncGame] gate and NeoSync.
+    cloudEnabled: game.cloudSyncEnabled == true,
     errorMessage: errorMessage,
   );
 
@@ -152,14 +185,25 @@ class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
     SyncDeadline? deadline,
   }) async {
     if (!_browse.isConnected) return GameSyncStatus.error;
-    if (game.cloudSyncEnabled == false) return GameSyncStatus.disabled;
+    // Honour the sync opt-outs exactly the way NeoSync does: a null per-game
+    // flag counts as disabled, and a system whose config sets `sync: false`
+    // (e.g. shared-memcard systems the user deliberately excluded) is skipped
+    // regardless of the per-game flag.
+    if (game.cloudSyncEnabled != true) return GameSyncStatus.disabled;
+    final systemFolder = game.systemFolderName;
+    if (systemFolder != null && systemFolder.isNotEmpty) {
+      final system = await SystemRepository.getSystemByFolderName(systemFolder);
+      if (system != null && !system.neosync.sync) {
+        return GameSyncStatus.disabled;
+      }
+    }
 
     final romId = await _resolveRomId(game);
     if (romId == null) {
       return GameSyncStatus.noSaveFound; // not a RomM-linked game
     }
 
-    final localFiles = await _neoSync.locateGameSaveFiles(game);
+    final localFiles = await _locateSaves(game);
 
     final List<RommAsset> remote;
     try {
@@ -342,10 +386,7 @@ class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
       final relativeName = sub.isNotEmpty
           ? '$prefix/$sub/${asset.fileName}'
           : '$prefix/${asset.fileName}';
-      final targets = await _neoSync.resolveLocalTargetPaths(
-        game,
-        relativeName,
-      );
+      final targets = await _resolveTargets(game, relativeName);
       if (targets.isEmpty) {
         _log.w('RomM download: no local target for ${asset.fileName}');
         return false;
@@ -445,7 +486,14 @@ class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
     SyncDeadline? deadline,
   }) async {
     try {
-      await _syncGame(game, downloadOnly: true, deadline: deadline);
+      final status = await _syncGame(game, downloadOnly: true, deadline: deadline);
+      if (status == GameSyncStatus.error) {
+        // A status-level failure (server unreachable, listing failed) must be
+        // as visible as a thrown one: record the error state and report
+        // failure. The launch flow treats any failure as best-effort, so this
+        // never blocks the game from starting — it only keeps the UI honest.
+        return _failGame(game, _browse.lastError ?? 'RomM save sync failed');
+      }
       return SyncResult.ok();
     } catch (e) {
       // Surface a permission denial (or any hard failure) as an error state so a
