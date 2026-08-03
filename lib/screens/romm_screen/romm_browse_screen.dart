@@ -991,7 +991,21 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
   /// Disconnects from the RomM server. RommTab watches connection state and
   /// swaps this browser back to the connect form once disconnected.
   Future<void> _disconnect(RommProvider provider) async {
+    // Capture before the await: the context can't be read across the gap.
+    final persist = context
+        .read<SqliteConfigProvider>()
+        .updateActiveSyncProvider;
     await provider.disconnect();
+    // If RomM was the active save-sync provider, hand save sync back to
+    // NeoSync. Leaving "romm" active against a server we just forgot would
+    // silently stop ALL save sync — RomM errors out, NeoSync sits idle —
+    // until the user thought to re-toggle it.
+    if (SyncManager.instance.activeProviderId == RomMSyncProvider.kProviderId) {
+      await SyncManager.instance.setActive(
+        NeoSyncAdapter.kProviderId,
+        persist: persist,
+      );
+    }
     if (!mounted) return;
     AppNotification.showNotification(
       context,
