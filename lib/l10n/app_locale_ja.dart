@@ -219,6 +219,7 @@ const Map<String, dynamic> appLocaleJa = {
   AppLocale.loadingAchievements: '実績を読み込み中...',
 
   AppLocale.neoSync: 'NeoSync',
+  AppLocale.neoSyncLogin: 'NeoSync ログイン',
   AppLocale.neoSyncSynchronizing: 'NeoSync: 同期中...',
   AppLocale.neoSyncNotConnected: 'NeoSync: 未接続',
   AppLocale.neoSyncSynchronized: 'NeoSync: セーブデータ同期済み',

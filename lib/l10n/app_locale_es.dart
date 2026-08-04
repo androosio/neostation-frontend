@@ -262,6 +262,7 @@ const Map<String, dynamic> appLocaleEs = {
   AppLocale.loadingAchievements: 'Cargando logros...',
 
   AppLocale.neoSync: 'NeoSync',
+  AppLocale.neoSyncLogin: 'Inicio de sesión de NeoSync',
   AppLocale.neoSyncSynchronizing: 'NeoSync: Sincronizando...',
   AppLocale.neoSyncNotConnected: 'NeoSync: No conectado',
   AppLocale.neoSyncSynchronized: 'NeoSync: Partidas sincronizadas',

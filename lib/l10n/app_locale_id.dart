@@ -250,6 +250,7 @@ const Map<String, dynamic> appLocaleId = {
   AppLocale.loadingAchievements: 'Memuat pencapaian...',
 
   AppLocale.neoSync: 'NeoSync',
+  AppLocale.neoSyncLogin: 'Masuk NeoSync',
   AppLocale.neoSyncSynchronizing: 'NeoSync: Menyingkronkan...',
   AppLocale.neoSyncNotConnected: 'NeoSync: Tidak terhubung',
   AppLocale.neoSyncSynchronized: 'NeoSync: Simpanan disinkronkan',

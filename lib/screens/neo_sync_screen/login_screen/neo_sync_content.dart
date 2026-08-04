@@ -1330,7 +1330,6 @@ class NeoSyncContentState extends State<NeoSyncContent>
         ),
       ),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
@@ -1341,22 +1340,24 @@ class NeoSyncContentState extends State<NeoSyncContent>
                 size: 24.r,
               ),
               SizedBox(width: 12.r),
-              Text(
-                AppLocale.whatIsNeoSync.getString(context),
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: theme.colorScheme.primary,
-                  fontSize: 14.r,
+              Expanded(
+                child: Text(
+                  AppLocale.whatIsNeoSync.getString(context),
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.primary,
+                    fontSize: 14.r,
+                  ),
                 ),
               ),
             ],
           ),
-          SizedBox(height: 8.r),
+          SizedBox(height: 6.r),
           Text(
             AppLocale.neoSyncDescription.getString(context),
             style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.9),
               fontSize: 8.r,
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
             ),
             softWrap: true,
           ),
@@ -1364,33 +1365,26 @@ class NeoSyncContentState extends State<NeoSyncContent>
           _buildInfoItem(
             context,
             Symbols.cloud_upload_rounded,
-            AppLocale.cloudSaveTitle.getString(context),
             AppLocale.neoSyncSavesSync.getString(context),
           ),
-          SizedBox(height: 6.r),
           _buildInfoItem(
             context,
             Symbols.devices_rounded,
-            AppLocale.crossPlatform.getString(context),
             AppLocale.crossPlatformDesc.getString(context),
           ),
-          SizedBox(height: 6.r),
           _buildInfoItem(
             context,
             Symbols.security_rounded,
-            AppLocale.securePrivate.getString(context),
             AppLocale.securePrivateDesc.getString(context),
           ),
-          SizedBox(height: 4.r),
-          Divider(
-            color: theme.colorScheme.primary.withValues(alpha: 0.1),
-            thickness: 1,
-          ),
+          SizedBox(height: 6.r),
           RichText(
+            softWrap: true,
             text: TextSpan(
               style: theme.textTheme.bodySmall?.copyWith(
-                fontSize: 8.r,
+                fontStyle: FontStyle.italic,
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                fontSize: 8.r,
               ),
               children: [
                 TextSpan(text: AppLocale.learnMoreEcosystem.getString(context)),
@@ -1398,14 +1392,16 @@ class NeoSyncContentState extends State<NeoSyncContent>
                   text: 'neostation.com',
                   style: TextStyle(
                     color: theme.colorScheme.primary,
-                    fontWeight: FontWeight.bold,
                     decoration: TextDecoration.underline,
                   ),
                   recognizer: TapGestureRecognizer()
                     ..onTap = () async {
                       final url = Uri.parse('https://neogamelab.com');
                       if (await canLaunchUrl(url)) {
-                        await launchUrl(url);
+                        await launchUrl(
+                          url,
+                          mode: LaunchMode.externalApplication,
+                        );
                       }
                     },
                 ),
@@ -1417,46 +1413,33 @@ class NeoSyncContentState extends State<NeoSyncContent>
     );
   }
 
-  Widget _buildInfoItem(
-    BuildContext context,
-    IconData icon,
-    String title,
-    String description,
-  ) {
+  /// One bullet in the info box, matching the RetroAchievements, ScreenScraper
+  /// and RomM connect screens: a single wrapping line, self-spaced so the box
+  /// does not interleave its own gaps.
+  Widget _buildInfoItem(BuildContext context, IconData icon, String text) {
     final theme = Theme.of(context);
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(
-          icon,
-          size: 12.r,
-          color: theme.colorScheme.primary.withValues(alpha: 0.7),
-        ),
-        SizedBox(width: 6.r),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 8.r,
-                  color: theme.colorScheme.onSurface,
-                ),
-              ),
-              Text(
-                description,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  fontSize: 8.r,
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
-                ),
-                softWrap: true,
-              ),
-            ],
+    return Padding(
+      padding: EdgeInsets.only(bottom: 8.r),
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            size: 12.r,
+            color: theme.colorScheme.primary.withValues(alpha: 0.7),
           ),
-        ),
-      ],
+          SizedBox(width: 8.r),
+          Expanded(
+            child: Text(
+              text,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
+                fontSize: 8.r,
+              ),
+              softWrap: true,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

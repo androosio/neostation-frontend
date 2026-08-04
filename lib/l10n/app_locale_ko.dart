@@ -218,6 +218,7 @@ const Map<String, dynamic> appLocaleKo = {
   AppLocale.loadingAchievements: '업적 로드 중...',
 
   AppLocale.neoSync: 'NeoSync',
+  AppLocale.neoSyncLogin: 'NeoSync 로그인',
   AppLocale.neoSyncSynchronizing: 'NeoSync: 동기화 중...',
   AppLocale.neoSyncNotConnected: 'NeoSync: 연결 안 됨',
   AppLocale.neoSyncSynchronized: 'NeoSync: 세이브 동기화 완료',

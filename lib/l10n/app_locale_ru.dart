@@ -257,6 +257,7 @@ const Map<String, dynamic> appLocaleRu = {
   AppLocale.loadingAchievements: 'Загрузка достижений...',
 
   AppLocale.neoSync: 'NeoSync',
+  AppLocale.neoSyncLogin: 'Вход в NeoSync',
   AppLocale.neoSyncSynchronizing: 'NeoSync: Синхронизация...',
   AppLocale.neoSyncNotConnected: 'NeoSync: Не подключено',
   AppLocale.neoSyncSynchronized: 'NeoSync: Сохранения синхронизированы',

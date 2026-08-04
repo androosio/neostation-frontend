@@ -216,6 +216,7 @@ const Map<String, dynamic> appLocaleZh = {
   AppLocale.loadingAchievements: '正在加载成就...',
 
   AppLocale.neoSync: 'NeoSync',
+  AppLocale.neoSyncLogin: 'NeoSync 登录',
   AppLocale.neoSyncSynchronizing: 'NeoSync: 正在同步...',
   AppLocale.neoSyncNotConnected: 'NeoSync: 未连接',
   AppLocale.neoSyncSynchronized: 'NeoSync: 存档已同步',
