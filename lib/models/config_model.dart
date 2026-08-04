@@ -128,6 +128,7 @@ class ConfigModel {
 
   /// Whether the RomM navigation tab is hidden. See [hideTabSync].
   final bool hideTabRomm;
+
   /// Whether the Search navigation tab is hidden. See [hideTabSync].
   final bool hideTabSearch;
 

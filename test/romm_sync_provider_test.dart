@@ -22,14 +22,17 @@ void main() {
       );
     });
 
-    test('a 401 RommException is NOT a permission denial (token recoverable)', () {
-      expect(
-        RomMSyncProvider.isPermissionDenied(
-          RommException('Unauthorized', statusCode: 401),
-        ),
-        isFalse,
-      );
-    });
+    test(
+      'a 401 RommException is NOT a permission denial (token recoverable)',
+      () {
+        expect(
+          RomMSyncProvider.isPermissionDenied(
+            RommException('Unauthorized', statusCode: 401),
+          ),
+          isFalse,
+        );
+      },
+    );
 
     test('a 500 RommException is NOT a permission denial (transient)', () {
       expect(
@@ -42,16 +45,16 @@ void main() {
 
     test('a RommException with no status is NOT a permission denial', () {
       expect(
-        RomMSyncProvider.isPermissionDenied(RommException('Cannot reach server')),
+        RomMSyncProvider.isPermissionDenied(
+          RommException('Cannot reach server'),
+        ),
         isFalse,
       );
     });
 
     test('a non-Romm error (e.g. FileSystemException) is NOT a denial', () {
       expect(
-        RomMSyncProvider.isPermissionDenied(
-          const FormatException('bad bytes'),
-        ),
+        RomMSyncProvider.isPermissionDenied(const FormatException('bad bytes')),
         isFalse,
       );
     });

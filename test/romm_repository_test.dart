@@ -77,22 +77,24 @@ void main() {
       expect(row['password'], isNot('s3cret'));
     });
 
-    test('saveConfig replaces the singleton row rather than appending',
-        () async {
-      await RommRepository.saveConfig(
-        serverUrl: 'https://a',
-        username: 'u1',
-        password: 'p1',
-      );
-      await RommRepository.saveConfig(
-        serverUrl: 'https://b',
-        username: 'u2',
-        password: 'p2',
-      );
-      final rows = await db.query('user_romm_config');
-      expect(rows, hasLength(1));
-      expect((await RommRepository.getConfig())!['server_url'], 'https://b');
-    });
+    test(
+      'saveConfig replaces the singleton row rather than appending',
+      () async {
+        await RommRepository.saveConfig(
+          serverUrl: 'https://a',
+          username: 'u1',
+          password: 'p1',
+        );
+        await RommRepository.saveConfig(
+          serverUrl: 'https://b',
+          username: 'u2',
+          password: 'p2',
+        );
+        final rows = await db.query('user_romm_config');
+        expect(rows, hasLength(1));
+        expect((await RommRepository.getConfig())!['server_url'], 'https://b');
+      },
+    );
 
     test('getConfig returns null when server_url is empty', () async {
       await db.execute(
@@ -213,16 +215,17 @@ void main() {
       expect(await RommSaveMapRepository.getRommRomId('game.bin', 'snes'), 2);
     });
 
-    test('getIndexedNameForRomId returns null when the rom id is unmapped',
-        () async {
-      expect(
-        await RommSaveMapRepository.getIndexedNameForRomId(42, 'psx'),
-        isNull,
-      );
-    });
-
     test(
-        'getIndexedNameForRomId recovers the recorded on-disk name by rom id '
+      'getIndexedNameForRomId returns null when the rom id is unmapped',
+      () async {
+        expect(
+          await RommSaveMapRepository.getIndexedNameForRomId(42, 'psx'),
+          isNull,
+        );
+      },
+    );
+
+    test('getIndexedNameForRomId recovers the recorded on-disk name by rom id '
         '(bundled multi-disc playlist detection)', () async {
       // A bundled-playlist multi-disc download records its arbitrary .m3u
       // basename as the indexed romname; detection reverse-looks it up by id.

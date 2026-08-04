@@ -259,13 +259,17 @@ void main() {
       expect(a.downloadPath, '/api/raw/assets/x/Game.srm');
       expect(a.isState, isFalse);
       expect(a.updatedAt, DateTime.parse('2026-02-02T12:00:00.000Z'));
-      expect(a.updatedAtMs, DateTime.parse('2026-02-02T12:00:00.000Z')
-          .millisecondsSinceEpoch);
+      expect(
+        a.updatedAtMs,
+        DateTime.parse('2026-02-02T12:00:00.000Z').millisecondsSinceEpoch,
+      );
     });
 
     test('records isState=true for state assets', () {
-      final a = RommAsset.fromJson({'id': 1, 'file_name': 's.state'},
-          isState: true);
+      final a = RommAsset.fromJson({
+        'id': 1,
+        'file_name': 's.state',
+      }, isState: true);
       expect(a.isState, isTrue);
     });
 

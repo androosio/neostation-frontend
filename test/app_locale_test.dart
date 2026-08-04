@@ -26,8 +26,8 @@ void main() {
     final file = 'app_locale_$code.dart';
 
     test('$code defines every English key', () {
-      final missing = appLocaleEn.keys.where((k) => !map.containsKey(k)).toList()
-        ..sort();
+      final missing =
+          appLocaleEn.keys.where((k) => !map.containsKey(k)).toList()..sort();
       expect(
         missing,
         isEmpty,

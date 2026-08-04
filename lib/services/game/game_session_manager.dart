@@ -218,8 +218,7 @@ class GameSessionManager {
       if (game.romPath != null) {
         await _recordRommPlaySession(
           romname: game.romname,
-          systemFolder:
-              game.systemFolderName ?? _currentGameSystem!.folderName,
+          systemFolder: game.systemFolderName ?? _currentGameSystem!.folderName,
           romPath: game.romPath!,
           start: _gameLaunchTime!,
           end: now,

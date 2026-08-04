@@ -34,8 +34,7 @@ import 'package:neostation/services/romm_service.dart';
 import '../i_sync_provider.dart';
 
 /// Locates the local save/state files belonging to a game.
-typedef LocateGameSaves =
-    Future<List<LocalSaveFile>> Function(GameModel game);
+typedef LocateGameSaves = Future<List<LocalSaveFile>> Function(GameModel game);
 
 /// Resolves the candidate local destination paths for a cloud file named
 /// [relativeName] (e.g. `saves/Game.srm`) belonging to a game.
@@ -412,7 +411,9 @@ class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
       // local save. Abandon here — before any write — so we never clobber the
       // .srm the emulator now has open or record bogus sync state.
       if (deadline?.isExpired ?? false) {
-        _log.i('RomM download: abandon ${asset.fileName} (launch deadline passed)');
+        _log.i(
+          'RomM download: abandon ${asset.fileName} (launch deadline passed)',
+        );
         return false;
       }
 
@@ -489,7 +490,11 @@ class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
     SyncDeadline? deadline,
   }) async {
     try {
-      final status = await _syncGame(game, downloadOnly: true, deadline: deadline);
+      final status = await _syncGame(
+        game,
+        downloadOnly: true,
+        deadline: deadline,
+      );
       if (status == GameSyncStatus.error) {
         // A status-level failure (server unreachable, listing failed) must be
         // as visible as a thrown one: record the error state and report

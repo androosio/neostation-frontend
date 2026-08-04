@@ -23,15 +23,15 @@ RommService _service({
 }
 
 RommRom _rom({String? urlCover}) => RommRom(
-      id: 1,
-      name: 'Game',
-      platformId: 1,
-      platformSlug: 'snes',
-      fsName: 'game.sfc',
-      fsNameNoExt: 'game',
-      fsExtension: 'sfc',
-      urlCover: urlCover,
-    );
+  id: 1,
+  name: 'Game',
+  platformId: 1,
+  platformSlug: 'snes',
+  fsName: 'game.sfc',
+  fsNameNoExt: 'game',
+  fsExtension: 'sfc',
+  urlCover: urlCover,
+);
 
 RommPlatform _platform({String? urlLogo, String slug = 'snes'}) =>
     RommPlatform(id: 1, name: 'SNES', slug: slug, urlLogo: urlLogo);
@@ -179,7 +179,10 @@ void main() {
     });
 
     test('returns empty map when no ra_progression', () {
-      expect(RommService.parseRaProgression('{"username":"testuser"}'), isEmpty);
+      expect(
+        RommService.parseRaProgression('{"username":"testuser"}'),
+        isEmpty,
+      );
       expect(
         RommService.parseRaProgression('{"ra_progression":null}'),
         isEmpty,

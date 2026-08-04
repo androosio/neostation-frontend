@@ -44,8 +44,7 @@ class _FakeRommService extends RommService {
   /// uploads get a strictly increasing near-now stamp.
   DateTime? nextUploadStamp;
 
-  DateTime _stamp() =>
-      nextUploadStamp != null
+  DateTime _stamp() => nextUploadStamp != null
       ? (() {
           final s = nextUploadStamp!;
           nextUploadStamp = null;
@@ -99,12 +98,7 @@ class _FakeRommService extends RommService {
   }) async {
     final name = p.basename(file.path);
     uploads.add('$romId/$name');
-    return seedSave(
-      romId,
-      name,
-      await file.readAsBytes(),
-      updatedAt: _stamp(),
-    );
+    return seedSave(romId, name, await file.readAsBytes(), updatedAt: _stamp());
   }
 
   @override
@@ -237,30 +231,31 @@ void main() {
   });
 
   group('shared memcard across two rom ids', () {
-    test('each game uploads the card under its own rom id, then converges',
-        () async {
-      await provider.detectGameSaveFiles(gameA);
-      expect(svc.uploads, ['1/Mcd001.ps2']);
-
-      // Game B shares the card: its rom id has no remote copy yet, so the
-      // same file must upload again under rom id 2.
-      await provider.detectGameSaveFiles(gameB);
-      expect(svc.uploads, ['1/Mcd001.ps2', '2/Mcd001.ps2']);
-
-      // Re-syncing A must be a no-op: the shared bookkeeping row now holds
-      // B's (newer) asset timestamp, which must not read as "remote changed"
-      // for A's older asset, nor trigger a re-upload.
-      await provider.detectGameSaveFiles(gameA);
-      expect(svc.uploads, hasLength(2));
-      expect(await memcard.readAsString(), 'INITIAL');
-      expect(
-        provider.getGameSyncState('GameA')?.status,
-        isNot(GameSyncStatus.error),
-      );
-    });
-
     test(
-        'a genuinely newer remote under one rom id is pulled once; the other '
+      'each game uploads the card under its own rom id, then converges',
+      () async {
+        await provider.detectGameSaveFiles(gameA);
+        expect(svc.uploads, ['1/Mcd001.ps2']);
+
+        // Game B shares the card: its rom id has no remote copy yet, so the
+        // same file must upload again under rom id 2.
+        await provider.detectGameSaveFiles(gameB);
+        expect(svc.uploads, ['1/Mcd001.ps2', '2/Mcd001.ps2']);
+
+        // Re-syncing A must be a no-op: the shared bookkeeping row now holds
+        // B's (newer) asset timestamp, which must not read as "remote changed"
+        // for A's older asset, nor trigger a re-upload.
+        await provider.detectGameSaveFiles(gameA);
+        expect(svc.uploads, hasLength(2));
+        expect(await memcard.readAsString(), 'INITIAL');
+        expect(
+          provider.getGameSyncState('GameA')?.status,
+          isNot(GameSyncStatus.error),
+        );
+      },
+    );
+
+    test('a genuinely newer remote under one rom id is pulled once; the other '
         'rom id\'s now-stale copy is not pulled back over it', () async {
       await provider.detectGameSaveFiles(gameA);
       await provider.detectGameSaveFiles(gameB);
@@ -285,25 +280,26 @@ void main() {
       expect(svc.uploads.length, uploadsBefore);
     });
 
-    test('unrecorded local progress beats a stale remote (prefer local)',
-        () async {
-      // Remote has an hour-old card; the local card was just written and no
-      // sync state is recorded — local must win via upload, not be replaced.
-      svc.seedSave(
-        1,
-        'Mcd001.ps2',
-        'STALE'.codeUnits,
-        updatedAt: DateTime.now().toUtc().subtract(const Duration(hours: 1)),
-      );
-
-      await provider.detectGameSaveFiles(gameA);
-
-      expect(await memcard.readAsString(), 'INITIAL');
-      expect(svc.uploads, ['1/Mcd001.ps2']);
-    });
-
     test(
-        'remote-only branch: the per-target mtime guard refuses to overwrite '
+      'unrecorded local progress beats a stale remote (prefer local)',
+      () async {
+        // Remote has an hour-old card; the local card was just written and no
+        // sync state is recorded — local must win via upload, not be replaced.
+        svc.seedSave(
+          1,
+          'Mcd001.ps2',
+          'STALE'.codeUnits,
+          updatedAt: DateTime.now().toUtc().subtract(const Duration(hours: 1)),
+        );
+
+        await provider.detectGameSaveFiles(gameA);
+
+        expect(await memcard.readAsString(), 'INITIAL');
+        expect(svc.uploads, ['1/Mcd001.ps2']);
+      },
+    );
+
+    test('remote-only branch: the per-target mtime guard refuses to overwrite '
         'a newer local card', () async {
       // Path resolution fails to *locate* the card as a save of this game,
       // so the remote asset looks remote-only — but the download target
@@ -353,17 +349,19 @@ void main() {
   });
 
   group('pre-launch failure surfacing', () {
-    test('a disconnected provider errors visibly instead of reporting ok',
-        () async {
-      browse.connected = false;
+    test(
+      'a disconnected provider errors visibly instead of reporting ok',
+      () async {
+        browse.connected = false;
 
-      final result = await provider.syncGameSavesBeforeLaunch(gameA);
+        final result = await provider.syncGameSavesBeforeLaunch(gameA);
 
-      expect(result.success, isFalse);
-      expect(
-        provider.getGameSyncState('GameA')?.status,
-        GameSyncStatus.error,
-      );
-    });
+        expect(result.success, isFalse);
+        expect(
+          provider.getGameSyncState('GameA')?.status,
+          GameSyncStatus.error,
+        );
+      },
+    );
   });
 }

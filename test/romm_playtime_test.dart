@@ -123,12 +123,15 @@ void main() {
   });
 
   group('RommPlaytimeService.remoteSecondsToApply', () {
-    int apply({required int total, required int pushed, required int applied}) =>
-        RommPlaytimeService.remoteSecondsToApply(
-          remoteTotalMs: total,
-          pushedMs: pushed,
-          appliedMs: applied,
-        );
+    int apply({
+      required int total,
+      required int pushed,
+      required int applied,
+    }) => RommPlaytimeService.remoteSecondsToApply(
+      remoteTotalMs: total,
+      pushedMs: pushed,
+      appliedMs: applied,
+    );
 
     test('ignores time this device pushed itself', () {
       // Everything on the server came from here → nothing new to add.

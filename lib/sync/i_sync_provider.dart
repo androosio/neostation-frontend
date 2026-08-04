@@ -101,11 +101,10 @@ abstract class ISyncProvider {
   Future<SyncResult> syncGameSavesBeforeLaunch(
     GameModel game, {
     SyncDeadline? deadline,
-  }) async =>
-      SyncResult.fail(
-        SyncError.unknown,
-        message: 'syncGameSavesBeforeLaunch not supported by $providerId',
-      );
+  }) async => SyncResult.fail(
+    SyncError.unknown,
+    message: 'syncGameSavesBeforeLaunch not supported by $providerId',
+  );
 
   /// Performs post-close synchronization (e.g. upload modified saves after
   /// the game exits).

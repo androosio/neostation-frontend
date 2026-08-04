@@ -50,7 +50,9 @@ class RommPlaytimeService {
   }) async {
     final durationMs = endTime.difference(startTime).inMilliseconds;
     if (durationMs < minSessionSeconds * 1000) return false;
-    if (romname.isEmpty || systemFolder.isEmpty || romPath.isEmpty) return false;
+    if (romname.isEmpty || systemFolder.isEmpty || romPath.isEmpty) {
+      return false;
+    }
 
     final romId = await RommSaveMapRepository.getRommRomId(
       romname,

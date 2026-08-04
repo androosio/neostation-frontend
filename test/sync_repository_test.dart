@@ -16,7 +16,10 @@ void main() {
 
   group('SyncRepository', () {
     test('getSyncState returns null when no state exists', () async {
-      final state = await SyncRepository.getSyncState('neosync', '/save/file.srm');
+      final state = await SyncRepository.getSyncState(
+        'neosync',
+        '/save/file.srm',
+      );
       expect(state, isNull);
     });
 
@@ -30,7 +33,10 @@ void main() {
         fileHash: 'abc123',
       );
 
-      final state = await SyncRepository.getSyncState('neosync', '/save/file.srm');
+      final state = await SyncRepository.getSyncState(
+        'neosync',
+        '/save/file.srm',
+      );
       expect(state, isNotNull);
       expect(state!['file_path'], '/save/file.srm');
       expect(state['local_modified_at'], 1700000000);
@@ -39,30 +45,36 @@ void main() {
       expect(state['file_hash'], 'abc123');
     });
 
-    test('sync state is isolated per provider for the same file path', () async {
-      await SyncRepository.saveSyncState(
-        'neosync',
-        '/save/shared.srm',
-        1700000000,
-        1700000100,
-        1024,
-      );
-      await SyncRepository.saveSyncState(
-        'romm',
-        '/save/shared.srm',
-        1800000000,
-        1800000100,
-        2048,
-      );
+    test(
+      'sync state is isolated per provider for the same file path',
+      () async {
+        await SyncRepository.saveSyncState(
+          'neosync',
+          '/save/shared.srm',
+          1700000000,
+          1700000100,
+          1024,
+        );
+        await SyncRepository.saveSyncState(
+          'romm',
+          '/save/shared.srm',
+          1800000000,
+          1800000100,
+          2048,
+        );
 
-      final neosync = await SyncRepository.getSyncState(
-        'neosync',
-        '/save/shared.srm',
-      );
-      final romm = await SyncRepository.getSyncState('romm', '/save/shared.srm');
-      expect(neosync!['cloud_updated_at'], 1700000100);
-      expect(romm!['cloud_updated_at'], 1800000100);
-    });
+        final neosync = await SyncRepository.getSyncState(
+          'neosync',
+          '/save/shared.srm',
+        );
+        final romm = await SyncRepository.getSyncState(
+          'romm',
+          '/save/shared.srm',
+        );
+        expect(neosync!['cloud_updated_at'], 1700000100);
+        expect(romm!['cloud_updated_at'], 1800000100);
+      },
+    );
 
     test('saveSyncState without hash allows null hash', () async {
       await SyncRepository.saveSyncState(
@@ -73,7 +85,10 @@ void main() {
         512,
       );
 
-      final state = await SyncRepository.getSyncState('neosync', '/save/no_hash.srm');
+      final state = await SyncRepository.getSyncState(
+        'neosync',
+        '/save/no_hash.srm',
+      );
       expect(state, isNotNull);
       expect(state!['file_hash'], isNull);
     });
