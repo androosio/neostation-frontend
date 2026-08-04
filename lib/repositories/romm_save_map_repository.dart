@@ -70,11 +70,54 @@ class RommSaveMapRepository {
         whereArgs: [romname, systemFolder],
         limit: 1,
       );
-      if (rows.isEmpty) return null;
-      return int.tryParse(rows.first['romm_rom_id'].toString());
+      if (rows.isNotEmpty) {
+        return int.tryParse(rows.first['romm_rom_id'].toString());
+      }
+      return _romIdByStem(db, romname, systemFolder);
     } catch (e) {
       _log.e('Error reading RomM rom map ($romname/$systemFolder): $e');
       return null;
     }
+  }
+
+  /// Second pass for [getRommRomId], matching on the extension-stripped name.
+  ///
+  /// Callers disagree about what a "romname" is. The mapping is written with
+  /// the on-disk filename (`Game.zip`) — and [getIndexedNameForRomId] depends
+  /// on that staying intact — while a [GameModel] carries `romname` with the
+  /// extension already stripped. An exact match therefore misses for every
+  /// game launched normally, and since an unresolved id reads as "not a RomM
+  /// game", save sync and playtime both went quietly nowhere.
+  ///
+  /// Scoped to one system folder, which the table's index covers, and only
+  /// reached when the exact match fails.
+  static Future<int?> _romIdByStem(
+    dynamic db,
+    String romname,
+    String systemFolder,
+  ) async {
+    final rows = await db.query(
+      'app_romm_rom_map',
+      columns: ['romname', 'romm_rom_id'],
+      where: 'system_folder = ?',
+      whereArgs: [systemFolder],
+    );
+    // Only the stored name is stripped. [romname] arrives already extensionless
+    // here (the exact match above covers callers that pass a full filename),
+    // and stripping it again would cut a title at its own dot — "Mr. Do"
+    // becoming "Mr", matching the wrong ROM or nothing at all.
+    for (final row in rows) {
+      final stored = row['romname']?.toString() ?? '';
+      if (_stripExtension(stored) == romname) {
+        return int.tryParse(row['romm_rom_id'].toString());
+      }
+    }
+    return null;
+  }
+
+  /// Drops a trailing file extension, matching `DatabaseGameModel.romname`.
+  static String _stripExtension(String name) {
+    final lastDot = name.lastIndexOf('.');
+    return lastDot > 0 ? name.substring(0, lastDot) : name;
   }
 }

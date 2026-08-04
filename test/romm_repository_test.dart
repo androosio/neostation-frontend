@@ -181,6 +181,48 @@ void main() {
       );
     });
 
+    // The mapping is written with the on-disk filename, but a GameModel's
+    // `romname` has the extension stripped — so every lookup on the game-exit
+    // path missed, and an unresolved id reads as "not a RomM game", silently
+    // disabling save sync and playtime for a game that was downloaded here.
+    test('a GameModel romname resolves against the stored filename', () async {
+      await RommSaveMapRepository.putMapping(
+        romname: 'Extra Mario Bros. [Hacks].zip',
+        systemFolder: 'nes',
+        rommRomId: 6320,
+      );
+
+      expect(
+        await RommSaveMapRepository.getRommRomId(
+          'Extra Mario Bros. [Hacks]',
+          'nes',
+        ),
+        6320,
+      );
+    });
+
+    test('stem matching stays scoped to the system folder', () async {
+      await RommSaveMapRepository.putMapping(
+        romname: 'game.bin',
+        systemFolder: 'megadrive',
+        rommRomId: 7,
+      );
+
+      expect(await RommSaveMapRepository.getRommRomId('game', 'snes'), isNull);
+      expect(await RommSaveMapRepository.getRommRomId('game', 'megadrive'), 7);
+    });
+
+    test('a dotted title is not truncated into a false match', () async {
+      await RommSaveMapRepository.putMapping(
+        romname: 'Mr. Do.zip',
+        systemFolder: 'nes',
+        rommRomId: 11,
+      );
+
+      expect(await RommSaveMapRepository.getRommRomId('Mr. Do', 'nes'), 11);
+      expect(await RommSaveMapRepository.getRommRomId('Mr', 'nes'), isNull);
+    });
+
     test('mapping is scoped by both romname and system folder', () async {
       await RommSaveMapRepository.putMapping(
         romname: 'game.bin',
