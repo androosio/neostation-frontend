@@ -47,6 +47,32 @@ void main() {
     expect(columnsOf('user_config'), contains('hide_tab_romm'));
   });
 
+  // A device that ran the pre-merge RomM build sits at user_version 110
+  // without main's game_details_tab column, so it upgrades straight to v111
+  // and never runs v110. Every config write names that column, so v111 has to
+  // add it too or the first save throws "no such column".
+  test('adds game_details_tab for a database that skipped v110', () async {
+    expect(columnsOf('user_config'), isNot(contains('game_details_tab')));
+
+    await runV111();
+
+    expect(columnsOf('user_config'), contains('game_details_tab'));
+  });
+
+  test('leaves an existing game_details_tab value alone', () async {
+    db.execute(
+      "ALTER TABLE user_config ADD COLUMN game_details_tab TEXT DEFAULT 'wheel'",
+    );
+    db.execute(
+      "INSERT INTO user_config (id, game_details_tab) VALUES (1, 'gameInfo')",
+    );
+
+    await runV111();
+
+    final row = db.select('SELECT game_details_tab FROM user_config').single;
+    expect(row['game_details_tab'], 'gameInfo');
+  });
+
   test(
     'is a no-op when the tables already exist, keeping their rows',
     () async {

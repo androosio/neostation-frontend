@@ -5309,6 +5309,8 @@ class SqliteMigrations {
   /// * `user_config.hide_tab_romm` — lets the RomM nav tab be hidden like Sync,
   ///   Achievements and Scraper. Defaults to `0` (visible), so nobody's strip
   ///   changes on upgrade.
+  /// * `user_config.game_details_tab` — repeated from v110, which a device
+  ///   running the pre-merge RomM build skips. See [_addGameDetailsTabColumn].
   static Future<void> _migrateToVersion111(Database db) async {
     _log.i('Migration v111: Creating RomM schema');
     try {
@@ -5320,6 +5322,7 @@ class SqliteMigrations {
       db.execute(createAppRommPlaytimeStateTableSql);
       await _providerScopeAppNeoSyncState(db);
       _addNavTabVisibilityColumns(db, 'v111', const ['hide_tab_romm']);
+      _addGameDetailsTabColumn(db, 'v111');
       _log.i('Migration v111 completed');
     } catch (e, stackTrace) {
       _log.e('Error in migration v111: $e');
@@ -5485,21 +5488,32 @@ class SqliteMigrations {
   static Future<void> _migrateToVersion110(Database db) async {
     _log.i('Migration v110: Adding game_details_tab to user_config');
     try {
-      final tableInfo = db.select('PRAGMA table_info(user_config)');
-      final columns = tableInfo.map((c) => c['name'].toString()).toList();
-      if (!columns.contains('game_details_tab')) {
-        db.execute(
-          "ALTER TABLE user_config ADD COLUMN game_details_tab TEXT DEFAULT 'wheel'",
-        );
-        _log.i('Column game_details_tab added via v110');
-      } else {
-        _log.i('Column game_details_tab already exists');
-      }
+      _addGameDetailsTabColumn(db, 'v110');
       _log.i('Migration v110 completed');
     } catch (e, stackTrace) {
       _log.e('Error in migration v110: $e');
       _log.e('   StackTrace: $stackTrace');
       rethrow;
+    }
+  }
+
+  /// Adds `user_config.game_details_tab` if it is missing.
+  ///
+  /// Shared by v110 and v111 because the RomM branch shipped its own v110
+  /// before [_migrateToVersion110] landed on main. A device that ran that
+  /// build sits at user_version 110 without the column, so it would skip
+  /// straight to v111 and never gain it — and every config write names the
+  /// column. v111 repeats the add so those databases converge.
+  static void _addGameDetailsTabColumn(Database db, String version) {
+    final tableInfo = db.select('PRAGMA table_info(user_config)');
+    final columns = tableInfo.map((c) => c['name'].toString()).toList();
+    if (!columns.contains('game_details_tab')) {
+      db.execute(
+        "ALTER TABLE user_config ADD COLUMN game_details_tab TEXT DEFAULT 'wheel'",
+      );
+      _log.i('Column game_details_tab added via $version');
+    } else {
+      _log.i('Column game_details_tab already exists');
     }
   }
 }
