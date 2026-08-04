@@ -14,6 +14,10 @@ import '../../utils/emulator_loader.dart';
 import '../config_service.dart';
 import '../android_service.dart';
 import '../launcher_service.dart';
+import '../linux_emulator_discovery.dart';
+import '../linux_host_process.dart';
+import '../macos_application_service.dart';
+import 'emulator_launch_diagnostics.dart';
 import 'favorites_service.dart';
 import 'game_session_manager.dart';
 import '../gamepad/gamepad_navigation_manager.dart';
@@ -482,7 +486,33 @@ class GameLaunchService {
     try {
       final detectedEmulators =
           await EmulatorRepository.getUserDetectedEmulators();
-      final retroArch = detectedEmulators['RetroArch'];
+      var retroArch = detectedEmulators['RetroArch'];
+
+      // On Linux a database entry is not required to find RetroArch: it ships
+      // as a Flatpak or behind an EmuDeck launcher script, both of which live
+      // at well-known paths. Discovery runs when there is no configured path or
+      // the configured one has gone stale, so a working install is not reported
+      // as "not detected" just because the user never opened the file picker.
+      if (Platform.isLinux &&
+          (retroArch == null || !await File(retroArch.path).exists())) {
+        final discovered = await LinuxEmulatorDiscovery.resolveExecutable(
+          executable: 'retroarch',
+          flatpakId: 'org.libretro.RetroArch',
+          emudeckLauncher: 'retroarch.sh',
+        );
+        if (discovered != null) {
+          _log.i('Discovered RetroArch on Linux at $discovered');
+          retroArch =
+              (retroArch ??
+                      const EmulatorModel(
+                        name: 'RetroArch',
+                        path: '',
+                        detected: false,
+                      ))
+                  .copyWith(path: discovered, detected: true);
+        }
+      }
+
       if (!context.mounted) return GameLaunchResult.failure('', '');
       if (retroArch == null) {
         return GameLaunchResult.failure(
@@ -539,33 +569,37 @@ class GameLaunchService {
       }
 
       Process process;
+      String executable = retroArch.path;
+      List<String> args;
 
       if (Platform.isMacOS) {
-        String executable = retroArch.path;
         if (executable.endsWith('.app')) {
           executable = path.join(executable, 'Contents', 'MacOS', 'RetroArch');
         }
 
-        final args = ['-L', coreFullPath, game.romPath!];
+        args = ['-L', coreFullPath, game.romPath!];
         final env = Map<String, String>.from(Platform.environment);
         env['HOME'] = ConfigService.getRealHomePath();
 
         process = await Process.start(executable, args, environment: env);
       } else {
-        String executable = retroArch.path;
-        final args = ['-f', '-L', coreFullPath, game.romPath!];
+        args = ['-f', '-L', coreFullPath, game.romPath!];
 
-        process = await Process.start(executable, args);
+        process = await LinuxHostProcess.start(executable, args);
       }
 
-      process.stdout.listen((_) {});
-      process.stderr.listen((_) {});
+      final diagnostics = EmulatorLaunchDiagnostics.attach(
+        process,
+        executable,
+        args,
+      );
 
       GamepadNavigationManager.deactivateAll();
 
       process.exitCode
           .then((exitCode) async {
             _log.i('RetroArch exited with code: $exitCode');
+            diagnostics.reportExit(exitCode);
             await Future.delayed(Duration(seconds: 2));
             bool stillRunning = await _isDefaultEmulatorRunning();
 
@@ -606,7 +640,7 @@ class GameLaunchService {
     try {
       String executable = launchCmd['executable'].toString();
 
-      if ((Platform.isWindows || Platform.isLinux)) {
+      if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
         final detected = await EmulatorRepository.getUserDetectedEmulators();
 
         if (executable.toLowerCase().contains('retroarch')) {
@@ -647,25 +681,43 @@ class GameLaunchService {
             executable = resolvedPath;
           }
         }
-      } else if (Platform.isMacOS &&
-          executable.toLowerCase().contains('retroarch')) {
-        final detected = await EmulatorRepository.getUserDetectedEmulators();
-        final ra = detected['RetroArch'];
-        if (ra != null && ra.path.isNotEmpty) {
-          if (executable != ra.path) {
+
+        if (Platform.isMacOS) {
+          final resolvedExecutable =
+              await MacOsApplicationService.resolveExecutable(
+                executable,
+                applicationName: launchCmd['player_name']?.toString(),
+                bundleIdentifierHint: launchCmd['unique_id']?.toString(),
+                homePath: ConfigService.getRealHomePath(),
+              );
+          if (resolvedExecutable != null && resolvedExecutable != executable) {
             _log.i(
-              'Resolving RetroArch executable on macOS from "$executable" to user-configured path: ${ra.path}',
+              'Resolving macOS application "$executable" to executable: '
+              '$resolvedExecutable',
             );
+            executable = resolvedExecutable;
           }
-          executable = ra.path;
-          if (executable.endsWith('.app')) {
-            executable = path.join(
-              executable,
-              'Contents',
-              'MacOS',
-              'RetroArch',
-            );
-          }
+        }
+      }
+
+      // Last resort on Linux: nothing the database knows about resolved to a
+      // real file. Emulators there are Flatpaks, EmuDeck launcher scripts or
+      // AppImages rather than binaries sitting next to the frontend, so the
+      // bare `executable` from the systems JSON ("retroarch", "dolphin") never
+      // exists as written and every launch failed until the user hunted the
+      // real path down in a file picker. Only runs when the configured path is
+      // already broken, so an explicit user choice is never overridden.
+      if (Platform.isLinux && !await File(executable).exists()) {
+        final discovered = await LinuxEmulatorDiscovery.resolveExecutable(
+          executable: executable,
+          flatpakId: launchCmd['flatpak']?.toString(),
+          emudeckLauncher: launchCmd['emudeck_launcher']?.toString(),
+        );
+        if (discovered != null) {
+          _log.i(
+            'Resolved "$executable" to $discovered via Linux emulator discovery',
+          );
+          executable = discovered;
         }
       }
 
@@ -680,23 +732,52 @@ class GameLaunchService {
       }
 
       final argsStr = launchCmd['args']?.toString() ?? '';
-      final args = LauncherService.splitArgs(argsStr);
+      var args = LauncherService.splitArgs(argsStr);
+
+      // The systems JSON names cores by filename alone (`-L snes9x_libretro.so`),
+      // which RetroArch resolves against the working directory — ours, not its
+      // own. macOS already rewrote these to absolute paths; Linux did not, and
+      // there the cores are further away than anywhere a relative lookup could
+      // reach (a Flatpak keeps them under ~/.var, a distro under /usr/lib).
+      if (Platform.isLinux &&
+          executable.toLowerCase().contains('retroarch') &&
+          args.contains('-L')) {
+        final coresDir = await LinuxEmulatorDiscovery.resolveRetroArchCoresDir(
+          executable,
+        );
+        if (coresDir != null) {
+          args = await _absolutizeRetroArchCore(args, coresDir);
+        } else {
+          _log.w(
+            'No RetroArch cores directory found for $executable; passing the '
+            'core name through unchanged',
+          );
+        }
+      }
 
       final env = Map<String, String>.from(Platform.environment);
       if (Platform.isMacOS) {
         env['HOME'] = ConfigService.getRealHomePath();
       }
 
-      final process = await Process.start(executable, args, environment: env);
+      final process = await LinuxHostProcess.start(
+        executable,
+        args,
+        environment: env,
+      );
 
-      process.stdout.listen((_) {});
-      process.stderr.listen((_) {});
+      final diagnostics = EmulatorLaunchDiagnostics.attach(
+        process,
+        executable,
+        args,
+      );
 
       GamepadNavigationManager.deactivateAll();
 
       process.exitCode
           .then((exitCode) async {
             _log.i('Process exited with code: $exitCode');
+            diagnostics.reportExit(exitCode);
             await Future.delayed(Duration(seconds: 2));
             bool stillRunning = false;
             if (GameSessionManager.launchedEmulatorExe != null) {
@@ -1125,16 +1206,20 @@ class GameLaunchService {
           .replaceAll('{emulator_path}', emulatorPath);
 
       final argList = _parseCommandArguments(args);
-      final process = await Process.start(emulatorPath, argList);
+      final process = await LinuxHostProcess.start(emulatorPath, argList);
 
-      process.stdout.listen((_) {});
-      process.stderr.listen((_) {});
+      final diagnostics = EmulatorLaunchDiagnostics.attach(
+        process,
+        emulatorPath,
+        argList,
+      );
 
       GamepadNavigationManager.deactivateAll();
 
       process.exitCode
           .then((exitCode) async {
             _log.i('Standalone emulator exited with code: $exitCode');
+            diagnostics.reportExit(exitCode);
             await Future.delayed(Duration(seconds: 2));
             bool stillRunning = false;
             if (GameSessionManager.launchedEmulatorExe != null) {
@@ -1303,6 +1388,41 @@ class GameLaunchService {
     return result;
   }
 
+  /// Rewrites a relative `-L <core>` argument to an absolute path in [coresDir].
+  ///
+  /// Leaves the value alone when it is already absolute, and when the file is
+  /// not actually in [coresDir] — a wrong absolute path turns RetroArch's own
+  /// "core not found" message into a silent black screen, so an unresolvable
+  /// name is better left for RetroArch to report.
+  @visibleForTesting
+  static Future<List<String>> absolutizeRetroArchCore(
+    List<String> args,
+    String coresDir,
+  ) => _absolutizeRetroArchCore(args, coresDir);
+
+  static Future<List<String>> _absolutizeRetroArchCore(
+    List<String> args,
+    String coresDir,
+  ) async {
+    final out = List<String>.from(args);
+    for (var i = 0; i < out.length - 1; i++) {
+      if (out[i] != '-L') continue;
+
+      final core = out[i + 1];
+      if (core.isEmpty || path.isAbsolute(core)) continue;
+
+      // Some entries write `cores/foo_libretro.so`; only the filename is ours
+      // to relocate.
+      final resolved = path.join(coresDir, path.basename(core));
+      if (await File(resolved).exists()) {
+        out[i + 1] = resolved;
+      } else {
+        _log.w('RetroArch core "$core" not found in $coresDir');
+      }
+    }
+    return out;
+  }
+
   /// Resolves the absolute path for a specific RetroArch core library.
   static Future<String?> _getCoreFullPath(String coreName) async {
     try {
@@ -1374,21 +1494,21 @@ class GameLaunchService {
     final retroArchDir = path.dirname(retroArch.path);
 
     if (Platform.isLinux) {
-      final homeDir = Platform.environment['HOME'] ?? '';
+      // Cores are almost never beside the executable here, and the install type
+      // is not readable from the path: an EmuDeck launcher script is a
+      // `flatpak run` wrapper but looks like a plain shell script, so the old
+      // `path.contains('flatpak')` test missed it and sent the launch at a
+      // cores directory that does not exist. Probe the known layouts instead.
+      final resolved = await LinuxEmulatorDiscovery.resolveRetroArchCoresDir(
+        retroArch.path,
+      );
+      if (resolved != null) return resolved;
 
-      if (retroArch.path.contains('flatpak')) {
-        return path.join(
-          homeDir,
-          '.var/app/org.libretro.RetroArch/config/retroarch/cores',
-        );
-      }
-
-      final configCores = path.join(homeDir, '.config/retroarch/cores');
-      if (await Directory(configCores).exists()) {
-        return configCores;
-      }
-
-      return path.join(retroArchDir, 'cores');
+      // Nothing exists yet; hand back the most likely location so the caller's
+      // "cores directory not found" message names somewhere actionable.
+      return LinuxEmulatorDiscovery.retroArchCoresDirCandidates(
+        retroArch.path,
+      ).first;
     } else if (Platform.isMacOS) {
       final homeDir = ConfigService.getRealHomePath();
       return path.join(homeDir, 'Library/Application Support/RetroArch/cores');
@@ -1430,7 +1550,13 @@ class GameLaunchService {
     if (!Platform.isLinux && !Platform.isMacOS) return false;
 
     try {
-      final result = await Process.run('pgrep', ['-i', '-f', processName]);
+      // On the host, because a sandbox has its own PID namespace and would see
+      // none of the emulators it started.
+      final result = await LinuxHostProcess.run('pgrep', [
+        '-i',
+        '-f',
+        processName,
+      ]);
       return result.exitCode == 0;
     } catch (e) {
       _log.e('Error checking if $processName is running (unix): $e');

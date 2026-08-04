@@ -12,6 +12,8 @@ extension _GamepadNav on _SystemEmulatorSettingsDialogState {
     _gamepadNav = GamepadNavigation(
       onNavigateUp: _navigateUp,
       onNavigateDown: _navigateDown,
+      onNavigateLeft: _navigateLeft,
+      onNavigateRight: _navigateRight,
       onPreviousTab: _previousTab,
       onNextTab: _nextTab,
       onSelectItem: _handleSelectItem,
@@ -54,6 +56,7 @@ extension _GamepadNav on _SystemEmulatorSettingsDialogState {
         if (_displayItems[candidate] is! EmulatorHeaderItem) {
           rebuild(() {
             _selectedIndex = candidate;
+            _emulatorActionIndex = 0;
           });
           break;
         }
@@ -96,6 +99,7 @@ extension _GamepadNav on _SystemEmulatorSettingsDialogState {
         if (_displayItems[candidate] is! EmulatorHeaderItem) {
           rebuild(() {
             _selectedIndex = candidate;
+            _emulatorActionIndex = 0;
           });
           break;
         }
@@ -116,6 +120,20 @@ extension _GamepadNav on _SystemEmulatorSettingsDialogState {
     }
   }
 
+  void _navigateLeft() {
+    if (_currentTab != 1 || Platform.isAndroid || _openMenuIndex != -1) return;
+    if (_emulatorActionIndex == 0) return;
+    SfxService().playNavSound();
+    rebuild(() => _emulatorActionIndex = 0);
+  }
+
+  void _navigateRight() {
+    if (_currentTab != 1 || Platform.isAndroid || _openMenuIndex != -1) return;
+    if (_emulatorActionIndex == 1) return;
+    SfxService().playNavSound();
+    rebuild(() => _emulatorActionIndex = 1);
+  }
+
   void _previousTab() {
     List<int> availableTabs = [0, 2];
     if (widget.system.folderName != 'all' &&
@@ -128,6 +146,7 @@ extension _GamepadNav on _SystemEmulatorSettingsDialogState {
         (currentIndex - 1 + availableTabs.length) % availableTabs.length;
     rebuild(() {
       _currentTab = availableTabs[prevIndex];
+      _emulatorActionIndex = 0;
     });
   }
 
@@ -142,6 +161,7 @@ extension _GamepadNav on _SystemEmulatorSettingsDialogState {
     int nextIndex = (currentIndex + 1) % availableTabs.length;
     rebuild(() {
       _currentTab = availableTabs[nextIndex];
+      _emulatorActionIndex = 0;
     });
   }
 
@@ -155,7 +175,17 @@ extension _GamepadNav on _SystemEmulatorSettingsDialogState {
     }
     if (_currentTab == 1) {
       if (_totalEmulators == 0) return;
-      _setSelectedAsDefault();
+      if (_emulatorActionIndex == 1 && !Platform.isAndroid) {
+        final item = _displayItems[_selectedIndex];
+        if (item is EmulatorStandaloneItem) {
+          _configureStandalonePath(item.standalone);
+        } else if (item is EmulatorCoreItem ||
+            item is EmulatorGroupedCoreItem) {
+          _configureRetroArchPath();
+        }
+      } else {
+        _setSelectedAsDefault();
+      }
     } else if (_currentTab == 0) {
       if (_generalIndex == 0) {
         _togglePreferFileName(!_system.preferFileName);

@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sqlite3/sqlite3.dart';
 import 'package:neostation/data/datasources/sqlite_migrations.dart';
 
-/// Tests for migration v110, which creates the entire RomM schema in one step:
+/// Tests for migration v111, which creates the entire RomM schema in one step:
 /// the config/rom-map/playtime tables, the `hide_tab_romm` flag, and the
 /// provider-scoping rebuild of `app_neo_sync_state`.
 ///
@@ -14,7 +14,7 @@ void main() {
 
   setUp(() {
     db = sqlite3.openInMemory();
-    // v110 adds a column to user_config, which every real database has by then.
+    // v111 adds a column to user_config, which every real database has by then.
     db.execute('CREATE TABLE user_config (id INTEGER PRIMARY KEY)');
   });
 
@@ -22,7 +22,7 @@ void main() {
     db.close();
   });
 
-  Future<void> runV110() => SqliteMigrations.migrateToVersion(db, 110);
+  Future<void> runV111() => SqliteMigrations.migrateToVersion(db, 111);
 
   bool tableExists(String name) => db.select(
     "SELECT name FROM sqlite_master WHERE type='table' AND name=? LIMIT 1",
@@ -37,7 +37,7 @@ void main() {
   test('creates every RomM table and the nav-tab flag', () async {
     expect(tableExists('user_romm_config'), isFalse);
 
-    await runV110();
+    await runV111();
 
     expect(tableExists('user_romm_config'), isTrue);
     expect(tableExists('app_romm_rom_map'), isTrue);
@@ -61,7 +61,7 @@ void main() {
         "VALUES (1, 'https://romm.local', 'testuser')",
       );
 
-      await runV110();
+      await runV111();
 
       final rows = db.select(
         'SELECT server_url, username FROM user_romm_config',
@@ -73,7 +73,7 @@ void main() {
   );
 
   test('provider-scopes a legacy app_neo_sync_state', () async {
-    // The pre-v110 shape: keyed on file_path alone, no provider column.
+    // The pre-v111 shape: keyed on file_path alone, no provider column.
     db.execute('''
       CREATE TABLE app_neo_sync_state (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -90,7 +90,7 @@ void main() {
       "VALUES ('/saves/game.srm', 1, 2, 3, 'abc')",
     );
 
-    await runV110();
+    await runV111();
 
     expect(columnsOf('app_neo_sync_state'), contains('provider'));
     final rows = db.select(
@@ -105,7 +105,7 @@ void main() {
   });
 
   test('lets both providers hold state for the same file afterwards', () async {
-    await runV110();
+    await runV111();
 
     db.execute(
       "INSERT INTO app_neo_sync_state "

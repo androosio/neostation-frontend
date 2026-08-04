@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import '../models/core_emulator_model.dart';
+import '../services/macos_application_service.dart';
 import '../models/emulator_model.dart';
 import '../data/datasources/sqlite_service.dart';
 import '../services/android_service.dart';
@@ -65,15 +68,44 @@ class EmulatorRepository {
   static Future<void> setStandaloneEmulatorPath(
     String emulatorUniqueId,
     String path,
-  ) => SqliteService.setStandaloneEmulatorPath(emulatorUniqueId, path);
+  ) async {
+    final resolvedPath = await _resolveMacOsPath(
+      path,
+      bundleIdentifierHint: emulatorUniqueId,
+    );
+    await SqliteService.setStandaloneEmulatorPath(
+      emulatorUniqueId,
+      resolvedPath,
+    );
+  }
 
   static Future<void> saveDetectedEmulatorPath({
     required String emulatorName,
     required String emulatorPath,
-  }) => SqliteService.saveDetectedEmulatorPath(
-    emulatorName: emulatorName,
-    emulatorPath: emulatorPath,
-  );
+  }) async {
+    final resolvedPath = await _resolveMacOsPath(
+      emulatorPath,
+      applicationName: emulatorName,
+    );
+    await SqliteService.saveDetectedEmulatorPath(
+      emulatorName: emulatorName,
+      emulatorPath: resolvedPath,
+    );
+  }
+
+  static Future<String> _resolveMacOsPath(
+    String configuredPath, {
+    String? applicationName,
+    String? bundleIdentifierHint,
+  }) async {
+    if (!Platform.isMacOS) return configuredPath;
+    return await MacOsApplicationService.resolveExecutable(
+          configuredPath,
+          applicationName: applicationName,
+          bundleIdentifierHint: bundleIdentifierHint,
+        ) ??
+        configuredPath;
+  }
 
   // ── Default emulator resolution ───────────────────────────────────────────
 

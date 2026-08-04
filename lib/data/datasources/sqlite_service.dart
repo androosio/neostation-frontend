@@ -421,7 +421,7 @@ class SqliteService {
   SqliteService._internal();
 
   // Database configuration
-  static const int _databaseVersion = 110;
+  static const int _databaseVersion = 111;
   static const String _databaseName = 'data.sqlite';
 
   DatabaseAdapter? _database;
@@ -1363,14 +1363,14 @@ class SqliteService {
     }
 
     // FIX: Ensure app_neo_sync_state exists (legacy support for v58). New
-    // installs get the provider-scoped schema (v110); pre-existing tables are
-    // upgraded by migration v110, so IF NOT EXISTS here never masks that.
+    // installs get the provider-scoped schema (v111); pre-existing tables are
+    // upgraded by migration v111, so IF NOT EXISTS here never masks that.
     await db.execute(SqliteMigrations.createAppNeoSyncStateTableSql);
-    // The index spans `provider`, which migration v110 adds — and this runs
-    // *before* migrations. On a database still at the pre-v110 schema the
+    // The index spans `provider`, which migration v111 adds — and this runs
+    // *before* migrations. On a database still at the pre-v111 schema the
     // CREATE INDEX raises "no such column: provider" and aborts init before
-    // v110 can ever run, leaving every launch to fail the same way. Create it
-    // only once the column is there; v110 creates it as part of the upgrade.
+    // v111 can ever run, leaving every launch to fail the same way. Create it
+    // only once the column is there; v111 creates it as part of the upgrade.
     final neoSyncColumns = await db.rawQuery(
       'PRAGMA table_info(app_neo_sync_state);',
     );
@@ -1381,7 +1381,7 @@ class SqliteService {
       await db.execute(SqliteMigrations.createAppNeoSyncStateIndexSql);
     }
 
-    // The RomM tables are created by migration v110 and by the fresh-install
+    // The RomM tables are created by migration v111 and by the fresh-install
     // table list — the only two sources, per the maintainer's
     // versioned-migrations-only policy. No on-launch CREATE safety net here:
     // it would only mask a failed migration as a later runtime "no such table"
@@ -1765,6 +1765,7 @@ class SqliteService {
         active_theme TEXT DEFAULT '',
         hide_recent_card INTEGER DEFAULT 0,
         legend_hidden INTEGER DEFAULT 0,
+        game_details_tab TEXT DEFAULT 'wheel',
         hide_tab_sync INTEGER DEFAULT 0,
         hide_tab_achievements INTEGER DEFAULT 0,
         hide_tab_scraper INTEGER DEFAULT 0,
@@ -2536,6 +2537,7 @@ class SqliteService {
     String? activeTheme,
     int? hideRecentCard,
     int? legendHidden,
+    String? gameDetailsTab,
     int? hideTabSync,
     int? hideTabAchievements,
     int? hideTabScraper,
@@ -2618,6 +2620,9 @@ class SqliteService {
     }
     if (legendHidden != null) {
       newConfig['legend_hidden'] = legendHidden;
+    }
+    if (gameDetailsTab != null) {
+      newConfig['game_details_tab'] = gameDetailsTab;
     }
     if (hideTabSync != null) {
       newConfig['hide_tab_sync'] = hideTabSync;
@@ -4633,6 +4638,7 @@ class SqliteService {
           path: '',
           detected: false,
           possiblePaths: {},
+          uniqueId: row['unique_identifier']?.toString(),
         ),
       );
     }

@@ -10,6 +10,7 @@ import 'package:neostation/providers/theme_provider.dart';
 import 'package:neostation/providers/neo_assets_provider.dart';
 import 'package:neostation/services/sfx_service.dart';
 import 'package:neostation/widgets/custom_notification.dart';
+import 'package:neostation/widgets/shimmering_logo.dart';
 import 'package:neostation/providers/retro_achievements_provider.dart';
 import 'package:video_player/video_player.dart';
 import 'package:provider/provider.dart';
@@ -47,6 +48,7 @@ import '../../widgets/game_action_buttons.dart';
 import '../../widgets/legend_edge_reshow_zone.dart';
 import '../../widgets/letter_indicator.dart';
 import '../../constants/system_folder_names.dart';
+import '../../utils/artwork_cache.dart';
 import '../../utils/game_list_update.dart';
 import '../../themes/corner_radii.dart';
 
@@ -174,6 +176,10 @@ class _SystemGamesListState extends State<SystemGamesList> {
   // carousel views, which have no details card to own the scrape).
   bool _isScrapingSelectedGame = false;
 
+  // Localized step of that scrape, forwarded to the details card so its
+  // progress panel reads the same whoever started the scrape.
+  String _selectedScrapeStatus = '';
+
   // Bumped whenever artwork is replaced so background/detail images rebuild.
   int _artworkVersion = 0;
 
@@ -272,7 +278,9 @@ class _SystemGamesListState extends State<SystemGamesList> {
   void _invalidateArtworkCaches() {
     GamesGrid.evictArtworkCaches(const []);
     GamesCarousel.evictArtworkCaches(const []);
-    PaintingBinding.instance.imageCache.clear();
+    final imageCache = PaintingBinding.instance.imageCache;
+    imageCache.clear();
+    imageCache.clearLiveImages();
   }
 
   /// Synchronizes UI state with global configuration changes.
@@ -638,92 +646,37 @@ class _SystemGamesListState extends State<SystemGamesList> {
     return LetterIndicator(letter: _currentLetter!, visible: _isLetterJumping);
   }
 
-  /// Visual placeholder for initial data hydration.
+  /// Visual placeholder for initial data hydration. Matches the startup
+  /// splash: shimmering logo with quiet supporting text, no card chrome.
   Widget _buildLoadingState() {
     return Center(
-      child: Container(
-        padding: EdgeInsets.all(32.w),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.9),
-          borderRadius:
-              Theme.of(context).extension<CornerRadii>()?.radiusExternal ??
-              BorderRadius.circular(14.r),
-          border: Border.all(
-            color: Theme.of(context).colorScheme.outline,
-            width: 1.r,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ShimmeringLogo(width: 200.r),
+          SizedBox(height: 24.r),
+          Text(
+            AppLocale.loadingGames.getString(context),
+            style: TextStyle(
+              fontSize: 20.r,
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).colorScheme.onSurface,
+              letterSpacing: 0.5,
+            ),
           ),
-          boxShadow: [
-            BoxShadow(
+          SizedBox(height: 8.r),
+          Text(
+            AppLocale.preparingLibrary.getString(context),
+            style: TextStyle(
+              fontSize: 14.r,
+              fontWeight: FontWeight.w400,
               color: Theme.of(
                 context,
-              ).colorScheme.shadow.withValues(alpha: 0.5),
-              blurRadius: 3.r,
-              offset: Offset(2.r, 2.r),
+              ).colorScheme.onSurface.withValues(alpha: 0.7),
+              letterSpacing: 0.3,
             ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 64.r,
-              height: 64.r,
-              decoration: BoxDecoration(
-                color: Theme.of(
-                  context,
-                ).colorScheme.surface.withValues(alpha: 0.9),
-                borderRadius:
-                    Theme.of(
-                      context,
-                    ).extension<CornerRadii>()?.radiusExternal ??
-                    BorderRadius.circular(14.r),
-                border: Border.all(
-                  color: Theme.of(context).colorScheme.outline,
-                  width: 1.r,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.shadow.withValues(alpha: 0.5),
-                    blurRadius: 3.r,
-                    offset: Offset(2.r, 2.r),
-                  ),
-                ],
-              ),
-              child: Center(
-                child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    Theme.of(context).colorScheme.onSurface,
-                  ),
-                  strokeWidth: 3.r,
-                ),
-              ),
-            ),
-            SizedBox(height: 24.r),
-            Text(
-              AppLocale.loadingGames.getString(context),
-              style: TextStyle(
-                fontSize: 20.r,
-                fontWeight: FontWeight.w600,
-                color: Theme.of(context).colorScheme.onSurface,
-                letterSpacing: 0.5,
-              ),
-            ),
-            SizedBox(height: 8.r),
-            Text(
-              AppLocale.preparingLibrary.getString(context),
-              style: TextStyle(
-                fontSize: 14.r,
-                fontWeight: FontWeight.w400,
-                color: Theme.of(
-                  context,
-                ).colorScheme.onSurface.withValues(alpha: 0.7),
-                letterSpacing: 0.3,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -1342,6 +1295,7 @@ class _SystemGamesListState extends State<SystemGamesList> {
                   selectedIndex: _selectedGameIndex,
                   systemColor: widget.system.colorAsColor,
                   onGameSelected: _selectGame,
+                  onGameConfirmed: _selectCurrentGame,
                   isAllMode:
                       widget.system.folderName == 'all' ||
                       widget.system.folderName == SystemFolderNames.favorites,
@@ -1445,9 +1399,12 @@ class _SystemGamesListState extends State<SystemGamesList> {
         retroAchievementsProvider: _retroAchievementsProvider,
         syncProvider: syncManager.active!,
         localizedDescription: _localizedDescription,
+        artworkVersion: _artworkVersion,
         isExternallyScraping: _scrapingGameRomnames.contains(
           _selectedGame!.romname,
         ),
+        externalScrapeProgress: _scrapeProgress[_selectedGame!.romname],
+        externalScrapeStatus: _selectedScrapeStatus,
         isNavigatingFast: _isNavigatingFast,
         isSecondaryScreenActive:
             _secondaryDisplayState?.value?.isSecondaryActive ?? false,
@@ -1568,11 +1525,11 @@ class _SystemGamesListState extends State<SystemGamesList> {
       if (updatedGame != null) {
         final artworkFolder =
             updatedGame.systemFolderName ?? widget.system.primaryFolderName;
-        final artworkPaths = [
-          updatedGame.getScreenshotPath(artworkFolder, _fileProvider),
-          updatedGame.getImagePath(artworkFolder, 'box2d', _fileProvider),
-          updatedGame.getImagePath(artworkFolder, 'fanarts', _fileProvider),
-        ];
+        final artworkPaths = scrapedArtworkPaths(
+          updatedGame,
+          artworkFolder,
+          _fileProvider,
+        );
         GamesGrid.evictArtworkCaches(artworkPaths);
         GamesCarousel.evictArtworkCaches(artworkPaths);
         setState(() {
@@ -1591,7 +1548,10 @@ class _SystemGamesListState extends State<SystemGamesList> {
         _reorderGamesListFollowingGame(updatedGame.romname);
 
         if (mounted && _selectedGame != null) {
-          _updateSecondaryDisplay(updatedGame);
+          // A re-scrape rewrites the art at the same paths, so the dedup in
+          // the push below would skip it and the secondary engine would keep
+          // showing the bitmap it already decoded.
+          _updateSecondaryDisplay(updatedGame, forceMediaRefresh: true);
           _updateBackground(updatedGame);
           _startVideoTimer();
         }
@@ -1645,6 +1605,7 @@ class _SystemGamesListState extends State<SystemGamesList> {
     setState(() {
       _scrapingGameRomnames.add(game.romname);
       _scrapeProgress[game.romname] = 0.0;
+      _selectedScrapeStatus = AppLocale.scrapingGameData.getString(context);
     });
 
     AppNotification.showNotification(
@@ -1678,12 +1639,14 @@ class _SystemGamesListState extends State<SystemGamesList> {
         forceOverwrite: forceOverwrite,
         onProgress: (statusKey, progress) {
           if (!mounted) return;
+          final localizedStatus = statusKey.getString(context);
           setState(() {
             _scrapeProgress[game.romname] = progress;
+            _selectedScrapeStatus = localizedStatus;
           });
           if (secondaryState != null && isSecondaryActive) {
             secondaryState.updateState(
-              scrapeStatus: statusKey.getString(context),
+              scrapeStatus: localizedStatus,
               scrapeProgress: progress,
             );
           }
@@ -1692,22 +1655,12 @@ class _SystemGamesListState extends State<SystemGamesList> {
 
       if (!mounted) return;
       if (result['success'] == true) {
-        // Evict cached artwork so the grid rebuilds with the new assets.
-        try {
-          final imagesToEvict = [
-            game.getScreenshotPath(targetSystemFolder, _fileProvider),
-            game.getImagePath(targetSystemFolder, 'wheels', _fileProvider),
-            game.getImagePath(targetSystemFolder, 'fanarts', _fileProvider),
-          ];
-          for (final imagePath in imagesToEvict) {
-            final imageFile = File(imagePath);
-            if (await imageFile.exists()) {
-              await FileImage(imageFile).evict();
-            }
-          }
-        } catch (e) {
-          _log.e('Image cache eviction failed: $e');
-        }
+        // Drop the decoded copies of every artwork file the scrape may have
+        // rewritten, so the rebuild below reads the new files from disk.
+        await evictScrapedArtwork(
+          scrapedArtworkPaths(game, targetSystemFolder, _fileProvider),
+        );
+        if (!mounted) return;
 
         await _handleGameUpdated();
         if (mounted) {
@@ -1739,6 +1692,7 @@ class _SystemGamesListState extends State<SystemGamesList> {
         setState(() {
           _scrapingGameRomnames.remove(game.romname);
           _scrapeProgress.remove(game.romname);
+          _selectedScrapeStatus = '';
         });
         if (secondaryState != null && isSecondaryActive) {
           // Latency buffer so file descriptors release before the secondary

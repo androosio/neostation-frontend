@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:neostation/models/core_emulator_model.dart';
 import 'package:neostation/models/system_model.dart';
 import 'package:neostation/repositories/emulator_repository.dart';
+import 'package:neostation/services/launcher_service.dart';
+import 'package:neostation/services/linux_emulator_discovery.dart';
 import 'package:neostation/services/logger_service.dart';
 
 /// Hydrates the list of supported emulators for [system], verifying package
@@ -68,8 +70,21 @@ Future<List<CoreEmulatorModel>> loadEmulatorsForSystem(
       // locate a readable cores dir (layout varies by platform/install), fail
       // OPEN and keep the executable-based assumption rather than hide a
       // genuinely-installed core.
-      final retroArchPath =
-          await EmulatorRepository.getRetroArchExecutablePath();
+      var retroArchPath = await EmulatorRepository.getRetroArchExecutablePath();
+
+      // Linux ships RetroArch as a Flatpak or behind an EmuDeck launcher
+      // script, so the database holds no path for it until the user points a
+      // file picker at one — which this feature exists to avoid. Without
+      // discovery here the probe below is skipped entirely and every core is
+      // reported uninstalled on a machine that has all of them installed.
+      if (Platform.isLinux &&
+          (retroArchPath == null || retroArchPath.isEmpty)) {
+        retroArchPath = await LinuxEmulatorDiscovery.resolveExecutable(
+          executable: 'retroarch',
+          flatpakId: 'org.libretro.RetroArch',
+          emudeckLauncher: 'retroarch.sh',
+        );
+      }
 
       // Baseline: on desktop a configured executable path is the only evidence
       // the database holds, so it stands in as the install verdict for anything
@@ -79,11 +94,58 @@ Future<List<CoreEmulatorModel>> loadEmulatorsForSystem(
           .map((e) => e.copyWith(isInstalled: e.hasConfiguredPath))
           .toList();
 
+      // Linux: nothing configures a path on a Deck — emulators arrive as
+      // Flatpaks and EmuDeck launcher scripts — so the baseline above reports
+      // every standalone as uninstalled. Selection then cannot see that a
+      // working standalone exists and falls back to the JSON default, which for
+      // several systems is a RetroArch core the user never installed: RetroArch
+      // rejects the missing core at parse time, exits 0, and the game "launches"
+      // and instantly closes (verified on a Steam Deck with GameCube, where
+      // Standalone Dolphin was installed and discoverable the whole time).
+      //
+      // Ask discovery instead. A resolvable executable is the same evidence a
+      // configured path is, just gathered rather than typed in.
+      if (Platform.isLinux) {
+        await LauncherService.instance.loadSystemConfig(
+          '${system.folderName}.json',
+        );
+        final updated = <CoreEmulatorModel>[];
+        for (final e in emulators) {
+          if (e.isInstalled || !e.isStandalone) {
+            updated.add(e);
+            continue;
+          }
+          final hints = LauncherService.instance.getLinuxDiscoveryHints(
+            system.folderName,
+            e.uniqueId,
+          );
+          if (hints == null) {
+            updated.add(e);
+            continue;
+          }
+          final resolved = await LinuxEmulatorDiscovery.resolveExecutable(
+            executable: hints['executable']!,
+            flatpakId: hints['flatpak'],
+            emudeckLauncher: hints['emudeck_launcher'],
+          );
+          updated.add(e.copyWith(isInstalled: resolved != null));
+        }
+        emulators = updated;
+      }
+
       if (retroArchPath != null && retroArchPath.isNotEmpty) {
-        final coresDir =
-            '${File(retroArchPath).parent.path}'
-            '${Platform.pathSeparator}cores';
-        final coresDirReadable = await Directory(coresDir).exists();
+        // Linux keeps cores away from the executable (Flatpak's ~/.var tree,
+        // or a distro's /usr/lib/libretro), so assuming a sibling `cores/`
+        // marks every genuinely-installed core as missing. Ask the discovery
+        // service, which probes the layouts that actually occur.
+        final coresDir = Platform.isLinux
+            ? await LinuxEmulatorDiscovery.resolveRetroArchCoresDir(
+                retroArchPath,
+              )
+            : '${File(retroArchPath).parent.path}'
+                  '${Platform.pathSeparator}cores';
+        final coresDirReadable =
+            coresDir != null && await Directory(coresDir).exists();
         final updated = <CoreEmulatorModel>[];
         for (final e in emulators) {
           final uid = e.uniqueId;

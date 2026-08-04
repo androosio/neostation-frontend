@@ -38,6 +38,7 @@ extension _GamepadGridNav on _SystemCardGridViewState {
       },
       onSelectItem: () => widget.onEnterPressed?.call(),
       onSettings: () => widget.onEscapePressed?.call(),
+      onBack: AppNavigation.requestExit,
       onXButton: () {
         HeaderSortDropdown.globalKey.currentState?.showDropdown();
       },

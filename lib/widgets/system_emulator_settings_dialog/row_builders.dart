@@ -13,6 +13,7 @@ extension _RowBuilders on _SystemEmulatorSettingsDialogState {
     bool isSelected,
   ) {
     final theme = Theme.of(context);
+    final isPickerSelected = isSelected && _emulatorActionIndex == 1;
     final isConfigured = Platform.isAndroid
         ? item.isInstalled
         : item.retroArchConfigured;
@@ -381,9 +382,11 @@ extension _RowBuilders on _SystemEmulatorSettingsDialogState {
                     child: Container(
                       margin: EdgeInsets.only(left: 8.r),
                       decoration: BoxDecoration(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.onSurface.withValues(alpha: 0.1),
+                        color: isPickerSelected
+                            ? theme.colorScheme.primary.withValues(alpha: 0.28)
+                            : theme.colorScheme.onSurface.withValues(
+                                alpha: 0.1,
+                              ),
                         borderRadius:
                             Theme.of(
                               context,
@@ -412,7 +415,9 @@ extension _RowBuilders on _SystemEmulatorSettingsDialogState {
                             child: Icon(
                               Symbols.folder_open_rounded,
                               size: 14.r,
-                              color: Theme.of(context).colorScheme.onSurface,
+                              color: isPickerSelected
+                                  ? theme.colorScheme.primary
+                                  : theme.colorScheme.onSurface,
                             ),
                           ),
                         ),
@@ -435,6 +440,8 @@ extension _RowBuilders on _SystemEmulatorSettingsDialogState {
     String? retroArchPath,
   ) {
     final customColors = AppThemes.getCustomColors(context);
+    final theme = Theme.of(context);
+    final isPickerSelected = isSelected && _emulatorActionIndex == 1;
     return Container(
       margin: EdgeInsets.only(bottom: 6.r),
       decoration: BoxDecoration(
@@ -637,9 +644,11 @@ extension _RowBuilders on _SystemEmulatorSettingsDialogState {
                     child: Container(
                       margin: EdgeInsets.only(left: 8.r, right: 8.r),
                       decoration: BoxDecoration(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.onSurface.withValues(alpha: 0.1),
+                        color: isPickerSelected
+                            ? theme.colorScheme.primary.withValues(alpha: 0.28)
+                            : theme.colorScheme.onSurface.withValues(
+                                alpha: 0.1,
+                              ),
                         borderRadius:
                             Theme.of(
                               context,
@@ -668,7 +677,9 @@ extension _RowBuilders on _SystemEmulatorSettingsDialogState {
                             child: Icon(
                               Symbols.folder_open_rounded,
                               size: 14.r,
-                              color: Theme.of(context).colorScheme.onSurface,
+                              color: isPickerSelected
+                                  ? theme.colorScheme.primary
+                                  : theme.colorScheme.onSurface,
                             ),
                           ),
                         ),
@@ -793,6 +804,7 @@ extension _RowBuilders on _SystemEmulatorSettingsDialogState {
     final standalone = item.standalone;
     final isInstalled = item.isInstalled;
     final theme = Theme.of(context);
+    final isPickerSelected = isSelected && _emulatorActionIndex == 1;
 
     // Status logic (Android: installed, Desktop: configured)
     final isConfigured = Platform.isAndroid
@@ -1069,9 +1081,11 @@ extension _RowBuilders on _SystemEmulatorSettingsDialogState {
                     child: Container(
                       margin: EdgeInsets.only(left: 8.r),
                       decoration: BoxDecoration(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.onSurface.withValues(alpha: 0.1),
+                        color: isPickerSelected
+                            ? theme.colorScheme.primary.withValues(alpha: 0.28)
+                            : theme.colorScheme.onSurface.withValues(
+                                alpha: 0.1,
+                              ),
                         borderRadius:
                             Theme.of(
                               context,
@@ -1100,7 +1114,9 @@ extension _RowBuilders on _SystemEmulatorSettingsDialogState {
                             child: Icon(
                               Symbols.folder_open_rounded,
                               size: 14.r,
-                              color: Theme.of(context).colorScheme.onSurface,
+                              color: isPickerSelected
+                                  ? theme.colorScheme.primary
+                                  : theme.colorScheme.onSurface,
                             ),
                           ),
                         ),

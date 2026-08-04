@@ -3,7 +3,6 @@ import 'package:flutter_localization/flutter_localization.dart';
 import 'package:neostation/l10n/app_locale.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:video_player/video_player.dart';
-import 'dart:io';
 import 'dart:async';
 import '../../../models/system_model.dart';
 import '../../../models/game_model.dart';
@@ -13,6 +12,7 @@ import '../../../sync/i_sync_provider.dart';
 import '../../../models/retro_achievements_game_info.dart';
 import '../../../repositories/game_repository.dart';
 import '../../../services/retro_achievements_helper.dart';
+import '../../../utils/artwork_cache.dart';
 import '../../../utils/gamepad_nav.dart';
 import 'package:flutter/foundation.dart';
 
@@ -26,6 +26,7 @@ import 'package:neostation/widgets/custom_notification.dart';
 import '../../../models/secondary_display_state.dart';
 import 'widgets/game_details_footer.dart';
 import 'widgets/game_details_tabs_header.dart';
+import 'widgets/scraping_progress_panel.dart';
 import 'tabs/game_details_general_tab.dart';
 import 'tabs/game_details_box2d_tab.dart';
 import 'tabs/game_details_screenshot_video_tab.dart';
@@ -49,10 +50,21 @@ class GameDetailsCardList extends StatefulWidget {
   final ISyncProvider syncProvider;
   final String? localizedDescription;
 
+  /// Bumped by the games list whenever this game's artwork files change on
+  /// disk — a scrape, or a media file replaced from the settings dialog. The
+  /// card folds it into its own version so the artwork tabs reload; without it
+  /// they keep the decode they already resolved until another game is selected.
+  final int artworkVersion;
+
   /// True when an external (list-level) scrape is running for this game, e.g.
   /// triggered by the Select button. Drives the scrape button spinner so the
   /// feedback matches a scrape started from the button itself.
   final bool isExternallyScraping;
+
+  /// Progress and step of that external scrape, so the card's progress panel
+  /// reports it exactly as it reports a scrape the card started itself.
+  final double? externalScrapeProgress;
+  final String? externalScrapeStatus;
 
   final VoidCallback? onDeactivateNavigation;
   final VoidCallback? onReactivateNavigation;
@@ -120,7 +132,10 @@ class GameDetailsCardList extends StatefulWidget {
     required this.retroAchievementsProvider,
     required this.syncProvider,
     this.localizedDescription,
+    this.artworkVersion = 0,
     this.isExternallyScraping = false,
+    this.externalScrapeProgress,
+    this.externalScrapeStatus,
     this.onDeactivateNavigation,
     this.onReactivateNavigation,
     this.onShowAchievements,
@@ -191,6 +206,10 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
   int _imageVersion =
       0; // Cache-busting version for images after metadata refreshes.
 
+  /// Cache-busting version for the artwork tabs, covering both the card's own
+  /// scrape and artwork the games list saw change underneath it.
+  int get _artworkImageVersion => _imageVersion + widget.artworkVersion;
+
   Future<Uint8List?>? _androidAppIconFuture;
   SecondaryDisplayState? _secondaryState;
   int _lastScrapeTrigger = 0;
@@ -250,10 +269,17 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
 
     _currentTab = DetailTab.wheel;
 
-    // Reset primary UI 'Game Info' overlay to ensure clean state transitions.
+    // Restore the last tab the user picked with L1/R1. Deferred to the first
+    // frame so _setTab can run its side effects (game info overlay, video
+    // delay) exactly as it would for a live tab change.
+    final restoredTab = _persistedTab();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
+      if (!mounted) return;
+      if (restoredTab == DetailTab.wheel) {
+        // Reset primary UI 'Game Info' overlay to ensure clean state transitions.
         context.read<SqliteConfigProvider>().updateShowGameInfo(false);
+      } else {
+        _setTab(restoredTab, persist: false);
       }
     });
 
@@ -295,7 +321,8 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
     widget.onToggleVideoMute?.call(_toggleVideoMute);
 
     widget.onToggleInfo?.call(() {
-      if (_currentTab == DetailTab.screenshotVideo && _isScrapingGame == false) {
+      if (_currentTab == DetailTab.screenshotVideo &&
+          _isScrapingGame == false) {
         if (_game.getDescriptionForLanguage('en').isEmpty ||
             _game.getDescriptionForLanguage('en') ==
                 'No description available.') {
@@ -318,9 +345,7 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
       () => _currentTab != DetailTab.wheel,
       () => _currentTab == DetailTab.achievements,
     );
-    widget.onRegisterCloseOverlays?.call(() {
-      _setTab(DetailTab.wheel);
-    });
+    widget.onRegisterCloseOverlays?.call(_closeAllOverlays);
     widget.onRegisterTabNavigation?.call(_handleTabNavigation);
     widget.onRegisterSelectButton?.call(_handleSelectAction);
     widget.onRegisterScrapeAction?.call(_onScrapeGameCompact);
@@ -642,6 +667,7 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
               system: _effectiveSystem,
               game: _game,
               fileProvider: widget.fileProvider,
+              imageVersion: _artworkImageVersion,
               androidAppIconFuture: _androidAppIconFuture,
             ),
           if (_currentTab == DetailTab.box2d)
@@ -649,6 +675,7 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
               system: _effectiveSystem,
               game: _game,
               fileProvider: widget.fileProvider,
+              imageVersion: _artworkImageVersion,
             ),
           Visibility(
             visible: _currentTab == DetailTab.screenshotVideo,
@@ -660,7 +687,7 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
               screenshotPath: screenshotPath,
               isVideoDelayActive: _isVideoDelayActive,
               videoController: widget.videoController,
-              imageVersion: _imageVersion,
+              imageVersion: _artworkImageVersion,
               onToggleVideoMute: _toggleVideoMute,
             ),
           ),
@@ -675,9 +702,6 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
                       ? AppLocale.noDescription.getString(context)
                       : _game.getDescriptionForLanguage('en')),
               isScrapingGame: _isScrapingGame || widget.isExternallyScraping,
-              scrapeProgress: _scrapeProgress,
-              scrapeStatus: _scrapeStatus,
-              isSecondaryScreenActive: widget.isSecondaryScreenActive,
               onScrapeGame: _onScrapeGameCompact,
             ),
           if (_currentTab == DetailTab.achievements)
@@ -686,6 +710,19 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
               gameInfo: _currentGameInfo,
               isLoading: _isLoadingAchievements,
               onRefresh: refreshAchievements,
+            ),
+
+          // Scrape feedback for every tab. A scrape can start from any of them
+          // (the Scrape button, Select + A, or the games list), so it is drawn
+          // over the tab panels rather than inside one of them.
+          if (_isScrapingGame || widget.isExternallyScraping)
+            ScrapingProgressPanel(
+              progress: _isScrapingGame
+                  ? _scrapeProgress
+                  : (widget.externalScrapeProgress ?? 0.0),
+              status: _isScrapingGame
+                  ? _scrapeStatus
+                  : (widget.externalScrapeStatus ?? ''),
             ),
         ],
       ),
@@ -705,9 +742,9 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
         description == AppLocale.noDescription.getString(context) ||
         description.trim().isEmpty;
 
-    if (!widget.isSecondaryScreenActive) {
-      _setTab(DetailTab.screenshotVideo);
-    }
+    // No tab switch at all: the progress panel overlays whichever tab is open,
+    // so the user stays where they were — and the tab they chose stays the
+    // remembered one (#284).
     _startSingleGameScrape(forceOverwrite: !isDescriptionMissing);
   }
 
@@ -731,26 +768,45 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
 
   /// Handles secondary hardware actions (typically mapped to X or RB).
   void _handleSecondaryAction() {
-    if (!_isGameInfoHidden) {
-      _setTab(DetailTab.screenshotVideo);
-    } else {
-      return;
-    }
+    // Unchanged condition — the action stays tied to the screenshot tab being
+    // available — but it no longer switches to that tab: the progress panel
+    // overlays whichever tab the user is on.
+    if (_isGameInfoHidden) return;
 
     if (_isScrapingGame) return;
 
     _startSingleGameScrape();
   }
 
+  /// Whether [tab] can be shown for the current game and display setup.
+  bool _isTabAvailable(DetailTab tab) {
+    if (tab == DetailTab.screenshotVideo && _isGameInfoHidden) return false;
+    if (tab == DetailTab.achievements && !_hasRetroAchievements) return false;
+    return true;
+  }
+
+  /// Resolves the persisted tab preference into a tab usable right now.
+  ///
+  /// An unknown name (config written by another build) or a tab this game
+  /// can't show falls back to the wheel, leaving the stored preference intact
+  /// so it returns on a game that supports it.
+  DetailTab _persistedTab() {
+    final storedName = context
+        .read<SqliteConfigProvider>()
+        .config
+        .gameDetailsTab;
+    final tab = DetailTab.values.firstWhere(
+      (t) => t.name == storedName,
+      orElse: () => DetailTab.wheel,
+    );
+    return _isTabAvailable(tab) ? tab : DetailTab.wheel;
+  }
+
   /// Processes tab navigation via hardware bumpers (LB/RB).
   bool _handleTabNavigation(bool isRight) {
     if (!mounted) return false;
 
-    final availableTabs = DetailTab.values.where((tab) {
-      if (tab == DetailTab.screenshotVideo && _isGameInfoHidden) return false;
-      if (tab == DetailTab.achievements && !_hasRetroAchievements) return false;
-      return true;
-    }).toList();
+    final availableTabs = DetailTab.values.where(_isTabAvailable).toList();
 
     int currentIndexInAvailable = availableTabs.indexOf(_currentTab);
     if (currentIndexInAvailable == -1) currentIndexInAvailable = 0;
@@ -763,7 +819,12 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
     return true; // Input consumed.
   }
 
-  void _setTab(DetailTab tab) {
+  /// Switches to [tab].
+  ///
+  /// [persist] records the tab as the user's preference so it carries across
+  /// games, systems and restarts; it is disabled for tabs the app forces on the
+  /// user (a scrape jumping to the media tab, or restoring the stored tab).
+  void _setTab(DetailTab tab, {bool persist = true}) {
     if (_currentTab == tab) return;
 
     final wasScreenshotVideo = _currentTab == DetailTab.screenshotVideo;
@@ -772,6 +833,9 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
       _currentTab = tab;
 
       final config = context.read<SqliteConfigProvider>();
+      if (persist) {
+        config.updateGameDetailsTab(tab.name);
+      }
       if (tab == DetailTab.screenshotVideo) {
         config.updateShowGameInfo(true);
         widget.videoController?.setVolume(0);
@@ -793,7 +857,8 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
   }
 
   void _closeAllOverlays() {
-    _setTab(DetailTab.wheel);
+    // Dismissing an overlay isn't a tab choice, so it leaves the preference be.
+    _setTab(DetailTab.wheel, persist: false);
   }
 
   /// Orchestrates a metadata acquisition process via ScreenScraperService.
@@ -838,14 +903,8 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
 
     if (!mounted) return;
 
-    // Surface immediate feedback — a scrape takes several seconds and can be
-    // triggered "blind" via the Select + A chord from the games list.
-    AppNotification.showNotification(
-      context,
-      AppLocale.scrapingGameData.getString(context),
-      type: NotificationType.info,
-    );
-
+    // No "scraping…" toast: the progress panel above says the same thing for
+    // the whole run, wherever the scrape was started from.
     final secondaryState = context.read<SecondaryDisplayState?>();
     if (secondaryState != null && widget.isSecondaryScreenActive) {
       secondaryState.updateState(
@@ -886,31 +945,12 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
 
       if (mounted) {
         if (result['success'] == true) {
-          // Protocol: Evict all cached artwork to force immediate UI refresh with new assets.
-          try {
-            final imagesToEvict = [
-              _game.getScreenshotPath(targetSystemFolder),
-              _game.getImagePath(
-                targetSystemFolder,
-                'wheels',
-                widget.fileProvider,
-              ),
-              _game.getImagePath(
-                targetSystemFolder,
-                'fanarts',
-                widget.fileProvider,
-              ),
-            ];
-
-            for (final imagePath in imagesToEvict) {
-              final imageFile = File(imagePath);
-              if (await imageFile.exists()) {
-                await FileImage(imageFile).evict();
-              }
-            }
-          } catch (e) {
-            _log.e('Image cache eviction failed: $e');
-          }
+          // Evict every artwork file the scrape may have rewritten — box art
+          // included — so the tabs below reload them instead of redrawing the
+          // decoded copies they were already showing.
+          await evictScrapedArtwork(
+            scrapedArtworkPaths(_game, targetSystemFolder, widget.fileProvider),
+          );
 
           if (!context.mounted) return;
 

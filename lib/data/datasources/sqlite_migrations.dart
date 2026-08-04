@@ -14,10 +14,10 @@ class SqliteMigrations {
   static final _log = LoggerService.instance;
 
   // ── RomM schema — single source of truth ──────────────────────────────────
-  // Referenced by migration v110 and by the fresh-install table list, so a
+  // Referenced by migration v111 and by the fresh-install table list, so a
   // future column change is made in exactly one place.
 
-  /// CREATE for the singleton RomM credentials/token table (v110).
+  /// CREATE for the singleton RomM credentials/token table (v111).
   static const String createUserRommConfigTableSql = '''
     CREATE TABLE IF NOT EXISTS user_romm_config (
       id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -32,7 +32,7 @@ class SqliteMigrations {
     );
   ''';
 
-  /// CREATE for the local-game → RomM rom_id save-sync map (v110).
+  /// CREATE for the local-game → RomM rom_id save-sync map (v111).
   static const String createAppRommRomMapTableSql = '''
     CREATE TABLE IF NOT EXISTS app_romm_rom_map (
       romname TEXT NOT NULL,
@@ -44,13 +44,13 @@ class SqliteMigrations {
     );
   ''';
 
-  /// Lookup index for [createAppRommRomMapTableSql] (v110).
+  /// Lookup index for [createAppRommRomMapTableSql] (v111).
   static const String createAppRommRomMapIndexSql = '''
     CREATE INDEX IF NOT EXISTS idx_romm_rom_map_id
     ON app_romm_rom_map(romm_rom_id);
   ''';
 
-  /// CREATE for the play-session outbox (v110).
+  /// CREATE for the play-session outbox (v111).
   ///
   /// A finished game session is written here the moment it ends — including
   /// while offline — and pushed to RomM's `/api/play-sessions` on the next
@@ -69,13 +69,13 @@ class SqliteMigrations {
     );
   ''';
 
-  /// Lookup index for [createAppRommPlaySessionsTableSql] (v110).
+  /// Lookup index for [createAppRommPlaySessionsTableSql] (v111).
   static const String createAppRommPlaySessionsIndexSql = '''
     CREATE INDEX IF NOT EXISTS idx_romm_play_sessions_rom_id
     ON app_romm_play_sessions(romm_rom_id);
   ''';
 
-  /// CREATE for the per-ROM playtime reconciliation ledger (v110).
+  /// CREATE for the per-ROM playtime reconciliation ledger (v111).
   ///
   /// RomM stores playtime as individual sessions, not a total, and it strips
   /// the `device_id` of clients it doesn't know — so a pulled session list
@@ -96,7 +96,7 @@ class SqliteMigrations {
     );
   ''';
 
-  /// CREATE for the provider-scoped save-sync state table (v110).
+  /// CREATE for the provider-scoped save-sync state table (v111).
   ///
   /// Keyed on (provider, file_path) so each sync provider (NeoSync, RomM, …)
   /// owns its own row for a given local file — a foreign provider's cloud
@@ -115,7 +115,7 @@ class SqliteMigrations {
     );
   ''';
 
-  /// Lookup index for [createAppNeoSyncStateTableSql] (v110).
+  /// Lookup index for [createAppNeoSyncStateTableSql] (v111).
   static const String createAppNeoSyncStateIndexSql = '''
     CREATE INDEX IF NOT EXISTS idx_neo_sync_state_provider_file_path
     ON app_neo_sync_state(provider, file_path);
@@ -443,6 +443,9 @@ class SqliteMigrations {
         break;
       case 110:
         await _migrateToVersion110(db);
+        break;
+      case 111:
+        await _migrateToVersion111(db);
         break;
       default:
         _log.w('No migration defined for version $version');
@@ -5082,7 +5085,7 @@ class SqliteMigrations {
   }
 
   /// Makes `app_neo_sync_state` provider-scoped so RomM and NeoSync no longer
-  /// corrupt each other's recorded cloud timestamps. Part of migration v110.
+  /// corrupt each other's recorded cloud timestamps. Part of migration v111.
   ///
   /// The legacy table keyed on `file_path` alone (`file_path ... UNIQUE`), so a
   /// row written by one provider was read/overwritten by the other. SQLite
@@ -5090,7 +5093,7 @@ class SqliteMigrations {
   /// a composite `UNIQUE(provider, file_path)` and backfill every existing row
   /// to 'neosync' — the only provider that wrote these rows historically.
   static Future<void> _providerScopeAppNeoSyncState(Database db) async {
-    _log.i('Migration v110: Adding provider column to app_neo_sync_state');
+    _log.i('Migration v111: Adding provider column to app_neo_sync_state');
     try {
       final tableExists = db
           .select(
@@ -5102,7 +5105,7 @@ class SqliteMigrations {
         // Fresh/absent table → just create the new provider-scoped schema.
         db.execute(createAppNeoSyncStateTableSql);
         db.execute(createAppNeoSyncStateIndexSql);
-        _log.i('app_neo_sync_state created with provider column (v110)');
+        _log.i('app_neo_sync_state created with provider column (v111)');
         return;
       }
 
@@ -5137,7 +5140,7 @@ class SqliteMigrations {
         db.execute('ROLLBACK');
         rethrow;
       }
-      _log.i('app_neo_sync_state migrated to (provider, file_path) via v110');
+      _log.i('app_neo_sync_state migrated to (provider, file_path) via v111');
     } catch (e, stackTrace) {
       _log.e('Error provider-scoping app_neo_sync_state: $e');
       _log.e('   StackTrace: $stackTrace');
@@ -5289,7 +5292,7 @@ class SqliteMigrations {
     }
   }
 
-  /// Migration v110: Creates the whole RomM schema in one step.
+  /// Migration v111: Creates the whole RomM schema in one step.
   ///
   /// RomM's tables all land together with the feature, so they get a single
   /// version rather than one apiece:
@@ -5306,8 +5309,8 @@ class SqliteMigrations {
   /// * `user_config.hide_tab_romm` — lets the RomM nav tab be hidden like Sync,
   ///   Achievements and Scraper. Defaults to `0` (visible), so nobody's strip
   ///   changes on upgrade.
-  static Future<void> _migrateToVersion110(Database db) async {
-    _log.i('Migration v110: Creating RomM schema');
+  static Future<void> _migrateToVersion111(Database db) async {
+    _log.i('Migration v111: Creating RomM schema');
     try {
       db.execute(createUserRommConfigTableSql);
       db.execute(createAppRommRomMapTableSql);
@@ -5316,10 +5319,10 @@ class SqliteMigrations {
       db.execute(createAppRommPlaySessionsIndexSql);
       db.execute(createAppRommPlaytimeStateTableSql);
       await _providerScopeAppNeoSyncState(db);
-      _addNavTabVisibilityColumns(db, 'v110', const ['hide_tab_romm']);
-      _log.i('Migration v110 completed');
+      _addNavTabVisibilityColumns(db, 'v111', const ['hide_tab_romm']);
+      _log.i('Migration v111 completed');
     } catch (e, stackTrace) {
-      _log.e('Error in migration v110: $e');
+      _log.e('Error in migration v111: $e');
       _log.e('   StackTrace: $stackTrace');
       rethrow;
     }
@@ -5468,6 +5471,33 @@ class SqliteMigrations {
       _log.i('Migration v109 completed');
     } catch (e, stackTrace) {
       _log.e('Error in migration v109: $e');
+      _log.e('   StackTrace: $stackTrace');
+      rethrow;
+    }
+  }
+
+  /// Migration v110: Persists the game details card tab last chosen with L1/R1
+  /// in `user_config.game_details_tab`, so the choice survives moving between
+  /// games and systems as well as a restart.
+  ///
+  /// Stores the `DetailTab` enum name; an unknown or empty value reads back as
+  /// the wheel tab, which is also the column default for existing rows.
+  static Future<void> _migrateToVersion110(Database db) async {
+    _log.i('Migration v110: Adding game_details_tab to user_config');
+    try {
+      final tableInfo = db.select('PRAGMA table_info(user_config)');
+      final columns = tableInfo.map((c) => c['name'].toString()).toList();
+      if (!columns.contains('game_details_tab')) {
+        db.execute(
+          "ALTER TABLE user_config ADD COLUMN game_details_tab TEXT DEFAULT 'wheel'",
+        );
+        _log.i('Column game_details_tab added via v110');
+      } else {
+        _log.i('Column game_details_tab already exists');
+      }
+      _log.i('Migration v110 completed');
+    } catch (e, stackTrace) {
+      _log.e('Error in migration v110: $e');
       _log.e('   StackTrace: $stackTrace');
       rethrow;
     }

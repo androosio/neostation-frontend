@@ -103,6 +103,15 @@ class ConfigModel {
   /// (list, grid, carousel). Toggled by the Select + B chord.
   final bool legendHidden;
 
+  /// The game details card tab the user last selected with L1/R1, stored as the
+  /// `DetailTab` enum name (e.g. 'wheel', 'box2d', 'screenshotVideo').
+  ///
+  /// Persisting it keeps the choice across games, systems and restarts. A tab
+  /// that is unavailable for the current game (no achievements, for instance)
+  /// falls back to the wheel for display only — the preference is kept so it
+  /// comes back on a game that supports it.
+  final String gameDetailsTab;
+
   /// Whether the Sync navigation tab is hidden from the header strip and the
   /// L1/R1 tab cycle.
   ///
@@ -192,6 +201,7 @@ class ConfigModel {
     this.appLanguage = 'es',
     this.hideRecentCard = false,
     this.legendHidden = false,
+    this.gameDetailsTab = 'wheel',
     this.hideTabSync = false,
     this.hideTabAchievements = false,
     this.hideTabScraper = false,
@@ -302,6 +312,9 @@ class ConfigModel {
           (json['legendHidden'] ?? json['legend_hidden'] ?? 0).toString() ==
               '1' ||
           (json['legendHidden'] ?? false).toString().toLowerCase() == 'true',
+      gameDetailsTab:
+          (json['gameDetailsTab'] ?? json['game_details_tab'] ?? 'wheel')
+              .toString(),
       // Absent key => false => tab visible. Keeps a config written by an older
       // build (or restored from cloud sync) from hiding tabs it never knew about.
       hideTabSync:
@@ -417,6 +430,7 @@ class ConfigModel {
       'appLanguage': appLanguage,
       'hideRecentCard': hideRecentCard,
       'legendHidden': legendHidden,
+      'gameDetailsTab': gameDetailsTab,
       'hideTabSync': hideTabSync,
       'hideTabAchievements': hideTabAchievements,
       'hideTabScraper': hideTabScraper,
@@ -462,6 +476,7 @@ class ConfigModel {
     String? appLanguage,
     bool? hideRecentCard,
     bool? legendHidden,
+    String? gameDetailsTab,
     bool? hideTabSync,
     bool? hideTabAchievements,
     bool? hideTabScraper,
@@ -504,6 +519,7 @@ class ConfigModel {
       appLanguage: appLanguage ?? this.appLanguage,
       hideRecentCard: hideRecentCard ?? this.hideRecentCard,
       legendHidden: legendHidden ?? this.legendHidden,
+      gameDetailsTab: gameDetailsTab ?? this.gameDetailsTab,
       hideTabSync: hideTabSync ?? this.hideTabSync,
       hideTabAchievements: hideTabAchievements ?? this.hideTabAchievements,
       hideTabScraper: hideTabScraper ?? this.hideTabScraper,

@@ -180,6 +180,7 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
       onNavigateRight: _navigateNext,
       onSelectItem: _selectCurrentSystem,
       onSettings: _openSystemSettingsFromCarousel,
+      onBack: AppNavigation.requestExit,
       onXButton: () {
         HeaderSortDropdown.globalKey.currentState?.showDropdown();
       },
@@ -816,7 +817,13 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
                               isSelected: isSelected,
                               backgroundCacheWidth: 1024,
                               onTap: () {
-                                if (!isSelected) {
+                                // Tapping an off-centre card brings it to the
+                                // middle; tapping the centred one enters it, so
+                                // touch users never need the footer's A button.
+                                // (SystemCard plays the sound.)
+                                if (isSelected) {
+                                  _selectCurrentSystem();
+                                } else {
                                   _carouselKey.currentState?.animateToPage(
                                     index,
                                   );

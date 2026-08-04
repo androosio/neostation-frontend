@@ -65,6 +65,8 @@ class _SystemEmulatorSettingsDialogState
   int _currentTab = 0; // Default to General tab
   int _generalIndex = 0; // Index for General tab items
   int _appearanceIndex = 0; // Index for Appearance tab items
+  // Emulators tab: 0 = default/core action, 1 = executable picker.
+  int _emulatorActionIndex = 0;
   // 0: Prefer filename, 1: Hide ext, 2: (), 3: [], 4: Recursive?
   late int _totalGeneralItems;
   late List<GlobalKey> _generalItemKeys;
@@ -699,24 +701,18 @@ class _SystemEmulatorSettingsDialogState
       // Determine executable extension based on platform
       final extension = Platform.isWindows ? 'exe' : null;
 
-      // Open file picker
-      final result = await FilePicker.pickFiles(
-        dialogTitle: AppLocale.selectEmulatorExecutable
-            .getString(context)
-            .replaceFirst('{name}', standalone.name),
-        type: extension != null ? FileType.custom : FileType.any,
-        allowedExtensions: extension != null ? [extension] : null,
-        lockParentWindow: true,
-      );
+      final selectedPath = Platform.isLinux
+          ? await TvDirectoryPicker.showExecutablePicker(context)
+          : (await FilePicker.pickFiles(
+              dialogTitle: AppLocale.selectEmulatorExecutable
+                  .getString(context)
+                  .replaceFirst('{name}', standalone.name),
+              type: extension != null ? FileType.custom : FileType.any,
+              allowedExtensions: extension != null ? [extension] : null,
+              lockParentWindow: true,
+            ))?.files.firstOrNull?.path;
 
-      if (result == null || result.files.isEmpty) {
-        return; // User cancelled
-      }
-
-      final selectedPath = result.files.first.path;
-      if (selectedPath == null) {
-        return;
-      }
+      if (selectedPath == null) return;
 
       // Verify file exists
       bool exists = false;
@@ -740,7 +736,9 @@ class _SystemEmulatorSettingsDialogState
       // Save path to database
       await EmulatorRepository.setStandaloneEmulatorPath(
         standalone.uniqueIdentifier,
-        selectedPath,
+        Platform.isLinux
+            ? TvDirectoryPicker.persistedExecutablePath(selectedPath)
+            : selectedPath,
       );
 
       // Reload the full dialog to update UI (same as RetroArch)
@@ -771,18 +769,15 @@ class _SystemEmulatorSettingsDialogState
   /// Configure RetroArch executable path on desktop platforms
   Future<void> _configureRetroArchPath() async {
     try {
-      // Open file picker for RetroArch executable
-      FilePickerResult? result = await FilePicker.pickFiles(
-        type: Platform.isWindows ? FileType.custom : FileType.any,
-        allowedExtensions: Platform.isWindows ? ['exe'] : null,
-        dialogTitle: AppLocale.selectRetroArchExe.getString(context),
-      );
+      final selectedPath = Platform.isLinux
+          ? await TvDirectoryPicker.showExecutablePicker(context)
+          : (await FilePicker.pickFiles(
+              type: Platform.isWindows ? FileType.custom : FileType.any,
+              allowedExtensions: Platform.isWindows ? ['exe'] : null,
+              dialogTitle: AppLocale.selectRetroArchExe.getString(context),
+            ))?.files.firstOrNull?.path;
 
-      if (result == null || result.files.single.path == null) {
-        return; // User cancelled
-      }
-
-      final selectedPath = result.files.single.path!;
+      if (selectedPath == null) return;
 
       // Verify the file exists
       bool exists = false;
@@ -806,7 +801,9 @@ class _SystemEmulatorSettingsDialogState
       // Save RetroArch path
       await EmulatorRepository.saveDetectedEmulatorPath(
         emulatorName: 'RetroArch',
-        emulatorPath: selectedPath,
+        emulatorPath: Platform.isLinux
+            ? TvDirectoryPicker.persistedExecutablePath(selectedPath)
+            : selectedPath,
       );
 
       // Refresh the dialog to update UI
