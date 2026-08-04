@@ -992,6 +992,16 @@ class AuthFormState extends State<AuthForm> with LoginFormSelection<AuthForm> {
           : null,
       child: TextButton(
         onPressed: onPressed,
+        // Callers box these at 24.r. A TextButton's default 8+8 padding and
+        // 36px minimum leave less than a line of room inside that at RG DS
+        // scale (where .r is 1.0), which clipped the glyphs top and bottom;
+        // the Thor's ~3x scale hid it. Shrink the chrome so the label fits at
+        // every scale.
+        style: TextButton.styleFrom(
+          padding: EdgeInsets.zero,
+          minimumSize: Size.zero,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
         child: Text(
           label,
           style: TextStyle(fontSize: fontSize, color: color),
