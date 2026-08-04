@@ -364,4 +364,30 @@ void main() {
       },
     );
   });
+
+  // The two launch-flow hooks pull in opposite directions, and confusing them
+  // is what let a save state sit unsynced after quitting: pre-launch only ever
+  // pulls down, so nothing but the post-close hook gets a local save onto the
+  // server at exit time.
+  group('launch-flow hook directions', () {
+    test(
+      'pre-launch is download-only — a new local save is not uploaded',
+      () async {
+        await memcard.writeAsString('LOCAL PROGRESS');
+
+        await provider.syncGameSavesBeforeLaunch(gameA);
+
+        expect(svc.uploads, isEmpty);
+      },
+    );
+
+    test('post-close uploads the save the game just wrote', () async {
+      await memcard.writeAsString('LOCAL PROGRESS');
+
+      final result = await provider.syncGameSavesAfterClose(gameA);
+
+      expect(result.success, isTrue);
+      expect(svc.uploads, ['1/Mcd001.ps2']);
+    });
+  });
 }

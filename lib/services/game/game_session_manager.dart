@@ -6,6 +6,7 @@ import '../../models/game_model.dart';
 import '../../models/system_model.dart';
 import '../../repositories/game_repository.dart';
 import '../../repositories/system_repository.dart';
+import '../../sync/sync_manager.dart';
 import '../game_session_persistence.dart';
 import '../romm_playtime_service.dart';
 
@@ -224,6 +225,7 @@ class GameSessionManager {
           end: now,
         );
       }
+      _syncSavesAfterClose(game);
     }
 
     _stopPlaytimeTimer();
@@ -256,6 +258,31 @@ class GameSessionManager {
     } catch (e) {
       _log.e('Error saving game time: $e');
     }
+  }
+
+  /// Uploads the save files the just-closed game left behind.
+  ///
+  /// This belongs here rather than in a screen because every launcher — the
+  /// games list, the recently-played carousel, the systems grid, search —
+  /// funnels its exit through [endGameSession]. It used to live in the games
+  /// list alone, so a game started from anywhere else uploaded nothing on
+  /// exit; the save only went up later, when browsing the list happened to
+  /// re-detect it.
+  ///
+  /// Deliberately not awaited, and deliberately delayed: the emulator has just
+  /// died and may still be flushing its save to disk, while the exit path
+  /// itself has UI waiting on it. Failures are logged and dropped — the next
+  /// detect pass will pick the save up.
+  static void _syncSavesAfterClose(GameModel game) {
+    final provider = SyncManager.instance.active;
+    if (provider == null) return;
+    Future.delayed(const Duration(seconds: 2), () async {
+      try {
+        await provider.syncGameSavesAfterClose(game);
+      } catch (e) {
+        _log.e('Post-game save sync failed: $e');
+      }
+    });
   }
 
   /// Queues a finished session for RomM playtime sync. A local DB write only —
