@@ -11,6 +11,7 @@ import '../../l10n/app_locale.dart';
 import '../../providers/romm_provider.dart';
 import '../../providers/sqlite_config_provider.dart';
 import '../../services/game_service.dart' show GamepadNavigationManager;
+import '../../services/neosync/auth_service.dart';
 import '../../sync/providers/neo_sync_adapter.dart';
 import '../../sync/providers/romm_provider.dart';
 import '../../sync/sync_manager.dart';
@@ -188,6 +189,11 @@ class _RommConnectContentState extends State<RommConnectContent>
     if (_busy || !_validateInputs()) return;
     setState(() => _busy = true);
     final provider = context.read<RommProvider>();
+    // Both captured before the await: the context can't be read across the gap.
+    final neoSyncLoggedIn = context.read<AuthService>().isLoggedIn;
+    final persist = context
+        .read<SqliteConfigProvider>()
+        .updateActiveSyncProvider;
     final error = await provider.connect(
       serverUrl: _urlController.text.trim(),
       username: _userController.text.trim(),
@@ -202,6 +208,19 @@ class _RommConnectContentState extends State<RommConnectContent>
         type: NotificationType.error,
       );
     } else {
+      // Adopt save sync only when NeoSync isn't signed in. Save sync is one
+      // provider at a time, so switching unconditionally would quietly move it
+      // off a NeoSync account the user is still using — the same silent stop
+      // _disconnect() guards against in the other direction. With NeoSync
+      // logged out there is nothing to take away, and leaving it pointed there
+      // means a freshly connected server syncs nowhere at all.
+      if (!neoSyncLoggedIn && !_isSaveSyncActive) {
+        await SyncManager.instance.setActive(
+          RomMSyncProvider.kProviderId,
+          persist: persist,
+        );
+      }
+      if (!mounted) return;
       _passwordController.clear();
       // Reset selection so the connected view starts on the first row.
       resetSelection();
