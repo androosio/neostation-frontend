@@ -166,9 +166,9 @@ const Map<String, dynamic> appLocaleEn = {
   AppLocale.bartopShutdownSubtitle:
       'Shut down the computer when exiting the application',
 
-  AppLocale.showSyncTab: 'Show Sync tab',
+  AppLocale.showSyncTab: 'Show NeoSync tab',
   AppLocale.showSyncTabSubtitle:
-      'Display the Cloud Sync tab in the navigation bar',
+      'Display the NeoSync tab in the navigation bar',
   AppLocale.showAchievementsTab: 'Show Achievements tab',
   AppLocale.showAchievementsTabSubtitle:
       'Display the RetroAchievements tab in the navigation bar',

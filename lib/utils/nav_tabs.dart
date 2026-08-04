@@ -77,7 +77,7 @@ const Map<NavTab, NavTabSpec> navTabSpecs = {
   ),
   NavTab.sync: NavTabSpec(
     icon: 'assets/images/icons/cloud-add.webp',
-    labelKey: AppLocale.cloudSync,
+    labelKey: AppLocale.neoSync,
     hidden: _hideTabSync,
     withHidden: _withHideTabSync,
     settingsTitleKey: AppLocale.showSyncTab,

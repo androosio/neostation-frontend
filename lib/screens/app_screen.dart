@@ -19,7 +19,7 @@ import 'search_screen/search_screen.dart';
 import 'retro_achievements_screen/ra_content.dart';
 import 'settings_screen/new_settings_screen.dart';
 import 'scraper_screen/new_scraper_options_screen.dart';
-import 'neo_sync_screen/neo_sync_tab.dart';
+import 'neo_sync_screen/login_screen/neo_sync_content.dart';
 import 'romm_screen/romm_tab.dart';
 import '../widgets/scraper_content.dart';
 import 'package:neostation/services/game_service.dart';
@@ -87,11 +87,6 @@ class AppNavigation {
   /// Switches to the previous available navigation tab.
   static void previousTab() {
     AppScreenState._navigateToPreviousTabStatic();
-  }
-
-  /// Jumps to the Global Settings tab and opens the RomM section.
-  static void openRommSettings() {
-    AppScreenState.openRommSettings();
   }
 
   /// Requests the root-level exit confirmation from the active home layout.
@@ -371,15 +366,6 @@ class AppScreenState extends State<AppScreen> with WidgetsBindingObserver {
   /// Static hook to resume global navigation input.
   static void activateNavigation() {
     _currentInstance?._gamepadNav.activate();
-  }
-
-  /// Switches to the top-level RomM library tab.
-  static void openRommSettings() {
-    _currentInstance?._openRommSettings();
-  }
-
-  void _openRommSettings() {
-    _onTabSelected(AppTabs.romm);
   }
 
   static void _navigateToNextTabStatic() {
@@ -716,7 +702,7 @@ class AppScreenState extends State<AppScreen> with WidgetsBindingObserver {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           _gamepadNav.deactivate();
         });
-        return const NeoSyncTab();
+        return const NeoSyncContent();
       case AppTabs.achievements:
         return RAContent();
       case AppTabs.scraper:

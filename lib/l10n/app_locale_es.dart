@@ -173,9 +173,9 @@ const Map<String, dynamic> appLocaleEs = {
   AppLocale.bartopShutdownSubtitle:
       'Apagar el equipo al salir de la aplicación',
 
-  AppLocale.showSyncTab: 'Mostrar pestaña Sincronización',
+  AppLocale.showSyncTab: 'Mostrar pestaña NeoSync',
   AppLocale.showSyncTabSubtitle:
-      'Muestra la pestaña de sincronización en la nube en la barra de navegación',
+      'Muestra la pestaña de NeoSync en la barra de navegación',
   AppLocale.showAchievementsTab: 'Mostrar pestaña Logros',
   AppLocale.showAchievementsTabSubtitle:
       'Muestra la pestaña de RetroAchievements en la barra de navegación',
