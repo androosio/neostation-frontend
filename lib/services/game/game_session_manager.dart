@@ -275,7 +275,13 @@ class GameSessionManager {
   /// detect pass will pick the save up.
   static void _syncSavesAfterClose(GameModel game) {
     final provider = SyncManager.instance.active;
-    if (provider == null) return;
+    if (provider == null) {
+      _log.w('Post-game save sync skipped: no active sync provider');
+      return;
+    }
+    _log.i(
+      'Post-game save sync queued for ${game.romname} (${provider.providerId})',
+    );
     Future.delayed(const Duration(seconds: 2), () async {
       try {
         await provider.syncGameSavesAfterClose(game);
