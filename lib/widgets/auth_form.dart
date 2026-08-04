@@ -797,7 +797,7 @@ class AuthFormState extends State<AuthForm> with LoginFormSelection<AuthForm> {
                               _obscurePassword
                                   ? Symbols.visibility_rounded
                                   : Symbols.visibility_off_rounded,
-                              size: 16.r,
+                              size: 18.r,
                               color: theme.colorScheme.onSurface.withValues(
                                 alpha: 0.5,
                               ),
@@ -1149,7 +1149,7 @@ class AuthFormState extends State<AuthForm> with LoginFormSelection<AuthForm> {
                       _obscurePassword
                           ? Symbols.visibility_rounded
                           : Symbols.visibility_off_rounded,
-                      size: 16.r,
+                      size: 18.r,
                       color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                     ),
                     onPressed: () {
