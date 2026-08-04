@@ -787,6 +787,7 @@ const Map<String, dynamic> appLocaleZhHant = {
   AppLocale.rommSaveConnect: '儲存並連線',
   AppLocale.rommDisconnect: '中斷連線',
   AppLocale.rommUseForSaveSync: '使用 RomM 同步存檔',
+  AppLocale.rommSaveSyncLabel: 'RomM 同步',
   AppLocale.rommSaveSyncActive: 'RomM 是你的存檔同步服務',
   AppLocale.rommBrowseLibrary: '瀏覽庫',
   AppLocale.rommStatusConnected: '已連線',

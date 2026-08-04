@@ -899,6 +899,7 @@ const Map<String, dynamic> appLocaleIt = {
   AppLocale.rommDisconnect: 'Disconnetti',
   AppLocale.rommUseForSaveSync:
       'Usa RomM per la sincronizzazione dei salvataggi',
+  AppLocale.rommSaveSyncLabel: 'Sinc. RomM',
   AppLocale.rommSaveSyncActive:
       'RomM è il tuo servizio di sincronizzazione dei salvataggi',
   AppLocale.rommBrowseLibrary: 'Sfoglia libreria',

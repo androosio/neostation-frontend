@@ -878,6 +878,7 @@ const Map<String, dynamic> appLocaleId = {
   AppLocale.rommSaveConnect: 'Simpan & Hubungkan',
   AppLocale.rommDisconnect: 'Putuskan',
   AppLocale.rommUseForSaveSync: 'Gunakan RomM untuk sinkronisasi simpanan',
+  AppLocale.rommSaveSyncLabel: 'Sinkron RomM',
   AppLocale.rommSaveSyncActive:
       'RomM adalah penyedia sinkronisasi simpanan Anda',
   AppLocale.rommBrowseLibrary: 'Jelajahi Pustaka',

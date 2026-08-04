@@ -797,6 +797,7 @@ const Map<String, dynamic> appLocaleJa = {
   AppLocale.rommSaveConnect: '保存して接続',
   AppLocale.rommDisconnect: '接続を解除',
   AppLocale.rommUseForSaveSync: 'セーブデータの同期に RomM を使用',
+  AppLocale.rommSaveSyncLabel: 'RomM 同期',
   AppLocale.rommSaveSyncActive: 'RomM がセーブデータ同期の提供元です',
   AppLocale.rommBrowseLibrary: 'ライブラリを閲覧',
   AppLocale.rommStatusConnected: '接続済み',

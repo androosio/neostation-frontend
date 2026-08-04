@@ -925,20 +925,7 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
                   ),
           ),
           if (showAccount) ...[
-            _headerButton(
-              theme,
-              slot: 0,
-              icon: Icon(
-                Symbols.cloud_sync_rounded,
-                fill: _isSaveSyncActive ? 1 : 0,
-                color: _isSaveSyncActive
-                    ? theme.colorScheme.primary
-                    : theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                size: 20.r,
-              ),
-              tooltip: AppLocale.rommUseForSaveSync.getString(context),
-              onPressed: _toggleSaveSync,
-            ),
+            _syncToggle(theme),
             _headerButton(
               theme,
               slot: 1,
@@ -957,6 +944,69 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
   }
 
   /// One account-header button, wearing the same parked-selection border the
+  /// Save-sync switch for the library header.
+  ///
+  /// Deliberately a labelled pill rather than the bare cloud icon it replaced:
+  /// that icon carried its whole state in fill-vs-outline, which reads as
+  /// decoration, and an enabled sync was easily mistaken for a disabled one.
+  /// The name and the word Enabled/Disabled are both on screen now.
+  Widget _syncToggle(ThemeData theme) {
+    final on = _isSaveSyncActive;
+    final accent = on
+        ? theme.colorScheme.primary
+        : theme.colorScheme.onSurface.withValues(alpha: 0.6);
+    return Padding(
+      padding: EdgeInsets.only(right: 6.r),
+      child: Semantics(
+        toggled: on,
+        button: true,
+        label: AppLocale.rommUseForSaveSync.getString(context),
+        child: InkWell(
+          onTap: _toggleSaveSync,
+          borderRadius: BorderRadius.circular(8.r),
+          child: Container(
+            padding: EdgeInsets.symmetric(horizontal: 8.r, vertical: 5.r),
+            decoration: BoxDecoration(
+              color: on
+                  ? theme.colorScheme.primary.withValues(alpha: 0.15)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(8.r),
+              border: Border.all(
+                // The parked-slot ring stays the focus cue, exactly as the
+                // icon buttons beside it show it.
+                color: _parkedSlot == 0
+                    ? theme.colorScheme.primary
+                    : accent.withValues(alpha: on ? 0.5 : 0.3),
+                width: _parkedSlot == 0 ? 2.r : 1.r,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Symbols.cloud_sync_rounded,
+                  fill: on ? 1 : 0,
+                  color: accent,
+                  size: 16.r,
+                ),
+                SizedBox(width: 6.r),
+                Text(
+                  '${AppLocale.rommSaveSyncLabel.getString(context)} · '
+                  '${(on ? AppLocale.enabled : AppLocale.disabled).getString(context)}',
+                  style: TextStyle(
+                    fontSize: 11.r,
+                    fontWeight: FontWeight.w600,
+                    color: accent,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   /// RetroAchievements dashboard puts on its logout button.
   Widget _headerButton(
     ThemeData theme, {

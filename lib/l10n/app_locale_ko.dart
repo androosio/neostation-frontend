@@ -808,6 +808,7 @@ const Map<String, dynamic> appLocaleKo = {
   AppLocale.rommSaveConnect: '저장 후 연결',
   AppLocale.rommDisconnect: '연결 해제',
   AppLocale.rommUseForSaveSync: '저장 동기화에 RomM 사용',
+  AppLocale.rommSaveSyncLabel: 'RomM 동기화',
   AppLocale.rommSaveSyncActive: 'RomM이 저장 동기화 제공자입니다',
   AppLocale.rommBrowseLibrary: '라이브러리 탐색',
   AppLocale.rommStatusConnected: '연결됨',

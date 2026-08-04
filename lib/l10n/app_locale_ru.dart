@@ -877,6 +877,7 @@ const Map<String, dynamic> appLocaleRu = {
   AppLocale.rommDisconnect: 'Отключиться',
   AppLocale.rommUseForSaveSync:
       'Использовать RomM для синхронизации сохранений',
+  AppLocale.rommSaveSyncLabel: 'Синх. RomM',
   AppLocale.rommSaveSyncActive: 'RomM — ваш сервис синхронизации сохранений',
   AppLocale.rommBrowseLibrary: 'Просмотр библиотеки',
   AppLocale.rommStatusConnected: 'Подключено',

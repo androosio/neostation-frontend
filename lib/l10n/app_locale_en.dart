@@ -876,6 +876,7 @@ const Map<String, dynamic> appLocaleEn = {
   AppLocale.rommSaveConnect: 'Save & Connect',
   AppLocale.rommDisconnect: 'Disconnect',
   AppLocale.rommUseForSaveSync: 'Use RomM for save sync',
+  AppLocale.rommSaveSyncLabel: 'RomM Sync',
   AppLocale.rommSaveSyncActive: 'RomM is your save-sync provider',
   AppLocale.rommBrowseLibrary: 'Browse Library',
   AppLocale.rommStatusConnected: 'Connected',

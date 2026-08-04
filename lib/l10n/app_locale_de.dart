@@ -906,6 +906,7 @@ const Map<String, dynamic> appLocaleDe = {
   AppLocale.rommSaveConnect: 'Speichern & verbinden',
   AppLocale.rommDisconnect: 'Trennen',
   AppLocale.rommUseForSaveSync: 'RomM für Spielstand-Sync verwenden',
+  AppLocale.rommSaveSyncLabel: 'RomM-Sync',
   AppLocale.rommSaveSyncActive: 'RomM ist dein Anbieter für Spielstand-Sync',
   AppLocale.rommBrowseLibrary: 'Bibliothek durchsuchen',
   AppLocale.rommStatusConnected: 'Verbunden',
