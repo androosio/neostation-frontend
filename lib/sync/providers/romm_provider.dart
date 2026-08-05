@@ -215,7 +215,7 @@ class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
       return GameSyncStatus.disabled;
     }
 
-    final localFiles = await _locateSaves(game);
+    final localFiles = syncableSaves(game, await _locateSaves(game));
 
     final List<RommAsset> remote;
     try {
@@ -348,6 +348,79 @@ class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
   /// folder) from a local file's `saves/…`/`states/…` relative path, so it can
   /// be preserved across the round-trip via RomM's `emulator` field. Returns
   /// empty when the file sits directly in the saves/states root.
+  /// Extensions RetroArch writes *beside* a save state as its thumbnail. These
+  /// are screenshots, not save data — RetroArch regenerates them, and RomM has
+  /// a dedicated `screenshotFile` field for the one place a thumbnail belongs.
+  static const Set<String> _thumbnailExtensions = {
+    '.png',
+    '.jpg',
+    '.jpeg',
+    '.bmp',
+  };
+
+  /// Narrows the locator's results to files that are really [game]'s save data.
+  ///
+  /// NeoSync's locator matches any file whose name *contains* the game name and
+  /// applies no extension filter at all. That looseness is load-bearing for the
+  /// cases it was built for — shared PS2/Dreamcast memory cards and Switch
+  /// saves matched by title id, neither of which carries the game's name in the
+  /// filename — so it is left alone and tightened here, at RomM's door.
+  ///
+  /// Two things get dropped:
+  ///
+  /// * **Thumbnails.** A `.state.png` was being uploaded to RomM as a save
+  ///   state. Confirmed on device: one play session produced four "states",
+  ///   two of which were screenshots.
+  /// * **A longer-named game's saves.** `contains` makes the match one-way:
+  ///   a game called `Extra Mario Bros.` matches `Extra Mario Bros. [Hacks].state`,
+  ///   so the shorter title would sync the longer one's saves as its own. A
+  ///   file is rejected only when it can be *proved* to belong elsewhere —
+  ///   its name starts with this game's name but continues with something
+  ///   other than an extension. Files that don't start with the game's name at
+  ///   all are left untouched, which is what keeps the memory-card and Switch
+  ///   paths working.
+  @visibleForTesting
+  static List<LocalSaveFile> syncableSaves(
+    GameModel game,
+    List<LocalSaveFile> found,
+  ) {
+    final romName = _romNameWithoutExtension(game.romname).toLowerCase();
+
+    return found.where((f) {
+      final name = path.basename(f.filePath);
+      final lower = name.toLowerCase();
+
+      if (_thumbnailExtensions.contains(path.extension(lower))) {
+        _log.i('RomM: skipping thumbnail $name');
+        return false;
+      }
+
+      if (romName.isNotEmpty && lower.startsWith(romName)) {
+        final remainder = lower.substring(romName.length);
+        // '' is the game's own name verbatim; '.state', '.state.auto', '.srm'
+        // are its saves. Anything else — ' [Hacks].state' — is another title's.
+        if (remainder.isNotEmpty && !remainder.startsWith('.')) {
+          _log.i('RomM: skipping $name (belongs to a longer-named title)');
+          return false;
+        }
+      }
+
+      return true;
+    }).toList();
+  }
+
+  /// Drops a single trailing extension, matching how the library indexes a
+  /// ROM's name. Only the last one: a title may contain dots of its own.
+  static String _romNameWithoutExtension(String romname) {
+    final dot = romname.lastIndexOf('.');
+    if (dot <= 0) return romname;
+    final ext = romname.substring(dot);
+    // Guard against clipping a title that simply ends in a period ("Mr. Do.").
+    return RegExp(r'^\.[A-Za-z0-9]{1,5}$').hasMatch(ext)
+        ? romname.substring(0, dot)
+        : romname;
+  }
+
   String _subfolderOf(LocalSaveFile local) {
     final parts = local.relativePath.split('/');
     if (parts.length <= 2) return '';
