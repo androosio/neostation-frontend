@@ -265,18 +265,18 @@ void main() {
     test(
       'each game uploads the card under its own rom id, then converges',
       () async {
-        await provider.detectGameSaveFiles(gameA);
+        await provider.syncGameSavesAfterClose(gameA);
         expect(svc.uploads, ['1/Mcd001.ps2']);
 
         // Game B shares the card: its rom id has no remote copy yet, so the
         // same file must upload again under rom id 2.
-        await provider.detectGameSaveFiles(gameB);
+        await provider.syncGameSavesAfterClose(gameB);
         expect(svc.uploads, ['1/Mcd001.ps2', '2/Mcd001.ps2']);
 
         // Re-syncing A must be a no-op: the shared bookkeeping row now holds
         // B's (newer) asset timestamp, which must not read as "remote changed"
         // for A's older asset, nor trigger a re-upload.
-        await provider.detectGameSaveFiles(gameA);
+        await provider.syncGameSavesAfterClose(gameA);
         expect(svc.uploads, hasLength(2));
         expect(await memcard.readAsString(), 'INITIAL');
         expect(
@@ -288,8 +288,8 @@ void main() {
 
     test('a genuinely newer remote under one rom id is pulled once; the other '
         'rom id\'s now-stale copy is not pulled back over it', () async {
-      await provider.detectGameSaveFiles(gameA);
-      await provider.detectGameSaveFiles(gameB);
+      await provider.syncGameSavesAfterClose(gameA);
+      await provider.syncGameSavesAfterClose(gameB);
 
       // Another device played Game A and uploaded a newer card.
       svc.seedSave(
@@ -299,14 +299,14 @@ void main() {
         updatedAt: DateTime.now().toUtc().add(const Duration(hours: 1)),
       );
 
-      await provider.detectGameSaveFiles(gameA);
+      await provider.syncGameSavesAfterClose(gameA);
       expect(await memcard.readAsString(), 'REMOTE-A');
 
       // Game B's server copy still holds the old card. Syncing B must NOT
       // pull that stale copy over the memcard we just updated, and must not
       // spuriously re-upload either (the pull refreshed the shared row).
       final uploadsBefore = svc.uploads.length;
-      await provider.detectGameSaveFiles(gameB);
+      await provider.syncGameSavesAfterClose(gameB);
       expect(await memcard.readAsString(), 'REMOTE-A');
       expect(svc.uploads.length, uploadsBefore);
     });
@@ -323,7 +323,7 @@ void main() {
           updatedAt: DateTime.now().toUtc().subtract(const Duration(hours: 1)),
         );
 
-        await provider.detectGameSaveFiles(gameA);
+        await provider.syncGameSavesAfterClose(gameA);
 
         expect(await memcard.readAsString(), 'INITIAL');
         expect(svc.uploads, ['1/Mcd001.ps2']);
@@ -343,7 +343,7 @@ void main() {
         updatedAt: DateTime.now().toUtc().subtract(const Duration(hours: 1)),
       );
 
-      await provider.detectGameSaveFiles(gameA);
+      await provider.syncGameSavesAfterClose(gameA);
 
       expect(await memcard.readAsString(), 'INITIAL');
       expect(svc.uploads, isEmpty);
@@ -419,6 +419,30 @@ void main() {
 
       expect(result.success, isTrue);
       expect(svc.uploads, ['1/Mcd001.ps2']);
+    });
+
+    test('selecting a game in the list transfers nothing', () async {
+      // Detection runs on a 600ms debounce every time the highlight settles on
+      // a game. It used to run a full bidirectional sync, so merely scrolling
+      // onto a title could push that device's card over a newer one from
+      // elsewhere — before the user had asked for the game at all.
+      await memcard.writeAsString('LOCAL PROGRESS');
+      svc.seedSave(
+        1,
+        'Mcd001.ps2',
+        'OTHER DEVICE'.codeUnits,
+        updatedAt: DateTime.now().toUtc().add(const Duration(minutes: 5)),
+      );
+
+      final result = await provider.detectGameSaveFiles(gameA);
+
+      expect(result.success, isTrue);
+      expect(svc.uploads, isEmpty, reason: 'browsing must not push');
+      expect(
+        await memcard.readAsString(),
+        'LOCAL PROGRESS',
+        reason: 'browsing must not pull either',
+      );
     });
   });
 

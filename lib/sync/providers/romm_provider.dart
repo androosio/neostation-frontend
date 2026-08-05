@@ -188,9 +188,15 @@ class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
   /// Bidirectional sync for [game]. When [downloadOnly] is true (pre-launch),
   /// only newer/missing remote files are pulled; otherwise local changes are
   /// also pushed.
+  ///
+  /// [statusOnly] reconciles without transferring anything, for the cloud-state
+  /// indicator. Moving the highlight onto a game in the list must not push or
+  /// pull a save: the transfers belong to the launch lifecycle, where the user
+  /// has actually asked for the game.
   Future<GameSyncStatus> _syncGame(
     GameModel game, {
     required bool downloadOnly,
+    bool statusOnly = false,
     SyncDeadline? deadline,
   }) async {
     if (!_browse.isConnected) return GameSyncStatus.error;
@@ -262,7 +268,7 @@ class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
 
       if (match == null) {
         // Local only → upload (unless pre-launch download-only pass).
-        if (!downloadOnly) {
+        if (!downloadOnly && !statusOnly) {
           if (await _upload(romId, local, isState)) uploaded++;
         }
         continue;
@@ -287,7 +293,9 @@ class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
       // Deliberately scoped to the download-only (pre-launch) pass. After a
       // game closes, the session that just ended still wins outright — that is
       // the [localChanged] branch below, untouched.
-      if (remoteChanged && (!localChanged || downloadOnly)) {
+      if (statusOnly) {
+        continue;
+      } else if (remoteChanged && (!localChanged || downloadOnly)) {
         if (await _download(
           game,
           match,
@@ -305,6 +313,7 @@ class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
 
     // 2) Remote-only files → download.
     for (final a in remote) {
+      if (statusOnly) break;
       if (matchedRemote.contains(a.id)) continue;
       if (await _download(
         game,
@@ -324,7 +333,7 @@ class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
     // Playtime rides along with the upload-capable passes only. The pre-launch
     // pass is on the launch's critical path and playtime changes nothing about
     // the game that's about to start, so it stays out of that budget.
-    if (!downloadOnly) {
+    if (!downloadOnly && !statusOnly) {
       await _syncPlaytime(game, romId);
     }
 
@@ -642,9 +651,21 @@ class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
   }
 
   @override
-  Future<SyncResult> detectGameSaveFiles(GameModel game) async {
+  Future<SyncResult> detectGameSaveFiles(GameModel game) =>
+      _runGameSync(game, downloadOnly: true, statusOnly: true);
+
+  /// Runs a per-game sync and publishes the resulting cloud state.
+  Future<SyncResult> _runGameSync(
+    GameModel game, {
+    required bool downloadOnly,
+    bool statusOnly = false,
+  }) async {
     try {
-      final status = await _syncGame(game, downloadOnly: false);
+      final status = await _syncGame(
+        game,
+        downloadOnly: downloadOnly,
+        statusOnly: statusOnly,
+      );
       _gameSyncStates[game.romname] = _buildState(game, status);
       notifyListeners();
       return SyncResult.ok();
@@ -684,9 +705,12 @@ class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
   }
 
   @override
-  Future<SyncResult> syncGameSavesAfterClose(GameModel game) async {
-    return detectGameSaveFiles(game);
-  }
+  Future<SyncResult> syncGameSavesAfterClose(GameModel game) =>
+      // Deliberately not [detectGameSaveFiles]: this is the one hook that must
+      // actually push. Detection went status-only so that merely highlighting a
+      // game stops moving saves, and routing the post-close hook through it
+      // would silently strand every save the user just made.
+      _runGameSync(game, downloadOnly: false);
 
   @override
   Future<void> updateGameCloudSyncEnabled(String gameId, bool enabled) async {
