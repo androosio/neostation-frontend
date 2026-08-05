@@ -929,6 +929,79 @@ class RommService {
     isState: true,
   );
 
+  /// Replaces the contents of the existing save asset [assetId]
+  /// (`PUT /api/saves/{id}`, field `saveFile`).
+  Future<RommAsset> updateSave(int assetId, File file) => _updateAsset(
+    '/api/saves',
+    fileField: 'saveFile',
+    assetId: assetId,
+    file: file,
+    isState: false,
+  );
+
+  /// Replaces the contents of the existing state asset [assetId]
+  /// (`PUT /api/states/{id}`, field `stateFile`).
+  Future<RommAsset> updateState(int assetId, File file) => _updateAsset(
+    '/api/states',
+    fileField: 'stateFile',
+    assetId: assetId,
+    file: file,
+    isState: true,
+  );
+
+  /// Updates an existing asset in place.
+  ///
+  /// This is deliberately not a `POST` with `overwrite=true`. RomM identifies an
+  /// asset by `(rom_id, file_name)` and *ignores* `emulator` when matching, but
+  /// it stores the file under the emulator label as a directory component. A
+  /// `POST` from a device whose label differs from the one the asset was
+  /// created with therefore updates the row's size and timestamp, writes its
+  /// bytes to a different directory, and leaves `file_path` pointing at the
+  /// original — so the download endpoint keeps serving the *old* file forever
+  /// while the metadata describes the new one. Verified against RomM 5.1.0.
+  ///
+  /// `PUT` carries no emulator at all and rewrites the file at the path the
+  /// asset already has, which keeps content and metadata in agreement.
+  Future<RommAsset> _updateAsset(
+    String basePath, {
+    required String fileField,
+    required int assetId,
+    required File file,
+    required bool isState,
+  }) async {
+    final uri = Uri.parse('$_baseUrl$basePath/$assetId');
+
+    Future<http.StreamedResponse> send() async {
+      final req = http.MultipartRequest('PUT', uri)
+        ..headers.addAll(_authHeaders)
+        ..files.add(
+          await http.MultipartFile.fromPath(
+            fileField,
+            file.path,
+            filename: path.basename(file.path),
+          ),
+        );
+      return _httpClient.send(req);
+    }
+
+    final resp = await _sendWithAuthRetry<http.StreamedResponse>(
+      send,
+      statusOf: (r) => r.statusCode,
+    );
+
+    final body = await resp.stream.bytesToString();
+    if (resp.statusCode != 200 && resp.statusCode != 201) {
+      throw RommException(
+        'Update failed (${resp.statusCode})',
+        statusCode: resp.statusCode,
+      );
+    }
+    return RommAsset.fromJson(
+      jsonDecode(body) as Map<String, dynamic>,
+      isState: isState,
+    );
+  }
+
   Future<RommAsset> _uploadAsset(
     String basePath, {
     required String fileField,

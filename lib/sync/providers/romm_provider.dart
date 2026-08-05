@@ -23,6 +23,8 @@ import 'package:neostation/models/game_model.dart';
 import 'package:neostation/models/neo_sync_models.dart';
 import 'package:neostation/models/romm_asset.dart';
 import 'package:neostation/providers/neo_sync_provider.dart';
+import 'package:neostation/repositories/emulator_repository.dart';
+import 'package:neostation/services/retroarch_config_service.dart';
 import 'package:neostation/providers/romm_provider.dart';
 import 'package:neostation/repositories/romm_save_map_repository.dart';
 import 'package:neostation/repositories/sync_repository.dart';
@@ -47,11 +49,19 @@ class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
   /// Tolerance (ms) for local-vs-recorded mtime comparisons, matching NeoSync.
   static const int _mtimeToleranceMs = 2000;
 
-  /// Marker prefix we stamp onto RomM's `emulator` field when we hijack it to
-  /// carry a save's per-core subfolder. Lets download distinguish our own
-  /// uploads (subfolder to restore) from assets uploaded elsewhere, whose
-  /// `emulator` holds a real emulator label that must NOT become a subfolder.
-  static const String _subfolderMarker = 'neostation:';
+  /// Label stamped onto RomM's `emulator` field for assets we create.
+  ///
+  /// Deliberately a *constant*, not the save's per-core subfolder. RomM uses
+  /// this value as a directory component when it stores the file, so encoding
+  /// something device-specific in it gives two devices two different storage
+  /// paths for one logical save — and because RomM matches assets on
+  /// `(rom_id, file_name)` alone, they then fight over a single row that only
+  /// ever serves whichever device created it. A device-independent label keeps
+  /// every device on one path, which is what lets a save actually round-trip.
+  ///
+  /// Where the file belongs *locally* is a local question, answered on download
+  /// from this device's own RetroArch configuration — see [_localSubfolder].
+  static const String _assetLabel = 'neostation';
 
   static final _log = LoggerService.instance;
 
@@ -265,17 +275,32 @@ class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
         // changed save is never overwritten here, even in a download-only
         // (pre-launch) pass — its upload is simply deferred to the next
         // upload-capable sync, so un-synced local progress is never lost.
-        if (await _download(game, match, deadline: deadline)) downloaded++;
+        if (await _download(
+          game,
+          match,
+          localFiles: localFiles,
+          deadline: deadline,
+        )) {
+          downloaded++;
+        }
       } else if (localChanged && !downloadOnly) {
-        // Local newer (or both changed → prefer local).
-        if (await _upload(romId, local, isState)) uploaded++;
+        // Local newer (or both changed → prefer local). The asset exists, so
+        // this replaces it in place rather than creating a second one.
+        if (await _upload(romId, local, isState, existing: match)) uploaded++;
       }
     }
 
     // 2) Remote-only files → download.
     for (final a in remote) {
       if (matchedRemote.contains(a.id)) continue;
-      if (await _download(game, a, deadline: deadline)) downloaded++;
+      if (await _download(
+        game,
+        a,
+        localFiles: localFiles,
+        deadline: deadline,
+      )) {
+        downloaded++;
+      }
     }
 
     _log.i(
@@ -329,6 +354,57 @@ class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
     return parts.sublist(1, parts.length - 1).join('/');
   }
 
+  /// The subfolder a downloaded file belongs in under *this* device's RetroArch
+  /// save/state directory — its per-core folder, or `''` for the directory root.
+  ///
+  /// Placement is a local question and is answered locally. The alternative,
+  /// replaying a subfolder recorded on the server, breaks the moment two
+  /// devices are configured differently: a handheld with
+  /// `sort_savestates_enable` on wants `states/FCEUmm/`, while a Steam Deck
+  /// with it off wants the root — and whichever uploaded first would dictate a
+  /// path the other's emulator never reads.
+  ///
+  /// The RetroArch setting decides *whether* there is a subfolder; the core
+  /// name is taken from an existing local file of the same kind when one is
+  /// present (ground truth, and immune to core renames) and derived from the
+  /// emulator's name otherwise.
+  Future<String> _localSubfolder(
+    GameModel game,
+    bool isState,
+    List<LocalSaveFile> localFiles,
+  ) async {
+    try {
+      final cfg = await RetroArchConfigService().getMergedConfig();
+      final sorts = isState
+          ? cfg.sortSavestatesByCore
+          : cfg.sortSavefilesByCore;
+      if (!sorts) return '';
+
+      final prefix = isState ? 'states/' : 'saves/';
+      for (final f in localFiles) {
+        if (!f.relativePath.startsWith(prefix)) continue;
+        final sub = _subfolderOf(f);
+        if (sub.isNotEmpty) return sub;
+      }
+
+      final folder = game.systemFolderName;
+      if (folder == null || folder.isEmpty) return '';
+      final system = await SystemRepository.getSystemByFolderName(folder);
+      if (system?.id == null) return '';
+      final emulator =
+          await EmulatorRepository.getUserDefaultEmulatorForSystem(
+            system!.id!,
+          ) ??
+          await EmulatorRepository.getDefaultEmulatorForSystem(system.id!);
+      return RetroArchConfigService.coreFolderName(emulator?.name) ?? '';
+    } catch (e) {
+      // Placement is a best-effort refinement; the directory root is always a
+      // valid destination and must never be the reason a sync fails.
+      _log.w('RomM: could not resolve local save subfolder: $e');
+      return '';
+    }
+  }
+
   /// A `403` that reaches the provider is a *persistent* permission denial: the
   /// service layer ([RommService._sendWithAuthRetry]) already re-authenticated
   /// and retried once, so a stale/empty-scope token would have recovered. What
@@ -342,17 +418,30 @@ class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
   static bool isPermissionDenied(Object e) =>
       e is RommException && e.statusCode == 403;
 
-  Future<bool> _upload(int romId, LocalSaveFile local, bool isState) async {
+  /// Sends [local] to RomM, updating [existing] in place when the asset is
+  /// already there and creating it otherwise.
+  ///
+  /// The update path matters: see [RommService.updateSave] for why a repeat
+  /// `POST` corrupts the row/file relationship instead of overwriting.
+  Future<bool> _upload(
+    int romId,
+    LocalSaveFile local,
+    bool isState, {
+    RommAsset? existing,
+  }) async {
     try {
       final file = File(local.filePath);
       if (!await file.exists()) return false;
-      final sub = _subfolderOf(local);
-      // Stamp our marker so download knows this subfolder is ours to restore,
-      // rather than a real emulator label set by another RomM client.
-      final emulator = sub.isEmpty ? null : '$_subfolderMarker$sub';
-      final asset = isState
-          ? await _svc.uploadState(romId, file, emulator: emulator)
-          : await _svc.uploadSave(romId, file, emulator: emulator);
+      final RommAsset asset;
+      if (existing != null) {
+        asset = isState
+            ? await _svc.updateState(existing.id, file)
+            : await _svc.updateSave(existing.id, file);
+      } else {
+        asset = isState
+            ? await _svc.uploadState(romId, file, emulator: _assetLabel)
+            : await _svc.uploadSave(romId, file, emulator: _assetLabel);
+      }
       final stat = await file.stat();
       await SyncRepository.saveSyncState(
         kProviderId,
@@ -373,18 +462,15 @@ class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
   Future<bool> _download(
     GameModel game,
     RommAsset asset, {
+    required List<LocalSaveFile> localFiles,
     SyncDeadline? deadline,
   }) async {
     try {
-      // Rebuild the per-core subfolder only when the emulator field carries our
-      // marker (i.e. we uploaded it). Assets uploaded by other RomM clients put
-      // a real emulator label here, which must NOT be treated as a subfolder or
-      // the file lands somewhere the emulator never reads it.
+      // Placement comes from this device's own RetroArch layout, never from the
+      // asset's `emulator` field — that value belongs to whichever device
+      // created the asset and says nothing about where this one reads saves.
       final prefix = asset.isState ? 'states' : 'saves';
-      final rawEmu = asset.emulator;
-      final sub = (rawEmu != null && rawEmu.startsWith(_subfolderMarker))
-          ? rawEmu.substring(_subfolderMarker.length)
-          : '';
+      final sub = await _localSubfolder(game, asset.isState, localFiles);
       final relativeName = sub.isNotEmpty
           ? '$prefix/$sub/${asset.fileName}'
           : '$prefix/${asset.fileName}';

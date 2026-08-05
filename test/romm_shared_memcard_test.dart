@@ -111,6 +111,37 @@ class _FakeRommService extends RommService {
     bool overwrite = true,
   }) async => throw UnimplementedError('no states in these tests');
 
+  /// Mirrors RomM's `PUT /api/saves/{id}`: rewrites the asset's bytes at the
+  /// path it already holds, leaving its id and location untouched. A repeat
+  /// `POST` would instead mint a fresh path while the row kept the old one —
+  /// the divergence the update path exists to avoid.
+  @override
+  Future<RommAsset> updateSave(int assetId, File file) async {
+    for (final entry in savesByRom.entries) {
+      final i = entry.value.indexWhere((a) => a.id == assetId);
+      if (i < 0) continue;
+      final old = entry.value[i];
+      final bytes = await file.readAsBytes();
+      uploads.add('${entry.key}/${old.fileName}');
+      contentByPath[old.downloadPath!] = List.of(bytes);
+      final updated = RommAsset(
+        id: old.id,
+        fileName: old.fileName,
+        fileSizeBytes: bytes.length,
+        isState: old.isState,
+        updatedAt: _stamp(),
+        downloadPath: old.downloadPath,
+      );
+      entry.value[i] = updated;
+      return updated;
+    }
+    throw StateError('no asset with id $assetId');
+  }
+
+  @override
+  Future<RommAsset> updateState(int assetId, File file) async =>
+      throw UnimplementedError('no states in these tests');
+
   @override
   Future<Uint8List> downloadAssetByPath(String downloadPath) async =>
       Uint8List.fromList(contentByPath[downloadPath]!);
