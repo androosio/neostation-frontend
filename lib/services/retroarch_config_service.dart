@@ -147,7 +147,6 @@ class RetroArchConfigService {
     return resolvedConfig;
   }
 
-  /// Extracts the configuration value from a line, stripping quotes and whitespace.
   /// Reads a RetroArch boolean setting, which the config file writes as a
   /// quoted `"true"`/`"false"` rather than a bare literal.
   bool _extractBool(String line) =>
@@ -173,6 +172,8 @@ class RetroArchConfigService {
     return (core == null || core.isEmpty) ? null : core;
   }
 
+  /// Extracts the configuration value from a line, stripping quotes and
+  /// whitespace.
   String? _extractValue(String line) {
     if (!line.contains('=')) return null;
 
@@ -326,6 +327,7 @@ class RetroArchConfigService {
     if (configPath != null) {
       try {
         _cachedConfig = await parseConfig(configPath);
+        _logResolution(_cachedConfig!);
         return _cachedConfig!;
       } catch (e) {
         _log.e('Error parsing RetroArch config at $configPath: $e');
@@ -411,27 +413,30 @@ class RetroArchConfigService {
     // those point somewhere no RetroArch actually reads, sync moves bytes into
     // a dead tree and still reports success. An empty `cfg=` in this line is
     // the tell.
-    //
-    // Deliberately not cached: this branch means no config file was found, and
-    // one may appear later (RetroArch installed after first launch). Repeat
-    // resolutions are therefore expected, so the line is de-duplicated rather
-    // than emitted every time.
-    final signature =
-        '${finalConfig.configPath}|${finalConfig.savefileDirectory}|'
-        '${finalConfig.savestateDirectory}|${finalConfig.sortSavefilesByCore}|'
-        '${finalConfig.sortSavestatesByCore}';
-    if (signature != _lastLoggedResolution) {
-      _lastLoggedResolution = signature;
-      _log.i(
-        'RetroArch config resolved: cfg="${finalConfig.configPath}" '
-        'saves="${finalConfig.savefileDirectory}" '
-        'states="${finalConfig.savestateDirectory}" '
-        'sortSaves=${finalConfig.sortSavefilesByCore} '
-        'sortStates=${finalConfig.sortSavestatesByCore}',
-      );
-    }
+    _logResolution(finalConfig);
 
     return finalConfig;
+  }
+
+  /// Logs where RetroArch's directories were resolved to, de-duplicated so the
+  /// uncached no-config-found path doesn't repeat it on every call.
+  ///
+  /// This resolution is exactly where a save-sync failure hides: when no config
+  /// file is found the platform *defaults* are used, and if those point
+  /// somewhere no RetroArch actually reads, sync moves bytes into a dead tree
+  /// and still reports success. An empty `cfg=""` in this line is the tell.
+  void _logResolution(RetroArchConfig cfg) {
+    final signature =
+        '${cfg.configPath}|${cfg.savefileDirectory}|${cfg.savestateDirectory}|'
+        '${cfg.sortSavefilesByCore}|${cfg.sortSavestatesByCore}';
+    if (signature == _lastLoggedResolution) return;
+    _lastLoggedResolution = signature;
+    _log.i(
+      'RetroArch config resolved: cfg="${cfg.configPath}" '
+      'saves="${cfg.savefileDirectory}" states="${cfg.savestateDirectory}" '
+      'sortSaves=${cfg.sortSavefilesByCore} '
+      'sortStates=${cfg.sortSavestatesByCore}',
+    );
   }
 
   /// Clears the in-memory configuration cache.
