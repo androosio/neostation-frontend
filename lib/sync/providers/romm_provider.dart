@@ -270,11 +270,24 @@ class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
 
       final remoteChanged = match.updatedAtMs > recordedCloudMs;
 
-      if (remoteChanged && !localChanged) {
-        // Remote is newer and local is untouched → safe to pull. A locally
-        // changed save is never overwritten here, even in a download-only
-        // (pre-launch) pass — its upload is simply deferred to the next
-        // upload-capable sync, so un-synced local progress is never lost.
+      // Pull when the server has moved on. Requiring an *untouched* local copy
+      // here sounds safer than it is: RetroArch rewrites `<game>.state.auto` on
+      // every exit whenever auto-save-state is on — a common setting — so
+      // `localChanged` is true essentially always, and a pre-launch pass that
+      // insisted on it would never pull anything. Cross-device sync would be
+      // dead for those users rather than merely occasionally stale.
+      //
+      // Attempting the pull is safe because it is not the decision that
+      // overwrites anything: [_download]'s per-target mtime guard refuses to
+      // write over a local file newer than the remote, so a genuinely-ahead
+      // local save survives and simply uploads on the next upload-capable pass.
+      // What changes is only the case where the server copy is strictly newer
+      // than the local one, which is exactly the other device's session.
+      //
+      // Deliberately scoped to the download-only (pre-launch) pass. After a
+      // game closes, the session that just ended still wins outright — that is
+      // the [localChanged] branch below, untouched.
+      if (remoteChanged && (!localChanged || downloadOnly)) {
         if (await _download(
           game,
           match,

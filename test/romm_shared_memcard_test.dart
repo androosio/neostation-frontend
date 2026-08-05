@@ -421,4 +421,44 @@ void main() {
       expect(svc.uploads, ['1/Mcd001.ps2']);
     });
   });
+
+  // Pre-launch used to pull only when the local copy was *untouched*. With
+  // RetroArch's auto-save-state on — a common setting — `<game>.state.auto` is
+  // rewritten on every exit, so the local copy is essentially never untouched
+  // and the other device's save could never arrive.
+  group('pre-launch pulls a newer remote over a locally-changed copy', () {
+    test('the other device wins when the server copy is newer', () async {
+      // Local has unsynced changes *and* the server has moved on since.
+      await memcard.writeAsString('LOCAL PROGRESS');
+      svc.seedSave(
+        1,
+        'Mcd001.ps2',
+        'OTHER DEVICE'.codeUnits,
+        updatedAt: DateTime.now().toUtc().add(const Duration(minutes: 5)),
+      );
+
+      await provider.syncGameSavesBeforeLaunch(gameA);
+
+      expect(await memcard.readAsString(), 'OTHER DEVICE');
+      // Still download-only: nothing is pushed on the launch path.
+      expect(svc.uploads, isEmpty);
+    });
+
+    test('a locally-newer save is still not overwritten', () async {
+      // The per-target mtime guard, not the localChanged test, is what protects
+      // real local progress — so a stale remote must lose even now.
+      await memcard.writeAsString('LOCAL PROGRESS');
+      svc.seedSave(
+        1,
+        'Mcd001.ps2',
+        'STALE'.codeUnits,
+        updatedAt: DateTime.now().toUtc().subtract(const Duration(hours: 1)),
+      );
+
+      await provider.syncGameSavesBeforeLaunch(gameA);
+
+      expect(await memcard.readAsString(), 'LOCAL PROGRESS');
+      expect(svc.uploads, isEmpty);
+    });
+  });
 }
