@@ -287,5 +287,88 @@ void main() {
         isNull,
       );
     });
+
+    // Deleting a downloaded game locally has to unlink it, or RomM keeps
+    // reporting it as already downloaded and refuses to fetch it again.
+    test(
+      'removeMapping unlinks a deleted game and reports its rom id',
+      () async {
+        await RommSaveMapRepository.putMapping(
+          romname: 'Super Mario Bros.zip',
+          systemFolder: 'nes',
+          rommRomId: 6320,
+        );
+
+        expect(
+          await RommSaveMapRepository.removeMapping(
+            'Super Mario Bros.zip',
+            'nes',
+          ),
+          6320,
+        );
+        expect(
+          await RommSaveMapRepository.getRommRomId(
+            'Super Mario Bros.zip',
+            'nes',
+          ),
+          isNull,
+        );
+        expect(
+          await RommSaveMapRepository.getIndexedNameForRomId(6320, 'nes'),
+          isNull,
+        );
+      },
+    );
+
+    // A GameModel carries the extension already stripped, so the delete path
+    // hands over a name the mapping was never written with.
+    test('removeMapping unlinks via the extension-stripped romname', () async {
+      await RommSaveMapRepository.putMapping(
+        romname: 'Extra Mario Bros. [Hacks].zip',
+        systemFolder: 'nes',
+        rommRomId: 6320,
+      );
+
+      expect(
+        await RommSaveMapRepository.removeMapping(
+          'Extra Mario Bros. [Hacks]',
+          'nes',
+        ),
+        6320,
+      );
+      expect(
+        await RommSaveMapRepository.getRommRomId(
+          'Extra Mario Bros. [Hacks]',
+          'nes',
+        ),
+        isNull,
+      );
+    });
+
+    test('removeMapping leaves other systems and games alone', () async {
+      await RommSaveMapRepository.putMapping(
+        romname: 'game.bin',
+        systemFolder: 'megadrive',
+        rommRomId: 7,
+      );
+      await RommSaveMapRepository.putMapping(
+        romname: 'game.sfc',
+        systemFolder: 'snes',
+        rommRomId: 8,
+      );
+
+      expect(await RommSaveMapRepository.removeMapping('game', 'megadrive'), 7);
+      expect(await RommSaveMapRepository.getRommRomId('game', 'snes'), 8);
+    });
+
+    test(
+      'removeMapping returns null for a game that never came from RomM',
+      () async {
+        expect(
+          await RommSaveMapRepository.removeMapping('Homebrew.nes', 'nes'),
+          isNull,
+        );
+      },
+    );
   });
 }

@@ -80,6 +80,32 @@ class RommSaveMapRepository {
     }
   }
 
+  /// Drops the mapping for a local game that no longer exists, returning the
+  /// RomM id it was linked to (null when the game wasn't downloaded from RomM).
+  ///
+  /// Deleting a game locally has to unlink it, or the row outlives the file:
+  /// save sync would keep targeting that `rom_id`, and a later scan of an
+  /// unrelated game that happens to share the name would inherit the link.
+  /// Resolution goes through [getRommRomId] so the extension-stripped callers
+  /// (see [_romIdByStem]) unlink too, then deletes by id within the system —
+  /// matching whichever spelling of the name the row was written with.
+  static Future<int?> removeMapping(String romname, String systemFolder) async {
+    try {
+      final romId = await getRommRomId(romname, systemFolder);
+      if (romId == null) return null;
+      final db = await SqliteService.getDatabase();
+      await db.delete(
+        'app_romm_rom_map',
+        where: 'romm_rom_id = ? AND system_folder = ?',
+        whereArgs: [romId, systemFolder],
+      );
+      return romId;
+    } catch (e) {
+      _log.e('Error removing RomM rom map ($romname/$systemFolder): $e');
+      return null;
+    }
+  }
+
   /// Second pass for [getRommRomId], matching on the extension-stripped name.
   ///
   /// Callers disagree about what a "romname" is. The mapping is written with

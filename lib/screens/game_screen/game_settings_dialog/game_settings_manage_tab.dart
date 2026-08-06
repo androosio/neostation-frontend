@@ -7,6 +7,7 @@ import 'package:neostation/models/game_model.dart';
 import 'package:neostation/models/system_model.dart';
 import 'package:neostation/providers/file_provider.dart';
 import 'package:neostation/providers/neo_sync_provider.dart';
+import 'package:neostation/providers/romm_provider.dart';
 import 'package:neostation/repositories/game_repository.dart';
 import 'package:neostation/utils/enabled_index_nav.dart';
 import 'package:neostation/screens/settings_screen/new_settings_options/widgets/setting_row.dart';
@@ -18,6 +19,7 @@ import 'package:neostation/widgets/confirm_action_dialog.dart';
 import 'package:neostation/widgets/custom_notification.dart';
 import 'package:neostation/widgets/custom_toggle_switch.dart';
 import 'package:neostation/widgets/delete_game_dialog.dart';
+import 'package:provider/provider.dart';
 
 /// Manage tab for [GameSettingsDialog]: cloud sync, grid size/style,
 /// play-time reset, and permanent game deletion. View mode is selected from the
@@ -247,6 +249,8 @@ class GameSettingsManageTabState extends State<GameSettingsManageTab> {
 
     final targetSystemId = widget.game.systemId ?? widget.system.id;
     final deletedRomname = widget.game.romname;
+    // Read before the await: the dialog can be gone by the time deletion ends.
+    final rommProvider = context.read<RommProvider>();
 
     try {
       await GameRepository.deleteGame(
@@ -256,6 +260,11 @@ class GameSettingsManageTabState extends State<GameSettingsManageTab> {
         romBaseName: deletedRomname,
         romPath: widget.game.romPath,
         fileProvider: widget.fileProvider,
+      );
+      // Unlink from RomM so the browse grid stops calling it downloaded.
+      await rommProvider.forgetLocalDownload(
+        romname: deletedRomname,
+        systemFolder: _targetSystemFolder,
       );
     } catch (e) {
       _log.e('Game deletion failed: $e');

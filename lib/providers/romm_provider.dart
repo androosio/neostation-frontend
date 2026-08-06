@@ -921,6 +921,36 @@ class RommProvider extends ChangeNotifier {
     return result;
   }
 
+  /// Forgets everything marking a local game as downloaded, after it was
+  /// deleted from the library. No-op for games that didn't come from RomM.
+  ///
+  /// Three things latch "already downloaded" and none of them watch the
+  /// filesystem: the save-sync mapping (which also feeds `_existingRomDir`'s
+  /// multi-disc name recovery), the [_downloadedByRomId] memo, and a completed
+  /// [_downloads] entry — which the browse screen takes as proof on its own,
+  /// without consulting the disk. Left behind, a game deleted after being
+  /// downloaded keeps its downloaded badge and refuses to download again.
+  Future<void> forgetLocalDownload({
+    required String romname,
+    required String systemFolder,
+  }) async {
+    final romId = await RommSaveMapRepository.removeMapping(
+      romname,
+      systemFolder,
+    );
+    if (romId == null) return;
+    _downloadedByRomId.remove(romId);
+    // A transfer still running owns its own entry: dropping it here would
+    // strand the progress UI and the completion handler that follows it.
+    final download = _downloads[romId];
+    if (download != null && download.status == RommDownloadStatus.downloading) {
+      notifyListeners();
+      return;
+    }
+    _downloads.remove(romId);
+    _notifyDownloadState();
+  }
+
   // ── Download ────────────────────────────────────────────────────────────────
 
   /// Downloads [rom] into a configured ROM folder. On success the resolved
