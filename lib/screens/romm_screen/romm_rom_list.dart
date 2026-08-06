@@ -318,6 +318,13 @@ class _RommRomListState extends State<RommRomList> {
                                 onDownload: () => widget.onConfirm(rom),
                                 onCancel: () => widget.onCancel(rom),
                                 onTap: () {
+                                  // Second tap on the selected row confirms
+                                  // it (see RommRomGrid._buildCard).
+                                  if (index == _selectedIndex) {
+                                    SfxService().playEnterSound();
+                                    widget.onConfirm(rom);
+                                    return;
+                                  }
                                   setState(() {
                                     _selectedIndex = index;
                                     _settledIndex = index;

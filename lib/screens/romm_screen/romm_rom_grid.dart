@@ -893,6 +893,14 @@ class _RommRomGridState extends State<RommRomGrid> {
       onDownload: () => widget.onConfirm(rom),
       onCancel: () => widget.onCancel(rom),
       onTap: () {
+        // Second tap on the already-selected tile confirms it — download, or
+        // cancel one in flight. Touch users have no A button, and the local
+        // library's grid reads the same way.
+        if (index == _selectedIndex) {
+          SfxService().playEnterSound();
+          widget.onConfirm(rom);
+          return;
+        }
         setState(() {
           _selectedIndex = index;
           _settledIndex = index; // discrete tap: update chrome immediately
