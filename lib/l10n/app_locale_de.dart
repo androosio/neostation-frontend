@@ -222,6 +222,25 @@ const Map<String, dynamic> appLocaleDe = {
       'Multi-Disc-Spiele konnten nicht organisiert werden: {error}',
   AppLocale.organizeMultiDiscWarning:
       'Dadurch werden passende ROM-Dateien in neue Spielordner verschoben und .m3u-Wiedergabelisten auf dem Speicher erstellt. Dies kann nicht automatisch rückgängig gemacht werden.',
+  AppLocale.cleanOrphanedMetadata: 'Verwaiste Metadaten bereinigen',
+  AppLocale.cleanOrphanedMetadataSubtitle:
+      'Entfernt Metadaten und Medien, die von gelöschten ROMs zurückgelassen wurden',
+  AppLocale.cleanOrphanedMetadataWarning:
+      'Dies löscht dauerhaft Metadatenzeilen und Mediendateien für ROMs, die sich nicht mehr in Ihrer Bibliothek befinden. Aus ES-DE importierte Einträge werden nicht entfernt.',
+  AppLocale.cleanOrphanedMetadataScanning:
+      'Verwaiste Metadaten werden bereinigt...',
+  AppLocale.cleanOrphanedMetadataCleaningItem: 'Bereinigung von {filename}...',
+  AppLocale.cleanOrphanedMetadataNothingFound:
+      'Keine verwaisten Metadaten gefunden.',
+  AppLocale.cleanOrphanedMetadataDone:
+      '{entries} Metadateneintrag/-einträge und {files} Mediendatei(en) bereinigt.',
+  AppLocale.cleanOrphanedMetadataEsdeSkippedSuffix:
+      '{count} aus ES-DE importierte Einträge wurden unverändert gelassen.',
+  AppLocale.cleanOrphanedMetadataFailed:
+      'Fehler beim Bereinigen verwaister Metadaten: {error}',
+  AppLocale.notifications: 'Benachrichtigungen',
+  AppLocale.clearAll: 'Alle löschen',
+  AppLocale.noActiveNotifications: 'Keine aktiven Benachrichtigungen',
   AppLocale.romsFolderSubtitle:
       'Füge die Ordner hinzu, die deine ROM-Dateien enthalten',
   AppLocale.pressToRemoveFolder:

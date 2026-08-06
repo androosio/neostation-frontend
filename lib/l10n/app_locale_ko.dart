@@ -181,6 +181,21 @@ const Map<String, dynamic> appLocaleKo = {
   AppLocale.organizeMultiDiscFailed: '멀티 디스크 게임 정리 실패: {error}',
   AppLocale.organizeMultiDiscWarning:
       '일치하는 ROM 파일을 새 게임 폴더로 옮기고 저장소에 .m3u 재생목록을 만듭니다. 이 작업은 자동으로 되돌릴 수 없습니다.',
+  AppLocale.cleanOrphanedMetadata: '고아 메타데이터 정리',
+  AppLocale.cleanOrphanedMetadataSubtitle: '삭제된 ROM 이 남긴 메타데이터와 미디어를 제거합니다',
+  AppLocale.cleanOrphanedMetadataWarning:
+      '라이브러리에 더 이상 없는 ROM 의 메타데이터 행과 미디어 파일을 영구적으로 삭제합니다. ES-DE 에서 가져온 항목은 삭제되지 않습니다.',
+  AppLocale.cleanOrphanedMetadataScanning: '고아 메타데이터 정리 중...',
+  AppLocale.cleanOrphanedMetadataCleaningItem: '{filename} 정리 중...',
+  AppLocale.cleanOrphanedMetadataNothingFound: '고아 메타데이터를 찾을 수 없습니다.',
+  AppLocale.cleanOrphanedMetadataDone:
+      '{entries}개의 메타데이터 항목과 {files}개의 미디어 파일을 정리했습니다.',
+  AppLocale.cleanOrphanedMetadataEsdeSkippedSuffix:
+      '{count}개의 ES-DE 에서 가져온 항목은 그대로 유지되었습니다.',
+  AppLocale.cleanOrphanedMetadataFailed: '고아 메타데이터 정리 실패: {error}',
+  AppLocale.notifications: '알림',
+  AppLocale.clearAll: '모두 지우기',
+  AppLocale.noActiveNotifications: '활성 알림 없음',
   AppLocale.romsFolderSubtitle: 'ROM 파일이 포함된 폴더를 추가하세요',
   AppLocale.pressToRemoveFolder: '이 폴더를 제거하려면 확인을 누르세요',
   AppLocale.maxRomFoldersReached: 'ROM 폴더는 최대 5개까지 추가할 수 있습니다',

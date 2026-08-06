@@ -218,6 +218,24 @@ const Map<String, dynamic> appLocaleRu = {
       'Не удалось организовать многодисковые игры: {error}',
   AppLocale.organizeMultiDiscWarning:
       'Подходящие ROM-файлы будут перемещены в новые папки игр, а на накопителе будут созданы плейлисты .m3u. Это нельзя отменить автоматически.',
+  AppLocale.cleanOrphanedMetadata: 'Очистить потерянные метаданные',
+  AppLocale.cleanOrphanedMetadataSubtitle:
+      'Удалить метаданные и медиа, оставленные удалёнными ROM',
+  AppLocale.cleanOrphanedMetadataWarning:
+      'Это навсегда удалит строки метаданных и медиафайлы для ROM, которых больше нет в вашей библиотеке. Импортированные из ES-DE записи не будут удалены.',
+  AppLocale.cleanOrphanedMetadataScanning: 'Очистка потерянных метаданных...',
+  AppLocale.cleanOrphanedMetadataCleaningItem: 'Очистка {filename}...',
+  AppLocale.cleanOrphanedMetadataNothingFound:
+      'Потерянные метаданные не найдены.',
+  AppLocale.cleanOrphanedMetadataDone:
+      'Очищено {entries} запис(ь/ей) метаданных и {files} медиафайл(а/ов).',
+  AppLocale.cleanOrphanedMetadataEsdeSkippedSuffix:
+      ' {count} запис(ь/ей), импортированных из ES-DE, оставлены нетронутыми.',
+  AppLocale.cleanOrphanedMetadataFailed:
+      'Не удалось очистить потерянные метаданные: {error}',
+  AppLocale.notifications: 'Уведомления',
+  AppLocale.clearAll: 'Очистить все',
+  AppLocale.noActiveNotifications: 'Нет активных уведомлений',
   AppLocale.romsFolderSubtitle: 'Добавьте папку, содержащую ваши файлы ROM',
   AppLocale.pressToRemoveFolder:
       'Нажмите «Подтвердить», чтобы удалить эту папку',

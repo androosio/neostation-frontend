@@ -179,6 +179,20 @@ const Map<String, dynamic> appLocaleZhHant = {
   AppLocale.organizeMultiDiscFailed: '整理多片遊戲失敗：{error}',
   AppLocale.organizeMultiDiscWarning:
       '這將把相符的 ROM 檔案移至新的遊戲資料夾，並在儲存空間中建立 .m3u 播放清單。此操作無法自動復原。',
+  AppLocale.cleanOrphanedMetadata: '清理孤立中介資料',
+  AppLocale.cleanOrphanedMetadataSubtitle: '移除已刪除 ROM 留下的中介資料和媒體檔案',
+  AppLocale.cleanOrphanedMetadataWarning:
+      '這將永久刪除資料庫中不再存在的 ROM 的中繼資料列和媒體檔案。從 ES-DE 匯入的項目不會被刪除。',
+  AppLocale.cleanOrphanedMetadataScanning: '正在清理孤立中介資料...',
+  AppLocale.cleanOrphanedMetadataCleaningItem: '正在清理 {filename}...',
+  AppLocale.cleanOrphanedMetadataNothingFound: '未發現孤立中介資料。',
+  AppLocale.cleanOrphanedMetadataDone: '已清理 {entries} 筆中介資料和 {files} 個媒體檔案。',
+  AppLocale.cleanOrphanedMetadataEsdeSkippedSuffix:
+      '保留了 {count} 筆從 ES-DE 匯入的項目。',
+  AppLocale.cleanOrphanedMetadataFailed: '清理孤立中介資料失敗：{error}',
+  AppLocale.notifications: '通知',
+  AppLocale.clearAll: '清除全部',
+  AppLocale.noActiveNotifications: '沒有活動通知',
   AppLocale.romsFolderSubtitle: '新增包含 ROM 檔案的資料夾',
   AppLocale.pressToRemoveFolder: '按確認鍵刪除此資料夾',
   AppLocale.maxRomFoldersReached: '最多允許 5 個 ROM 資料夾',

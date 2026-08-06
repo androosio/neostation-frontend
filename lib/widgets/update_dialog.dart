@@ -318,7 +318,6 @@ class _UpdateDialogState extends State<UpdateDialog> {
             : AppLocale.updateErrorDesktop.getString(context),
         type: NotificationType.error,
         title: AppLocale.updateDialogError.getString(context),
-        duration: const Duration(seconds: 5),
       );
     }
   }

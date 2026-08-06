@@ -179,6 +179,20 @@ const Map<String, dynamic> appLocaleZh = {
   AppLocale.organizeMultiDiscFailed: '整理多碟游戏失败：{error}',
   AppLocale.organizeMultiDiscWarning:
       '这将把匹配的 ROM 文件移动到新的游戏文件夹，并在存储设备上创建 .m3u 播放列表。此操作无法自动撤销。',
+  AppLocale.cleanOrphanedMetadata: '清理孤立元数据',
+  AppLocale.cleanOrphanedMetadataSubtitle: '移除已删除 ROM 留下的元数据和媒体文件',
+  AppLocale.cleanOrphanedMetadataWarning:
+      '这将永久删除库中不再存在的 ROM 的元数据行和媒体文件。从 ES-DE 导入的条目不会被删除。',
+  AppLocale.cleanOrphanedMetadataScanning: '正在清理孤立元数据...',
+  AppLocale.cleanOrphanedMetadataCleaningItem: '正在清理 {filename}...',
+  AppLocale.cleanOrphanedMetadataNothingFound: '未发现孤立元数据。',
+  AppLocale.cleanOrphanedMetadataDone: '已清理 {entries} 条元数据和 {files} 个媒体文件。',
+  AppLocale.cleanOrphanedMetadataEsdeSkippedSuffix:
+      '保留了 {count} 条从 ES-DE 导入的条目。',
+  AppLocale.cleanOrphanedMetadataFailed: '清理孤立元数据失败：{error}',
+  AppLocale.notifications: '通知',
+  AppLocale.clearAll: '清除全部',
+  AppLocale.noActiveNotifications: '没有活动通知',
   AppLocale.romsFolderSubtitle: '添加包含 ROM 文件的文件夹',
   AppLocale.pressToRemoveFolder: '按确认键删除此文件夹',
   AppLocale.maxRomFoldersReached: '最多允许 5 个 ROM 文件夹',

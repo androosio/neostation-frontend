@@ -34,13 +34,6 @@ extension _FavoritesReorder on _SystemGamesListState {
         });
 
         _reorderGamesListKeepingVisualPosition();
-
-        if (!mounted) return;
-        AppNotification.showNotification(
-          context,
-          AppLocale.favoriteUpdated.getString(context),
-          type: NotificationType.success,
-        );
       } catch (e) {
         _SystemGamesListState._log.e('Error toggling music favorite: $e');
       }
@@ -68,13 +61,6 @@ extension _FavoritesReorder on _SystemGamesListState {
       });
 
       _reorderGamesListKeepingVisualPosition();
-
-      if (!mounted) return;
-      AppNotification.showNotification(
-        context,
-        AppLocale.favoriteUpdated.getString(context),
-        type: NotificationType.success,
-      );
     } catch (error) {
       if (!mounted) return;
       _SystemGamesListState._log.e('Error toggling favorite: $error');

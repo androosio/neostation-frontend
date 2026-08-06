@@ -15,7 +15,7 @@ import 'package:neostation/providers/neo_assets_provider.dart';
 import 'package:neostation/services/neo_assets_service.dart';
 import 'package:neostation/providers/file_provider.dart';
 import 'package:neostation/services/esde_import_service.dart';
-import 'package:neostation/widgets/custom_notification.dart';
+import 'package:neostation/services/global_notification_service.dart';
 import '../providers/sqlite_config_provider.dart';
 import '../utils/gamepad_nav.dart';
 import 'package:flutter_localization/flutter_localization.dart';
@@ -1462,6 +1462,23 @@ class _SetupWizardState extends State<SetupWizard> with WidgetsBindingObserver {
       selected = selected.substring(0, selected.length - 1);
     }
 
+    // Resolve ES-DE strings before the async import so progress callbacks can
+    // use them without a BuildContext.
+    final localeEsdeImporting = AppLocale.esdeImporting.getString(context);
+    final localeEsdeImportNotEsdeFolder = AppLocale.esdeImportNotEsdeFolder
+        .getString(context);
+    final localeEsdeImportNothingFound = AppLocale.esdeImportNothingFound
+        .getString(context);
+    final localeEsdeImportComplete = AppLocale.esdeImportComplete.getString(
+      context,
+    );
+    final localeEsdeSummaryGames = AppLocale.esdeSummaryGames.getString(
+      context,
+    );
+    final localeEsdeSummarySystems = AppLocale.esdeSummarySystems.getString(
+      context,
+    );
+
     await context.read<SqliteConfigProvider>().updateEsdeFolderPath(selected);
 
     setState(() {
@@ -1469,6 +1486,14 @@ class _SetupWizardState extends State<SetupWizard> with WidgetsBindingObserver {
       _esdeProgress = 0.0;
       _esdeLabel = '';
     });
+
+    const notificationId = 'esde_import_progress';
+    GlobalNotificationService().show(
+      id: notificationId,
+      message: localeEsdeImporting,
+      type: GlobalNotificationType.info,
+      progress: 0,
+    );
 
     EsdeImportResult? result;
     String? error;
@@ -1482,6 +1507,14 @@ class _SetupWizardState extends State<SetupWizard> with WidgetsBindingObserver {
               _esdeLabel = label;
             });
           }
+          GlobalNotificationService().update(
+            id: notificationId,
+            message: label.isEmpty
+                ? localeEsdeImporting
+                : '$localeEsdeImporting: $label',
+            type: GlobalNotificationType.info,
+            progress: p,
+          );
         },
       );
       // Rebuild the artwork fallback map now esde_media_dir rows exist.
@@ -1505,22 +1538,36 @@ class _SetupWizardState extends State<SetupWizard> with WidgetsBindingObserver {
     });
 
     if (error != null) {
-      AppNotification.showNotification(
-        context,
-        error,
-        type: NotificationType.error,
+      GlobalNotificationService().update(
+        id: notificationId,
+        message: error,
+        type: GlobalNotificationType.error,
+        progress: null,
       );
     } else if (result != null && !result.gamelistsDirFound) {
-      AppNotification.showNotification(
-        context,
-        AppLocale.esdeImportNotEsdeFolder.getString(context),
-        type: NotificationType.error,
+      GlobalNotificationService().update(
+        id: notificationId,
+        message: localeEsdeImportNotEsdeFolder,
+        type: GlobalNotificationType.error,
+        progress: null,
       );
     } else if (!matched) {
-      AppNotification.showNotification(
-        context,
-        AppLocale.esdeImportNothingFound.getString(context),
-        type: NotificationType.info,
+      GlobalNotificationService().update(
+        id: notificationId,
+        message: localeEsdeImportNothingFound,
+        type: GlobalNotificationType.info,
+        progress: null,
+      );
+    } else {
+      final importResult = result;
+      GlobalNotificationService().update(
+        id: notificationId,
+        message:
+            '$localeEsdeImportComplete: '
+            '${importResult.gamesImported} $localeEsdeSummaryGames, '
+            '${importResult.systemsMatched} $localeEsdeSummarySystems',
+        type: GlobalNotificationType.success,
+        progress: null,
       );
     }
   }

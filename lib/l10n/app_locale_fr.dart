@@ -226,6 +226,25 @@ const Map<String, dynamic> appLocaleFr = {
       'Échec de l’organisation des jeux multi-disques : {error}',
   AppLocale.organizeMultiDiscWarning:
       'Cette opération déplacera les ROM correspondantes dans de nouveaux dossiers de jeux et créera des listes .m3u sur votre stockage. Elle ne peut pas être annulée automatiquement.',
+  AppLocale.cleanOrphanedMetadata: 'Nettoyer les métadonnées orphelines',
+  AppLocale.cleanOrphanedMetadataSubtitle:
+      'Supprime les métadonnées et les médias laissés par les ROMs supprimés',
+  AppLocale.cleanOrphanedMetadataWarning:
+      'Cela supprime définitivement les lignes de métadonnées et les fichiers média des ROMs qui ne sont plus dans votre bibliothèque. Les entrées importées depuis ES-DE ne seront pas supprimées.',
+  AppLocale.cleanOrphanedMetadataScanning:
+      'Nettoyage des métadonnées orphelines...',
+  AppLocale.cleanOrphanedMetadataCleaningItem: 'Nettoyage de {filename}...',
+  AppLocale.cleanOrphanedMetadataNothingFound:
+      'Aucune métadonnée orpheline trouvée.',
+  AppLocale.cleanOrphanedMetadataDone:
+      'Nettoyé {entries} entrée(s) de métadonnées et {files} fichier(s) multimédia.',
+  AppLocale.cleanOrphanedMetadataEsdeSkippedSuffix:
+      ' {count} entrée(s) importée(s) depuis ES-DE ont été laissées intactes.',
+  AppLocale.cleanOrphanedMetadataFailed:
+      'Échec du nettoyage des métadonnées orphelines : {error}',
+  AppLocale.notifications: 'Notifications',
+  AppLocale.clearAll: 'Tout effacer',
+  AppLocale.noActiveNotifications: 'Aucune notification active',
   AppLocale.romsFolderSubtitle:
       'Ajoutez les dossiers contenant vos fichiers ROM',
   AppLocale.pressToRemoveFolder:

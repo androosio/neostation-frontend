@@ -219,6 +219,25 @@ const Map<String, dynamic> appLocaleIt = {
       'Impossibile organizzare i giochi multi-disco: {error}',
   AppLocale.organizeMultiDiscWarning:
       'Questa operazione sposterà i file ROM corrispondenti in nuove cartelle di gioco e creerà playlist .m3u sul dispositivo di archiviazione. Non può essere annullata automaticamente.',
+  AppLocale.cleanOrphanedMetadata: 'Pulisci metadati orfani',
+  AppLocale.cleanOrphanedMetadataSubtitle:
+      'Rimuove metadati e media lasciati dai ROM eliminati',
+  AppLocale.cleanOrphanedMetadataWarning:
+      'Questo elimina definitivamente le righe di metadati e i file multimediali per i ROM che non sono più nella tua libreria. Le voci importate da ES-DE non verranno rimosse.',
+  AppLocale.cleanOrphanedMetadataScanning:
+      'Pulizia metadati orfani in corso...',
+  AppLocale.cleanOrphanedMetadataCleaningItem: 'Pulizia di {filename}...',
+  AppLocale.cleanOrphanedMetadataNothingFound:
+      'Nessun metadato orfano trovato.',
+  AppLocale.cleanOrphanedMetadataDone:
+      'Puliti {entries} voce/i di metadati e {files} file multimediali.',
+  AppLocale.cleanOrphanedMetadataEsdeSkippedSuffix:
+      '{count} voce/i importate da ES-DE sono state lasciate intatte.',
+  AppLocale.cleanOrphanedMetadataFailed:
+      'Impossibile pulire i metadati orfani: {error}',
+  AppLocale.notifications: 'Notifiche',
+  AppLocale.clearAll: 'Cancella tutto',
+  AppLocale.noActiveNotifications: 'Nessuna notifica attiva',
   AppLocale.romsFolderSubtitle:
       'Aggiungi le cartelle che contengono i tuoi file ROM',
   AppLocale.pressToRemoveFolder: 'Premi Conferma per rimuovere questa cartella',

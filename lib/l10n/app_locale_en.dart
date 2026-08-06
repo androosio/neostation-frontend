@@ -213,6 +213,23 @@ const Map<String, dynamic> appLocaleEn = {
       'Failed to organize multi-disc games: {error}',
   AppLocale.organizeMultiDiscWarning:
       'This moves matching ROM files into new game folders and creates .m3u playlists on your storage. This cannot be undone automatically.',
+  AppLocale.cleanOrphanedMetadata: 'Clean Orphaned Metadata',
+  AppLocale.cleanOrphanedMetadataSubtitle:
+      'Remove metadata and media left behind by deleted ROMs',
+  AppLocale.cleanOrphanedMetadataWarning:
+      'This permanently deletes metadata rows and media files for ROMs that are no longer in your library. ES-DE imported entries will not be removed.',
+  AppLocale.cleanOrphanedMetadataScanning: 'Cleaning orphaned metadata...',
+  AppLocale.cleanOrphanedMetadataCleaningItem: 'Cleaning {filename}...',
+  AppLocale.cleanOrphanedMetadataNothingFound: 'No orphaned metadata found.',
+  AppLocale.cleanOrphanedMetadataDone:
+      'Cleaned {entries} metadata entr(y/ies) and {files} media file(s).',
+  AppLocale.cleanOrphanedMetadataEsdeSkippedSuffix:
+      ' {count} ES-DE entr(y/ies) were left untouched.',
+  AppLocale.cleanOrphanedMetadataFailed:
+      'Failed to clean orphaned metadata: {error}',
+  AppLocale.notifications: 'Notifications',
+  AppLocale.clearAll: 'Clear all',
+  AppLocale.noActiveNotifications: 'No active notifications',
   AppLocale.romsFolderSubtitle: 'Add a folder containing your ROM files',
   AppLocale.pressToRemoveFolder: 'Press confirm to remove this folder',
   AppLocale.maxRomFoldersReached: 'Maximum 5 ROM folders allowed',

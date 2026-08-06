@@ -212,6 +212,24 @@ const Map<String, dynamic> appLocaleId = {
   AppLocale.organizeMultiDiscFailed: 'Gagal mengatur game multi-disk: {error}',
   AppLocale.organizeMultiDiscWarning:
       'Ini akan memindahkan file ROM yang cocok ke folder game baru dan membuat playlist .m3u di penyimpanan Anda. Tindakan ini tidak dapat dibatalkan secara otomatis.',
+  AppLocale.cleanOrphanedMetadata: 'Bersihkan Metadata Yatim',
+  AppLocale.cleanOrphanedMetadataSubtitle:
+      'Hapus metadata dan media yang tertinggal dari ROM yang dihapus',
+  AppLocale.cleanOrphanedMetadataWarning:
+      'Ini akan menghapus permanen baris metadata dan file media untuk ROM yang tidak lagi ada di perpustakaan Anda. Entri yang diimpor dari ES-DE tidak akan dihapus.',
+  AppLocale.cleanOrphanedMetadataScanning: 'Membersihkan metadata yatim...',
+  AppLocale.cleanOrphanedMetadataCleaningItem: 'Membersihkan {filename}...',
+  AppLocale.cleanOrphanedMetadataNothingFound:
+      'Tidak ditemukan metadata yatim.',
+  AppLocale.cleanOrphanedMetadataDone:
+      'Dibersihkan {entries} entri metadata dan {files} file media.',
+  AppLocale.cleanOrphanedMetadataEsdeSkippedSuffix:
+      '{count} entri yang diimpor dari ES-DE dibiarkan tidak terubah.',
+  AppLocale.cleanOrphanedMetadataFailed:
+      'Gagal membersihkan metadata yatim: {error}',
+  AppLocale.notifications: 'Notifikasi',
+  AppLocale.clearAll: 'Hapus semua',
+  AppLocale.noActiveNotifications: 'Tidak ada notifikasi aktif',
   AppLocale.romsFolderSubtitle: 'Tambahkan folder yang berisi file ROM Anda',
   AppLocale.pressToRemoveFolder: 'Tekan Konfirmasi untuk menghapus folder ini',
   AppLocale.maxRomFoldersReached: 'Maksimal 5 folder ROM diizinkan',

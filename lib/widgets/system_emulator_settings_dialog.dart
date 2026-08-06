@@ -165,19 +165,6 @@ class _SystemEmulatorSettingsDialogState
     // 1. Save to DB
     await SystemRepository.setRecursiveScan(widget.system.id!, value);
 
-    if (mounted) {
-      AppNotification.showNotification(
-        context,
-        (value
-                ? AppLocale.recursiveScanEnabled
-                : AppLocale.recursiveScanDisabled)
-            .getString(context)
-            .replaceFirst('{name}', widget.system.realName),
-        type: NotificationType.info,
-        notificationId: 'system_scan_${widget.system.id}',
-      );
-    }
-
     // 2. Trigger automatic scan (Silent)
     try {
       // Ensure we use the updated recursiveScan flag for the scan

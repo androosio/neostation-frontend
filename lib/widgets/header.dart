@@ -13,6 +13,7 @@ import 'package:neostation/services/sfx_service.dart';
 import 'package:neostation/services/permission_service.dart';
 import 'package:neostation/providers/sqlite_config_provider.dart';
 import 'package:neostation/widgets/header_sort_dropdown.dart';
+import 'package:neostation/widgets/notification_bell.dart';
 import 'package:neostation/screens/app_screen.dart';
 import 'package:neostation/utils/nav_tabs.dart';
 import 'package:neostation/utils/time_format.dart';
@@ -333,6 +334,8 @@ class HeaderState extends State<Header> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      const NotificationBell(),
+                      SizedBox(width: 10.r),
                       Icon(
                         Symbols.schedule,
                         color: Theme.of(context).colorScheme.onSurface,
