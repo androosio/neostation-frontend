@@ -9,6 +9,7 @@ import '../../services/game_legend_visibility.dart';
 import '../../services/gamepad/gamepad_navigation_manager.dart';
 import '../../services/sfx_service.dart';
 import '../../utils/gamepad_nav.dart';
+import '../../utils/letter_jump.dart';
 import '../../widgets/legend_edge_reshow_zone.dart';
 import '../../widgets/romm_action_buttons.dart';
 import '../app_screen.dart';
@@ -144,6 +145,7 @@ class _RommRomListState extends State<RommRomList> {
     _gamepadNav = GamepadNavigation(
       onNavigateUp: () => _move(-1),
       onNavigateDown: () => _move(1),
+      onLetterJump: _letterJump, // Held D-pad up/down → alphabet skipping.
       onSelectItem: _confirmSelected,
       onBack: widget.onBack,
       onXButton: widget.onToggleView,
@@ -209,6 +211,37 @@ class _RommRomListState extends State<RommRomList> {
     _scheduleChromeSettle();
     _maybeLoadMore();
     SfxService().playNavSound();
+  }
+
+  /// Skips to the neighbouring alphabetical group once up/down has been held
+  /// long enough (ES-DE style), the same escalation the local games list wears.
+  ///
+  /// Returns false at the ends of the alphabet so [GamepadNavigation] falls
+  /// back to a normal step — which on a partially loaded platform is also what
+  /// pages the next batch in, so a held jump forward keeps going once the rows
+  /// arrive.
+  bool _letterJump(bool forward) {
+    if (widget.roms.isEmpty) return false;
+
+    final target = LetterJump.targetIndex(
+      length: widget.roms.length,
+      currentIndex: _selectedIndex,
+      forward: forward,
+      letterAt: (index) => LetterJump.letterForName(widget.roms[index].name),
+    );
+    if (target == null) return false;
+
+    // A jump is a large move by definition, so scroll without animating: a run
+    // of held jumps would otherwise stack animations and trail the cursor.
+    _isNavigatingFast = true;
+    _lastNavTime = DateTime.now();
+    setState(() => _selectedIndex = target);
+    _scrollToSelected(animate: false);
+    widget.onIndexChanged(_selectedIndex);
+    _scheduleChromeSettle();
+    _maybeLoadMore();
+    SfxService().playNavSound();
+    return true;
   }
 
   void _maybeLoadMore() {
