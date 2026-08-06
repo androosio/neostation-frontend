@@ -1330,10 +1330,15 @@ class RommProvider extends ChangeNotifier {
         fileProvider,
       );
 
-      // Marquee/logo -> wheels (the logo overlaid on the card foreground).
+      // Logo -> wheels (the logo overlaid on the card foreground). RomM's
+      // `logo_*` IS ScreenScraper's `wheel` media (its url carries
+      // `media=wheel`), which is what every `wheels/` consumer expects: a
+      // transparent logo layered over the fanart. `marquee_*` is SS's
+      // `screenmarquee` — an opaque arcade banner that would render as a solid
+      // rectangle over the background — so it is only a last resort.
       final wheelPath =
-          _rommResourcePath(ss['marquee_path']) ??
-          _rommResourcePath(ss['logo_path']);
+          _rommResourcePath(ss['logo_path']) ??
+          _rommResourcePath(ss['marquee_path']);
       await _saveRommMedia(
         wheelPath,
         'wheels',
