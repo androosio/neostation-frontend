@@ -931,8 +931,12 @@ class _RommRomGridState extends State<RommRomGrid> {
   void _buildSettledChrome() {
     final rom = _focusedRom;
     final download = rom == null ? null : widget.provider.downloadFor(rom.id);
+    // The completed-download entry only knows about this visit, and is dropped
+    // when the screen remounts; the tile's own disk probe is what still knows
+    // afterwards. In the sig so the icon settles once that probe lands.
+    final onDisk = rom != null && widget.provider.downloadedStateFor(rom.id);
     final sig =
-        '$_settledIndex|${rom?.id}|${download?.status}|${download?.fraction}|$_syncing';
+        '$_settledIndex|${rom?.id}|${download?.status}|${download?.fraction}|$onDisk|$_syncing';
     if (sig == _chromeSig && _chromeFooter != null && _chromeLegend != null) {
       return;
     }
@@ -949,7 +953,7 @@ class _RommRomGridState extends State<RommRomGrid> {
                 ? widget.onCancel(rom)
                 : widget.onConfirm(rom),
       isDownloading: download?.status == RommDownloadStatus.downloading,
-      isDownloaded: download?.status == RommDownloadStatus.completed,
+      isDownloaded: download?.status == RommDownloadStatus.completed || onDisk,
       onSyncAll: widget.onSyncAll,
       isSyncing: _syncing,
     );

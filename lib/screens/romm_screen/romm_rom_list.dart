@@ -370,8 +370,11 @@ class _RommRomListState extends State<RommRomList> {
   void _buildSettledChrome() {
     final rom = _focusedRom;
     final download = rom == null ? null : widget.provider.downloadFor(rom.id);
+    // See RommRomGrid._buildSettledChrome: the completed-download entry is
+    // visit-scoped, the tile's disk probe is what outlives it.
+    final onDisk = rom != null && widget.provider.downloadedStateFor(rom.id);
     final sig =
-        '$_settledIndex|${rom?.id}|${download?.status}|${download?.fraction}|$_syncing';
+        '$_settledIndex|${rom?.id}|${download?.status}|${download?.fraction}|$onDisk|$_syncing';
     if (sig == _chromeSig && _chromeFooter != null && _chromeLegend != null) {
       return;
     }
@@ -386,7 +389,7 @@ class _RommRomListState extends State<RommRomList> {
                 ? widget.onCancel(rom)
                 : widget.onConfirm(rom),
       isDownloading: download?.status == RommDownloadStatus.downloading,
-      isDownloaded: download?.status == RommDownloadStatus.completed,
+      isDownloaded: download?.status == RommDownloadStatus.completed || onDisk,
       onSyncAll: widget.onSyncAll,
       isSyncing: _syncing,
     );

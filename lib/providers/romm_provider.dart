@@ -152,9 +152,10 @@ class RommProvider extends ChangeNotifier {
   /// [isDownloaded] (a synchronous sqlite3 read + filesystem stats) in its
   /// State's initState, and the GridView rebuilds that State every time the tile
   /// recycles into view — so on a large platform, fast scrolling re-ran the same
-  /// check hundreds of times. The result only changes when this app downloads or
-  /// removes the ROM, so we memoize it here. Set true on a completed download,
-  /// cleared on [disconnect].
+  /// check hundreds of times, so we memoize it here. Set true on a completed
+  /// download, dropped for a single ROM by [forgetLocalDownload], and cleared
+  /// wholesale by [invalidateDownloadedCache] (browse-screen mount, catching
+  /// deletions made outside this app) and by [disconnect].
   final Map<int, bool> _downloadedByRomId = {};
 
   // ── Getters ────────────────────────────────────────────────────────────────
@@ -919,6 +920,38 @@ class RommProvider extends ChangeNotifier {
     final result = await isDownloaded(rom, romFolders);
     _downloadedByRomId[rom.id] = result;
     return result;
+  }
+
+  /// Best-effort "is this on disk", for chrome that can't await: the memoized
+  /// answer once a tile has probed for it, false until then.
+  ///
+  /// Never probes itself — the whole point of [_downloadedByRomId] is that the
+  /// probe is too expensive to run from a synchronous build.
+  bool downloadedStateFor(int romId) => _downloadedByRomId[romId] ?? false;
+
+  /// Drops the session's cached picture of what is already downloaded, so the
+  /// next look re-reads the disk.
+  ///
+  /// Both [_downloadedByRomId] and a finished [_downloads] entry outlive the
+  /// file they describe. [forgetLocalDownload] covers a deletion made in this
+  /// app, but a ROM can also vanish underneath us — deleted from a file
+  /// manager, from a second device sharing the library, or on a card that came
+  /// back without it — and nothing tells us. Called when the browse screen
+  /// mounts: the cheapest point that still precedes every tile's own check,
+  /// and it costs one disk probe per visible tile, which the first visit pays
+  /// anyway.
+  ///
+  /// In-flight transfers keep their trackers (live progress UI hangs off
+  /// them), and a running bulk sync is left entirely alone — it walks a queue
+  /// whose tiles read exactly these finished entries.
+  void invalidateDownloadedCache() {
+    if (bulkSync.isRunning) return;
+    if (_downloadedByRomId.isEmpty && _downloads.isEmpty) return;
+    _downloadedByRomId.clear();
+    _downloads.removeWhere(
+      (_, d) => d.status != RommDownloadStatus.downloading,
+    );
+    _notifyDownloadState();
   }
 
   /// Forgets everything marking a local game as downloaded, after it was

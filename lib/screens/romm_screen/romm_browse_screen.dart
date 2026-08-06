@@ -196,6 +196,10 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
         onActivate: () => _gamepadNav.activate(),
         onDeactivate: () => _gamepadNav.deactivate(),
       );
+      // The library may have changed since the last visit — games deleted here
+      // unlink themselves, but a ROM removed outside the app leaves the cached
+      // download state claiming it's still there. Re-read from disk.
+      _rommProvider.invalidateDownloadedCache();
       if (_rommProvider.isConnected) {
         // Both lists are fetched up front (and cached by the provider): the
         // source menu previews each one as a cover/icon montage, so the data is
