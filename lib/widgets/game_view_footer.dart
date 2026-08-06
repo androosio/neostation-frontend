@@ -33,6 +33,11 @@ class GameViewFooter extends StatelessWidget {
   /// Omit it to hide the pill.
   final VoidCallback? onToggleMute;
 
+  /// Whether the selected game actually has a preview video. There is nothing
+  /// to mute without one, so the pill stays hidden rather than offering a
+  /// control that does nothing for this game.
+  final bool hasVideo;
+
   const GameViewFooter({
     super.key,
     required this.game,
@@ -42,6 +47,7 @@ class GameViewFooter extends StatelessWidget {
     this.currentGameInfo,
     this.onShowAchievements,
     this.onToggleMute,
+    this.hasVideo = false,
   });
 
   @override
@@ -109,7 +115,7 @@ class GameViewFooter extends StatelessWidget {
           ExcludeFocus(
             child: Row(
               children: [
-                if (onToggleMute != null) ...[
+                if (onToggleMute != null && hasVideo) ...[
                   _MuteHintPill(onToggleMute: onToggleMute!),
                   SizedBox(width: 6.r),
                 ],

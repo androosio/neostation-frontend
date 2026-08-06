@@ -111,6 +111,9 @@ class _GamesGridState extends State<GamesGrid> {
   Widget? _chromeFooter;
   Widget? _chromeLegend;
 
+  // Preview-video existence per resolved media path — see _hasVideoFor.
+  final Map<String, bool> _videoExistsCache = {};
+
   // Memoized grid rows. buildRow→_buildCard is a pure function of layout
   // (`_layoutGen`), `targetWidth`, `theme`, and per-card favorite/scrape state —
   // it never reads `_selectedIndex` (selection is drawn by the Positioned cursor
@@ -247,6 +250,24 @@ class _GamesGridState extends State<GamesGrid> {
       return game.systemFolderName!;
     }
     return widget.system.primaryFolderName;
+  }
+
+  /// Whether the game has a preview video, so the footer knows whether a mute
+  /// control is worth showing.
+  ///
+  /// Scraped media lives on the plain filesystem (unlike SAF ROM paths), so a
+  /// sync stat is safe, and this only runs when the selection settles — not
+  /// per frame. Memoized because a back-and-forth between two games would
+  /// otherwise re-stat both every time.
+  bool _hasVideoFor(GameModel game) {
+    final videoPath = game.getVideoPath(
+      _folderForGame(game),
+      widget.fileProvider,
+    );
+    return _videoExistsCache.putIfAbsent(
+      videoPath,
+      () => File(videoPath).existsSync(),
+    );
   }
 
   String _box2dPath(int index) {
@@ -629,6 +650,13 @@ class _GamesGridState extends State<GamesGrid> {
         widget.scrapingGameRomnames != oldWidget.scrapingGameRomnames ||
         widget.scrapeProgress != oldWidget.scrapeProgress) {
       _rowCache.clear();
+    }
+    // A scrape can add a preview video to the settled game, which changes
+    // whether the footer's mute pill applies. Drop the stat cache and the
+    // chrome signature so the footer is rebuilt against the new media.
+    if (widget.artworkVersion != oldWidget.artworkVersion) {
+      _videoExistsCache.clear();
+      _chromeSig = null;
     }
     if (widget.selectedIndex != oldWidget.selectedIndex) {
       _selectedIndex = widget.selectedIndex.clamp(
@@ -1263,6 +1291,7 @@ class _GamesGridState extends State<GamesGrid> {
       currentGameInfo: _currentGameInfo,
       onShowAchievements: _showAchievementsDialog,
       onToggleMute: _toggleVideoMute,
+      hasVideo: _hasVideoFor(settledGame),
     );
     // Positioning/visibility is applied at the Stack level (AnimatedPositioned)
     // so Select + B can animate it without invalidating this memoized subtree.

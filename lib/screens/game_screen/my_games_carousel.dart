@@ -274,6 +274,10 @@ class _GamesCarouselState extends State<GamesCarousel> {
     if (widget.artworkVersion != oldWidget.artworkVersion) {
       _fileExistsCache.clear();
       _lastBgIndex = -1;
+      // A scrape can add a preview video to the settled game, which changes
+      // whether the footer's mute pill applies — the cache above no longer
+      // answers it, so let the chrome rebuild against the new media too.
+      _chromeSig = null;
       WidgetsBinding.instance.addPostFrameCallback((_) => _updateBackground());
     }
   }
@@ -434,6 +438,7 @@ class _GamesCarouselState extends State<GamesCarousel> {
       currentGameInfo: _currentGameInfo,
       onShowAchievements: _showAchievementsDialog,
       onToggleMute: _toggleVideoMute,
+      hasVideo: _hasVideoFor(settledGame),
     );
     // Positioning/visibility is applied at the Stack level (AnimatedPositioned)
     // so Select + B can slide it without invalidating this memoized subtree.
@@ -667,6 +672,23 @@ class _GamesCarouselState extends State<GamesCarousel> {
       return game.systemFolderName!;
     }
     return widget.system.primaryFolderName;
+  }
+
+  /// Whether the game has a preview video, so the footer knows whether a mute
+  /// control is worth showing.
+  ///
+  /// Scraped media lives on the plain filesystem (unlike SAF ROM paths), so a
+  /// sync stat is safe, and this only runs when the selection settles — not
+  /// per frame. Cached alongside the background lookups.
+  bool _hasVideoFor(GameModel game) {
+    final videoPath = game.getVideoPath(
+      _folderForGame(game),
+      widget.fileProvider,
+    );
+    return _fileExistsCache.putIfAbsent(
+      videoPath,
+      () => File(videoPath).existsSync(),
+    );
   }
 
   String _resolveImagePath(GameModel game, String imageType) {
