@@ -115,6 +115,17 @@
       }
     },
     {
+      "name": "Standalone ARMSX1",
+      "unique_id": "ps1.com.nanodata.armsx",
+      "description": "Supported extensions: bin, chd, cue, ecm, exe, img, iso, m3u, mds, pbp, psexe, psf.",
+      "is_retroachievements_compatible": false,
+      "platforms": {
+        "android": {
+          "launch_arguments": "-n com.nanodata.armsx/com.armsx2.Main -a android.intent.action.VIEW -d \"{file.uri}\""
+        }
+      }
+    },
+    {
       "name": "RetroArch64 Beetle PSX HW",
       "default_core": true,
       "unique_id": "ps1.ra64.mednafen_psx_hw",

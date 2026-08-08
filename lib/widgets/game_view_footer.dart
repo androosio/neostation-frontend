@@ -11,6 +11,7 @@ import 'package:neostation/services/sfx_service.dart';
 import 'package:neostation/themes/app_themes.dart';
 import 'package:neostation/utils/game_utils.dart';
 import 'package:neostation/widgets/marquee_text.dart';
+import 'package:neostation/themes/chrome_surface.dart';
 import '../../themes/corner_radii.dart';
 
 /// A reusable footer used by the game grid and carousel views.
@@ -32,6 +33,11 @@ class GameViewFooter extends StatelessWidget {
   /// Omit it to hide the pill.
   final VoidCallback? onToggleMute;
 
+  /// Whether the selected game actually has a preview video. There is nothing
+  /// to mute without one, so the pill stays hidden rather than offering a
+  /// control that does nothing for this game.
+  final bool hasVideo;
+
   const GameViewFooter({
     super.key,
     required this.game,
@@ -41,10 +47,20 @@ class GameViewFooter extends StatelessWidget {
     this.currentGameInfo,
     this.onShowAchievements,
     this.onToggleMute,
+    this.hasVideo = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    // Unlike the details-card footer this one mirrors, the grid and carousel
+    // footers sit on the flat scaffold surface, not on top of the game's
+    // artwork. The white-on-black-shadow treatment inherited from that footer
+    // therefore renders as near-invisible ghost text in the light theme
+    // (white fill on a light background, readable only via its own outline).
+    // Take the colours from the scheme and drop the shadows: there is no busy
+    // background here for them to lift the text off.
+    final scheme = Theme.of(context).colorScheme;
+
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 12.r, vertical: 8.r),
       child: Row(
@@ -60,16 +76,9 @@ class GameViewFooter extends StatelessWidget {
                   text: GameUtils.formatGameName(game.name),
                   isActive: true,
                   style: TextStyle(
-                    color: Colors.white,
+                    color: scheme.onSurface,
                     fontSize: 18.r,
                     fontWeight: FontWeight.bold,
-                    shadows: [
-                      Shadow(
-                        blurRadius: 2.r,
-                        color: Colors.black,
-                        offset: const Offset(0, 0),
-                      ),
-                    ],
                   ),
                 ),
                 // Always reserve the ROM-filename subtitle's line height so the
@@ -86,16 +95,9 @@ class GameViewFooter extends StatelessWidget {
                     forceStrutHeight: true,
                   ),
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.72),
+                    color: scheme.onSurface.withValues(alpha: 0.72),
                     fontSize: 12.r,
                     fontWeight: FontWeight.w400,
-                    shadows: [
-                      Shadow(
-                        blurRadius: 2.r,
-                        color: Colors.black.withValues(alpha: 0.45),
-                        offset: const Offset(2, 2),
-                      ),
-                    ],
                   ),
                 ),
               ],
@@ -108,7 +110,7 @@ class GameViewFooter extends StatelessWidget {
           ExcludeFocus(
             child: Row(
               children: [
-                if (onToggleMute != null) ...[
+                if (onToggleMute != null && hasVideo) ...[
                   _MuteHintPill(onToggleMute: onToggleMute!),
                   SizedBox(width: 6.r),
                 ],
@@ -212,6 +214,36 @@ class GameViewFooter extends StatelessWidget {
   }
 }
 
+/// The one surface every status pill in this footer draws itself on.
+///
+/// [ChromeSurface] already unified the *fill*, but the rest of the pill
+/// treatment stayed copy-pasted, and the drop shadows had drifted apart: 0.5 on
+/// the rating and play-time pills, 0.1 on the achievements pill, none on the
+/// mute pill. Because the fill is translucent by design, a shadow underneath it
+/// bleeds through and darkens the body — so those three alphas rendered as
+/// three visibly different pills side by side, and at 0.5 the rating pill
+/// landed darker than the page background and read as pressed next to its
+/// raised neighbours.
+///
+/// Border, radius and elevation now live here alongside the token so they
+/// cannot drift again; 0.1 matches the PLAY button next to them.
+BoxDecoration _pillDecoration(BuildContext context) {
+  final theme = Theme.of(context);
+  final radii = theme.extension<CornerRadii>() ?? CornerRadii.m();
+  return BoxDecoration(
+    color: ChromeSurface.fill(context),
+    borderRadius: radii.radiusExternal,
+    border: Border.all(color: theme.colorScheme.outline, width: 1.r),
+    boxShadow: [
+      BoxShadow(
+        color: theme.colorScheme.shadow.withValues(alpha: 0.1),
+        blurRadius: 4.r,
+        offset: Offset(2.0.r, 2.0.r),
+      ),
+    ],
+  );
+}
+
 /// A Steam-inspired rating badge that interpolates color based on the score intensity.
 /// Compact pill showing accumulated play time as a clock (HH:MM:SS), sized to
 /// match the rating / achievements pills in this footer.
@@ -230,25 +262,10 @@ class _PlayTimePill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final radii = Theme.of(context).extension<CornerRadii>() ?? CornerRadii.m();
     return Container(
       height: 32.r,
       padding: EdgeInsets.symmetric(horizontal: 8.r, vertical: 4.r),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.9),
-        borderRadius: radii.radiusExternal,
-        border: Border.all(
-          color: Theme.of(context).colorScheme.outline,
-          width: 1.r,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.5),
-            blurRadius: 3.r,
-            offset: Offset(2.0.r, 2.0.r),
-          ),
-        ],
-      ),
+      decoration: _pillDecoration(context),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -281,7 +298,6 @@ class _SteamStyleRating extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final radii = Theme.of(context).extension<CornerRadii>() ?? CornerRadii.m();
     final ratingValue = (game.rating / 2).clamp(0.0, 10.0);
     final colorRatio = (ratingValue - 1) / 9;
     final customColors = AppThemes.getCustomColors(context);
@@ -294,21 +310,7 @@ class _SteamStyleRating extends StatelessWidget {
     return Container(
       height: 32.r,
       padding: EdgeInsets.symmetric(horizontal: 8.r, vertical: 4.r),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.9),
-        borderRadius: radii.radiusExternal,
-        border: Border.all(
-          color: Theme.of(context).colorScheme.outline,
-          width: 1.r,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.5),
-            blurRadius: 3.r,
-            offset: Offset(2.0.r, 2.0.r),
-          ),
-        ],
-      ),
+      decoration: _pillDecoration(context),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -395,22 +397,13 @@ class _CompactAchievementsIndicator extends StatelessWidget {
         hoverColor: Colors.transparent,
         highlightColor: Colors.transparent,
         splashColor: theme.colorScheme.onSurface.withValues(alpha: 0.1),
-        borderRadius: radii.radiusInternal,
+        // Clip the ripple to the pill's own outline rather than the tighter
+        // inner radius, so it doesn't square off against the rounded corners.
+        borderRadius: radii.radiusExternal,
         child: Container(
           width: 101.r,
           height: 32.r,
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surface.withValues(alpha: 0.9),
-            borderRadius: radii.radiusExternal,
-            border: Border.all(color: theme.colorScheme.outline, width: 1.r),
-            boxShadow: [
-              BoxShadow(
-                color: theme.colorScheme.shadow.withValues(alpha: 0.1),
-                blurRadius: 4.r,
-                offset: Offset(2.0.r, 2.0.r),
-              ),
-            ],
-          ),
+          decoration: _pillDecoration(context),
           child: Padding(
             // Match the rating pill's 8.r horizontal inset so the trophy icon
             // doesn't hug the pill's left border (the pill's width above is
@@ -507,9 +500,10 @@ class _MuteHintPill extends StatelessWidget {
     return Selector<SqliteConfigProvider, bool>(
       selector: (_, provider) => !provider.config.videoSound,
       builder: (context, isMuted, _) {
+        // Structured like the achievements pill — transparent Material for the
+        // ink, decoration on the Container — so both resolve to the same fill.
         return Material(
-          color: scheme.surface.withValues(alpha: 0.9),
-          borderRadius: radii.radiusExternal,
+          color: Colors.transparent,
           child: InkWell(
             onTap: () {
               SfxService().playNavSound();
@@ -520,10 +514,7 @@ class _MuteHintPill extends StatelessWidget {
             child: Container(
               height: 32.r,
               padding: EdgeInsets.symmetric(horizontal: 8.r, vertical: 4.r),
-              decoration: BoxDecoration(
-                borderRadius: radii.radiusExternal,
-                border: Border.all(color: scheme.outline, width: 1.r),
-              ),
+              decoration: _pillDecoration(context),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.center,

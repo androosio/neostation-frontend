@@ -853,6 +853,7 @@ mixin AppLocale {
       'systems_update_current_version';
   static const String systemsUpdateNewVersion = 'systems_update_new_version';
   static const String systemsUpdateDownloading = 'systems_update_downloading';
+  static const String systemsUpdateCancelling = 'systems_update_cancelling';
   static const String systemsUpdateSyncing = 'systems_update_syncing';
   static const String systemsUpdateComplete = 'systems_update_complete';
   static const String systemsUpdateError = 'systems_update_error';
@@ -1060,6 +1061,8 @@ mixin AppLocale {
   static const String raRateLimited = 'ra_rate_limited';
   static const String raApiKey = 'ra_api_key';
   static const String raEnterApiKey = 'ra_enter_api_key';
+  static const String raGetApiKey = 'ra_get_api_key';
+  static const String raApiKeyHelp = 'ra_api_key_help';
   static const String raNoRecentUnlocks = 'ra_no_recent_unlocks';
   static const String raRecentlyPlayedTitle = 'ra_recently_played_title';
   static const String raNoRecentlyPlayed = 'ra_no_recently_played';

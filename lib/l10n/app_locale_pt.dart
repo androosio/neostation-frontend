@@ -838,6 +838,7 @@ const Map<String, dynamic> appLocalePt = {
   AppLocale.systemsUpdateCurrentVersion: 'Versão atual: {version}',
   AppLocale.systemsUpdateNewVersion: 'Nova versão: {version}',
   AppLocale.systemsUpdateDownloading: 'Baixando configs de sistemas...',
+  AppLocale.systemsUpdateCancelling: 'Cancelando...',
   AppLocale.systemsUpdateSyncing: 'Sincronizando banco de dados de sistemas...',
   AppLocale.systemsUpdateComplete: 'Sistemas atualizados com sucesso!',
   AppLocale.systemsUpdateError:
@@ -1016,6 +1017,9 @@ const Map<String, dynamic> appLocalePt = {
       'O RetroAchievements está ocupado no momento. Aguarde um instante e tente novamente.',
   AppLocale.raApiKey: 'Chave de API',
   AppLocale.raEnterApiKey: 'Digite sua chave de API',
+  AppLocale.raGetApiKey: 'Obter chave API',
+  AppLocale.raApiKeyHelp:
+      'Abra o painel de controlo do RetroAchievements para copiar a sua chave API Web pessoal.',
   AppLocale.raNoRecentUnlocks: 'Nenhum desbloqueio recente nos últimos 30 dias',
   AppLocale.raRecentlyPlayedTitle: 'Jogados Recentemente',
   AppLocale.raNoRecentlyPlayed: 'Nenhum jogo jogado recentemente',

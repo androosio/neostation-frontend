@@ -830,6 +830,7 @@ const Map<String, dynamic> appLocaleRu = {
   AppLocale.systemsUpdateCurrentVersion: 'Текущая версия: {version}',
   AppLocale.systemsUpdateNewVersion: 'Новая версия: {version}',
   AppLocale.systemsUpdateDownloading: 'Загрузка конфигураций систем...',
+  AppLocale.systemsUpdateCancelling: 'Отмена...',
   AppLocale.systemsUpdateSyncing: 'Синхронизация базы данных систем...',
   AppLocale.systemsUpdateComplete: 'Системы успешно обновлены!',
   AppLocale.systemsUpdateError: 'Ошибка обновления систем. Попробуйте позже.',
@@ -1006,6 +1007,9 @@ const Map<String, dynamic> appLocaleRu = {
       'RetroAchievements сейчас перегружен. Подождите немного и попробуйте снова.',
   AppLocale.raApiKey: 'API-ключ',
   AppLocale.raEnterApiKey: 'Введите ваш API-ключ',
+  AppLocale.raGetApiKey: 'Получить API-ключ',
+  AppLocale.raApiKeyHelp:
+      'Откройте панель управления RetroAchievements, чтобы скопировать личный Web API-ключ.',
   AppLocale.raNoRecentUnlocks: 'Нет недавних достижений за последние 30 дней',
   AppLocale.raRecentlyPlayedTitle: 'Недавно сыгранные',
   AppLocale.raNoRecentlyPlayed: 'Нет недавно сыгранных игр',

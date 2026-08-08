@@ -47,7 +47,12 @@ class _RAContentState extends State<RAContent>
   GamepadNavigation? _gamepadNav;
 
   @override
-  List<FocusNode?> get selectionSlots => [_usernameFocus, _apiKeyFocus, null];
+  List<FocusNode?> get selectionSlots => [
+    _usernameFocus,
+    _apiKeyFocus,
+    null,
+    null,
+  ];
 
   @override
   void initState() {
@@ -87,6 +92,10 @@ class _RAContentState extends State<RAContent>
       return;
     }
     if (focusSelectedField()) return;
+    if (selectedSlot == 2) {
+      _openRaControlPanel();
+      return;
+    }
     _connectToRA();
   }
 
@@ -160,6 +169,15 @@ class _RAContentState extends State<RAContent>
         raProvider.error!,
         type: NotificationType.error,
       );
+    }
+  }
+
+  Future<void> _openRaControlPanel() async {
+    final url = Uri.parse(
+      'https://retroachievements.org/settings?tab=applications',
+    );
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
     }
   }
 
@@ -507,6 +525,53 @@ class _RAContentState extends State<RAContent>
                   onFieldSubmitted: (_) => _connectToRA(),
                 ),
               ),
+            ),
+          ),
+          SizedBox(height: 6.r),
+
+          // Direct users to the page where RetroAchievements exposes their
+          // personal Web API key, without asking the app to handle passwords.
+          Container(
+            constraints: BoxConstraints(maxWidth: 320.r),
+            decoration: isSelected(2)
+                ? BoxDecoration(
+                    borderRadius: BorderRadius.circular(8.r),
+                    boxShadow: [
+                      BoxShadow(
+                        color: theme.colorScheme.primary.withValues(
+                          alpha: 0.35,
+                        ),
+                        blurRadius: 8.r,
+                        spreadRadius: 1.r,
+                      ),
+                    ],
+                  )
+                : null,
+            child: OutlinedButton.icon(
+              onPressed: _openRaControlPanel,
+              icon: Icon(Symbols.key_rounded, size: 14.r),
+              label: Text(
+                AppLocale.raGetApiKey.getString(context),
+                style: TextStyle(fontSize: 11.r, fontWeight: FontWeight.w600),
+              ),
+              style: OutlinedButton.styleFrom(
+                minimumSize: Size(double.infinity, 32.r),
+                side: BorderSide(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.6),
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8.r),
+                ),
+              ),
+            ),
+          ),
+          SizedBox(height: 4.r),
+          Text(
+            AppLocale.raApiKeyHelp.getString(context),
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.65),
+              fontSize: 8.r,
             ),
           ),
           SizedBox(height: 6.r),

@@ -831,6 +831,7 @@ const Map<String, dynamic> appLocaleId = {
   AppLocale.systemsUpdateCurrentVersion: 'Versi saat ini: {version}',
   AppLocale.systemsUpdateNewVersion: 'Versi baru: {version}',
   AppLocale.systemsUpdateDownloading: 'Mengunduh konfigurasi sistem...',
+  AppLocale.systemsUpdateCancelling: 'Membatalkan...',
   AppLocale.systemsUpdateSyncing: 'Menyinkronkan database sistem...',
   AppLocale.systemsUpdateComplete: 'Sistem berhasil diperbarui!',
   AppLocale.systemsUpdateError: 'Gagal memperbarui sistem. Coba lagi nanti.',
@@ -1008,6 +1009,9 @@ const Map<String, dynamic> appLocaleId = {
       'RetroAchievements sedang sibuk saat ini. Tunggu sebentar lalu coba lagi.',
   AppLocale.raApiKey: 'Kunci API',
   AppLocale.raEnterApiKey: 'Masukkan kunci API Anda',
+  AppLocale.raGetApiKey: 'Dapatkan Kunci API',
+  AppLocale.raApiKeyHelp:
+      'Buka panel kontrol RetroAchievements untuk menyalin kunci API Web pribadi Anda.',
   AppLocale.raNoRecentUnlocks:
       'Tidak ada pembukaan baru dalam 30 hari terakhir',
   AppLocale.raRecentlyPlayedTitle: 'Baru Dimainkan',
