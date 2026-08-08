@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:neostation/models/romm_rom.dart';
 import 'package:neostation/models/romm_rom_page.dart';
+import 'package:neostation/models/system_model.dart';
 import 'package:neostation/providers/romm_bulk_sync.dart';
 import 'package:neostation/providers/romm_provider.dart';
 
@@ -15,10 +16,15 @@ import 'package:neostation/providers/romm_provider.dart';
 /// this can be exercised without a RomM server or a filesystem — the fakes
 /// below stand in for `getRomsPage`, `isDownloadedCached` and `downloadRom`.
 
-RommRom _rom(int id, {int sizeBytes = 0, bool multiFile = false}) => RommRom(
+RommRom _rom(
+  int id, {
+  int sizeBytes = 0,
+  bool multiFile = false,
+  int platformId = 1,
+}) => RommRom(
   id: id,
   name: 'Game $id',
-  platformId: 1,
+  platformId: platformId,
   platformSlug: 'snes',
   fsName: 'game$id.sfc',
   fsNameNoExt: 'game$id',
@@ -53,6 +59,18 @@ RommPageFetcher _pagesOver(List<RommRom> all, {List<int>? requestedOffsets}) {
 }
 
 Future<bool> _nothingDownloaded(RommRom _) async => false;
+
+/// A destination probe putting every ROM on one volume with [freeBytes] left.
+RommDestinationProbe _oneVolume(int? freeBytes, {String volume = '/storage'}) =>
+    (_) async => RommSyncDestination(volume: volume, freeBytes: freeBytes);
+
+/// A destination probe that reads its answer from a per-platform map, so a
+/// queue can be spread across volumes the way a multi-system sync really is.
+/// A platform missing from the map resolves to nothing.
+RommDestinationProbe _volumeByPlatform(
+  Map<int, RommSyncDestination> byPlatform,
+) =>
+    (rom) async => byPlatform[rom.platformId];
 
 void main() {
   group('enumeration', () {
@@ -435,6 +453,81 @@ void _writeProbeTests() {
       );
     });
   });
+
+  /// The pre-flight has to name a destination *before* the user has agreed to
+  /// the sync, so unlike the download path it must not create one.
+  group('plannedDestDir', () {
+    late Directory temp;
+
+    setUp(() async {
+      temp = await Directory.systemTemp.createTemp('romm_planned_test');
+    });
+    tearDown(() async {
+      if (temp.existsSync()) await temp.delete(recursive: true);
+    });
+
+    SystemModel system(String folderName, {List<String> folders = const []}) =>
+        SystemModel(
+          folderName: folderName,
+          realName: folderName.toUpperCase(),
+          iconImage: '',
+          color: '#000000',
+          folders: folders,
+        );
+
+    test('names the canonical folder without creating it', () async {
+      final planned = await RommProvider().plannedDestDir(system('snes'), [
+        temp.path,
+      ]);
+
+      expect(planned, p.join(temp.path, 'snes'));
+      expect(
+        Directory(planned!).existsSync(),
+        isFalse,
+        reason: 'a declined plan must not leave folders for the scan to index',
+      );
+      expect(
+        temp.listSync(),
+        isEmpty,
+        reason: 'and no probe file in the ROM folder either',
+      );
+    });
+
+    test('prefers an existing folder under any alias', () async {
+      // Sega CD is indexed under both names; a sync must be priced against the
+      // folder the download will actually reuse.
+      final existing = Directory(p.join(temp.path, 'segacd'))
+        ..createSync(recursive: true);
+
+      final planned = await RommProvider().plannedDestDir(
+        system('scd', folders: ['segacd']),
+        [temp.path],
+      );
+
+      expect(planned, existing.path);
+    });
+
+    test('falls through a ROM folder it cannot write to', () async {
+      final blocked = File(p.join(temp.path, 'blocked'))..writeAsStringSync('');
+      final usable = Directory(p.join(temp.path, 'usable'))
+        ..createSync(recursive: true);
+
+      final planned = await RommProvider().plannedDestDir(system('nes'), [
+        blocked.path,
+        usable.path,
+      ]);
+
+      expect(planned, p.join(usable.path, 'nes'));
+    });
+
+    test('reports nothing when no ROM folder is usable', () async {
+      final blocked = File(p.join(temp.path, 'blocked'))..writeAsStringSync('');
+      expect(
+        await RommProvider().plannedDestDir(system('nes'), [blocked.path]),
+        isNull,
+      );
+    });
+  });
 }
 
 /// The pre-flight check: the queue is priced and the destination measured
@@ -455,7 +548,7 @@ void _preflightTests() {
         // The last ROM is already on disk, so it is priced out of the plan.
         isDownloaded: (rom) async => rom.id == 99,
         download: (rom) async => _completed(rom),
-        freeSpace: () async => 10000,
+        destination: _oneVolume(10000),
         confirm: (plan) async {
           seen = plan;
           return true;
@@ -472,6 +565,8 @@ void _preflightTests() {
       expect(seen!.freeBytes, 10000);
       expect(seen!.fits, isTrue);
       expect(seen!.spaceUnknown, isFalse);
+      expect(seen!.volumes.single.romCount, 4);
+      expect(seen!.unresolvedRoms, 0);
       expect(sync.completed, 4, reason: 'approving runs the queue');
     });
 
@@ -529,7 +624,7 @@ void _preflightTests() {
         fetchPage: _pagesOver(all),
         isDownloaded: _nothingDownloaded,
         download: (rom) async => _completed(rom),
-        freeSpace: () async => null,
+        destination: _oneVolume(null),
         confirm: (plan) async {
           seen = plan;
           return true;
@@ -539,6 +634,11 @@ void _preflightTests() {
       expect(seen!.spaceUnknown, isTrue);
       expect(seen!.fits, isTrue, reason: 'a missing number must not obstruct');
       expect(seen!.shortfallBytes, 0);
+      expect(
+        seen!.volumes.single.downloadBytes,
+        3 << 30,
+        reason: 'an unmeasurable volume is still a known destination',
+      );
     });
 
     test('a probe that throws is as good as no probe', () async {
@@ -551,7 +651,7 @@ void _preflightTests() {
         fetchPage: _pagesOver(all),
         isDownloaded: _nothingDownloaded,
         download: (rom) async => _completed(rom),
-        freeSpace: () async => throw const FileSystemException('nope'),
+        destination: (_) async => throw const FileSystemException('nope'),
         confirm: (plan) async {
           seen = plan;
           return true;
@@ -559,8 +659,49 @@ void _preflightTests() {
       );
 
       expect(seen!.spaceUnknown, isTrue);
+      expect(seen!.volumes, isEmpty);
+      expect(seen!.unresolvedRoms, 1);
+      expect(seen!.downloadBytes, 10, reason: 'still priced into the total');
       expect(sync.completed, 1, reason: 'the sync still ran');
     });
+
+    test(
+      'a ROM with no resolvable destination is priced, not checked',
+      () async {
+        // Platform 2 has no local system / no writable folder, so nothing can be
+        // said about where its bytes would go.
+        final all = [
+          _rom(1, sizeBytes: 1000),
+          _rom(2, sizeBytes: 4000, platformId: 2),
+        ];
+        RommBulkSyncPlan? seen;
+        final sync = RommBulkSync();
+
+        await sync.run(
+          sourceLabel: 'Mixed',
+          fetchPage: _pagesOver(all),
+          isDownloaded: _nothingDownloaded,
+          download: (rom) async => _completed(rom),
+          destination: _volumeByPlatform({
+            1: const RommSyncDestination(volume: '/storage', freeBytes: 2000),
+          }),
+          confirm: (plan) async {
+            seen = plan;
+            return true;
+          },
+        );
+
+        expect(seen!.downloadBytes, 5000);
+        expect(seen!.unresolvedRoms, 1);
+        expect(seen!.volumes.single.downloadBytes, 1000);
+        expect(
+          seen!.fits,
+          isTrue,
+          reason:
+              'the 4000 that cannot be placed cannot be held against /storage',
+        );
+      },
+    );
 
     test('reports the shortfall when the queue does not fit', () async {
       final all = [for (var i = 0; i < 3; i++) _rom(i, sizeBytes: 1000)];
@@ -572,7 +713,7 @@ void _preflightTests() {
         fetchPage: _pagesOver(all),
         isDownloaded: _nothingDownloaded,
         download: (rom) async => _completed(rom),
-        freeSpace: () async => 2500,
+        destination: _oneVolume(2500),
         confirm: (plan) async {
           seen = plan;
           // Warned, not refused — the caller still decides.
@@ -584,6 +725,118 @@ void _preflightTests() {
       expect(seen!.shortfallBytes, 500);
       expect(sync.declined, isTrue);
     });
+
+    test(
+      'each volume is checked against its own share, not the roomiest',
+      () async {
+        // The regression this replaced: reporting the roomiest ROM folder let a
+        // queue "fit" because *somewhere* had room. Platform 1's 3000 bytes go to
+        // a volume with 1000 free; platform 2's 1000 go to one with 500k free.
+        // The total (4000) fits in the roomiest volume, and the sync still can't
+        // run as planned.
+        final all = [
+          _rom(1, sizeBytes: 3000),
+          _rom(2, sizeBytes: 1000, platformId: 2),
+        ];
+        RommBulkSyncPlan? seen;
+        final sync = RommBulkSync();
+
+        await sync.run(
+          sourceLabel: 'Everything',
+          fetchPage: _pagesOver(all),
+          isDownloaded: _nothingDownloaded,
+          download: (rom) async => _completed(rom),
+          destination: _volumeByPlatform({
+            1: const RommSyncDestination(volume: '/internal', freeBytes: 1000),
+            2: const RommSyncDestination(volume: '/sdcard', freeBytes: 500000),
+          }),
+          confirm: (plan) async {
+            seen = plan;
+            return false;
+          },
+        );
+
+        expect(seen!.volumes.map((v) => v.volume), ['/internal', '/sdcard']);
+        expect(seen!.volumes.first.requiredBytes, 3000);
+        expect(seen!.volumes.last.requiredBytes, 1000);
+        expect(seen!.fits, isFalse);
+        expect(
+          seen!.shortfallBytes,
+          2000,
+          reason: 'the internal volume is short',
+        );
+        expect(seen!.tightestVolume!.volume, '/internal');
+        expect(
+          seen!.freeBytes,
+          isNull,
+          reason: 'no single free-space figure answers for two volumes',
+        );
+        expect(
+          seen!.spaceUnknown,
+          isFalse,
+          reason: 'both volumes were measured — the plan just does not fit',
+        );
+      },
+    );
+
+    test('ROMs sharing a volume are added together, not checked apart', () async {
+      // Two platforms, one volume: 3000 + 3000 against 5000 free is a shortfall
+      // even though neither platform on its own would be.
+      final all = [
+        _rom(1, sizeBytes: 3000),
+        _rom(2, sizeBytes: 3000, platformId: 2),
+      ];
+      RommBulkSyncPlan? seen;
+      final sync = RommBulkSync();
+
+      await sync.run(
+        sourceLabel: 'Everything',
+        fetchPage: _pagesOver(all),
+        isDownloaded: _nothingDownloaded,
+        download: (rom) async => _completed(rom),
+        destination: _volumeByPlatform({
+          1: const RommSyncDestination(volume: '/internal', freeBytes: 5000),
+          2: const RommSyncDestination(volume: '/internal', freeBytes: 5000),
+        }),
+        confirm: (plan) async {
+          seen = plan;
+          return false;
+        },
+      );
+
+      expect(seen!.volumes, hasLength(1));
+      expect(seen!.volumes.single.romCount, 2);
+      expect(seen!.volumes.single.requiredBytes, 6000);
+      expect(seen!.shortfallBytes, 1000);
+    });
+
+    test(
+      'a cancel while destinations resolve skips the confirmation',
+      () async {
+        final all = [for (var i = 0; i < 3; i++) _rom(i, sizeBytes: 1000)];
+        var asked = 0;
+        final sync = RommBulkSync();
+
+        await sync.run(
+          sourceLabel: 'SNES',
+          fetchPage: _pagesOver(all),
+          isDownloaded: _nothingDownloaded,
+          download: (rom) async => _completed(rom),
+          destination: (rom) async {
+            sync.cancel();
+            return const RommSyncDestination(volume: '/storage', freeBytes: 10);
+          },
+          confirm: (_) async {
+            asked++;
+            return true;
+          },
+        );
+
+        expect(asked, 0, reason: 'nothing to approve once it is called off');
+        expect(sync.cancelRequested, isTrue);
+        expect(sync.completed, 0);
+      },
+    );
 
     test('cancelling during the confirmation stays a cancellation', () async {
       final all = [for (var i = 0; i < 3; i++) _rom(i, sizeBytes: 1000)];
@@ -674,6 +927,36 @@ void _preflightTests() {
       );
 
       expect(seen!.requiredBytes, 300);
+    });
+
+    test('each volume reserves headroom for its own multi-disc ROMs', () async {
+      final all = [
+        _rom(1, sizeBytes: 500, multiFile: true),
+        _rom(2, sizeBytes: 100, multiFile: true, platformId: 2),
+      ];
+      RommBulkSyncPlan? seen;
+      final sync = RommBulkSync();
+
+      await sync.run(
+        sourceLabel: 'PS1 + Saturn',
+        fetchPage: _pagesOver(all),
+        isDownloaded: _nothingDownloaded,
+        download: (rom) async => _completed(rom),
+        destination: _volumeByPlatform({
+          1: const RommSyncDestination(volume: '/internal', freeBytes: 100000),
+          2: const RommSyncDestination(volume: '/sdcard', freeBytes: 100000),
+        }),
+        confirm: (plan) async {
+          seen = plan;
+          return false;
+        },
+        concurrency: 3,
+      );
+
+      // The zip that unpacks on /internal needs no room on /sdcard: 2× the ROM
+      // that actually lands there, not 2× the queue.
+      expect(seen!.volumes.first.requiredBytes, 1000);
+      expect(seen!.volumes.last.requiredBytes, 200);
     });
   });
 }

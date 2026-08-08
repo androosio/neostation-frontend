@@ -936,6 +936,12 @@ const Map<String, dynamic> appLocaleRu = {
   AppLocale.rommSyncConfirmFree: 'Свободно {free}.',
   AppLocale.rommSyncConfirmNoSpace:
       'Недостаточно места: нужно {size}, свободно только {free}.',
+  AppLocale.rommSyncConfirmVolumeFree:
+      '{volume}: нужно {size}, свободно {free}.',
+  AppLocale.rommSyncConfirmVolumeNoSpace:
+      '{volume}: нужно {size}, свободно только {free}.',
+  AppLocale.rommSyncConfirmVolumeUnknown:
+      '{volume}: нужно {size}, свободное место неизвестно.',
   AppLocale.rommSyncPreparing: 'Подготовка…',
   AppLocale.rommSyncCancelling: 'Отмена…',
   AppLocale.rommSyncComplete: 'Синхронизировано игр: {count}',

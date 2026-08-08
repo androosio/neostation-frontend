@@ -849,6 +849,10 @@ const Map<String, dynamic> appLocaleJa = {
   AppLocale.rommSyncConfirmSkipped: '{count} 本はすでにこのデバイスにあります。',
   AppLocale.rommSyncConfirmFree: '空き容量 {free}。',
   AppLocale.rommSyncConfirmNoSpace: '空き容量が足りません: {size} 必要ですが、空きは {free} だけです。',
+  AppLocale.rommSyncConfirmVolumeFree: '{volume}: {size} 必要、空き容量 {free}。',
+  AppLocale.rommSyncConfirmVolumeNoSpace:
+      '{volume}: {size} 必要ですが、空きは {free} だけです。',
+  AppLocale.rommSyncConfirmVolumeUnknown: '{volume}: {size} 必要、空き容量は不明です。',
   AppLocale.rommSyncPreparing: '準備中…',
   AppLocale.rommSyncCancelling: 'キャンセル中…',
   AppLocale.rommSyncComplete: '{count} 本を同期しました',

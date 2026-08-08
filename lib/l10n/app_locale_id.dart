@@ -938,6 +938,12 @@ const Map<String, dynamic> appLocaleId = {
   AppLocale.rommSyncConfirmFree: '{free} tersedia.',
   AppLocale.rommSyncConfirmNoSpace:
       'Penyimpanan tidak cukup: perlu {size}, hanya {free} tersedia.',
+  AppLocale.rommSyncConfirmVolumeFree:
+      '{volume}: perlu {size}, {free} tersedia.',
+  AppLocale.rommSyncConfirmVolumeNoSpace:
+      '{volume}: perlu {size}, hanya {free} tersedia.',
+  AppLocale.rommSyncConfirmVolumeUnknown:
+      '{volume}: perlu {size}, ruang tersedia tidak diketahui.',
   AppLocale.rommSyncPreparing: 'Menyiapkan…',
   AppLocale.rommSyncCancelling: 'Membatalkan…',
   AppLocale.rommSyncComplete: '{count} gim disinkronkan',

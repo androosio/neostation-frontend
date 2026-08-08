@@ -861,6 +861,11 @@ const Map<String, dynamic> appLocaleKo = {
   AppLocale.rommSyncConfirmFree: '여유 공간 {free}.',
   AppLocale.rommSyncConfirmNoSpace:
       '공간이 부족합니다: {size}이(가) 필요하지만 {free}만 남았습니다.',
+  AppLocale.rommSyncConfirmVolumeFree: '{volume}: {size} 필요, 여유 공간 {free}.',
+  AppLocale.rommSyncConfirmVolumeNoSpace:
+      '{volume}: {size}이(가) 필요하지만 {free}만 남았습니다.',
+  AppLocale.rommSyncConfirmVolumeUnknown:
+      '{volume}: {size} 필요, 여유 공간을 알 수 없습니다.',
   AppLocale.rommSyncPreparing: '준비 중…',
   AppLocale.rommSyncCancelling: '취소하는 중…',
   AppLocale.rommSyncComplete: '게임 {count}개를 동기화했습니다',

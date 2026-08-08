@@ -385,10 +385,12 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
 
   /// Asks the user to approve a priced sync.
   ///
-  /// A plan that doesn't fit is flagged rather than refused: the free-space
-  /// figure is the roomiest ROM folder, not the exact destination of every ROM
-  /// in the queue (see `RommProvider.romFoldersFreeSpace`), so the user is
-  /// better placed than this check is to know whether it is really a problem.
+  /// A plan that doesn't fit is flagged rather than refused. The space figures
+  /// are as honest as the app can make them — resolved per volume, so a queue
+  /// spread across internal storage and an SD card is checked against each
+  /// separately (see `RommProvider.syncDestinationProbe`) — but a destination is
+  /// still resolved without creating it, so the user remains better placed than
+  /// this check to know whether a shortfall is really a problem.
   Future<bool> _confirmSyncPlan(String label, RommBulkSyncPlan plan) async {
     if (!mounted) return false;
 
@@ -405,20 +407,7 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
             .replaceFirst('{count}', '${plan.skipped}'),
       );
     }
-    if (!plan.fits) {
-      lines.add(
-        AppLocale.rommSyncConfirmNoSpace
-            .getString(context)
-            .replaceFirst('{size}', rommFormatBytes(plan.requiredBytes))
-            .replaceFirst('{free}', rommFormatBytes(plan.freeBytes!)),
-      );
-    } else if (!plan.spaceUnknown) {
-      lines.add(
-        AppLocale.rommSyncConfirmFree
-            .getString(context)
-            .replaceFirst('{free}', rommFormatBytes(plan.freeBytes!)),
-      );
-    }
+    lines.addAll(_spaceLines(plan));
 
     final scheme = Theme.of(context).colorScheme;
     return ConfirmActionDialog.show(
@@ -433,6 +422,51 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
           : Symbols.warning_rounded,
       accentColor: plan.fits ? scheme.primary : scheme.error,
     );
+  }
+
+  /// The free-space part of the pre-flight body.
+  ///
+  /// One line while the queue lands on a single volume — the overwhelmingly
+  /// common case, and the number needs no qualifying. Once it spans volumes the
+  /// totals stop being answerable in one figure, so each volume gets its own
+  /// line naming itself: "which drive is full" is the only actionable thing to
+  /// say, and a bare "not enough space" next to a healthy total would send the
+  /// user looking in the wrong place.
+  List<String> _spaceLines(RommBulkSyncPlan plan) {
+    if (plan.volumes.length <= 1) {
+      if (plan.spaceUnknown) return const [];
+      final free = rommFormatBytes(plan.freeBytes!);
+      if (plan.fits) {
+        return [
+          AppLocale.rommSyncConfirmFree
+              .getString(context)
+              .replaceFirst('{free}', free),
+        ];
+      }
+      return [
+        AppLocale.rommSyncConfirmNoSpace
+            .getString(context)
+            .replaceFirst('{size}', rommFormatBytes(plan.requiredBytes))
+            .replaceFirst('{free}', free),
+      ];
+    }
+
+    return [
+      for (final volume in plan.volumes)
+        if (volume.spaceUnknown)
+          AppLocale.rommSyncConfirmVolumeUnknown
+              .getString(context)
+              .replaceFirst('{volume}', volume.volume)
+              .replaceFirst('{size}', rommFormatBytes(volume.requiredBytes))
+        else
+          (volume.fits
+                  ? AppLocale.rommSyncConfirmVolumeFree
+                  : AppLocale.rommSyncConfirmVolumeNoSpace)
+              .getString(context)
+              .replaceFirst('{volume}', volume.volume)
+              .replaceFirst('{size}', rommFormatBytes(volume.requiredBytes))
+              .replaceFirst('{free}', rommFormatBytes(volume.freeBytes!)),
+    ];
   }
 
   /// Summarises a finished sync in a single toast. The band showed the detail

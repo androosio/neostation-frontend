@@ -16,9 +16,35 @@ typedef RommDownloadedCheck = Future<bool> Function(RommRom rom);
 /// Downloads one ROM, resolving to its final [RommDownload] record.
 typedef RommRomDownloader = Future<RommDownload> Function(RommRom rom);
 
-/// Free bytes on the volume the downloads will land on, or null when the
-/// number can't be obtained (see [RommBulkSyncPlan.freeBytes]).
-typedef RommFreeSpaceProbe = Future<int?> Function();
+/// Where a queued ROM's bytes will land.
+///
+/// [volume] is both the grouping key and the name shown to the user: two ROMs
+/// reporting the same volume draw from the same free space, and a sync that
+/// spans volumes has to be checked against each one separately rather than
+/// against whichever is roomiest.
+@immutable
+class RommSyncDestination {
+  /// Identity of the destination volume (a mount point / volume root — see
+  /// `VolumeSpace.id`).
+  final String volume;
+
+  /// Free bytes on it, or null when it couldn't be measured. Null is "don't
+  /// know", never "none".
+  final int? freeBytes;
+
+  const RommSyncDestination({required this.volume, this.freeBytes});
+}
+
+/// Resolves the volume [rom] will be written to, for the pre-flight check.
+///
+/// Returning null means the destination couldn't be worked out (no matching
+/// local system, an unmappable ROM folder): the ROM is still priced into the
+/// plan's totals, it just can't be weighed against a volume.
+///
+/// Called once per queued ROM, so implementations are expected to memoize —
+/// the answer is a property of the ROM's platform, not of the ROM.
+typedef RommDestinationProbe =
+    Future<RommSyncDestination?> Function(RommRom rom);
 
 /// Last chance to call the sync off, once its real size is known. Returning
 /// false abandons the queue before anything is downloaded.
@@ -38,6 +64,49 @@ enum RommBulkSyncPhase {
 
   /// Working through the queue.
   downloading,
+}
+
+/// The share of a sync that lands on one volume, and whether it fits there.
+///
+/// A queue spanning several volumes is several independent space questions:
+/// 40 GB free on the SD card does nothing for the 20 GB of PS1 games headed for
+/// internal storage. This is one of those questions.
+@immutable
+class RommBulkSyncVolumePlan {
+  /// The volume, as reported by [RommDestinationProbe] — also what the
+  /// pre-flight names when a sync spans more than one.
+  final String volume;
+
+  /// Queued ROMs headed here.
+  final int romCount;
+
+  /// Sum of their `fs_size_bytes` — what will be transferred to this volume.
+  final int downloadBytes;
+
+  /// [downloadBytes] plus this volume's share of the transient multi-disc
+  /// extraction headroom. The number to compare against [freeBytes].
+  final int requiredBytes;
+
+  /// Free bytes here, or null when it couldn't be measured.
+  final int? freeBytes;
+
+  const RommBulkSyncVolumePlan({
+    required this.volume,
+    required this.romCount,
+    required this.downloadBytes,
+    required this.requiredBytes,
+    required this.freeBytes,
+  });
+
+  /// True when free space couldn't be measured, so [fits] means nothing.
+  bool get spaceUnknown => freeBytes == null;
+
+  /// True when this volume's share should fit. Unknown free space counts as
+  /// fitting — a missing number must not stand in the way of a sync.
+  bool get fits => freeBytes == null || requiredBytes <= freeBytes!;
+
+  /// How much more space this volume needs than it has (0 when it fits).
+  int get shortfallBytes => fits ? 0 : requiredBytes - freeBytes!;
 }
 
 /// The measured shape of a sync, handed to [RommBulkSyncConfirm] so the
@@ -64,9 +133,17 @@ class RommBulkSyncPlan {
   /// compare against free space.
   final int requiredBytes;
 
-  /// Free bytes on the destination volume, or null when nothing could measure
-  /// it. Null means "don't know", never "none" — the sync goes ahead.
-  final int? freeBytes;
+  /// Where the queue lands, broken down per volume — one entry per distinct
+  /// volume [RommDestinationProbe] resolved, in the order first seen.
+  ///
+  /// Empty when no destination could be resolved at all (see [unresolvedRoms]),
+  /// which reads as "nothing to check" rather than as a problem.
+  final List<RommBulkSyncVolumePlan> volumes;
+
+  /// Queued ROMs whose destination couldn't be resolved. Their bytes are in
+  /// [downloadBytes] but they belong to no volume, so nothing can be said about
+  /// whether they fit.
+  final int unresolvedRoms;
 
   const RommBulkSyncPlan({
     required this.sourceLabel,
@@ -74,18 +151,40 @@ class RommBulkSyncPlan {
     required this.skipped,
     required this.downloadBytes,
     required this.requiredBytes,
-    required this.freeBytes,
+    required this.volumes,
+    this.unresolvedRoms = 0,
   });
 
-  /// True when free space couldn't be measured, so [fits] means nothing.
-  bool get spaceUnknown => freeBytes == null;
+  /// True when no volume could be measured, so [fits] means nothing.
+  bool get spaceUnknown =>
+      volumes.isEmpty || volumes.every((v) => v.spaceUnknown);
 
-  /// True when the sync should fit. Unknown free space counts as fitting: a
-  /// missing number must not stand in the way of a sync the user asked for.
-  bool get fits => freeBytes == null || requiredBytes <= freeBytes!;
+  /// True when every volume the queue touches should fit. Unknown free space
+  /// counts as fitting: a missing number must not stand in the way of a sync
+  /// the user asked for.
+  bool get fits => volumes.every((v) => v.fits);
 
-  /// How much more space the sync needs than the volume has (0 when it fits).
-  int get shortfallBytes => fits ? 0 : requiredBytes - freeBytes!;
+  /// How much more space the sync needs than it has, added up across the
+  /// volumes that come up short (0 when it fits).
+  int get shortfallBytes => volumes.fold(0, (sum, v) => sum + v.shortfallBytes);
+
+  /// Free bytes at the destination when the whole queue lands on one volume,
+  /// and null otherwise — including a multi-volume queue, where there is no
+  /// single number to quote and [volumes] has to be reported instead.
+  int? get freeBytes => volumes.length == 1 ? volumes.single.freeBytes : null;
+
+  /// The volume that comes up shortest, for a one-line summary of a plan that
+  /// doesn't fit. Null when everything fits (or nothing is measurable).
+  RommBulkSyncVolumePlan? get tightestVolume {
+    RommBulkSyncVolumePlan? worst;
+    for (final volume in volumes) {
+      if (volume.fits) continue;
+      if (worst == null || volume.shortfallBytes > worst.shortfallBytes) {
+        worst = volume;
+      }
+    }
+    return worst;
+  }
 }
 
 /// Downloads an entire RomM platform or collection in one action.
@@ -222,11 +321,11 @@ class RommBulkSync extends ChangeNotifier {
   /// called, so cancelling stops the transfers as well as the queue.
   ///
   /// When [confirm] is given it is asked to approve the queue once its size is
-  /// known — after the enumeration, before the first byte is fetched — with
-  /// free space from [freeSpace] folded into the plan. Returning false ends
-  /// the run with [declined] set and nothing downloaded. Without [confirm] the
-  /// queue runs unconditionally (the enumeration is still the only thing that
-  /// knows the size, so the check simply doesn't happen).
+  /// known — after the enumeration, before the first byte is fetched — with the
+  /// per-volume breakdown [destination] resolves folded into the plan.
+  /// Returning false ends the run with [declined] set and nothing downloaded.
+  /// Without [confirm] the queue runs unconditionally (the enumeration is still
+  /// the only thing that knows the size, so the check simply doesn't happen).
   ///
   /// Never throws: a failure to enumerate ends the sync with [lastError] set,
   /// and a failing ROM is counted and stepped over. Returns when the queue is
@@ -240,7 +339,7 @@ class RommBulkSync extends ChangeNotifier {
     required RommRomDownloader download,
     void Function(int romId)? cancelDownload,
     RommBulkSyncConfirm? confirm,
-    RommFreeSpaceProbe? freeSpace,
+    RommDestinationProbe? destination,
     int concurrency = defaultConcurrency,
     int pageSize = defaultPageSize,
   }) async {
@@ -258,7 +357,11 @@ class RommBulkSync extends ChangeNotifier {
       if (confirm != null) {
         _phase = RommBulkSyncPhase.confirming;
         _notify();
-        final plan = await _plan(freeSpace, concurrency);
+        final plan = await _plan(destination, concurrency);
+        // Resolving destinations touches the disk, so a cancel can land while
+        // it runs; asking the user to approve a sync they just called off would
+        // be a dialog with no right answer.
+        if (_cancelRequested) return;
         final approved = await confirm(plan);
         // A cancel landing while the dialog was up stays a cancel: it is the
         // stronger statement, and the outcome toast reads better for it.
@@ -306,29 +409,68 @@ class RommBulkSync extends ChangeNotifier {
     _notify();
   }
 
-  /// Prices the queue and measures the destination for the confirmation.
+  /// Prices the queue and measures where it will land, for the confirmation.
   ///
-  /// The probe is best-effort by contract: anything it throws is swallowed and
-  /// reported as unknown free space, which the plan treats as "fits".
+  /// The queue is split by destination volume and each share priced against
+  /// that volume's free space, because that is the question that actually
+  /// decides whether a sync fits: a queue spread over internal storage and an
+  /// SD card can fail on one while the other has room to spare.
+  ///
+  /// The probe is best-effort by contract: anything it throws leaves that ROM
+  /// unassigned, which the plan treats as "nothing known about it" rather than
+  /// as a failure.
   Future<RommBulkSyncPlan> _plan(
-    RommFreeSpaceProbe? freeSpace,
+    RommDestinationProbe? destination,
     int concurrency,
   ) async {
-    int? free;
-    if (freeSpace != null) {
-      try {
-        free = await freeSpace();
-      } catch (e) {
-        _log.w('RomM bulk sync: free-space probe failed: $e');
+    // Insertion-ordered, so the volumes are reported in the order the queue
+    // first reaches them rather than in hash order.
+    final byVolume = <String, List<RommRom>>{};
+    final freeByVolume = <String, int?>{};
+    var unresolved = 0;
+
+    if (destination != null) {
+      for (final rom in _queue) {
+        if (_cancelRequested) break;
+        RommSyncDestination? dest;
+        try {
+          dest = await destination(rom);
+        } catch (e) {
+          _log.w('RomM bulk sync: destination probe failed for ${rom.id}: $e');
+        }
+        if (dest == null) {
+          unresolved++;
+          continue;
+        }
+        byVolume.putIfAbsent(dest.volume, () => []).add(rom);
+        freeByVolume[dest.volume] = dest.freeBytes;
       }
+    } else {
+      unresolved = _queue.length;
     }
+
+    final volumes = <RommBulkSyncVolumePlan>[];
+    for (final entry in byVolume.entries) {
+      final bytes = entry.value.fold<int>(0, (sum, r) => sum + r.fsSizeBytes);
+      volumes.add(
+        RommBulkSyncVolumePlan(
+          volume: entry.key,
+          romCount: entry.value.length,
+          downloadBytes: bytes,
+          requiredBytes: bytes + _headroomFor(entry.value, concurrency),
+          freeBytes: freeByVolume[entry.key],
+        ),
+      );
+    }
+
     return RommBulkSyncPlan(
       sourceLabel: _sourceLabel,
       romCount: _queue.length,
       skipped: _skipped,
       downloadBytes: _queuedBytes,
       requiredBytes: _queuedBytes + transientHeadroomBytes(concurrency),
-      freeBytes: free,
+      volumes: volumes,
+      unresolvedRoms: unresolved,
     );
   }
 
@@ -341,10 +483,21 @@ class RommBulkSync extends ChangeNotifier {
   /// is the sum of the largest that many multi-disc ROMs. Doubling the whole
   /// queue instead would refuse syncs that fit comfortably.
   @visibleForTesting
-  int transientHeadroomBytes(int concurrency) {
+  int transientHeadroomBytes(int concurrency) =>
+      _headroomFor(_queue, concurrency);
+
+  /// [transientHeadroomBytes] over an arbitrary slice of the queue, so each
+  /// volume can be given its own share.
+  ///
+  /// Applied per volume this is deliberately conservative: the workers are
+  /// shared across the whole queue, so all [concurrency] of them can only
+  /// overlap on one volume at a time, yet each volume reserves as if they might.
+  /// Which way to be wrong is a real choice, and over-reserving a few gigabytes
+  /// on a check that only ever warns is the harmless one.
+  int _headroomFor(List<RommRom> roms, int concurrency) {
     final workers = concurrency < 1 ? 1 : concurrency;
     final sizes = [
-      for (final rom in _queue)
+      for (final rom in roms)
         if (rom.isMultiFile) rom.fsSizeBytes,
     ]..sort((a, b) => b.compareTo(a));
     var extra = 0;

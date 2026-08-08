@@ -998,6 +998,14 @@ mixin AppLocale {
   static const String rommSyncConfirmSkipped = 'romm_sync_confirm_skipped';
   static const String rommSyncConfirmFree = 'romm_sync_confirm_free';
   static const String rommSyncConfirmNoSpace = 'romm_sync_confirm_no_space';
+  // Per-volume variants of the two above, used when a sync's ROMs land on more
+  // than one volume and no single free-space figure can answer for them.
+  static const String rommSyncConfirmVolumeFree =
+      'romm_sync_confirm_volume_free';
+  static const String rommSyncConfirmVolumeNoSpace =
+      'romm_sync_confirm_volume_no_space';
+  static const String rommSyncConfirmVolumeUnknown =
+      'romm_sync_confirm_volume_unknown';
   static const String rommSyncPreparing = 'romm_sync_preparing';
   static const String rommSyncCancelling = 'romm_sync_cancelling';
   static const String rommSyncComplete = 'romm_sync_complete';

@@ -966,6 +966,12 @@ const Map<String, dynamic> appLocaleDe = {
   AppLocale.rommSyncConfirmFree: '{free} frei.',
   AppLocale.rommSyncConfirmNoSpace:
       'Nicht genug Speicher: benötigt {size}, nur {free} frei.',
+  AppLocale.rommSyncConfirmVolumeFree:
+      '{volume}: {size} benötigt, {free} frei.',
+  AppLocale.rommSyncConfirmVolumeNoSpace:
+      '{volume}: benötigt {size}, nur {free} frei.',
+  AppLocale.rommSyncConfirmVolumeUnknown:
+      '{volume}: {size} benötigt, freier Speicher unbekannt.',
   AppLocale.rommSyncPreparing: 'Wird vorbereitet…',
   AppLocale.rommSyncCancelling: 'Wird abgebrochen…',
   AppLocale.rommSyncComplete: '{count} Spiele synchronisiert',

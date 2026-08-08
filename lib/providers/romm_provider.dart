@@ -727,6 +727,10 @@ class RommProvider extends ChangeNotifier {
   /// Resolves SAF folders to their real path, then confirms the target is
   /// actually writable with a probe file (fails cleanly when the app lacks
   /// All Files Access). Returns null when no folder is writable.
+  ///
+  /// See [plannedDestDir] for the same choice made without creating anything —
+  /// what the pre-flight check uses, since it runs before the user has agreed
+  /// to the sync.
   Future<String?> _resolveDestDir(
     SystemModel system,
     List<String> romFolders,
@@ -754,26 +758,100 @@ class RommProvider extends ChangeNotifier {
     return null;
   }
 
-  /// Free space available to a download across [romFolders], or null when none
-  /// of them can be measured.
+  /// Where [system]'s ROMs *would* be written, resolved without writing
+  /// anything there.
   ///
-  /// Reports the *roomiest* folder rather than a specific destination. Which
-  /// folder a given ROM lands in is decided per system by [_resolveDestDir],
-  /// and a sync spans systems, so there is no single destination to measure
-  /// before the queue runs. On the usual single-ROM-folder setup the two are
-  /// the same number; on a multi-volume one this is the optimistic reading,
-  /// which suits a check whose whole design is to warn rather than obstruct.
+  /// The pre-flight check runs before the user has approved the sync, so it must
+  /// not have [_resolveDestDir]'s side effect: that one proves a folder writable
+  /// by creating it, which for a declined plan would leave a trail of empty
+  /// platform folders through the library — and, worse, folders the next library
+  /// scan would pick up. This mirrors its *choice* instead (an existing alias
+  /// folder if there is one, else the canonical name under the first writable
+  /// ROM folder) while only ever probing folders that already exist.
+  ///
+  /// It can disagree with [_resolveDestDir] where a ROM folder's base is
+  /// writable but its platform subfolder is not, so the two can name different
+  /// volumes. That costs an inaccurate free-space figure, never a blocked
+  /// download — which is the trade this whole check is built on.
   @visibleForTesting
-  Future<int?> romFoldersFreeSpace(List<String> romFolders) async {
-    int? most;
+  Future<String?> plannedDestDir(
+    SystemModel system,
+    List<String> romFolders,
+  ) async {
+    final aliases = _systemFolderNames(system);
+
     for (final folder in romFolders) {
       final base = _folderToRealBase(folder);
       if (base == null) continue;
-      final free = await StorageSpaceService.freeSpaceBytes(base);
-      if (free == null) continue;
-      if (most == null || free > most) most = free;
+      final existing = await _existingAliasDir(base, aliases);
+      if (existing == null) continue;
+      final path = await dirIfWritable(existing);
+      if (path != null) return path;
     }
-    return most;
+
+    // Probe the ROM folder itself rather than the platform subfolder: the base
+    // already exists (the user configured it), so this asks the same question
+    // without creating the child. A writable base is what decides the volume.
+    for (final folder in romFolders) {
+      final base = _folderToRealBase(folder);
+      if (base == null) continue;
+      if (await dirIfWritable(base) == null) continue;
+      return p.join(base, system.folderName);
+    }
+    return null;
+  }
+
+  /// The pre-flight destination probe for a bulk sync over [romFolders].
+  ///
+  /// Answers "which volume does this ROM land on, and how much room is left
+  /// there", so [RommBulkSync] can check each volume against its own share of
+  /// the queue. This replaced reporting the roomiest configured folder, which
+  /// was optimistic to the point of useless once ROM folders sit on different
+  /// volumes: 200 GB free on an SD card said nothing about the internal storage
+  /// the queue was actually filling.
+  ///
+  /// Both layers of the answer are memoized, because both are expensive and
+  /// neither varies per ROM: the destination is a property of the *system*
+  /// (keyed on platform id, which [resolveSystem] maps deterministically), and
+  /// free space is a property of the folder. A 600-ROM queue therefore costs one
+  /// folder resolution and one volume probe per platform, not per ROM.
+  @visibleForTesting
+  RommDestinationProbe syncDestinationProbe(List<String> romFolders) {
+    final byPlatform = <int, RommSyncDestination?>{};
+    final byDir = <String, RommSyncDestination?>{};
+
+    return (rom) async {
+      if (byPlatform.containsKey(rom.platformId)) {
+        return byPlatform[rom.platformId];
+      }
+      final destination = await _resolveSyncDestination(rom, romFolders, byDir);
+      byPlatform[rom.platformId] = destination;
+      return destination;
+    };
+  }
+
+  /// One uncached destination resolution for [syncDestinationProbe].
+  ///
+  /// Note this deliberately skips [_existingRomDir]: it answers "where is this
+  /// exact ROM already", and every ROM that would match it was filtered out of
+  /// the queue as already downloaded before the plan was priced.
+  Future<RommSyncDestination?> _resolveSyncDestination(
+    RommRom rom,
+    List<String> romFolders,
+    Map<String, RommSyncDestination?> byDir,
+  ) async {
+    final system = await resolveSystem(rom);
+    if (system == null) return null;
+    final dir = await plannedDestDir(system, romFolders);
+    if (dir == null) return null;
+    if (byDir.containsKey(dir)) return byDir[dir];
+
+    final space = await StorageSpaceService.volumeFor(dir);
+    final destination = space == null
+        ? null
+        : RommSyncDestination(volume: space.id, freeBytes: space.freeBytes);
+    byDir[dir] = destination;
+    return destination;
   }
 
   /// Path of an existing subdirectory of [base] whose name matches one of
@@ -1192,7 +1270,7 @@ class RommProvider extends ChangeNotifier {
           downloadRom(rom, romFolders: romFolders, fileProvider: fileProvider),
       cancelDownload: cancelDownload,
       confirm: confirm,
-      freeSpace: () => romFoldersFreeSpace(romFolders),
+      destination: syncDestinationProbe(romFolders),
     );
     // The queue's downloads each refreshed the token as they went; persist
     // whatever the last one ended up with.
