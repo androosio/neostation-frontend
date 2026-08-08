@@ -15,6 +15,7 @@
 /// mapping are treated as not-linked and skipped.
 library;
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -24,6 +25,7 @@ import 'package:neostation/models/neo_sync_models.dart';
 import 'package:neostation/models/romm_asset.dart';
 import 'package:neostation/providers/neo_sync_provider.dart';
 import 'package:neostation/repositories/emulator_repository.dart';
+import 'package:neostation/repositories/game_repository.dart';
 import 'package:neostation/services/retroarch_config_service.dart';
 import 'package:neostation/providers/romm_provider.dart';
 import 'package:neostation/repositories/romm_save_map_repository.dart';
@@ -34,6 +36,7 @@ import 'package:neostation/services/romm_playtime_service.dart';
 import 'package:neostation/services/romm_service.dart';
 
 import '../i_sync_provider.dart';
+import '../sync_manager.dart';
 
 /// Locates the local save/state files belonging to a game.
 typedef LocateGameSaves = Future<List<LocalSaveFile>> Function(GameModel game);
@@ -42,6 +45,9 @@ typedef LocateGameSaves = Future<List<LocalSaveFile>> Function(GameModel game);
 /// [relativeName] (e.g. `saves/Game.srm`) belonging to a game.
 typedef ResolveSaveTargets =
     Future<List<String>> Function(GameModel game, String relativeName);
+
+/// Enumerates the local library, for the pending-upload sweep.
+typedef ListLocalGames = Future<List<GameModel>> Function();
 
 class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
   static const String kProviderId = 'romm';
@@ -77,6 +83,7 @@ class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
   /// replacements here instead, mirroring [RommBulkSync.run]'s callbacks.
   final LocateGameSaves? _locateOverride;
   final ResolveSaveTargets? _resolveTargetsOverride;
+  final ListLocalGames? _listGamesOverride;
 
   final Map<String, GameSyncState> _gameSyncStates = {};
 
@@ -85,8 +92,33 @@ class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
     this._neoSync, {
     @visibleForTesting LocateGameSaves? locateSaves,
     @visibleForTesting ResolveSaveTargets? resolveTargets,
+    @visibleForTesting ListLocalGames? listGames,
+    @visibleForTesting bool autoSweep = true,
   }) : _locateOverride = locateSaves,
-       _resolveTargetsOverride = resolveTargets;
+       _resolveTargetsOverride = resolveTargets,
+       _listGamesOverride = listGames,
+       _autoSweep = autoSweep {
+    if (!_autoSweep) return;
+    _wasConnected = _browse.isConnected;
+    _browse.addListener(_onBrowseChanged);
+    // Constructed *after* the browse provider restored its saved config (see
+    // main.dart) is the normal startup order, so the connect that matters has
+    // usually already happened and there is no transition left to listen for.
+    if (_wasConnected) _scheduleSweep();
+  }
+
+  /// Whether the connect-triggered sweep is wired up. Off in tests, which drive
+  /// [retryPendingUploads] directly rather than waiting out a timer.
+  final bool _autoSweep;
+
+  bool _disposed = false;
+
+  @override
+  void dispose() {
+    _disposed = true;
+    if (_autoSweep) _browse.removeListener(_onBrowseChanged);
+    super.dispose();
+  }
 
   Future<List<LocalSaveFile>> _locateSaves(GameModel game) =>
       (_locateOverride ?? _neoSync.locateGameSaveFiles)(game);
@@ -96,6 +128,16 @@ class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
         game,
         relativeName,
       );
+
+  /// The library, for the sweep. Injectable for the same reason the path
+  /// resolution is: reaching the real one means seeding `user_roms` and its
+  /// system join, which says nothing about the behaviour under test.
+  Future<List<GameModel>> _listGames() async {
+    final override = _listGamesOverride;
+    if (override != null) return override();
+    final rows = await GameRepository.getAllGames();
+    return rows.map(GameModel.fromDatabaseModel).toList();
+  }
 
   RommService get _svc => _browse.service;
 
@@ -197,6 +239,7 @@ class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
     GameModel game, {
     required bool downloadOnly,
     bool statusOnly = false,
+    bool uploadOnly = false,
     SyncDeadline? deadline,
   }) async {
     if (!_browse.isConnected) return GameSyncStatus.error;
@@ -296,6 +339,10 @@ class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
       if (statusOnly) {
         continue;
       } else if (remoteChanged && (!localChanged || downloadOnly)) {
+        // A retry sweep exists to push what a failed upload left behind; the
+        // pull belongs to the pre-launch hook, which knows a game is about to
+        // start and has a deadline to answer to.
+        if (uploadOnly) continue;
         if (await _download(
           game,
           match,
@@ -307,13 +354,22 @@ class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
       } else if (localChanged && !downloadOnly) {
         // Local newer (or both changed → prefer local). The asset exists, so
         // this replaces it in place rather than creating a second one.
+        //
+        // "Prefer local" is only defensible when a session just ended, which is
+        // the post-close hook's authority and not a sweep's: a sweep runs on
+        // connect, with nothing to say the local copy is the newer *session*.
+        // Pushing a both-changed file from here is exactly how the item-5
+        // hazard comes back — the other device's newer save overwritten by an
+        // older local one — so a sweep leaves ties to the hook that can settle
+        // them.
+        if (uploadOnly && remoteChanged) continue;
         if (await _upload(romId, local, isState, existing: match)) uploaded++;
       }
     }
 
     // 2) Remote-only files → download.
     for (final a in remote) {
-      if (statusOnly) break;
+      if (statusOnly || uploadOnly) break;
       if (matchedRemote.contains(a.id)) continue;
       if (await _download(
         game,
@@ -793,12 +849,194 @@ class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
 
   @override
   Future<SyncResult> fullSync() async {
-    if (!_browse.isConnected) {
-      return SyncResult.fail(SyncError.authRequired);
+    // Not a bidirectional sync of the library, and deliberately so: pulls are
+    // scoped to the game about to launch, where a deadline and a known target
+    // make them safe. What a global pass *can* honestly do is push what never
+    // made it up, so this is the pending-upload sweep. Anything calling it gets
+    // real work rather than the "syncs per-game on launch/close" no-op it used
+    // to answer with, which looked like success and did nothing.
+    return retryPendingUploads();
+  }
+
+  // ── Pending-upload sweep ───────────────────────────────────────────────────
+
+  /// How long after connecting the automatic sweep waits before starting.
+  ///
+  /// Long enough to stay off the cold-start path: connecting happens during
+  /// `initialize()`, and phase one walks the save folders of every linked game.
+  /// Startup is this app's measured bottleneck, and a retry that has already
+  /// waited for an offline stretch to end can wait another half minute.
+  static const Duration _sweepStartupDelay = Duration(seconds: 30);
+
+  /// Guard against overlapping sweeps (connect + a manual [fullSync]).
+  bool _sweeping = false;
+
+  /// Whether [_browse] was connected at the last notification, so the sweep
+  /// fires on the *transition* rather than on every notify a connected provider
+  /// emits (which is one per browse page, download tick and token refresh).
+  bool _wasConnected = false;
+
+  /// Re-attempts the uploads a failed post-close hook left behind.
+  ///
+  /// Uploads happen on one hook only — shortly after a game closes — so a
+  /// failure there (offline, server unreachable, app killed mid-upload) used to
+  /// wait for the next play-and-quit *of that same game* before anything tried
+  /// again. This sweeps every RomM-linked game instead, making connect (or a
+  /// manual [fullSync]) the catch-up point after an offline stretch.
+  ///
+  /// Upload-only, and narrower than the post-close hook on purpose: a file is
+  /// pushed only when the local copy has moved since we last recorded it **and
+  /// the server's has not**. See the both-changed note in [_syncGame] — a sweep
+  /// has no just-ended session to break a tie with, and claiming that authority
+  /// is how it would overwrite another device's newer save.
+  ///
+  /// Two-phase on purpose. Phase one is local only (locate saves, compare with
+  /// the recorded sync state) and decides which games are candidates; only those
+  /// pay the two listing round-trips of phase two. A library with nothing
+  /// pending therefore costs no network at all, which is what makes this safe to
+  /// fire automatically.
+  ///
+  /// Never throws. A game that fails is counted and stepped over — except a
+  /// permission denial, which would fail identically for every remaining game
+  /// and so ends the sweep.
+  Future<SyncResult> retryPendingUploads() async {
+    if (!_browse.isConnected) return SyncResult.fail(SyncError.authRequired);
+    // Not an error: whichever call got here first is doing the same work.
+    if (_sweeping) return SyncResult.ok(message: 'Sweep already running');
+    _sweeping = true;
+    try {
+      final index = await RommSaveMapRepository.getRomIdIndex();
+      if (index.isEmpty) {
+        return SyncResult.ok(message: 'No RomM-linked games to sweep');
+      }
+
+      var candidates = 0, synced = 0, failed = 0;
+      final touched = <String>[];
+      for (final game in await _listGames()) {
+        // A disconnect (or a sign-out) mid-sweep ends it; every remaining game
+        // would fail against a server we no longer have credentials for.
+        if (!_browse.isConnected) break;
+
+        final folder = game.systemFolderName;
+        if (folder == null || folder.isEmpty) continue;
+        if (index.lookup(game.romname, folder) == null) continue;
+        if (game.cloudSyncEnabled != true) continue;
+        if (!await _hasPendingUpload(game)) continue;
+
+        candidates++;
+        try {
+          final status = await _syncGame(
+            game,
+            downloadOnly: false,
+            uploadOnly: true,
+          );
+          if (status == GameSyncStatus.error) {
+            failed++;
+          } else {
+            synced++;
+          }
+          _gameSyncStates[game.romname] = _buildState(game, status);
+          touched.add(game.romname);
+        } catch (e) {
+          if (isPermissionDenied(e)) {
+            _log.e('RomM upload sweep: permission denied, stopping: $e');
+            _gameSyncStates[game.romname] = _buildState(
+              game,
+              GameSyncStatus.error,
+              errorMessage: e.toString(),
+            );
+            if (touched.isNotEmpty) notifyListeners();
+            // Same error shape [_failGame] uses for a bubbled-up 403, so a
+            // sweep failure reads like any other hard sync failure.
+            return SyncResult.fail(SyncError.unknown, message: e.toString());
+          }
+          _log.e('RomM upload sweep: ${game.romname} failed: $e');
+          failed++;
+        }
+      }
+
+      // One notification for the whole sweep: it can touch hundreds of games,
+      // and notifying per game would rebuild the library UI hundreds of times.
+      if (touched.isNotEmpty) notifyListeners();
+      if (candidates == 0) {
+        return SyncResult.ok(message: 'Nothing pending');
+      }
+      _log.i(
+        'RomM upload sweep: $candidates pending, $synced synced, $failed failed',
+      );
+      return SyncResult.ok(
+        message: '$synced of $candidates pending games synced',
+      );
+    } finally {
+      _sweeping = false;
     }
-    // Per-game sync is driven by the launch flow; a global pass would require
-    // enumerating mapped games. Deferred — return ok as a no-op for now.
-    return SyncResult.ok(message: 'RomM syncs per-game on launch/close');
+  }
+
+  /// True when [game] has a local save the server has not been told about —
+  /// either never recorded, or changed since it was recorded.
+  ///
+  /// The point of this check is that it touches only the disk and the local
+  /// sync-state table, so the sweep can rule a game out without a round trip.
+  Future<bool> _hasPendingUpload(GameModel game) async {
+    final List<LocalSaveFile> localFiles;
+    try {
+      localFiles = syncableSaves(game, await _locateSaves(game));
+    } catch (e) {
+      // Unreadable save folder: not a pending upload, and not worth a round
+      // trip to find out. The post-close hook will report it properly.
+      _log.w('RomM upload sweep: cannot locate saves for ${game.romname}: $e');
+      return false;
+    }
+    for (final local in localFiles) {
+      final recorded = await SyncRepository.getSyncState(
+        kProviderId,
+        local.filePath,
+      );
+      // No record at all: either a first upload that failed, or a save made
+      // before RomM sync was on. Both want pushing.
+      if (recorded == null) return true;
+      final recordedLocalMs = (recorded['local_modified_at'] as int?) ?? 0;
+      if (local.lastModified.millisecondsSinceEpoch >
+          recordedLocalMs + _mtimeToleranceMs) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// Fires the sweep once, on a disconnected → connected transition.
+  ///
+  /// Skipped unless RomM is the *active* save provider: with NeoSync active,
+  /// RomM's post-close hook never ran, so nothing here is a retry — it would be
+  /// this provider pushing saves the user routed elsewhere. Also skipped while a
+  /// bulk ROM sync is running, which wants the bandwidth more than a retry does.
+  /// A skipped sweep is not rescheduled; the next connect picks it up.
+  void _onBrowseChanged() {
+    final connected = _browse.isConnected;
+    if (connected == _wasConnected) return;
+    _wasConnected = connected;
+    if (!connected) return;
+    _scheduleSweep();
+  }
+
+  void _scheduleSweep() {
+    unawaited(
+      Future<void>.delayed(_sweepStartupDelay).then((_) async {
+        if (_disposed || !_browse.isConnected) return;
+        if (SyncManager.instance.activeProviderId != kProviderId) return;
+        if (_browse.bulkSync.isRunning) {
+          _log.i('RomM upload sweep: skipped, a bulk ROM sync is running');
+          return;
+        }
+        try {
+          await retryPendingUploads();
+        } catch (e) {
+          // retryPendingUploads is documented not to throw; this is the
+          // belt-and-braces that keeps an unawaited future from going unhandled.
+          _log.w('RomM upload sweep failed: $e');
+        }
+      }),
+    );
   }
 
   @override

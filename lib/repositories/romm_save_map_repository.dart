@@ -1,6 +1,38 @@
 import '../data/datasources/sqlite_service.dart';
 import 'package:neostation/services/logger_service.dart';
 
+/// Every recorded mapping, resolvable without another query.
+///
+/// [RommSaveMapRepository.getRommRomId] is the single-game path and costs up to
+/// two queries per call, one of which scans a whole system folder. A sweep over
+/// the library asks the same question thousands of times, so it reads the table
+/// once into this and looks up locally. Same matching rules as the single-game
+/// path, kept in the repository so there is only one definition of them.
+class RommRomIdIndex {
+  final Map<String, int> _byKey;
+
+  const RommRomIdIndex(this._byKey);
+
+  /// Composite key for the two-part identity, built in exactly one place so
+  /// that the read and the write cannot drift apart.
+  ///
+  /// The separator is a tab rather than a space because both halves can contain
+  /// spaces: `("Game Boy", "Tetris")` and `("Game", "Boy Tetris")` would
+  /// otherwise collide on one key.
+  static String _keyFor(String systemFolder, String romname) =>
+      '$systemFolder\t$romname';
+
+  /// The RomM ROM id for a local game, or null when it isn't linked.
+  int? lookup(String romname, String systemFolder) =>
+      _byKey[_keyFor(systemFolder, romname)];
+
+  /// Number of mapped games (not index entries — a game is indexed under both
+  /// spellings of its name).
+  int get mappedGames => _byKey.values.toSet().length;
+
+  bool get isEmpty => _byKey.isEmpty;
+}
+
 /// Repository for the RomM save-sync mapping table (`app_romm_rom_map`).
 ///
 /// Links a local game (its [romname] within a [systemFolder]) to the RomM ROM
@@ -77,6 +109,42 @@ class RommSaveMapRepository {
     } catch (e) {
       _log.e('Error reading RomM rom map ($romname/$systemFolder): $e');
       return null;
+    }
+  }
+
+  /// Reads the whole mapping table into a [RommRomIdIndex].
+  ///
+  /// For callers that resolve many games at once (the pending-upload sweep):
+  /// one query instead of two per game. Each row is indexed under both the
+  /// stored name and its extension-stripped form, for the same reason
+  /// [_romIdByStem] exists — the table is written with the on-disk filename
+  /// (`Game.zip`) while a `GameModel` carries it already stripped.
+  ///
+  /// Returns an empty index on error, which reads as "no games are linked" and
+  /// makes the sweep a no-op rather than a crash.
+  static Future<RommRomIdIndex> getRomIdIndex() async {
+    try {
+      final db = await SqliteService.getDatabase();
+      final rows = await db.query(
+        'app_romm_rom_map',
+        columns: ['romname', 'system_folder', 'romm_rom_id'],
+      );
+      final index = <String, int>{};
+      for (final row in rows) {
+        final romId = int.tryParse(row['romm_rom_id'].toString());
+        final stored = row['romname']?.toString() ?? '';
+        final folder = row['system_folder']?.toString() ?? '';
+        if (romId == null || stored.isEmpty || folder.isEmpty) continue;
+        index[RommRomIdIndex._keyFor(folder, stored)] = romId;
+        final stem = _stripExtension(stored);
+        // Only ever *add* the stem spelling: an exact match must win, matching
+        // the order the single-game path tries them in.
+        index.putIfAbsent(RommRomIdIndex._keyFor(folder, stem), () => romId);
+      }
+      return RommRomIdIndex(index);
+    } catch (e) {
+      _log.e('Error reading the RomM rom map: $e');
+      return const RommRomIdIndex({});
     }
   }
 
