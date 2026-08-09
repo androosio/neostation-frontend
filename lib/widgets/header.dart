@@ -308,14 +308,17 @@ class HeaderState extends State<Header> {
 
                 // Steam-style system info.
                 //
-                // Bounded by whatever the centred tab strip leaves on the right,
-                // then scaled down rather than allowed to overlap it. The strip
-                // grows by half a slot on each side per visible tab, so without
-                // this the pill and the tabs collide once enough tabs are shown
-                // and the clock is wide (12-hour time costs ~20 more than 24).
-                // Scaling keeps every element readable; dropping the clock icon
-                // or the battery would buy a fixed amount and break again on the
-                // next tab added.
+                // Bounded by whatever the centred tab strip leaves on the right.
+                // The strip grows by half a slot on each side per visible tab,
+                // so without this the pill and the tabs collide once enough
+                // tabs are shown and the clock is wide (12-hour time costs ~20
+                // more than 24-hour).
+                //
+                // Dropping the clock glyph is what buys the room at seven tabs,
+                // so this bound should not engage on a normal display. It stays
+                // as the backstop for narrower screens and longer locale time
+                // formats, where scaling a little is still better than two
+                // widgets drawn on top of each other.
                 Align(
                   alignment: Alignment.centerRight,
                   child: ConstrainedBox(
@@ -369,12 +372,10 @@ class HeaderState extends State<Header> {
                           children: [
                             const NotificationBell(),
                             SizedBox(width: 10.r),
-                            Icon(
-                              Symbols.schedule,
-                              color: Theme.of(context).colorScheme.onSurface,
-                              size: 14.r,
-                            ),
-                            SizedBox(width: 4.r),
+                            // No clock glyph: it cost ~18 units next to a
+                            // label that already reads as a time, and that is
+                            // what the seventh tab needed back. The pill keeps
+                            // its full size instead of being scaled down.
                             Text(
                               formatClockTime(
                                 _now,
