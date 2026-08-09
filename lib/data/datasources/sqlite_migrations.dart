@@ -345,6 +345,9 @@ class SqliteMigrations {
       case 113:
         await _migrateToVersion113(db);
         break;
+      case 114:
+        await _migrateToVersion114(db);
+        break;
       default:
         _log.w('No migration defined for version $version');
     }
@@ -5358,6 +5361,43 @@ class SqliteMigrations {
       _log.i('Migration v113 completed');
     } catch (e, stackTrace) {
       _log.e('Error in migration v113: $e');
+      _log.e('   StackTrace: $stackTrace');
+      rethrow;
+    }
+  }
+
+  /// Migration v114: Repairs `user_config.system_view_mode` values that the
+  /// games view used to write into it.
+  ///
+  /// Until the game view settings screen was removed, choosing a games layout
+  /// there wrote the games mode into `system_view_mode` as well — the two
+  /// columns were once one. They do not share a value domain: the systems view
+  /// understands only `grid` and `carousel`, so a user who picked the `list`
+  /// games layout was left with a systems mode nothing recognises. The systems
+  /// view falls back to the grid and neither option shows as selected in the
+  /// sort dropdown, and re-picking the layout by hand is the only way out.
+  ///
+  /// The writer is fixed, so this runs once to normalise the rows it already
+  /// wrote. `grid` matches both the column default and the fallback those users
+  /// are seeing, so the repair changes nothing they can observe except the
+  /// dropdown selection.
+  static Future<void> _migrateToVersion114(Database db) async {
+    _log.i('Migration v114: Normalising unrecognised system_view_mode values');
+    try {
+      final tableInfo = db.select('PRAGMA table_info(user_config)');
+      final columns = tableInfo.map((c) => c['name'].toString()).toList();
+      if (!columns.contains('system_view_mode')) {
+        _log.i('Column system_view_mode absent, nothing to normalise');
+        return;
+      }
+      db.execute(
+        "UPDATE user_config SET system_view_mode = 'grid' "
+        "WHERE system_view_mode IS NULL "
+        "OR system_view_mode NOT IN ('grid', 'carousel')",
+      );
+      _log.i('Migration v114 completed');
+    } catch (e, stackTrace) {
+      _log.e('Error in migration v114: $e');
       _log.e('   StackTrace: $stackTrace');
       rethrow;
     }
