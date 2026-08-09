@@ -67,7 +67,8 @@ class _SystemEmulatorSettingsDialogState
   int _appearanceIndex = 0; // Index for Appearance tab items
   // Emulators tab: 0 = default/core action, 1 = executable picker.
   int _emulatorActionIndex = 0;
-  // 0: Prefer filename, 1: Hide ext, 2: (), 3: [], 4: Recursive?
+  // 0: Prefer filename, 1: Hide ext, 2: (), 3: [], 4: Recursive?,
+  // 5: Show subfolders
   late int _totalGeneralItems;
   late List<GlobalKey> _generalItemKeys;
   late List<GlobalKey> _appearanceItemKeys;
@@ -105,7 +106,7 @@ class _SystemEmulatorSettingsDialogState
     _totalGeneralItems =
         (_system.folderName == 'all' || _system.folderName == 'android')
         ? 4
-        : 5;
+        : 6;
 
     _generalScrollController = ScrollController();
     _generalItemKeys = List.generate(
@@ -234,6 +235,26 @@ class _SystemEmulatorSettingsDialogState
         value
             ? AppLocale.romFileNamesUsed.getString(context)
             : AppLocale.scrapedTitlesUsed.getString(context),
+        type: NotificationType.info,
+      );
+    }
+  }
+
+  Future<void> _toggleSubfolderView(bool value) async {
+    setState(() => _system = _system.copyWith(subfolderView: value));
+    await SystemRepository.setSubfolderView(widget.system.id!, value);
+    if (mounted) {
+      await context.read<SqliteConfigProvider>().refreshSystem(_system);
+      if (!mounted) return;
+      context.read<SqliteDatabaseProvider>().loadGamesForSystem(
+        widget.system.folderName,
+      );
+      AppNotification.showNotification(
+        context,
+        (value
+                ? AppLocale.subfolderViewEnabled
+                : AppLocale.subfolderViewDisabled)
+            .getString(context),
         type: NotificationType.info,
       );
     }

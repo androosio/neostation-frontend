@@ -517,6 +517,18 @@ extension _Tabs on _SystemEmulatorSettingsDialogState {
             value: _system.recursiveScan,
             onChanged: _toggleRecursiveScan,
           ),
+          SizedBox(height: 4.r),
+          _buildSwitchItem(
+            index: 5,
+            key: _generalItemKeys[5],
+            title: AppLocale.subfolderView.getString(context),
+            subtitle: AppLocale.subfolderViewSubtitle.getString(context),
+            value: _system.subfolderView,
+            onChanged: _toggleSubfolderView,
+            // Subfolders only exist when recursive scanning is on, so the
+            // toggle is inert otherwise.
+            enabled: _system.recursiveScan,
+          ),
         ],
       ],
     );
@@ -529,9 +541,11 @@ extension _Tabs on _SystemEmulatorSettingsDialogState {
     required String subtitle,
     required bool value,
     required ValueChanged<bool> onChanged,
+    bool enabled = true,
   }) {
     final bool isFocused = _generalIndex == index;
     final theme = Theme.of(context);
+    final double contentOpacity = enabled ? 1.0 : 0.4;
 
     return Container(
       key: key,
@@ -544,10 +558,12 @@ extension _Tabs on _SystemEmulatorSettingsDialogState {
             BorderRadius.circular(9.r),
       ),
       child: InkWell(
-        onTap: () {
-          SfxService().playNavSound();
-          onChanged(!value);
-        },
+        onTap: enabled
+            ? () {
+                SfxService().playNavSound();
+                onChanged(!value);
+              }
+            : null,
         borderRadius:
             Theme.of(context).extension<CornerRadii>()?.radiusInternal ??
             BorderRadius.circular(9.r),
@@ -556,36 +572,42 @@ extension _Tabs on _SystemEmulatorSettingsDialogState {
           child: Row(
             children: [
               Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: 10.r,
-                        fontWeight: FontWeight.w600,
-                        color: isFocused
-                            ? theme.colorScheme.primary
-                            : theme.colorScheme.onSurface,
-                      ),
-                    ),
-                    Text(
-                      subtitle,
-                      style: TextStyle(
-                        fontSize: 9.r,
-                        color: theme.colorScheme.onSurface.withValues(
-                          alpha: 0.6,
+                child: Opacity(
+                  opacity: contentOpacity,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 10.r,
+                          fontWeight: FontWeight.w600,
+                          color: isFocused
+                              ? theme.colorScheme.primary
+                              : theme.colorScheme.onSurface,
                         ),
                       ),
-                    ),
-                  ],
+                      Text(
+                        subtitle,
+                        style: TextStyle(
+                          fontSize: 9.r,
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.6,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              CustomToggleSwitch(
-                value: value,
-                onChanged: onChanged,
-                activeColor: theme.colorScheme.primary,
+              Opacity(
+                opacity: contentOpacity,
+                child: CustomToggleSwitch(
+                  value: value,
+                  onChanged: enabled ? onChanged : (_) {},
+                  activeColor: theme.colorScheme.primary,
+                ),
               ),
             ],
           ),

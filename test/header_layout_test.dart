@@ -17,10 +17,7 @@ void main() {
 
     test('each additional tab costs exactly one slot', () {
       for (var n = 0; n < 8; n++) {
-        expect(
-          navStripWidth(tabCount: n + 1) - navStripWidth(tabCount: n),
-          32,
-        );
+        expect(navStripWidth(tabCount: n + 1) - navStripWidth(tabCount: n), 32);
       }
     });
   });

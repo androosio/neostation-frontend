@@ -199,6 +199,13 @@ extension _GamepadNav on _SystemEmulatorSettingsDialogState {
           widget.system.folderName != 'all' &&
           widget.system.folderName != 'android') {
         _toggleRecursiveScan(!_system.recursiveScan);
+      } else if (_generalIndex == 5 &&
+          widget.system.folderName != 'all' &&
+          widget.system.folderName != 'android') {
+        // Inert unless recursive scanning is on (no subfolders to show).
+        if (_system.recursiveScan) {
+          _toggleSubfolderView(!_system.subfolderView);
+        }
       }
     } else if (_currentTab == 2) {
       if (_appearanceIndex == 0) {
