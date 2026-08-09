@@ -465,6 +465,33 @@ class RommService {
     return page.items;
   }
 
+  /// Returns the ROMs this user has played, most recent first.
+  ///
+  /// Ordering by `last_played` is also a *filter*: RomM leaves ROMs that have
+  /// never been played out of the result entirely, so this returns a short
+  /// candidate list rather than a page of the library. Measured against RomM
+  /// 5.1.0 on a 9,899-ROM library, where it answered with 5.
+  ///
+  /// That is what makes the connect-time playtime pull affordable — one request
+  /// names every ROM worth asking about, instead of a session lookup per linked
+  /// game. `order_dir` must be passed explicitly: RomM defaults to ascending,
+  /// which would return the *least* recently played.
+  Future<List<RommRom>> getRecentlyPlayedRoms({int limit = 25}) async {
+    final resp = await _authedGetUri(
+      Uri.parse('$_baseUrl/api/roms').replace(
+        queryParameters: <String, String>{
+          'limit': '$limit',
+          'offset': '0',
+          'order_by': 'last_played',
+          'order_dir': 'desc',
+        },
+      ),
+    );
+    return _itemsOf(
+      jsonDecode(resp.body),
+    ).whereType<Map<String, dynamic>>().map(RommRom.fromJson).toList();
+  }
+
   /// Returns one page of ROMs along with RomM's result [RommRomPage.total] and
   /// the filter values still available for the query.
   ///

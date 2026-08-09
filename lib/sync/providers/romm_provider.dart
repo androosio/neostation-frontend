@@ -23,6 +23,7 @@ import 'package:path/path.dart' as path;
 import 'package:neostation/models/game_model.dart';
 import 'package:neostation/models/neo_sync_models.dart';
 import 'package:neostation/models/romm_asset.dart';
+import 'package:neostation/models/romm_rom.dart';
 import 'package:neostation/providers/neo_sync_provider.dart';
 import 'package:neostation/repositories/emulator_repository.dart';
 import 'package:neostation/repositories/game_repository.dart';
@@ -1046,13 +1047,10 @@ class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
     return false;
   }
 
-  /// Fires the sweep once, on a disconnected → connected transition.
+  /// Fires the connect-time work once, on a disconnected → connected
+  /// transition.
   ///
-  /// Skipped unless RomM is the *active* save provider: with NeoSync active,
-  /// RomM's post-close hook never ran, so nothing here is a retry — it would be
-  /// this provider pushing saves the user routed elsewhere. Also skipped while a
-  /// bulk ROM sync is running, which wants the bandwidth more than a retry does.
-  /// A skipped sweep is not rescheduled; the next connect picks it up.
+  /// A skipped run is not rescheduled; the next connect picks it up.
   void _onBrowseChanged() {
     final connected = _browse.isConnected;
     if (connected == _wasConnected) return;
@@ -1069,12 +1067,23 @@ class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
           _log.i('RomM upload sweep: skipped, disconnected before it ran');
           return;
         }
-        if (SyncManager.instance.activeProviderId != kProviderId) {
-          _log.i('RomM upload sweep: skipped, RomM is not the save provider');
-          return;
-        }
         if (_browse.bulkSync.isRunning) {
           _log.i('RomM upload sweep: skipped, a bulk ROM sync is running');
+          return;
+        }
+
+        // Playtime first, and deliberately *not* behind the active-provider
+        // gate below: it is a statistic, not save authority. See
+        // [pullRecentPlaytime].
+        try {
+          await pullRecentPlaytime();
+        } catch (e) {
+          _log.w('RomM playtime pull failed: $e');
+        }
+        if (_disposed || !_browse.isConnected) return;
+
+        if (SyncManager.instance.activeProviderId != kProviderId) {
+          _log.i('RomM upload sweep: skipped, RomM is not the save provider');
           return;
         }
         try {
@@ -1085,6 +1094,70 @@ class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
           _log.w('RomM upload sweep failed: $e');
         }
       }),
+    );
+  }
+
+  /// Folds playtime recorded on other devices into the local totals.
+  ///
+  /// Sessions are *pushed* on connect whatever the save-sync toggle says, but
+  /// the matching pull only ever ran inside a RomM-active save sync — so a user
+  /// who keeps NeoSync as their save provider uploaded their play and never got
+  /// anyone else's back. This closes that half, and is therefore **not** gated
+  /// on RomM being the active save provider: playtime is a statistic, and
+  /// nothing about it decides which copy of a save wins.
+  ///
+  /// Bounded by asking the server which ROMs are worth asking about:
+  /// [RommService.getRecentlyPlayedRoms] returns only ROMs that have ever been
+  /// played (5 of 9,899 on the dev library), newest first. Without that the
+  /// pull would be one session request per linked game — hundreds after a bulk
+  /// sync, on every connect. The per-ROM pull is throttled again by
+  /// [RommPlaytimeService.pullInterval], so reconnecting inside that window
+  /// costs one request in total.
+  ///
+  /// Never throws: a failure here must not stop the upload sweep that follows.
+  Future<void> pullRecentPlaytime() async {
+    if (!_browse.isConnected || !_svc.playtimeSyncAvailable) return;
+
+    final List<RommRom> recent;
+    try {
+      recent = await _svc.getRecentlyPlayedRoms();
+    } catch (e) {
+      _log.w('RomM playtime pull: could not list recently played: $e');
+      return;
+    }
+    if (recent.isEmpty) return;
+
+    final paths = await RommSaveMapRepository.getRomPathsForRomIds(
+      recent.map((r) => r.id),
+    );
+    if (paths.isEmpty) {
+      _log.i(
+        'RomM playtime pull: ${recent.length} played on the server, '
+        'none linked here',
+      );
+      return;
+    }
+
+    var applied = 0;
+    for (final rom in recent) {
+      if (_disposed || !_browse.isConnected) break;
+      final romPath = paths[rom.id];
+      if (romPath == null) continue;
+      try {
+        if (await RommPlaytimeService.pullPlaytime(
+          _svc,
+          romId: rom.id,
+          romPath: romPath,
+        )) {
+          applied++;
+        }
+      } catch (e) {
+        _log.w('RomM playtime pull failed for rom ${rom.id}: $e');
+      }
+    }
+    _log.i(
+      'RomM playtime pull: ${paths.length} of ${recent.length} played games '
+      'linked here, $applied updated',
     );
   }
 

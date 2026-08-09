@@ -174,6 +174,65 @@ class RommSaveMapRepository {
     }
   }
 
+  /// Resolves RomM ROM ids to the local `rom_path` of the game they're linked
+  /// to, skipping ids that aren't linked here or whose row no longer has a
+  /// matching game.
+  ///
+  /// For the connect-time playtime pull, which starts from a short list of ids
+  /// the *server* named and has to get back to local rows. Deliberately not
+  /// built on [getRomIdIndex] + the game list: that pair resolves every linked
+  /// game in the library to answer a question about a handful of them, and this
+  /// runs on connect whether or not RomM is the active save provider.
+  ///
+  /// Both spellings of the stored name are tried, for the reason [_romIdByStem]
+  /// exists — the mapping is written with the on-disk filename (`Game.zip`)
+  /// while `user_roms.filename` carries it stripped. Only the *stored* name is
+  /// stripped, never the one read back, so a title with its own dot ("Mr. Do")
+  /// can't be cut short.
+  static Future<Map<int, String>> getRomPathsForRomIds(
+    Iterable<int> romIds,
+  ) async {
+    final ids = romIds.toSet();
+    if (ids.isEmpty) return const {};
+    final out = <int, String>{};
+    try {
+      final db = await SqliteService.getDatabase();
+      final placeholders = List.filled(ids.length, '?').join(',');
+      final mapRows = await db.query(
+        'app_romm_rom_map',
+        columns: ['romname', 'system_folder', 'romm_rom_id'],
+        where: 'romm_rom_id IN ($placeholders)',
+        whereArgs: ids.toList(),
+      );
+      for (final row in mapRows) {
+        final romId = int.tryParse(row['romm_rom_id'].toString());
+        final stored = row['romname']?.toString() ?? '';
+        final folder = row['system_folder']?.toString() ?? '';
+        if (romId == null || stored.isEmpty || folder.isEmpty) continue;
+        if (out.containsKey(romId)) continue;
+
+        final games = await db.rawQuery(
+          '''
+          SELECT ur.rom_path
+          FROM user_roms ur
+          JOIN app_systems s ON ur.app_system_id = s.id
+          WHERE s.folder_name = ? AND ur.filename IN (?, ?)
+          LIMIT 1
+          ''',
+          [folder, stored, _stripExtension(stored)],
+        );
+        if (games.isEmpty) continue;
+        final path = games.first['rom_path']?.toString() ?? '';
+        if (path.isNotEmpty) out[romId] = path;
+      }
+    } catch (e) {
+      // An empty result reads as "nothing to pull", which is the right
+      // degradation for a statistic.
+      _log.e('Error resolving RomM rom paths: $e');
+    }
+    return out;
+  }
+
   /// Second pass for [getRommRomId], matching on the extension-stripped name.
   ///
   /// Callers disagree about what a "romname" is. The mapping is written with
