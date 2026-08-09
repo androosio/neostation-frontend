@@ -2447,14 +2447,37 @@ class SqliteService {
   }
 
   /// Persists a complete list of ROM directories, replacing existing ones.
+  ///
+  /// An empty list is ignored while folders are already configured. No caller
+  /// legitimately clears the table this way — removing a folder has its own
+  /// targeted API ([removeRomFolder]) — so an empty list means the config
+  /// object never carried the folders, not that the user removed them. Acting
+  /// on it is silently destructive: the next scan runs as a fast scan, which
+  /// prunes every system and ROM row, which in turn leaves
+  /// [recoverRomFoldersFromStoredRoms] nothing to derive a root from.
   static Future<void> saveUserRomFolders(List<String> folders) async {
     final db = await instance.database;
+    final paths = folders.where((folder) => folder.isNotEmpty).toList();
+
+    if (paths.isEmpty) {
+      final rows = await db.rawQuery(
+        'SELECT COUNT(*) AS count FROM user_rom_folders',
+      );
+      final existing = rows.isEmpty ? 0 : (rows.first['count'] as int?) ?? 0;
+      if (existing > 0) {
+        _log.w(
+          'saveUserRomFolders called with an empty list while $existing ROM '
+          'folder(s) are configured - keeping them. Use removeRomFolder() to '
+          'remove one.',
+        );
+        return;
+      }
+    }
+
     await db.transaction((txn) async {
       await txn.delete('user_rom_folders');
-      for (final folder in folders) {
-        if (folder.isNotEmpty) {
-          await txn.insert('user_rom_folders', {'path': folder});
-        }
+      for (final folder in paths) {
+        await txn.insert('user_rom_folders', {'path': folder});
       }
     });
   }
