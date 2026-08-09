@@ -36,6 +36,7 @@ import 'package:neostation/services/romm_playtime_service.dart';
 import 'package:neostation/services/romm_service.dart';
 
 import '../i_sync_provider.dart';
+import '../retroarch_state_signature.dart';
 import '../sync_manager.dart';
 
 /// Locates the local save/state files belonging to a game.
@@ -281,7 +282,7 @@ class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
     }
 
     final matchedRemote = <int>{}; // asset ids already paired with a local file
-    int uploaded = 0, downloaded = 0;
+    int uploaded = 0, downloaded = 0, coreMismatched = 0;
     bool anyLocal = localFiles.isNotEmpty;
     bool anyRemote = remote.isNotEmpty;
 
@@ -343,14 +344,14 @@ class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
         // pull belongs to the pre-launch hook, which knows a game is about to
         // start and has a deadline to answer to.
         if (uploadOnly) continue;
-        if (await _download(
+        final r = await _download(
           game,
           match,
           localFiles: localFiles,
           deadline: deadline,
-        )) {
-          downloaded++;
-        }
+        );
+        if (r.wrote) downloaded++;
+        if (r.coreMismatch) coreMismatched++;
       } else if (localChanged && !downloadOnly) {
         // Local newer (or both changed → prefer local). The asset exists, so
         // this replaces it in place rather than creating a second one.
@@ -371,19 +372,20 @@ class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
     for (final a in remote) {
       if (statusOnly || uploadOnly) break;
       if (matchedRemote.contains(a.id)) continue;
-      if (await _download(
+      final r = await _download(
         game,
         a,
         localFiles: localFiles,
         deadline: deadline,
-      )) {
-        downloaded++;
-      }
+      );
+      if (r.wrote) downloaded++;
+      if (r.coreMismatch) coreMismatched++;
     }
 
     _log.i(
       'RomM sync ${game.romname}: $uploaded up, $downloaded down '
-      '(${localFiles.length} local, ${remote.length} remote)',
+      '(${localFiles.length} local, ${remote.length} remote)'
+      '${coreMismatched > 0 ? ', $coreMismatched kept (different core)' : ''}',
     );
 
     // Playtime rides along with the upload-capable passes only. The pre-launch
@@ -610,12 +612,20 @@ class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
     }
   }
 
-  Future<bool> _download(
+  /// Fetches [asset] and writes it to this device's local target(s).
+  ///
+  /// [coreMismatch] reports the one refusal a caller needs to distinguish from
+  /// an ordinary no-op: the transfer was declined because the remote state was
+  /// written by a different core (see the guard below). Everything else — no
+  /// target, an expired deadline, a newer local copy — is a routine `wrote:
+  /// false`.
+  Future<({bool wrote, bool coreMismatch})> _download(
     GameModel game,
     RommAsset asset, {
     required List<LocalSaveFile> localFiles,
     SyncDeadline? deadline,
   }) async {
+    var skippedCoreMismatch = false;
     try {
       // Placement comes from this device's own RetroArch layout, never from the
       // asset's `emulator` field — that value belongs to whichever device
@@ -628,7 +638,7 @@ class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
       final targets = await _resolveTargets(game, relativeName);
       if (targets.isEmpty) {
         _log.w('RomM download: no local target for ${asset.fileName}');
-        return false;
+        return (wrote: false, coreMismatch: false);
       }
       // Both saves and states download via the asset's download_path; only
       // saves have the /content convenience route (used as a fallback).
@@ -640,7 +650,7 @@ class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
         bytes = await _svc.downloadSaveContent(asset.id);
       } else {
         _log.w('RomM download: state ${asset.fileName} has no download_path');
-        return false;
+        return (wrote: false, coreMismatch: false);
       }
 
       // Pre-launch deadline guard: the network fetch is done, but if the
@@ -651,7 +661,7 @@ class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
         _log.i(
           'RomM download: abandon ${asset.fileName} (launch deadline passed)',
         );
-        return false;
+        return (wrote: false, coreMismatch: false);
       }
 
       var wroteAny = false;
@@ -665,6 +675,33 @@ class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
           final localMs = (await f.stat()).modified.millisecondsSinceEpoch;
           if (localMs > asset.updatedAtMs + _mtimeToleranceMs) {
             _log.i('RomM download: skip $target (local newer than remote)');
+            continue;
+          }
+          // Core guard. A save state only loads in the core that wrote it, and
+          // RetroArch fails silently when it doesn't — so replacing a local
+          // state with another device's incompatible one destroys a working
+          // save with nothing to show for it. Confirmed on device: a Thor
+          // (FCEUmm) and a Deck (Mesen) alternating sessions overwrite each
+          // other's state every launch, leaving neither able to resume.
+          //
+          // Deliberately compares the bytes rather than a label on the asset:
+          // saves are shared with other frontends, which upload a plain
+          // `<game>.state` and know nothing of any convention we invent. RomM
+          // 5.1.0 could not carry one anyway — it identifies an asset by
+          // (rom_id, file_name) and ignores `emulator`, so a second core's
+          // state cannot coexist and the field keeps whichever label created
+          // the asset.
+          //
+          // [RetroArchStateSignature.differ] answers false whenever either side
+          // is unidentifiable, so states from cores without a magic, and
+          // standalone emulators' own formats, keep syncing exactly as before.
+          if (asset.isState &&
+              RetroArchStateSignature.differ(await f.readAsBytes(), bytes)) {
+            _log.w(
+              'RomM download: skip $target — the remote state was written by a '
+              'different core and would not load here',
+            );
+            skippedCoreMismatch = true;
             continue;
           }
         }
@@ -681,11 +718,11 @@ class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
         );
         wroteAny = true;
       }
-      return wroteAny;
+      return (wrote: wroteAny, coreMismatch: skippedCoreMismatch);
     } catch (e) {
       if (isPermissionDenied(e)) rethrow;
       _log.e('RomM download failed (${asset.fileName}): $e');
-      return false;
+      return (wrote: false, coreMismatch: skippedCoreMismatch);
     }
   }
 
