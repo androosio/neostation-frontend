@@ -2599,10 +2599,7 @@ class SqliteService {
 
     // Update fields if provided
     if (lastScan != null) updates['last_scan'] = lastScan;
-    if (gameViewMode != null) {
-      updates['system_view_mode'] = gameViewMode; // Legacy mapping
-      updates['game_view_mode'] = gameViewMode;
-    }
+    if (gameViewMode != null) updates['game_view_mode'] = gameViewMode;
     if (systemViewMode != null) updates['system_view_mode'] = systemViewMode;
     if (themeName != null) updates['theme_name'] = themeName;
     if (videoSound != null) updates['video_sound'] = videoSound;
@@ -2755,17 +2752,6 @@ class SqliteService {
       'UPDATE user_detected_systems SET is_hidden = ? WHERE actual_folder_name = ?',
       [isHidden ? 1 : 0, folderName],
     );
-  }
-
-  /// Retrieves the game view mode (grid/list).
-  static Future<String> getGameViewMode() async {
-    final config = await getUserConfig();
-    return config?['game_view_mode']?.toString() ?? 'list';
-  }
-
-  /// Updates the game view mode.
-  static Future<void> updateGameViewMode(String mode) async {
-    await saveUserConfig(gameViewMode: mode);
   }
 
   /// Checks if recursive scan is enabled for a system.

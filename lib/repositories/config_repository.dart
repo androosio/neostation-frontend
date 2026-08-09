@@ -6,18 +6,6 @@ class ConfigRepository {
   static Future<List<String>> getUserRomFolders() =>
       SqliteService.getUserRomFolders();
 
-  /// Returns the current game view mode ('list', 'grid', etc.).
-  static Future<String> getGameViewMode() => SqliteService.getGameViewMode();
-
-  /// Persists the selected game view mode.
-  ///
-  /// UI should call `SqliteConfigProvider.updateGameViewMode` instead: writing
-  /// the column from here leaves the provider's in-memory [ConfigModel] holding
-  /// the old mode, and the next whole-config save writes that stale value back
-  /// over this one. The screen that did exactly that has been removed.
-  static Future<void> updateGameViewMode(String mode) =>
-      SqliteService.updateGameViewMode(mode);
-
   /// Returns the full user_config row, or null if not yet created.
   static Future<Map<String, dynamic>?> getUserConfig() =>
       SqliteService.getUserConfig();
