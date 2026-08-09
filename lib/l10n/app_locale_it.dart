@@ -972,7 +972,7 @@ const Map<String, dynamic> appLocaleIt = {
   AppLocale.rommSyncComplete: '{count} giochi sincronizzati',
   AppLocale.rommSyncCancelled: 'Sincronizzazione annullata',
   AppLocale.rommSyncNothingToDo: 'È già stato scaricato tutto',
-  AppLocale.rommSyncFailedCount: '{count} non riusciti',
+  AppLocale.rommSyncFailedCount: '{count} con errori',
   AppLocale.searchTitle: 'Cerca',
   AppLocale.searchNameHint: 'Cerca...',
   AppLocale.searchNoResults: 'Nessun gioco trovato',

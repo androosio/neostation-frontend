@@ -913,9 +913,9 @@ const Map<String, dynamic> appLocaleDe = {
   AppLocale.rommLogin: 'RomM-Anmeldung',
   AppLocale.rommWhatIs: 'Was ist RomM?',
   AppLocale.rommDescription:
-      'RomM ist eine selbst gehostete ROM-Verwaltung. Verbinde dich mit deinem Server, um deine Bibliothek zu durchsuchen, Spiele direkt auf dieses Gerät zu laden und deine Spielstände zu synchronisieren.',
+      'RomM ist eine selbst gehostete ROM-Verwaltung. Verbinde dich mit deinem Server, um deine Bibliothek zu durchstöbern, Spiele direkt auf dieses Gerät zu laden und deine Spielstände zu synchronisieren.',
   AppLocale.rommInfoBrowse:
-      'Deine gesamte Spielebibliothek durchsuchen und herunterladen',
+      'Deine gesamte Spielebibliothek durchstöbern und herunterladen',
   AppLocale.rommInfoSaveSync:
       'Spielstände zwischen deinen Geräten synchronisieren',
   AppLocale.rommInfoSelfHosted: 'Selbst gehostet — deine Sammlung, dein Server',
@@ -928,10 +928,10 @@ const Map<String, dynamic> appLocaleDe = {
   AppLocale.rommUseForSaveSync: 'RomM für Spielstand-Sync verwenden',
   AppLocale.rommSaveSyncLabel: 'RomM-Sync',
   AppLocale.rommSaveSyncActive: 'RomM ist dein Anbieter für Spielstand-Sync',
-  AppLocale.rommBrowseLibrary: 'Bibliothek durchsuchen',
+  AppLocale.rommBrowseLibrary: 'Bibliothek durchstöbern',
   AppLocale.rommStatusConnected: 'Verbunden',
   AppLocale.rommStatusDisconnected: 'Nicht verbunden',
-  AppLocale.rommConnecting: 'Verbinden...',
+  AppLocale.rommConnecting: 'Wird verbunden...',
   AppLocale.rommTesting: 'Wird getestet...',
   AppLocale.rommConnectionSuccess: 'Verbindung erfolgreich',
   AppLocale.rommConnectionFailed: 'Verbindung fehlgeschlagen',
