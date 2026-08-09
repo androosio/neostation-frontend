@@ -907,10 +907,11 @@ class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
     try {
       final index = await RommSaveMapRepository.getRomIdIndex();
       if (index.isEmpty) {
+        _log.i('RomM upload sweep: no linked games');
         return SyncResult.ok(message: 'No RomM-linked games to sweep');
       }
 
-      var candidates = 0, synced = 0, failed = 0;
+      var linked = 0, candidates = 0, synced = 0, failed = 0;
       final touched = <String>[];
       for (final game in await _listGames()) {
         // A disconnect (or a sign-out) mid-sweep ends it; every remaining game
@@ -921,6 +922,7 @@ class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
         if (folder == null || folder.isEmpty) continue;
         if (index.lookup(game.romname, folder) == null) continue;
         if (game.cloudSyncEnabled != true) continue;
+        linked++;
         if (!await _hasPendingUpload(game)) continue;
 
         candidates++;
@@ -959,6 +961,9 @@ class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
       // and notifying per game would rebuild the library UI hundreds of times.
       if (touched.isNotEmpty) notifyListeners();
       if (candidates == 0) {
+        // Logged even when it does nothing: this is the only outward sign the
+        // automatic sweep ran at all, and phase one costs no network.
+        _log.i('RomM upload sweep: nothing pending ($linked linked games)');
         return SyncResult.ok(message: 'Nothing pending');
       }
       _log.i(
@@ -1022,8 +1027,15 @@ class RomMSyncProvider extends ChangeNotifier implements ISyncProvider {
   void _scheduleSweep() {
     unawaited(
       Future<void>.delayed(_sweepStartupDelay).then((_) async {
-        if (_disposed || !_browse.isConnected) return;
-        if (SyncManager.instance.activeProviderId != kProviderId) return;
+        if (_disposed) return;
+        if (!_browse.isConnected) {
+          _log.i('RomM upload sweep: skipped, disconnected before it ran');
+          return;
+        }
+        if (SyncManager.instance.activeProviderId != kProviderId) {
+          _log.i('RomM upload sweep: skipped, RomM is not the save provider');
+          return;
+        }
         if (_browse.bulkSync.isRunning) {
           _log.i('RomM upload sweep: skipped, a bulk ROM sync is running');
           return;
