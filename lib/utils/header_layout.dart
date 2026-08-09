@@ -25,6 +25,37 @@ double navStripWidth({
   double pillPadding = 4,
 }) => (shoulder * 2) + (pillPadding * 2) + (slot * tabCount);
 
+/// Natural width of the right-hand status pill.
+///
+/// Mirrors the row in `header.dart`: horizontal padding either side, the
+/// notification bell, a gap, optionally the clock glyph and its gap, the clock
+/// label, and optionally the battery block. Text widths are measured by the
+/// caller (they depend on the string, the locale and the text scaler), so this
+/// stays pure.
+///
+/// Pass [batteryTextWidth] as 0 when the battery block is hidden — it is
+/// suppressed on TVs, on devices reporting no battery, and on XS handhelds.
+double statusPillWidth({
+  required double clockTextWidth,
+  double batteryTextWidth = 0,
+  bool withClockGlyph = true,
+  double horizontalPadding = 10,
+  double bell = 14,
+  double bellGap = 10,
+  double glyph = 14,
+  double glyphGap = 4,
+  double batteryGap = 12,
+  double batteryIcon = 16,
+  double batteryIconGap = 4,
+}) {
+  var width = (horizontalPadding * 2) + bell + bellGap + clockTextWidth;
+  if (withClockGlyph) width += glyph + glyphGap;
+  if (batteryTextWidth > 0) {
+    width += batteryGap + batteryIcon + batteryIconGap + batteryTextWidth;
+  }
+  return width;
+}
+
 /// Space the right-hand status pill may occupy before it would touch the
 /// centred tab strip.
 ///
