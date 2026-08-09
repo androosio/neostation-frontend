@@ -456,6 +456,9 @@ class SqliteMigrations {
       case 114:
         await _migrateToVersion114(db);
         break;
+      case 115:
+        await _migrateToVersion115(db);
+        break;
       default:
         _log.w('No migration defined for version $version');
     }
@@ -5301,9 +5304,10 @@ class SqliteMigrations {
     }
   }
 
-  /// Migration v114: Creates the whole RomM schema in one step.
+  /// Migration v115: Creates the whole RomM schema in one step.
   ///
-  /// **Renumbered from v111.** This branch authored it as v111, but main
+  /// **Renumbered twice: v111 -> v114 -> v115.** This branch authored it as
+  /// v111, but main
   /// independently shipped v111–v113 for the ROM-subfolder feature (#318)
   /// while the branch was open. Two lineages cannot both own 111: a device
   /// that ran main's v111 is already past that version, so `case 111` would
@@ -5334,8 +5338,8 @@ class SqliteMigrations {
   ///   changes on upgrade.
   /// * `user_config.game_details_tab` — repeated from v110, which a device
   ///   running the pre-merge RomM build skips. See [_addGameDetailsTabColumn].
-  static Future<void> _migrateToVersion114(Database db) async {
-    _log.i('Migration v114: Creating RomM schema');
+  static Future<void> _migrateToVersion115(Database db) async {
+    _log.i('Migration v115: Creating RomM schema');
     try {
       db.execute(createUserRommConfigTableSql);
       db.execute(createAppRommRomMapTableSql);
@@ -5344,9 +5348,9 @@ class SqliteMigrations {
       db.execute(createAppRommPlaySessionsIndexSql);
       db.execute(createAppRommPlaytimeStateTableSql);
       await _providerScopeAppNeoSyncState(db);
-      _addNavTabVisibilityColumns(db, 'v114', const ['hide_tab_romm']);
-      _addGameDetailsTabColumn(db, 'v114');
-      _log.i('Migration v114 completed');
+      _addNavTabVisibilityColumns(db, 'v115', const ['hide_tab_romm']);
+      _addGameDetailsTabColumn(db, 'v115');
+      _log.i('Migration v115 completed');
     } catch (e, stackTrace) {
       _log.e('Error in migration v114: $e');
       _log.e('   StackTrace: $stackTrace');
