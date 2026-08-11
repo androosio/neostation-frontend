@@ -5308,7 +5308,7 @@ class SqliteMigrations {
   ///
   /// **Renumbered twice: v111 -> v114 -> v115.** This branch authored it as
   /// v111, but main
-  /// independently shipped v111–v113 for the ROM-subfolder feature (#318)
+  /// independently shipped v111–v114 for the ROM-subfolder feature (#318)
   /// while the branch was open. Two lineages cannot both own 111: a device
   /// that ran main's v111 is already past that version, so `case 111` would
   /// never fire for it and the RomM schema would never be created — every
@@ -5352,7 +5352,7 @@ class SqliteMigrations {
       _addGameDetailsTabColumn(db, 'v115');
       _log.i('Migration v115 completed');
     } catch (e, stackTrace) {
-      _log.e('Error in migration v114: $e');
+      _log.e('Error in migration v115: $e');
       _log.e('   StackTrace: $stackTrace');
       rethrow;
     }
