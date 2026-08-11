@@ -931,6 +931,7 @@ const Map<String, dynamic> appLocaleRu = {
   AppLocale.rommLoadMore: 'Загрузить ещё',
   AppLocale.rommNoSystemMatch:
       'Нет подходящей локальной системы для этой платформы',
+  AppLocale.rommPlatformUnsupported: 'Не поддерживается',
   AppLocale.rommNoWritableFolder:
       'Не удалось записать в папку с ROM. Предоставьте NeoStation «Доступ ко всем файлам» и повторите попытку.',
   AppLocale.rommNotConnected:

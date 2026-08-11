@@ -834,6 +834,7 @@ const Map<String, dynamic> appLocaleZh = {
   AppLocale.rommDownloadCancelled: '下载已取消',
   AppLocale.rommLoadMore: '加载更多',
   AppLocale.rommNoSystemMatch: '没有与该平台匹配的本地系统',
+  AppLocale.rommPlatformUnsupported: '不支持',
   AppLocale.rommNoWritableFolder: '无法写入你的 ROM 文件夹。请授予 NeoStation“所有文件访问权限”后重试。',
   AppLocale.rommNotConnected: '请先在设置中连接到 RomM 服务器',
   // Bulk "sync a whole platform/collection".

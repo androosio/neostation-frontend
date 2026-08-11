@@ -961,6 +961,7 @@ const Map<String, dynamic> appLocaleDe = {
   AppLocale.rommLoadMore: 'Mehr laden',
   AppLocale.rommNoSystemMatch:
       'Kein passendes lokales System für diese Plattform',
+  AppLocale.rommPlatformUnsupported: 'Nicht unterstützt',
   AppLocale.rommNoWritableFolder:
       'Dein ROM-Ordner konnte nicht beschrieben werden. Erteile NeoStation "Zugriff auf alle Dateien" und versuche es erneut.',
   AppLocale.rommNotConnected:

@@ -147,6 +147,12 @@ class RommProvider extends ChangeNotifier {
   /// per platform suffices. Cleared on [disconnect].
   final Map<int, SystemModel?> _systemByPlatformId = {};
 
+  /// RomM platform ids this build has no local system for (see
+  /// [isPlatformSupported]). Filled by [_orderBySupport] when the platform list
+  /// loads; empty means "everything is supported", which is also what a failed
+  /// classification falls back to. Cleared on [disconnect].
+  final Set<int> _unsupportedPlatformIds = {};
+
   /// Cache of RomM rom id → on-disk presence, mirroring [_systemByPlatformId]'s
   /// rationale for the download badge's *other* half. Each browse tile calls
   /// [isDownloaded] (a synchronous sqlite3 read + filesystem stats) in its
@@ -439,6 +445,7 @@ class RommProvider extends ChangeNotifier {
     _raEarnedByGameId = {};
     _downloadedSystems.clear();
     _systemByPlatformId.clear();
+    _unsupportedPlatformIds.clear();
     _downloadedByRomId.clear();
     _lastPersistedAccessToken = null;
     notifyListeners();
@@ -454,7 +461,9 @@ class RommProvider extends ChangeNotifier {
     _lastError = null;
     notifyListeners();
     try {
-      _platforms = await _service.getPlatforms();
+      // Via the [service] getter, not [_service], so a test can substitute the
+      // server the same way the sync-provider tests already do.
+      _platforms = await _orderBySupport(await service.getPlatforms());
       // Persist any refreshed token so it survives restarts.
       await _persistRefreshedTokens();
       // RA progress is supplementary; never let it block platform browsing.
@@ -702,6 +711,78 @@ class RommProvider extends ChangeNotifier {
       if (platform.id == rom.platformId) return platform;
     }
     return null;
+  }
+
+  /// True when this build has a local system for [platformId] — i.e. a ROM from
+  /// it can actually be placed and launched here.
+  bool isPlatformSupported(int platformId) =>
+      !_unsupportedPlatformIds.contains(platformId);
+
+  /// Returns [platforms] reordered supported-first, recording the rest in
+  /// [_unsupportedPlatformIds].
+  ///
+  /// RomM serves every platform it has scanned, including ones NeoStation has no
+  /// system definition — or no slug alias — for. Those were indistinguishable
+  /// from the rest until a download failed with
+  /// [RommDownloadError.noSystemMatch] at the very end of the flow. They stay in
+  /// the list (a platform the user knows is on their server should not silently
+  /// vanish) but sort last and are marked by the browse screen.
+  ///
+  /// Server order is preserved within each group. Only *positive* resolutions
+  /// warm [_systemByPlatformId]: this probe reads the platform's own slugs while
+  /// [_resolveSystemUncached] also tries the ROM's, so caching a null here could
+  /// hide a match the richer path would still find.
+  ///
+  /// Fails open twice over, because wrongly marking a platform unusable is
+  /// worse than not marking one at all. The `catch` is the obvious half; the
+  /// "nothing resolved" check is the half that actually fires, because
+  /// [SystemRepository.getSystemByFolderName] swallows its own exceptions and
+  /// answers null — making a database that is unreadable, still loading, or
+  /// simply empty indistinguishable from a platform with no match. Either way a
+  /// zero-hit sweep says the local library could not be read rather than that
+  /// every last platform is unusable, so nothing is marked.
+  Future<List<RommPlatform>> _orderBySupport(
+    List<RommPlatform> platforms,
+  ) async {
+    _unsupportedPlatformIds.clear();
+    final supported = <RommPlatform>[];
+    final unsupported = <RommPlatform>[];
+    try {
+      for (final platform in platforms) {
+        final system = await _systemForPlatform(platform);
+        if (system == null) {
+          _unsupportedPlatformIds.add(platform.id);
+          unsupported.add(platform);
+        } else {
+          _systemByPlatformId[platform.id] = system;
+          supported.add(platform);
+        }
+      }
+    } catch (e) {
+      _log.w('RomM platform support check failed, treating all as usable: $e');
+      _unsupportedPlatformIds.clear();
+      return platforms;
+    }
+    if (supported.isEmpty && platforms.isNotEmpty) {
+      _log.w(
+        'RomM: no local system matched any of ${platforms.length} platforms — '
+        'treating all as usable (the local system list looks unreadable)',
+      );
+      _unsupportedPlatformIds.clear();
+      return platforms;
+    }
+    // Logged unconditionally: "no line" would otherwise be ambiguous between
+    // "every platform resolved" and "the classification never ran". Unsupported
+    // platforms are named rather than counted because one is often a *missing
+    // slug alias* for a system we do support, and the slug is what says which
+    // alias to add (see [_slugAliases]).
+    _log.i(
+      unsupported.isEmpty
+          ? 'RomM: all ${platforms.length} platforms map to a local system'
+          : 'RomM: ${unsupported.length}/${platforms.length} platforms have no '
+                'local system: ${unsupported.map((p) => p.slug).join(', ')}',
+    );
+    return [...supported, ...unsupported];
   }
 
   /// Resolves a configured ROM folder to a real filesystem base path.

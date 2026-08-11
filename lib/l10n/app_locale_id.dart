@@ -933,6 +933,7 @@ const Map<String, dynamic> appLocaleId = {
   AppLocale.rommLoadMore: 'Muat lebih banyak',
   AppLocale.rommNoSystemMatch:
       'Tidak ada sistem lokal yang cocok untuk platform ini',
+  AppLocale.rommPlatformUnsupported: 'Tidak didukung',
   AppLocale.rommNoWritableFolder:
       'Tidak dapat menulis ke folder ROM Anda. Berikan "Akses Semua File" ke NeoStation lalu coba lagi.',
   AppLocale.rommNotConnected:

@@ -993,6 +993,7 @@ mixin AppLocale {
   static const String rommDownloadCancelled = 'romm_download_cancelled';
   static const String rommLoadMore = 'romm_load_more';
   static const String rommNoSystemMatch = 'romm_no_system_match';
+  static const String rommPlatformUnsupported = 'romm_platform_unsupported';
   static const String rommNoWritableFolder = 'romm_no_writable_folder';
   static const String rommNotConnected = 'romm_not_connected';
 

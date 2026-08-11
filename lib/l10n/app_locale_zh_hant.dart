@@ -834,6 +834,7 @@ const Map<String, dynamic> appLocaleZhHant = {
   AppLocale.rommDownloadCancelled: '已取消下載',
   AppLocale.rommLoadMore: '載入更多',
   AppLocale.rommNoSystemMatch: '沒有與此平台相符的本機系統',
+  AppLocale.rommPlatformUnsupported: '不支援',
   AppLocale.rommNoWritableFolder:
       '無法寫入你的 ROM 資料夾。請授予 NeoStation「所有檔案存取權限」後再試一次。',
   AppLocale.rommNotConnected: '請先在設定中連線到 RomM 伺服器',

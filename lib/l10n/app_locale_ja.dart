@@ -845,6 +845,7 @@ const Map<String, dynamic> appLocaleJa = {
   AppLocale.rommDownloadCancelled: 'ダウンロードをキャンセルしました',
   AppLocale.rommLoadMore: 'さらに読み込む',
   AppLocale.rommNoSystemMatch: 'このプラットフォームに一致するローカルシステムがありません',
+  AppLocale.rommPlatformUnsupported: '非対応',
   AppLocale.rommNoWritableFolder:
       'ROM フォルダーに書き込めませんでした。NeoStation に「すべてのファイルへのアクセス」を許可してから、もう一度お試しください。',
   AppLocale.rommNotConnected: '先に設定で RomM サーバーに接続してください',

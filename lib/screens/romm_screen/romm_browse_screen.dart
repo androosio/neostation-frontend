@@ -1467,6 +1467,7 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
     _platformIndex = _platformIndex.clamp(0, provider.platforms.length - 1);
     final scheme = theme.colorScheme;
     final focused = provider.platforms[_platformIndex];
+    final focusedUnsupported = !provider.isPlatformSupported(focused.id);
     return Stack(
       children: [
         Positioned.fill(
@@ -1481,6 +1482,7 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
             bottomInset: kCoreFooterHeight.r,
             itemBuilder: (context, index) {
               final platform = provider.platforms[index];
+              final unsupported = !provider.isPlatformSupported(platform.id);
               return _MenuCard(
                 leading: _PlatformIcon(
                   platform: platform,
@@ -1488,7 +1490,13 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
                   fill: true,
                 ),
                 title: platform.name,
-                subtitle: '${platform.romCount}',
+                // The count gives way to the reason the card is dimmed: on a
+                // 116px tile there is room for one line under the title, and
+                // "how many ROMs" matters less than "these cannot be placed".
+                subtitle: unsupported
+                    ? AppLocale.rommPlatformUnsupported.getString(context)
+                    : '${platform.romCount}',
+                isUnsupported: unsupported,
                 isFocused: _platformIndex == index,
                 scheme: scheme,
                 onTap: () {
@@ -1516,12 +1524,16 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
             listenable: provider.bulkSync,
             builder: (context, _) => RommBrowseFooter(
               label: focused.name,
-              countText:
-                  '${focused.romCount} ${AppLocale.games.getString(context)}',
+              countText: focusedUnsupported
+                  ? AppLocale.rommPlatformUnsupported.getString(context)
+                  : '${focused.romCount} ${AppLocale.games.getString(context)}',
               confirmLabel: AppLocale.enter.getString(context),
               onConfirm: _confirmSelection,
               onBack: _handleBack,
-              onSyncAll: _syncFocusedSource,
+              // Y would queue a whole platform that cannot be placed: every ROM
+              // in it fails the same way. Drop the affordance rather than let a
+              // sync start that is guaranteed to fail wholesale.
+              onSyncAll: focusedUnsupported ? null : _syncFocusedSource,
               isSyncing: provider.bulkSync.isRunning,
             ),
           ),
@@ -1746,6 +1758,11 @@ class _MenuCard extends StatelessWidget {
   final String title;
   final String? subtitle;
   final bool isFocused;
+
+  /// Dims the card and colours its subtitle: this platform has no local system,
+  /// so its ROMs cannot be placed here. Still selectable — browsing costs
+  /// nothing, and only the download is impossible.
+  final bool isUnsupported;
   final ColorScheme scheme;
   final VoidCallback onTap;
 
@@ -1754,6 +1771,7 @@ class _MenuCard extends StatelessWidget {
     required this.title,
     this.subtitle,
     required this.isFocused,
+    this.isUnsupported = false,
     required this.scheme,
     required this.onTap,
   });
@@ -1770,7 +1788,15 @@ class _MenuCard extends StatelessWidget {
           children: [
             // The icon takes every pixel the label and count don't need, so the
             // artwork rather than the card padding is what fills the tile.
-            Expanded(child: Center(child: leading)),
+            // Unsupported platforms fade the artwork rather than the whole card
+            // so the focus ring keeps its full contrast when one is selected.
+            Expanded(
+              child: Center(
+                child: isUnsupported
+                    ? Opacity(opacity: 0.4, child: leading)
+                    : leading,
+              ),
+            ),
             SizedBox(height: 4.r),
             Text(
               title,
@@ -1780,16 +1806,25 @@ class _MenuCard extends StatelessWidget {
               style: TextStyle(
                 fontSize: 12.r,
                 fontWeight: FontWeight.w600,
-                color: isFocused ? scheme.primary : scheme.onSurface,
+                color: isFocused
+                    ? scheme.primary
+                    : scheme.onSurface.withValues(
+                        alpha: isUnsupported ? 0.5 : 1,
+                      ),
               ),
             ),
             if (subtitle != null) ...[
               SizedBox(height: 2.r),
               Text(
                 subtitle!,
+                maxLines: 1,
+                textAlign: TextAlign.center,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: 10.r,
-                  color: scheme.onSurface.withValues(alpha: 0.6),
+                  color: isUnsupported
+                      ? scheme.error.withValues(alpha: 0.85)
+                      : scheme.onSurface.withValues(alpha: 0.6),
                 ),
               ),
             ],
