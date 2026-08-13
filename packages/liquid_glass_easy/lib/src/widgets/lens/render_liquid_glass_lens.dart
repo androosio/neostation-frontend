@@ -42,6 +42,7 @@ class RenderLiquidGlassLens extends RenderProxyBox
     with LensTransformTrackingMixin {
   RenderLiquidGlassLens({
     required LiquidGlassLensRenderMode mode,
+    BackdropKey? backdropKey,
     required ui.FragmentShader mainShader,
     ui.FragmentShader? borderShader,
     required LiquidGlassShape shape,
@@ -58,6 +59,7 @@ class RenderLiquidGlassLens extends RenderProxyBox
     ui.Image? Function()? captureFallback,
     RenderBox? Function()? backgroundRenderBox,
   })  : _mode = mode,
+        _backdropKey = backdropKey,
         _mainShader = mainShader,
         _borderShader = borderShader,
         _shape = shape,
@@ -78,6 +80,20 @@ class RenderLiquidGlassLens extends RenderProxyBox
   set mode(LiquidGlassLensRenderMode value) {
     if (_mode == value) return;
     _mode = value;
+    markNeedsPaint();
+  }
+
+  /// NEOSTATION VENDOR PATCH: shared backdrop key for the blur pass.
+  ///
+  /// When several lenses carry the same key the engine snapshots the backdrop
+  /// once and every blur samples that one snapshot, instead of each lens
+  /// forcing its own full-screen read. Only the blur pass takes the key: this
+  /// lens's shader pass deliberately sits on top of its own blur output, and
+  /// Flutter's contract is that overlapping filters must not share a key.
+  BackdropKey? _backdropKey;
+  set backdropKey(BackdropKey? value) {
+    if (_backdropKey == value) return;
+    _backdropKey = value;
     markNeedsPaint();
   }
 
@@ -363,6 +379,8 @@ class RenderLiquidGlassLens extends RenderProxyBox
       // already-blurred backdrop and draws its sharp border last.
       if (_useBlur) {
         final blurLayer = _blurLayerHandle.layer ??= BackdropFilterLayer();
+        // NEOSTATION VENDOR PATCH: one shared snapshot per BackdropGroup.
+        blurLayer.backdropKey = _backdropKey;
         blurLayer.filter = ui.ImageFilter.blur(
           sigmaX: _appearance.blur.sigmaX,
           sigmaY: _appearance.blur.sigmaY,
@@ -464,6 +482,8 @@ class RenderLiquidGlassLens extends RenderProxyBox
       // Backdrop blur above the refraction, clipped to the lens shape.
       void paintBlur(PaintingContext context, Offset offset) {
         final blurLayer = _blurLayerHandle.layer ??= BackdropFilterLayer();
+        // NEOSTATION VENDOR PATCH: one shared snapshot per BackdropGroup.
+        blurLayer.backdropKey = _backdropKey;
         blurLayer.filter = ui.ImageFilter.blur(
           sigmaX: _appearance.blur.sigmaX,
           sigmaY: _appearance.blur.sigmaY,

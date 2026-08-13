@@ -400,8 +400,14 @@ class _LiquidGlassLensState extends State<LiquidGlassLens>
     // (glassEnabled = false, no backdrop cost) and the child is removed
     // entirely, so nothing is left behind.
     final bool visible = widget.visibility;
+    // NEOSTATION VENDOR PATCH: share one backdrop snapshot between every lens
+    // under a `BackdropGroup`. Without a key each lens's blur pass snapshots
+    // the scene independently, so N lenses cost N full-screen backdrop reads
+    // per frame. Null when there is no ancestor group — upstream behaviour.
+    final BackdropKey? backdropKey = BackdropGroup.of(context)?.backdropKey;
     return _RawLiquidGlassLens(
       mode: mode,
+      backdropKey: backdropKey,
       mainShader: _mainShader!,
       borderShader: _borderShader,
       shape: shape,
@@ -421,6 +427,10 @@ class _LiquidGlassLensState extends State<LiquidGlassLens>
 
 class _RawLiquidGlassLens extends SingleChildRenderObjectWidget {
   final LiquidGlassLensRenderMode mode;
+
+  /// NEOSTATION VENDOR PATCH: shared backdrop key from an ancestor
+  /// [BackdropGroup], or null for upstream (per-lens snapshot) behaviour.
+  final BackdropKey? backdropKey;
   final ui.FragmentShader mainShader;
   final ui.FragmentShader? borderShader;
   final LiquidGlassShape shape;
@@ -436,6 +446,7 @@ class _RawLiquidGlassLens extends SingleChildRenderObjectWidget {
 
   const _RawLiquidGlassLens({
     required this.mode,
+    required this.backdropKey,
     required this.mainShader,
     required this.borderShader,
     required this.shape,
@@ -455,6 +466,7 @@ class _RawLiquidGlassLens extends SingleChildRenderObjectWidget {
   RenderObject createRenderObject(BuildContext context) {
     return RenderLiquidGlassLens(
       mode: mode,
+      backdropKey: backdropKey,
       mainShader: mainShader,
       borderShader: borderShader,
       shape: shape,
@@ -478,6 +490,7 @@ class _RawLiquidGlassLens extends SingleChildRenderObjectWidget {
       BuildContext context, RenderLiquidGlassLens renderObject) {
     renderObject
       ..mode = mode
+      ..backdropKey = backdropKey
       ..mainShader = mainShader
       ..borderShader = borderShader
       ..shape = shape

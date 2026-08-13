@@ -740,47 +740,53 @@ class _SystemGamesListState extends State<SystemGamesList> {
       },
       child: Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        body: Stack(
-          children: [
-            // Ambient UI Layer: Shared fluid gradient for depth (non-OLED only).
-            if (!isOled)
-              Positioned.fill(
-                child: Builder(
-                  builder: (context) {
-                    final bg = Theme.of(context).scaffoldBackgroundColor;
-                    return Container(decoration: BoxDecoration(color: bg));
-                  },
+        // One shared backdrop snapshot for every lens on this screen (list
+        // panel, action rail, tab pill, footer pills). Without the group each
+        // lens's blur pass re-reads the whole scene, so the cost scales with
+        // the number of glass surfaces rather than with their area.
+        body: BackdropGroup(
+          child: Stack(
+            children: [
+              // Ambient UI Layer: Shared fluid gradient for depth (non-OLED only).
+              if (!isOled)
+                Positioned.fill(
+                  child: Builder(
+                    builder: (context) {
+                      final bg = Theme.of(context).scaffoldBackgroundColor;
+                      return Container(decoration: BoxDecoration(color: bg));
+                    },
+                  ),
                 ),
-              ),
 
-            // Content Layer: hide entirely while game dialog is active.
-            if (!_isGameLaunching)
-              SizedBox(
-                child: _isLoading
-                    ? _buildLoadingState()
-                    : _games.isEmpty
-                    ? _buildEmptyState()
-                    : Consumer<SqliteConfigProvider>(
-                        builder: (context, configProvider, child) {
-                          if (widget.system.folderName == 'music') {
+              // Content Layer: hide entirely while game dialog is active.
+              if (!_isGameLaunching)
+                SizedBox(
+                  child: _isLoading
+                      ? _buildLoadingState()
+                      : _games.isEmpty
+                      ? _buildEmptyState()
+                      : Consumer<SqliteConfigProvider>(
+                          builder: (context, configProvider, child) {
+                            if (widget.system.folderName == 'music') {
+                              return _buildGamesList();
+                            }
+                            if (configProvider.config.gameViewMode == 'grid') {
+                              return _buildGamesGrid();
+                            } else if (configProvider.config.gameViewMode ==
+                                'carousel') {
+                              return _buildGamesCarousel();
+                            }
                             return _buildGamesList();
-                          }
-                          if (configProvider.config.gameViewMode == 'grid') {
-                            return _buildGamesGrid();
-                          } else if (configProvider.config.gameViewMode ==
-                              'carousel') {
-                            return _buildGamesCarousel();
-                          }
-                          return _buildGamesList();
-                        },
-                      ),
-              ),
+                          },
+                        ),
+                ),
 
-            // Navigation Layer: Visual alphabetical feedback for rapid scrolling.
-            if (_currentLetter != null && !_isGameLaunching)
-              _buildLetterIndicator(),
-            GameViewModeDropdown(),
-          ],
+              // Navigation Layer: Visual alphabetical feedback for rapid scrolling.
+              if (_currentLetter != null && !_isGameLaunching)
+                _buildLetterIndicator(),
+              GameViewModeDropdown(),
+            ],
+          ),
         ),
       ),
     );

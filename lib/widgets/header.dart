@@ -190,181 +190,192 @@ class HeaderState extends State<Header> {
             border: Border.all(color: Colors.transparent, width: 0.r),
           ),
           height: 46.r,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              if (widget.selectedTabIndex == AppTabs.systems)
+          // The tab pill and the status pill share one backdrop snapshot. The
+          // header rides above every screen, so it gets its own group rather
+          // than borrowing whatever the screen underneath happens to define.
+          child: BackdropGroup(
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                if (widget.selectedTabIndex == AppTabs.systems)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [HeaderSortDropdown()],
+                    ),
+                  ),
+
+                // Grouped Tab Navigation with Background (Glass Style)
                 Align(
-                  alignment: Alignment.centerLeft,
+                  key: const ValueKey('tabs-container'),
+                  alignment: Alignment.center,
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
-                    children: [HeaderSortDropdown()],
+                    children: [
+                      // Bumper glyphs sit outside the pill so the pill reads as a
+                      // single switch and the hardware hints stay distinct from it.
+                      _buildShoulderButton('LB', true),
+                      // Liquid glass pill for the tab strip.
+                      LiquidGlassLens(
+                        style: LiquidChrome.style(
+                          context,
+                          cornerRadius:
+                              Theme.of(context)
+                                  .extension<CornerRadii>()
+                                  ?.radiusExternalRadius ??
+                              8.r,
+                        ),
+                        child: SizedBox(
+                          height: 32.r,
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 4.r),
+                            child: Builder(
+                              builder: (context) {
+                                final visibleTabs = visibleNavTabs(
+                                  configProvider.config,
+                                );
+                                // The indicator tracks the tab's slot in the *rendered*
+                                // strip, not its canonical index — otherwise hiding a tab
+                                // parks it past the end of a shortened strip.
+                                final selectedSlot = visibleTabs.indexOf(
+                                  NavTab.values[widget.selectedTabIndex],
+                                );
+
+                                return Stack(
+                                  children: [
+                                    // Moving indicator
+                                    AnimatedPositioned(
+                                      left:
+                                          (selectedSlot < 0
+                                              ? 0
+                                              : selectedSlot) *
+                                          32.r,
+                                      top: 4.r,
+                                      bottom: 4.r,
+                                      width: 32.r,
+                                      duration: const Duration(
+                                        milliseconds: 160,
+                                      ),
+                                      curve: Curves.easeInOut,
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.primary,
+                                          borderRadius:
+                                              Theme.of(context)
+                                                  .extension<CornerRadii>()
+                                                  ?.radiusInternal ??
+                                              BorderRadius.circular(4.r),
+                                        ),
+                                      ),
+                                    ),
+                                    // Tab buttons
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        for (final tab in visibleTabs)
+                                          SizedBox(
+                                            width: 32.r,
+                                            height: 32.r,
+                                            child: _buildTabButton(
+                                              context,
+                                              tab.index,
+                                              navTabSpec(tab).icon,
+                                              navTabSpec(
+                                                tab,
+                                              ).labelKey.getString(context),
+                                              iconData: navTabSpec(
+                                                tab,
+                                              ).iconData,
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      ),
+                      _buildShoulderButton('RB', false),
+                    ],
                   ),
                 ),
 
-              // Grouped Tab Navigation with Background (Glass Style)
-              Align(
-                key: const ValueKey('tabs-container'),
-                alignment: Alignment.center,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Bumper glyphs sit outside the pill so the pill reads as a
-                    // single switch and the hardware hints stay distinct from it.
-                    _buildShoulderButton('LB', true),
-                    // Liquid glass pill for the tab strip.
-                    LiquidGlassLens(
+                // Steam-style system info (liquid glass pill with clock,
+                // notifications and battery).
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Padding(
+                    padding: EdgeInsets.only(right: 8.r),
+                    child: LiquidGlassLens(
                       style: LiquidChrome.style(
                         context,
                         cornerRadius:
                             Theme.of(
                               context,
                             ).extension<CornerRadii>()?.radiusExternalRadius ??
-                            8.r,
+                            14.r,
                       ),
-                      child: SizedBox(
-                        height: 32.r,
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 4.r),
-                          child: Builder(
-                            builder: (context) {
-                              final visibleTabs = visibleNavTabs(
-                                configProvider.config,
-                              );
-                              // The indicator tracks the tab's slot in the *rendered*
-                              // strip, not its canonical index — otherwise hiding a tab
-                              // parks it past the end of a shortened strip.
-                              final selectedSlot = visibleTabs.indexOf(
-                                NavTab.values[widget.selectedTabIndex],
-                              );
-
-                              return Stack(
-                                children: [
-                                  // Moving indicator
-                                  AnimatedPositioned(
-                                    left:
-                                        (selectedSlot < 0 ? 0 : selectedSlot) *
-                                        32.r,
-                                    top: 4.r,
-                                    bottom: 4.r,
-                                    width: 32.r,
-                                    duration: const Duration(milliseconds: 160),
-                                    curve: Curves.easeInOut,
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.primary,
-                                        borderRadius:
-                                            Theme.of(context)
-                                                .extension<CornerRadii>()
-                                                ?.radiusInternal ??
-                                            BorderRadius.circular(4.r),
-                                      ),
-                                    ),
-                                  ),
-                                  // Tab buttons
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      for (final tab in visibleTabs)
-                                        SizedBox(
-                                          width: 32.r,
-                                          height: 32.r,
-                                          child: _buildTabButton(
-                                            context,
-                                            tab.index,
-                                            navTabSpec(tab).icon,
-                                            navTabSpec(
-                                              tab,
-                                            ).labelKey.getString(context),
-                                            iconData: navTabSpec(tab).iconData,
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                ],
-                              );
-                            },
-                          ),
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 10.r,
+                          vertical: 4.r,
                         ),
-                      ),
-                    ),
-                    _buildShoulderButton('RB', false),
-                  ],
-                ),
-              ),
-
-              // Steam-style system info (liquid glass pill with clock,
-              // notifications and battery).
-              Align(
-                alignment: Alignment.centerRight,
-                child: Padding(
-                  padding: EdgeInsets.only(right: 8.r),
-                  child: LiquidGlassLens(
-                    style: LiquidChrome.style(
-                      context,
-                      cornerRadius:
-                          Theme.of(
-                            context,
-                          ).extension<CornerRadii>()?.radiusExternalRadius ??
-                          14.r,
-                    ),
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 10.r,
-                        vertical: 4.r,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const NotificationBell(),
-                          SizedBox(width: 10.r),
-                          Icon(
-                            Symbols.schedule,
-                            color: Theme.of(context).colorScheme.onSurface,
-                            size: 14.r,
-                          ),
-                          SizedBox(width: 4.r),
-                          Text(
-                            formatClockTime(
-                              _now,
-                              use12Hour: configProvider.config.use12HourClock,
-                            ),
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.onSurface,
-                              fontSize: 12.r,
-                              fontWeight: FontWeight.w500,
-                              letterSpacing: 0.3.r,
-                            ),
-                          ),
-                          if (_batteryLevel != -1 &&
-                              !_isTelevision &&
-                              !Responsive.isHandheldXS(context)) ...[
-                            SizedBox(width: 12.r),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const NotificationBell(),
+                            SizedBox(width: 10.r),
                             Icon(
-                              _getBatteryIconData(),
-                              color: _getBatteryColor(customColors),
-                              size: 16.r,
+                              Symbols.schedule,
+                              color: Theme.of(context).colorScheme.onSurface,
+                              size: 14.r,
                             ),
                             SizedBox(width: 4.r),
                             Text(
-                              "$_batteryLevel%",
+                              formatClockTime(
+                                _now,
+                                use12Hour: configProvider.config.use12HourClock,
+                              ),
                               style: TextStyle(
-                                color: _getBatteryColor(customColors),
+                                color: Theme.of(context).colorScheme.onSurface,
                                 fontSize: 12.r,
                                 fontWeight: FontWeight.w500,
                                 letterSpacing: 0.3.r,
                               ),
                             ),
+                            if (_batteryLevel != -1 &&
+                                !_isTelevision &&
+                                !Responsive.isHandheldXS(context)) ...[
+                              SizedBox(width: 12.r),
+                              Icon(
+                                _getBatteryIconData(),
+                                color: _getBatteryColor(customColors),
+                                size: 16.r,
+                              ),
+                              SizedBox(width: 4.r),
+                              Text(
+                                "$_batteryLevel%",
+                                style: TextStyle(
+                                  color: _getBatteryColor(customColors),
+                                  fontSize: 12.r,
+                                  fontWeight: FontWeight.w500,
+                                  letterSpacing: 0.3.r,
+                                ),
+                              ),
+                            ],
                           ],
-                        ],
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },
