@@ -5,6 +5,7 @@ publish_to: "none" # Remove this line if you wish to publish to pub.dev
 
 workspace:
   - packages/flutter_7zip
+  - packages/liquid_glass_easy
   - packages/gamepads
   - packages/gamepads_android
   - packages/gamepads_darwin
@@ -63,7 +64,11 @@ dependencies:
   wakelock_plus: ^1.7.0
   flutter_localization: ^0.4.1
   flutter_tilt: ^4.1.0
-  liquid_glass_easy: 3.5.0
+  # Vendored (packages/liquid_glass_easy): the upstream lens pushes one
+  # BackdropFilterLayer per blur with no shared backdrop key, so N lenses cost
+  # N full backdrop snapshots per frame. See packages/liquid_glass_easy/VENDORING.md.
+  liquid_glass_easy:
+    path: packages/liquid_glass_easy
 
 dev_dependencies:
   flutter_test:
