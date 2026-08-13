@@ -70,8 +70,16 @@ class NeoGlass extends StatelessWidget {
 
     // One engine blur pass over the backdrop, clipped to the panel shape.
     // This is the whole "frost" — no refraction shader, no per-frame capture.
+    //
+    // `.grouped` shares ONE backdrop snapshot with every other grouped filter
+    // under the nearest [BackdropGroup]. Ungrouped, each panel's blur pass
+    // re-reads the whole scene, so cost scales with the NUMBER of glass
+    // surfaces rather than their area — and this chrome puts eight on screen
+    // at once. The constructor resolves the ancestor via
+    // `BackdropGroup.of(context)?.backdropKey`, so it degrades safely to an
+    // unshared snapshot when no group is in scope.
     if (blur > 0) {
-      surface = BackdropFilter(
+      surface = BackdropFilter.grouped(
         filter: ui.ImageFilter.blur(sigmaX: blur, sigmaY: blur),
         child: surface,
       );
@@ -80,10 +88,7 @@ class NeoGlass extends StatelessWidget {
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        ClipRRect(
-          borderRadius: borderRadius,
-          child: surface,
-        ),
+        ClipRRect(borderRadius: borderRadius, child: surface),
         // External rim: drawn outside the clipped surface so the border sits
         // around the card, blending with the backdrop image behind it.
         Positioned.fill(
@@ -120,13 +125,9 @@ class _GlassRimPainter extends CustomPainter {
     Path outsetOutline(double strokeWidth) {
       final extent = strokeWidth / 2;
       final rect = (Offset.zero & size).inflate(extent);
-      return Path()
-        ..addRRect(
-          RRect.fromRectAndRadius(
-            rect,
-            Radius.circular(cornerRadius + extent),
-          ),
-        );
+      return Path()..addRRect(
+        RRect.fromRectAndRadius(rect, Radius.circular(cornerRadius + extent)),
+      );
     }
 
     final bounds = Offset.zero & size;
