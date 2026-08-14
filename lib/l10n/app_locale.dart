@@ -411,6 +411,38 @@ mixin AppLocale {
   static const String failedToDeleteSave = 'failed_to_delete_save';
 
   // ---------------------------------------------------------------------------
+  // NeoSync dashboard & save list
+  // ---------------------------------------------------------------------------
+  static const String storageLabel = 'storage_label';
+  static const String lastSyncedSave = 'last_synced_save';
+  static const String saveListMenu = 'save_list_menu';
+  static const String customSaveFoldersMenu = 'custom_save_folders_menu';
+  static const String updateYourPlanMenu = 'update_your_plan_menu';
+  static const String customFoldersSubtitle = 'custom_folders_subtitle';
+  static const String noCustomFoldersConfigured =
+      'no_custom_folders_configured';
+  static const String foldersConfigured = 'folders_configured';
+  static const String searchSavesHint = 'search_saves_hint';
+  static const String filterAll = 'filter_all';
+  static const String filterPerGameSaves = 'filter_per_game_saves';
+  static const String filterMemoryCards = 'filter_memory_cards';
+  static const String filterScope = 'filter_scope';
+  static const String filterSystem = 'filter_system';
+  static const String filterEmulator = 'filter_emulator';
+  static const String filterSort = 'filter_sort';
+  static const String sortNewest = 'sort_newest';
+  static const String sortOldest = 'sort_oldest';
+  static const String sortNameAsc = 'sort_name_asc';
+  static const String sortNameDesc = 'sort_name_desc';
+  static const String scopePerGame = 'scope_per_game';
+  static const String scopeMemCards = 'scope_mem_cards';
+  static const String pageOf = 'page_of';
+  static const String noSavesMatchFilters = 'no_saves_match_filters';
+  static const String statSaves = 'stat_saves';
+  static const String statStates = 'stat_states';
+  static const String statShared = 'stat_shared';
+
+  // ---------------------------------------------------------------------------
   // Sync conflict
   // ---------------------------------------------------------------------------
   static const String syncConflictDetected = 'sync_conflict_detected';
@@ -1081,6 +1113,28 @@ mixin AppLocale {
   static const String raNoRecentUnlocks = 'ra_no_recent_unlocks';
   static const String raRecentlyPlayedTitle = 'ra_recently_played_title';
   static const String raNoRecentlyPlayed = 'ra_no_recently_played';
+
+  // Custom save folders (NeoSync v2)
+  static const String customSaveFoldersTitle = 'custom_save_folders_title';
+  static const String customSaveFolderPickSystem =
+      'custom_save_folder_pick_system';
+  static const String customSaveFolderPickEmulator =
+      'custom_save_folder_pick_emulator';
+  static const String customSaveFolderSelect = 'custom_save_folder_select';
+  static const String customSaveFolderConfigure =
+      'custom_save_folder_configure';
+  static const String customSaveFolderConfiguredList =
+      'custom_save_folder_configured_list';
+  static const String customSaveFolderSync = 'custom_save_folder_sync';
+  static const String customSaveFolderInvalid = 'custom_save_folder_invalid';
+  static const String removeCustomFolder = 'remove_custom_folder';
+  static const String removeCustomFolderConfirm =
+      'remove_custom_folder_confirm';
+  static const String uploadingCustomFolder = 'uploading_custom_folder';
+  static const String customFolderUploadComplete =
+      'custom_folder_upload_complete';
+  static const String customFolderUploadFailed = 'custom_folder_upload_failed';
+  static const String customSaveFoldersMigrate = 'custom_save_folders_migrate';
 
   // ==========================================================================
   // Localization Maps

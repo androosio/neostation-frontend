@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:path/path.dart' as path;
 import 'package:sqlite3/sqlite3.dart';
 import 'package:neostation/services/logger_service.dart';
+import 'package:neostation/utils/cloud_path_builder.dart';
 
 /// Service responsible for managing SQLite database schema evolutions.
 ///
@@ -455,6 +456,18 @@ class SqliteMigrations {
         break;
       case 114:
         await _migrateToVersion114(db);
+        break;
+      case 115:
+        await _migrateToVersion115(db);
+        break;
+      case 116:
+        await _migrateToVersion116(db);
+        break;
+      case 117:
+        await _migrateToVersion117(db);
+        break;
+      case 118:
+        await _migrateToVersion118(db);
         break;
       case 119:
         await _migrateToVersion119(db);
@@ -5650,6 +5663,195 @@ class SqliteMigrations {
       _log.i('Migration v114 completed');
     } catch (e, stackTrace) {
       _log.e('Error in migration v114: $e');
+      _log.e('   StackTrace: $stackTrace');
+      rethrow;
+    }
+  }
+
+  /// Migration v115: Adds the `neosync_slug` column to [app_emulators] and
+  /// backfills it by deriving a slug from each emulator's `unique_identifier`.
+  ///
+  /// The slug is the stable identifier used in NeoSync v2 cloud paths
+  /// (e.g. `saves/<system>/<slug>/...`). RetroArch core variants (RA/RA64/RA32)
+  /// collapse into one `retroarch.<core>` slug so saves are portable between
+  /// them; standalone emulators use the last segment of their unique id.
+  ///
+  /// Also creates the [user_custom_save_folders] table used by the NeoSync
+  /// module to remember the user-selected save/memcard folder per system +
+  /// emulator (ARMSX2, ARMSX1, etc.). Keeping it in its own table separates
+  /// the module's configuration from the global [user_config].
+  static Future<void> _migrateToVersion115(Database db) async {
+    _log.i('Migration v115: Adding neosync_slug to app_emulators');
+    try {
+      final tableInfo = db.select('PRAGMA table_info(app_emulators)');
+      final columns = tableInfo.map((c) => c['name'].toString()).toList();
+      if (!columns.contains('neosync_slug')) {
+        db.execute('ALTER TABLE app_emulators ADD COLUMN neosync_slug TEXT');
+        _log.i('Column neosync_slug added via v115');
+      }
+
+      await _backfillNeoSyncSlugs(db);
+
+      _log.i('Migration v115: Creating user_custom_save_folders table');
+      db.execute('''
+        CREATE TABLE IF NOT EXISTS user_custom_save_folders (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          system_folder_name TEXT NOT NULL COLLATE NOCASE,
+          emulator_slug TEXT NOT NULL,
+          folder_path TEXT NOT NULL,
+          UNIQUE(system_folder_name, emulator_slug)
+        );
+      ''');
+      _log.i('Table user_custom_save_folders created');
+
+      _log.i('Migration v115 completed');
+    } catch (e, stackTrace) {
+      _log.e('Error in migration v115: $e');
+      _log.e('   StackTrace: $stackTrace');
+      rethrow;
+    }
+  }
+
+  /// Migration v116: Ensures the NeoSync v2 emulator slug column and the custom
+  /// save folders table exist.
+  ///
+  /// Devices that already reached v115 via an earlier feature branch created
+  /// `user_custom_save_folders` but never added `neosync_slug` to
+  /// [app_emulators]. Because their DB is already at version 115, the v115
+  /// migration above is skipped, so this migration re-applies the missing bits
+  /// idempotently.
+  static Future<void> _migrateToVersion116(Database db) async {
+    _log.i(
+      'Migration v116: Ensuring neosync_slug and user_custom_save_folders',
+    );
+    try {
+      final tableInfo = db.select('PRAGMA table_info(app_emulators)');
+      final columns = tableInfo.map((c) => c['name'].toString()).toList();
+      if (!columns.contains('neosync_slug')) {
+        db.execute('ALTER TABLE app_emulators ADD COLUMN neosync_slug TEXT');
+        _log.i('Column neosync_slug added via v116');
+      }
+
+      await _backfillNeoSyncSlugs(db);
+
+      db.execute('''
+        CREATE TABLE IF NOT EXISTS user_custom_save_folders (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          system_folder_name TEXT NOT NULL COLLATE NOCASE,
+          emulator_slug TEXT NOT NULL,
+          folder_path TEXT NOT NULL,
+          UNIQUE(system_folder_name, emulator_slug)
+        );
+      ''');
+      _log.i('Migration v116 completed');
+    } catch (e, stackTrace) {
+      _log.e('Error in migration v116: $e');
+      _log.e('   StackTrace: $stackTrace');
+      rethrow;
+    }
+  }
+
+  /// Backfills `neosync_slug` on [app_emulators] for rows that have none.
+  ///
+  /// Runs in Dart using [CloudPathBuilder.slugFromEmulatorUniqueId] — the exact
+  /// same derivation the runtime uses — instead of reimplementing it in SQL.
+  /// That guarantees the stored slug always matches the one `_resolveEmulatorSlugForGame`
+  /// computes, so `findSystemsByEmulatorSlug` finds the emulator's systems on
+  /// every upgraded install. Idempotent: only touches rows with an empty slug.
+  ///
+  /// Tolerant by design: `app_emulators` is keyed by the composite
+  /// `(os_id, unique_identifier)` (no `id` column), and any failure here must
+  /// not abort the whole migration and wedge the app in a lower DB version.
+  /// The slug is re-derivable at runtime, so a missed row only means one
+  /// emulator keeps its runtime-derived slug — the backfill is best-effort.
+  static Future<void> _backfillNeoSyncSlugs(Database db) async {
+    try {
+      final rows = db.select(
+        'SELECT os_id, unique_identifier FROM app_emulators '
+        "WHERE neosync_slug IS NULL OR neosync_slug = ''",
+      );
+      var updated = 0;
+      for (final row in rows) {
+        final osId = row['os_id'];
+        final uniqueId = row['unique_identifier']?.toString() ?? '';
+        if (uniqueId.isEmpty) continue;
+        final slug = CloudPathBuilder.slugFromEmulatorUniqueId(uniqueId);
+        if (slug.isEmpty) continue;
+        db.execute(
+          'UPDATE app_emulators SET neosync_slug = ? '
+          'WHERE os_id = ? AND unique_identifier = ?',
+          [slug, osId, uniqueId],
+        );
+        updated++;
+      }
+      if (updated > 0) {
+        _log.i('Backfilled neosync_slug for $updated emulators');
+      }
+    } catch (e, stackTrace) {
+      _log.e('Error backfilling neosync_slug: $e');
+      _log.e('   StackTrace: $stackTrace');
+    }
+  }
+
+  /// Migration v117: Adds the `emulator_slug` column to an existing
+  /// [user_custom_save_folders] table.
+  ///
+  /// Devices that created the table via an earlier feature branch only have
+  /// `system_folder_name` + `folder_path`, so `CREATE TABLE IF NOT EXISTS` in
+  /// v116 silently left it unchanged and later inserts failed with "no such
+  /// column: emulator_slug". This migrates the legacy rows to the default slug
+  /// `unknown` and adds the column when missing.
+  static Future<void> _migrateToVersion117(Database db) async {
+    _log.i(
+      'Migration v117: Ensuring emulator_slug on user_custom_save_folders',
+    );
+    try {
+      final tableInfo = db.select(
+        'PRAGMA table_info(user_custom_save_folders)',
+      );
+      final columns = tableInfo.map((c) => c['name'].toString()).toList();
+      if (!columns.contains('emulator_slug')) {
+        _log.i('Migration v117: Adding emulator_slug column');
+        db.execute(
+          'ALTER TABLE user_custom_save_folders ADD COLUMN emulator_slug TEXT NOT NULL DEFAULT \'unknown\'',
+        );
+      }
+      _log.i('Migration v117 completed');
+    } catch (e, stackTrace) {
+      _log.e('Error in migration v117: $e');
+      _log.e('   StackTrace: $stackTrace');
+      rethrow;
+    }
+  }
+
+  /// Migration v118: Backfills `user_system_settings.subfolder_view` for
+  /// databases that skipped main's v111/v113.
+  ///
+  /// This branch originally claimed the v111-113 numbers for NeoSync, so a
+  /// device that migrated while on that branch is already past main's v111
+  /// (subfolder_view) and v113 (backfill) — their `case` clauses never fire and
+  /// `user_system_settings.subfolder_view` is missing, breaking every query
+  /// that joins it. Idempotent: adds the column only when absent, mirroring the
+  /// main-branch backfill so this is a no-op on databases that took the normal
+  /// path.
+  static Future<void> _migrateToVersion118(Database db) async {
+    _log.i('Migration v118: Backfilling subfolder_view if absent');
+    try {
+      final settingsColumns = db
+          .select('PRAGMA table_info(user_system_settings)')
+          .map((c) => c['name'].toString())
+          .toList();
+      if (!settingsColumns.contains('subfolder_view')) {
+        db.execute(
+          'ALTER TABLE user_system_settings ADD COLUMN subfolder_view INTEGER DEFAULT 0',
+        );
+        _log.i('Column subfolder_view backfilled via v118');
+      } else {
+        _log.i('Column subfolder_view already present');
+      }
+      _log.i('Migration v118 completed');
+    } catch (e, stackTrace) {
+      _log.e('Error in migration v118: $e');
       _log.e('   StackTrace: $stackTrace');
       rethrow;
     }

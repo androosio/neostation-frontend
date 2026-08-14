@@ -156,6 +156,16 @@ class DatabaseTestHelper {
     ''');
 
     await db.execute('''
+      CREATE TABLE user_custom_save_folders (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        system_folder_name TEXT NOT NULL,
+        emulator_slug TEXT NOT NULL,
+        folder_path TEXT NOT NULL,
+        UNIQUE(system_folder_name, emulator_slug)
+      )
+    ''');
+
+    await db.execute('''
       CREATE TABLE app_emulators (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         system_id TEXT,
@@ -169,7 +179,8 @@ class DatabaseTestHelper {
         is_default INTEGER,
         is_default_core INTEGER,
         is_default_standalone INTEGER NOT NULL DEFAULT 0,
-        is_ra_compatible INTEGER
+        is_ra_compatible INTEGER,
+        neosync_slug TEXT
       )
     ''');
 

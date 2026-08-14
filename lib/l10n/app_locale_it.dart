@@ -399,6 +399,35 @@ const Map<String, dynamic> appLocaleIt = {
       'Disabilitazione NeoSync fallita per questo gioco',
   AppLocale.saveFileDeleted: 'Salvataggio eliminato con successo',
   AppLocale.failedToDeleteSave: 'Eliminazione salvataggio fallita',
+  AppLocale.storageLabel: 'Archiviazione',
+  AppLocale.lastSyncedSave: 'Ultimo salvataggio sincronizzato',
+  AppLocale.saveListMenu: 'Elenco Salvataggi',
+  AppLocale.customSaveFoldersMenu: 'Cartelle di Salvataggio Personalizzate',
+  AppLocale.updateYourPlanMenu: 'Aggiorna il Tuo Piano',
+  AppLocale.customFoldersSubtitle:
+      'Aggiungi una cartella personalizzata da un emulatore standalone per sincronizzare anche i suoi salvataggi.',
+  AppLocale.noCustomFoldersConfigured:
+      'Nessuna cartella personalizzata configurata',
+  AppLocale.foldersConfigured: '{count} configurate',
+  AppLocale.searchSavesHint: 'Cerca salvataggi...',
+  AppLocale.filterAll: 'Tutti',
+  AppLocale.filterPerGameSaves: 'Salvataggi per Gioco',
+  AppLocale.filterMemoryCards: 'Schede di Memoria',
+  AppLocale.filterScope: 'Ambito',
+  AppLocale.filterSystem: 'Sistema',
+  AppLocale.filterEmulator: 'Emulatore',
+  AppLocale.filterSort: 'Ordina',
+  AppLocale.sortNewest: 'Più Recenti',
+  AppLocale.sortOldest: 'Più Vecchi',
+  AppLocale.sortNameAsc: 'Nome A–Z',
+  AppLocale.sortNameDesc: 'Nome Z–A',
+  AppLocale.scopePerGame: 'Per Gioco',
+  AppLocale.scopeMemCards: 'Schede Mem.',
+  AppLocale.pageOf: 'Pagina {current} di {total}',
+  AppLocale.noSavesMatchFilters: 'Nessun salvataggio corrisponde ai filtri',
+  AppLocale.statSaves: 'Salvataggi',
+  AppLocale.statStates: 'Stati',
+  AppLocale.statShared: 'Condivisi',
 
   AppLocale.syncConflictDetected: 'Conflitto di Sincronizzazione Rilevato',
   AppLocale.localVersion: 'Version Locale',
@@ -1055,6 +1084,25 @@ const Map<String, dynamic> appLocaleIt = {
   AppLocale.raNoRecentUnlocks: 'Nessuno sblocco recente negli ultimi 30 giorni',
   AppLocale.raRecentlyPlayedTitle: 'Giocati di Recente',
   AppLocale.raNoRecentlyPlayed: 'Nessun gioco giocato di recente',
+
+  // Custom save folders (NeoSync v2)
+  AppLocale.customSaveFoldersTitle: 'Cartelle di salvataggio personalizzate',
+  AppLocale.customSaveFolderPickSystem: 'Scegli un sistema',
+  AppLocale.customSaveFolderPickEmulator: 'Scegli un emulatore',
+  AppLocale.customSaveFolderSelect: 'Seleziona cartella',
+  AppLocale.customSaveFolderConfigure: 'Configura',
+  AppLocale.customSaveFolderConfiguredList: 'Cartelle configurate',
+  AppLocale.customSaveFolderSync: 'Sincronizza ora',
+  AppLocale.customSaveFolderInvalid: 'La cartella selezionata non esiste',
+  AppLocale.removeCustomFolder: 'Rimuovi Cartella',
+  AppLocale.removeCustomFolderConfirm:
+      'Rimuovere questa cartella di salvataggio personalizzata? I file locali non verranno eliminati, solo scollegati dalla sincronizzazione.',
+  AppLocale.uploadingCustomFolder: 'Caricamento dei salvataggi da {folder}...',
+  AppLocale.customFolderUploadComplete:
+      'Cartella personalizzata sincronizzata: {uploaded} caricati, {skipped} già aggiornati',
+  AppLocale.customFolderUploadFailed:
+      'Sincronizzazione della cartella personalizzata fallita',
+  AppLocale.customSaveFoldersMigrate: 'Migra i salvataggi cloud a NeoSync v2',
 
   // ES-DE import
   AppLocale.esdeImport: 'ES-DE Import',

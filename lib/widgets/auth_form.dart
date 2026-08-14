@@ -607,7 +607,7 @@ class AuthFormState extends State<AuthForm> with LoginFormSelection<AuthForm> {
     return Container(
       padding: EdgeInsets.all(16.r),
       decoration: BoxDecoration(
-        color: theme.cardColor.withValues(alpha: 0.25),
+        color: theme.scaffoldBackgroundColor,
         borderRadius: BorderRadius.circular(12.r),
         border: Border.all(
           color: theme.colorScheme.primary.withValues(alpha: 0.2),

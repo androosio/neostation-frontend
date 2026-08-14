@@ -406,6 +406,35 @@ const Map<String, dynamic> appLocaleDe = {
       'NeoSync konnte für dieses Spiel nicht deaktiviert werden',
   AppLocale.saveFileDeleted: 'Spielstand erfolgreich gelöscht',
   AppLocale.failedToDeleteSave: 'Spielstand konnte nicht gelöscht werden',
+  AppLocale.storageLabel: 'Speicher',
+  AppLocale.lastSyncedSave: 'Zuletzt synchronisierter Spielstand',
+  AppLocale.saveListMenu: 'Speicherliste',
+  AppLocale.customSaveFoldersMenu: 'Benutzerdefinierte Speicherordner',
+  AppLocale.updateYourPlanMenu: 'Plan aktualisieren',
+  AppLocale.customFoldersSubtitle:
+      'Füge einen benutzerdefinierten Ordner von einem eigenständigen Emulator hinzu, damit auch seine Spielstände synchronisiert werden.',
+  AppLocale.noCustomFoldersConfigured:
+      'Keine benutzerdefinierten Ordner konfiguriert',
+  AppLocale.foldersConfigured: '{count} konfiguriert',
+  AppLocale.searchSavesHint: 'Spielstände suchen...',
+  AppLocale.filterAll: 'Alle',
+  AppLocale.filterPerGameSaves: 'Spielstände pro Spiel',
+  AppLocale.filterMemoryCards: 'Speicherkarten',
+  AppLocale.filterScope: 'Umfang',
+  AppLocale.filterSystem: 'System',
+  AppLocale.filterEmulator: 'Emulator',
+  AppLocale.filterSort: 'Sortieren',
+  AppLocale.sortNewest: 'Neueste',
+  AppLocale.sortOldest: 'Älteste',
+  AppLocale.sortNameAsc: 'Name A–Z',
+  AppLocale.sortNameDesc: 'Name Z–A',
+  AppLocale.scopePerGame: 'Pro Spiel',
+  AppLocale.scopeMemCards: 'Speicherkarten',
+  AppLocale.pageOf: 'Seite {current} von {total}',
+  AppLocale.noSavesMatchFilters: 'Keine Spielstände entsprechen den Filtern',
+  AppLocale.statSaves: 'Spielstände',
+  AppLocale.statStates: 'States',
+  AppLocale.statShared: 'Geteilt',
 
   AppLocale.syncConflictDetected: 'Synchronisationskonflikt erkannt',
   AppLocale.localVersion: 'Lokale Version',
@@ -1061,6 +1090,27 @@ const Map<String, dynamic> appLocaleDe = {
       'Keine kürzlichen Freischaltungen in den letzten 30 Tagen',
   AppLocale.raRecentlyPlayedTitle: 'Kürzlich Gespielt',
   AppLocale.raNoRecentlyPlayed: 'Keine kürzlich gespielten Spiele',
+
+  // Custom save folders (NeoSync v2)
+  AppLocale.customSaveFoldersTitle: 'Benutzerdefinierte Spielstandordner',
+  AppLocale.customSaveFolderPickSystem: 'System auswählen',
+  AppLocale.customSaveFolderPickEmulator: 'Emulator auswählen',
+  AppLocale.customSaveFolderSelect: 'Ordner auswählen',
+  AppLocale.customSaveFolderConfigure: 'Konfigurieren',
+  AppLocale.customSaveFolderConfiguredList: 'Konfigurierte Ordner',
+  AppLocale.customSaveFolderSync: 'Jetzt synchronisieren',
+  AppLocale.customSaveFolderInvalid: 'Der ausgewählte Ordner existiert nicht',
+  AppLocale.removeCustomFolder: 'Ordner Entfernen',
+  AppLocale.removeCustomFolderConfirm:
+      'Diesen benutzerdefinierten Speicherordner entfernen? Lokale Dateien werden nicht gelöscht, nur von der Synchronisierung entkoppelt.',
+  AppLocale.uploadingCustomFolder:
+      'Spielstände aus {folder} werden hochgeladen...',
+  AppLocale.customFolderUploadComplete:
+      'Benutzerdefinierter Ordner synchronisiert: {uploaded} hochgeladen, {skipped} bereits aktuell',
+  AppLocale.customFolderUploadFailed:
+      'Synchronisierung des benutzerdefinierten Ordners fehlgeschlagen',
+  AppLocale.customSaveFoldersMigrate:
+      'Cloud-Spielstände zu NeoSync v2 migrieren',
 
   // ES-DE import
   AppLocale.esdeImport: 'ES-DE Import',

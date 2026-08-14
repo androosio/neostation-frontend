@@ -17,8 +17,12 @@ import '../repositories/system_repository.dart';
 import '../repositories/sync_repository.dart';
 import '../repositories/game_repository.dart';
 import '../repositories/emulator_repository.dart';
+import '../repositories/neosync_save_folder_repository.dart';
+import '../data/datasources/sqlite_service.dart';
+import '../utils/cloud_path_builder.dart';
 import '../services/config_service.dart';
 import '../services/retroarch_config_service.dart';
+import '../services/retroachievements_hash_service.dart';
 
 part 'neosync/neosync_exceptions.dart';
 part 'neosync/neosync_status.dart';
@@ -44,8 +48,51 @@ class NeoSyncProvider extends ChangeNotifier {
   /// Whether a network request to fetch the cloud file list is active.
   bool _isLoadingOnlineFiles = false;
 
+  /// Total number of online files matching the active filter.
+  int _onlineTotal = 0;
+
+  /// Per-kind breakdown (game_saves/states/shared) of the filtered set.
+  Map<String, dynamic>? _onlineCounts;
+
+  /// Distinct system names offered by the online filter controls.
+  List<String> _onlineSystems = [];
+
+  /// Distinct emulator names offered by the online filter controls.
+  List<String> _onlineEmulators = [];
+
+  /// Current page of the online file list (1-based).
+  int _onlinePage = 1;
+
+  /// Number of files requested per online page.
+  static const int _onlinePageSize = 50;
+
+  /// Active filter for the online file list.
+  NeoSyncFileFilter _onlineFilter = const NeoSyncFileFilter(
+    sort: 'modified',
+    dir: 'desc',
+  );
+
+  /// Monotonic token that invalidates stale async online list loads.
+  int _onlineLoadGeneration = 0;
+
   List<NeoSyncFile> get onlineFiles => _onlineFiles;
   bool get isLoadingOnlineFiles => _isLoadingOnlineFiles;
+  int get onlineTotal => _onlineTotal;
+  Map<String, dynamic>? get onlineCounts => _onlineCounts;
+  List<String> get onlineSystems => _onlineSystems;
+  List<String> get onlineEmulators => _onlineEmulators;
+  int get onlinePage => _onlinePage;
+  int get onlinePageSize => _onlinePageSize;
+  NeoSyncFileFilter get onlineFilter => _onlineFilter;
+
+  /// Total pages for the current filter, always at least 1.
+  int get onlineTotalPages {
+    final pages = (_onlineTotal / _onlinePageSize).ceil();
+    return pages < 1 ? 1 : pages;
+  }
+
+  bool get hasOnlineNext => _onlinePage < onlineTotalPages;
+  bool get hasOnlinePrevious => _onlinePage > 1;
 
   static final _log = LoggerService.instance;
 

@@ -401,6 +401,35 @@ const Map<String, dynamic> appLocaleEs = {
       'Error al desactivar NeoSync para este juego',
   AppLocale.saveFileDeleted: 'Archivo eliminado correctamente',
   AppLocale.failedToDeleteSave: 'Error al eliminar el archivo',
+  AppLocale.storageLabel: 'Almacenamiento',
+  AppLocale.lastSyncedSave: 'Último guardado sincronizado',
+  AppLocale.saveListMenu: 'Lista de Guardados',
+  AppLocale.customSaveFoldersMenu: 'Carpetas de Guardado Personalizadas',
+  AppLocale.updateYourPlanMenu: 'Actualizar Tu Plan',
+  AppLocale.customFoldersSubtitle:
+      'Añade una carpeta personalizada de un emulador independiente para que sus guardados también se sincronicen.',
+  AppLocale.noCustomFoldersConfigured:
+      'No hay carpetas personalizadas configuradas',
+  AppLocale.foldersConfigured: '{count} configuradas',
+  AppLocale.searchSavesHint: 'Buscar guardados...',
+  AppLocale.filterAll: 'Todos',
+  AppLocale.filterPerGameSaves: 'Guardados por Juego',
+  AppLocale.filterMemoryCards: 'Tarjetas de Memoria',
+  AppLocale.filterScope: 'Alcance',
+  AppLocale.filterSystem: 'Sistema',
+  AppLocale.filterEmulator: 'Emulador',
+  AppLocale.filterSort: 'Ordenar',
+  AppLocale.sortNewest: 'Más Recientes',
+  AppLocale.sortOldest: 'Más Antiguos',
+  AppLocale.sortNameAsc: 'Nombre A–Z',
+  AppLocale.sortNameDesc: 'Nombre Z–A',
+  AppLocale.scopePerGame: 'Por Juego',
+  AppLocale.scopeMemCards: 'Tarjetas Mem.',
+  AppLocale.pageOf: 'Página {current} de {total}',
+  AppLocale.noSavesMatchFilters: 'Ningún guardado coincide con los filtros',
+  AppLocale.statSaves: 'Guardados',
+  AppLocale.statStates: 'Estados',
+  AppLocale.statShared: 'Compartidos',
 
   AppLocale.syncConflictDetected: 'Conflicto de Sincronización Detectado',
   AppLocale.localVersion: 'Versión Local',
@@ -1056,6 +1085,26 @@ const Map<String, dynamic> appLocaleEs = {
       'No hay desbloqueos recientes en los últimos 30 días',
   AppLocale.raRecentlyPlayedTitle: 'Jugados Recientemente',
   AppLocale.raNoRecentlyPlayed: 'No hay juegos jugados recientemente',
+
+  // Custom save folders (NeoSync v2)
+  AppLocale.customSaveFoldersTitle: 'Carpetas de guardado personalizadas',
+  AppLocale.customSaveFolderPickSystem: 'Elige un sistema',
+  AppLocale.customSaveFolderPickEmulator: 'Elige un emulador',
+  AppLocale.customSaveFolderSelect: 'Seleccionar carpeta',
+  AppLocale.customSaveFolderConfigure: 'Configurar',
+  AppLocale.customSaveFolderConfiguredList: 'Carpetas configuradas',
+  AppLocale.customSaveFolderSync: 'Sincronizar ahora',
+  AppLocale.customSaveFolderInvalid: 'La carpeta seleccionada no existe',
+  AppLocale.removeCustomFolder: 'Eliminar Carpeta',
+  AppLocale.removeCustomFolderConfirm:
+      '¿Eliminar esta carpeta de guardado personalizada? Sus archivos locales no se borrarán, solo se desvinculará de la sincronización.',
+  AppLocale.uploadingCustomFolder: 'Subiendo guardados de {folder}...',
+  AppLocale.customFolderUploadComplete:
+      'Carpeta personalizada sincronizada: {uploaded} subidos, {skipped} ya actualizados',
+  AppLocale.customFolderUploadFailed:
+      'Error al sincronizar la carpeta personalizada',
+  AppLocale.customSaveFoldersMigrate:
+      'Migrar guardados de la nube a NeoSync v2',
 
   // ES-DE import
   AppLocale.esdeImport: 'ES-DE Import',

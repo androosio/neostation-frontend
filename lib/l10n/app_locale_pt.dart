@@ -395,6 +395,35 @@ const Map<String, dynamic> appLocalePt = {
   AppLocale.failedToDisableNeoSync: 'Falha ao desativar NeoSync para este jogo',
   AppLocale.saveFileDeleted: 'Save excluído com sucesso',
   AppLocale.failedToDeleteSave: 'Falha ao excluir o save',
+  AppLocale.storageLabel: 'Armazenamento',
+  AppLocale.lastSyncedSave: 'Último save sincronizado',
+  AppLocale.saveListMenu: 'Lista de Saves',
+  AppLocale.customSaveFoldersMenu: 'Pastas de Save Personalizadas',
+  AppLocale.updateYourPlanMenu: 'Atualizar Seu Plano',
+  AppLocale.customFoldersSubtitle:
+      'Adicione uma pasta personalizada de um emulador standalone para que seus saves também sejam sincronizados.',
+  AppLocale.noCustomFoldersConfigured:
+      'Nenhuma pasta personalizada configurada',
+  AppLocale.foldersConfigured: '{count} configuradas',
+  AppLocale.searchSavesHint: 'Pesquisar saves...',
+  AppLocale.filterAll: 'Todos',
+  AppLocale.filterPerGameSaves: 'Saves por Jogo',
+  AppLocale.filterMemoryCards: 'Cartões de Memória',
+  AppLocale.filterScope: 'Escopo',
+  AppLocale.filterSystem: 'Sistema',
+  AppLocale.filterEmulator: 'Emulador',
+  AppLocale.filterSort: 'Ordenar',
+  AppLocale.sortNewest: 'Mais Recentes',
+  AppLocale.sortOldest: 'Mais Antigos',
+  AppLocale.sortNameAsc: 'Nome A–Z',
+  AppLocale.sortNameDesc: 'Nome Z–A',
+  AppLocale.scopePerGame: 'Por Jogo',
+  AppLocale.scopeMemCards: 'Cartões Mem.',
+  AppLocale.pageOf: 'Página {current} de {total}',
+  AppLocale.noSavesMatchFilters: 'Nenhum save corresponde aos filtros',
+  AppLocale.statSaves: 'Saves',
+  AppLocale.statStates: 'Estados',
+  AppLocale.statShared: 'Compartilhados',
 
   AppLocale.syncConflictDetected: 'Conflito de Sincronização Detectado',
   AppLocale.localVersion: 'Versão Local',
@@ -1039,6 +1068,25 @@ const Map<String, dynamic> appLocalePt = {
   AppLocale.raNoRecentUnlocks: 'Nenhum desbloqueio recente nos últimos 30 dias',
   AppLocale.raRecentlyPlayedTitle: 'Jogados Recentemente',
   AppLocale.raNoRecentlyPlayed: 'Nenhum jogo jogado recentemente',
+
+  // Custom save folders (NeoSync v2)
+  AppLocale.customSaveFoldersTitle: 'Pastas de save personalizadas',
+  AppLocale.customSaveFolderPickSystem: 'Escolha um sistema',
+  AppLocale.customSaveFolderPickEmulator: 'Escolha um emulador',
+  AppLocale.customSaveFolderSelect: 'Selecionar pasta',
+  AppLocale.customSaveFolderConfigure: 'Configurar',
+  AppLocale.customSaveFolderConfiguredList: 'Pastas configuradas',
+  AppLocale.customSaveFolderSync: 'Sincronizar agora',
+  AppLocale.customSaveFolderInvalid: 'A pasta selecionada não existe',
+  AppLocale.removeCustomFolder: 'Remover Pasta',
+  AppLocale.removeCustomFolderConfirm:
+      'Remover esta pasta de save personalizada? Os arquivos locais não serão excluídos, apenas desvinculados da sincronização.',
+  AppLocale.uploadingCustomFolder: 'Enviando saves de {folder}...',
+  AppLocale.customFolderUploadComplete:
+      'Pasta personalizada sincronizada: {uploaded} enviados, {skipped} já atualizados',
+  AppLocale.customFolderUploadFailed:
+      'Falha ao sincronizar a pasta personalizada',
+  AppLocale.customSaveFoldersMigrate: 'Migrar saves da nuvem para o NeoSync v2',
 
   // ES-DE import
   AppLocale.esdeImport: 'ES-DE Import',

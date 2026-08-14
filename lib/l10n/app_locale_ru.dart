@@ -396,6 +396,34 @@ const Map<String, dynamic> appLocaleRu = {
       'Не удалось отключить NeoSync для этой игры',
   AppLocale.saveFileDeleted: 'Файл сохранения успешно удален',
   AppLocale.failedToDeleteSave: 'Не удалось удалить файл сохранения',
+  AppLocale.storageLabel: 'Хранилище',
+  AppLocale.lastSyncedSave: 'Последнее синхронизированное сохранение',
+  AppLocale.saveListMenu: 'Список Сохранений',
+  AppLocale.customSaveFoldersMenu: 'Пользовательские Папки Сохранений',
+  AppLocale.updateYourPlanMenu: 'Обновить Ваш План',
+  AppLocale.customFoldersSubtitle:
+      'Добавьте пользовательскую папку автономного эмулятора, чтобы его сохранения тоже синхронизировались.',
+  AppLocale.noCustomFoldersConfigured: 'Пользовательские папки не настроены',
+  AppLocale.foldersConfigured: '{count} настроено',
+  AppLocale.searchSavesHint: 'Поиск сохранений...',
+  AppLocale.filterAll: 'Все',
+  AppLocale.filterPerGameSaves: 'Сохранения по Играм',
+  AppLocale.filterMemoryCards: 'Карты Памяти',
+  AppLocale.filterScope: 'Область',
+  AppLocale.filterSystem: 'Система',
+  AppLocale.filterEmulator: 'Эмулятор',
+  AppLocale.filterSort: 'Сортировка',
+  AppLocale.sortNewest: 'Сначала новые',
+  AppLocale.sortOldest: 'Сначала старые',
+  AppLocale.sortNameAsc: 'Имя А–Я',
+  AppLocale.sortNameDesc: 'Имя Я–А',
+  AppLocale.scopePerGame: 'По Игре',
+  AppLocale.scopeMemCards: 'Карты Пам.',
+  AppLocale.pageOf: 'Страница {current} из {total}',
+  AppLocale.noSavesMatchFilters: 'Ни одно сохранение не соответствует фильтрам',
+  AppLocale.statSaves: 'Сохранения',
+  AppLocale.statStates: 'Состояния',
+  AppLocale.statShared: 'Общие',
 
   AppLocale.syncConflictDetected: 'Обнаружен конфликт синхронизации',
   AppLocale.localVersion: 'Локальная версия',
@@ -1029,6 +1057,26 @@ const Map<String, dynamic> appLocaleRu = {
   AppLocale.raNoRecentUnlocks: 'Нет недавних достижений за последние 30 дней',
   AppLocale.raRecentlyPlayedTitle: 'Недавно сыгранные',
   AppLocale.raNoRecentlyPlayed: 'Нет недавно сыгранных игр',
+
+  // Custom save folders (NeoSync v2)
+  AppLocale.customSaveFoldersTitle: 'Пользовательские папки сохранений',
+  AppLocale.customSaveFolderPickSystem: 'Выберите систему',
+  AppLocale.customSaveFolderPickEmulator: 'Выберите эмулятор',
+  AppLocale.customSaveFolderSelect: 'Выбрать папку',
+  AppLocale.customSaveFolderConfigure: 'Настроить',
+  AppLocale.customSaveFolderConfiguredList: 'Настроенные папки',
+  AppLocale.customSaveFolderSync: 'Синхронизировать сейчас',
+  AppLocale.customSaveFolderInvalid: 'Выбранная папка не существует',
+  AppLocale.removeCustomFolder: 'Удалить Папку',
+  AppLocale.removeCustomFolderConfirm:
+      'Удалить эту пользовательскую папку сохранений? Локальные файлы не будут удалены, только отключены от синхронизации.',
+  AppLocale.uploadingCustomFolder: 'Загрузка сохранений из {folder}...',
+  AppLocale.customFolderUploadComplete:
+      'Пользовательская папка синхронизирована: {uploaded} загружено, {skipped} уже актуальны',
+  AppLocale.customFolderUploadFailed:
+      'Не удалось синхронизировать пользовательскую папку',
+  AppLocale.customSaveFoldersMigrate:
+      'Мигрировать облачные сохранения на NeoSync v2',
 
   // ES-DE import
   AppLocale.esdeImport: 'ES-DE Import',

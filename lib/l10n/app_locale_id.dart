@@ -386,6 +386,35 @@ const Map<String, dynamic> appLocaleId = {
       'Gagal menonaktifkan NeoSync untuk game ini',
   AppLocale.saveFileDeleted: 'Simpanan berhasil dihapus',
   AppLocale.failedToDeleteSave: 'Gagal menghapus simpanan',
+  AppLocale.storageLabel: 'Penyimpanan',
+  AppLocale.lastSyncedSave: 'Simpanan terakhir disinkronkan',
+  AppLocale.saveListMenu: 'Daftar Simpanan',
+  AppLocale.customSaveFoldersMenu: 'Folder Simpanan Kustom',
+  AppLocale.updateYourPlanMenu: 'Perbarui Paket Anda',
+  AppLocale.customFoldersSubtitle:
+      'Tambahkan folder kustom dari emulator mandiri agar simpanannya juga disinkronkan.',
+  AppLocale.noCustomFoldersConfigured:
+      'Tidak ada folder kustom yang dikonfigurasi',
+  AppLocale.foldersConfigured: '{count} dikonfigurasi',
+  AppLocale.searchSavesHint: 'Cari simpanan...',
+  AppLocale.filterAll: 'Semua',
+  AppLocale.filterPerGameSaves: 'Simpanan per Permainan',
+  AppLocale.filterMemoryCards: 'Kartu Memori',
+  AppLocale.filterScope: 'Cakupan',
+  AppLocale.filterSystem: 'Sistem',
+  AppLocale.filterEmulator: 'Emulator',
+  AppLocale.filterSort: 'Urutkan',
+  AppLocale.sortNewest: 'Terbaru',
+  AppLocale.sortOldest: 'Terlama',
+  AppLocale.sortNameAsc: 'Nama A–Z',
+  AppLocale.sortNameDesc: 'Nama Z–A',
+  AppLocale.scopePerGame: 'Per Permainan',
+  AppLocale.scopeMemCards: 'Kartu Mem.',
+  AppLocale.pageOf: 'Halaman {current} dari {total}',
+  AppLocale.noSavesMatchFilters: 'Tidak ada simpanan yang cocok dengan filter',
+  AppLocale.statSaves: 'Simpanan',
+  AppLocale.statStates: 'Status',
+  AppLocale.statShared: 'Dibagikan',
 
   AppLocale.syncConflictDetected: 'Deteksi Konflik Sinkronisasi',
   AppLocale.localVersion: 'Versi Lokal',
@@ -1032,6 +1061,25 @@ const Map<String, dynamic> appLocaleId = {
       'Tidak ada pembukaan baru dalam 30 hari terakhir',
   AppLocale.raRecentlyPlayedTitle: 'Baru Dimainkan',
   AppLocale.raNoRecentlyPlayed: 'Tidak ada game yang baru dimainkan',
+
+  // Custom save folders (NeoSync v2)
+  AppLocale.customSaveFoldersTitle: 'Folder penyimpanan khusus',
+  AppLocale.customSaveFolderPickSystem: 'Pilih sistem',
+  AppLocale.customSaveFolderPickEmulator: 'Pilih emulator',
+  AppLocale.customSaveFolderSelect: 'Pilih folder',
+  AppLocale.customSaveFolderConfigure: 'Konfigurasi',
+  AppLocale.customSaveFolderConfiguredList: 'Folder yang dikonfigurasi',
+  AppLocale.customSaveFolderSync: 'Sinkronkan sekarang',
+  AppLocale.customSaveFolderInvalid: 'Folder yang dipilih tidak ada',
+  AppLocale.removeCustomFolder: 'Hapus Folder',
+  AppLocale.removeCustomFolderConfirm:
+      'Hapus folder simpanan kustom ini? File lokal tidak akan dihapus, hanya dilepas dari sinkronisasi.',
+  AppLocale.uploadingCustomFolder: 'Mengunggah simpanan dari {folder}...',
+  AppLocale.customFolderUploadComplete:
+      'Folder kustom disinkronkan: {uploaded} diunggah, {skipped} sudah terbaru',
+  AppLocale.customFolderUploadFailed: 'Gagal menyinkronkan folder kustom',
+  AppLocale.customSaveFoldersMigrate:
+      'Migrasikan penyimpanan cloud ke NeoSync v2',
 
   // ES-DE import
   AppLocale.esdeImport: 'ES-DE Import',
