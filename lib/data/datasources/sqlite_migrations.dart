@@ -456,8 +456,8 @@ class SqliteMigrations {
       case 114:
         await _migrateToVersion114(db);
         break;
-      case 115:
-        await _migrateToVersion115(db);
+      case 119:
+        await _migrateToVersion119(db);
         break;
       default:
         _log.w('No migration defined for version $version');
@@ -5304,21 +5304,26 @@ class SqliteMigrations {
     }
   }
 
-  /// Migration v115: Creates the whole RomM schema in one step.
+  /// Migration v119: Creates the whole RomM schema in one step.
   ///
-  /// **Renumbered twice: v111 -> v114 -> v115.** This branch authored it as
-  /// v111, but main
-  /// independently shipped v111–v114 for the ROM-subfolder feature (#318)
-  /// while the branch was open. Two lineages cannot both own 111: a device
-  /// that ran main's v111 is already past that version, so `case 111` would
-  /// never fire for it and the RomM schema would never be created — every
-  /// RomM query then fails against tables that do not exist. Sitting above
-  /// main's numbering means every device reaches this migration exactly once,
-  /// whichever branch it came from. Main hit the same collision from the other
-  /// side; that is what its v113 backfill exists for.
+  /// **Renumbered three times: v111 -> v114 -> v115 -> v119.** This branch
+  /// authored it as v111, but main independently shipped v111–v114 for the
+  /// ROM-subfolder feature (#318) while the branch was open, then v115–v118 for
+  /// the NeoSync v2 cloud path standard (#336). Two lineages cannot both own a
+  /// number: a device that ran main's v115 is already past that version, so
+  /// `case 115` would never fire for it and the RomM schema would never be
+  /// created — every RomM query then fails against tables that do not exist.
+  /// Sitting above main's numbering means every device reaches this migration
+  /// exactly once, whichever branch it came from. Main hit the same collision
+  /// from the other side; that is what its v113 backfill and its v116/v117
+  /// repairs exist for.
+  ///
+  /// Note the branch has no v115–v118 of its own until main is merged in, so a
+  /// device upgrading on this branch alone logs "No migration defined" for those
+  /// four versions and lands on v119 regardless. The merge fills them in.
   ///
   /// Safe to re-run on a device that already has the schema from the pre-merge
-  /// v111 build: every statement here is `IF NOT EXISTS` or checks for the
+  /// v111/v115 builds: every statement here is `IF NOT EXISTS` or checks for the
   /// column first, so it is a no-op rather than a second create.
   ///
   /// RomM's tables all land together with the feature, so they get a single
@@ -5338,8 +5343,8 @@ class SqliteMigrations {
   ///   changes on upgrade.
   /// * `user_config.game_details_tab` — repeated from v110, which a device
   ///   running the pre-merge RomM build skips. See [_addGameDetailsTabColumn].
-  static Future<void> _migrateToVersion115(Database db) async {
-    _log.i('Migration v115: Creating RomM schema');
+  static Future<void> _migrateToVersion119(Database db) async {
+    _log.i('Migration v119: Creating RomM schema');
     try {
       db.execute(createUserRommConfigTableSql);
       db.execute(createAppRommRomMapTableSql);
@@ -5348,11 +5353,11 @@ class SqliteMigrations {
       db.execute(createAppRommPlaySessionsIndexSql);
       db.execute(createAppRommPlaytimeStateTableSql);
       await _providerScopeAppNeoSyncState(db);
-      _addNavTabVisibilityColumns(db, 'v115', const ['hide_tab_romm']);
-      _addGameDetailsTabColumn(db, 'v115');
-      _log.i('Migration v115 completed');
+      _addNavTabVisibilityColumns(db, 'v119', const ['hide_tab_romm']);
+      _addGameDetailsTabColumn(db, 'v119');
+      _log.i('Migration v119 completed');
     } catch (e, stackTrace) {
-      _log.e('Error in migration v115: $e');
+      _log.e('Error in migration v119: $e');
       _log.e('   StackTrace: $stackTrace');
       rethrow;
     }
