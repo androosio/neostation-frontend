@@ -1,0 +1,30 @@
+name: Label PRs
+
+# `pull_request_target` rather than `pull_request` so PRs opened from a fork get a
+# token that can actually write labels — a fork's `pull_request` token is read-only,
+# which is why contributor PRs currently arrive unlabelled. This is only safe because
+# the job never checks out or executes the PR's code; it reads the changed-file list
+# and applies labels. Do not add a checkout of `github.event.pull_request.head` here.
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  label:
+    name: Apply path labels
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/labeler@v5
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          configuration-path: .github/labeler.yml
+          # Never strip a label a maintainer applied by hand.
+          sync-labels: false
