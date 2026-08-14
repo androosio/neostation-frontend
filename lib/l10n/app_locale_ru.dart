@@ -1128,4 +1128,18 @@ const Map<String, dynamic> appLocaleRu = {
   AppLocale.wizardArtPackUnavailable:
       'Сейчас не удалось получить набор обложек. Вы можете установить его позже '
       'в Настройках, когда будете онлайн.',
+
+  // Hide / unhide games
+  AppLocale.hideGame: 'Скрыть игру',
+  AppLocale.hideGameSubtitle: 'Игра исчезнет из списков. Ничего не удаляется.',
+  AppLocale.hide: 'Скрыть',
+  AppLocale.unhide: 'Показать',
+  AppLocale.unhideAll: 'Показать все',
+  AppLocale.gameHidden: '{name} скрыта',
+  AppLocale.gameUnhidden: '{name} восстановлена',
+  AppLocale.allGamesUnhidden: 'Все скрытые игры восстановлены',
+  AppLocale.hiddenGames: 'Скрытые',
+  AppLocale.noHiddenGames: 'Нет скрытых игр',
+  AppLocale.noHiddenGamesSubtitle:
+      'Скройте игру в её настройках, и она появится здесь.',
 };

@@ -1005,4 +1005,17 @@ const Map<String, dynamic> appLocaleZhHant = {
   AppLocale.wizardDownloadArtPack: '下載美術包',
   AppLocale.wizardArtPackInstalled: '美術包已安裝！你之後可以在「設定」中探索更多主題。',
   AppLocale.wizardArtPackUnavailable: '目前無法存取美術包。連上網路後，你可以稍後在「設定」中安裝它。',
+
+  // Hide / unhide games
+  AppLocale.hideGame: '隱藏遊戲',
+  AppLocale.hideGameSubtitle: '將其從遊戲清單中隱藏，不會刪除任何檔案。',
+  AppLocale.hide: '隱藏',
+  AppLocale.unhide: '取消隱藏',
+  AppLocale.unhideAll: '全部取消隱藏',
+  AppLocale.gameHidden: '已隱藏 {name}',
+  AppLocale.gameUnhidden: '已恢復 {name}',
+  AppLocale.allGamesUnhidden: '已恢復所有隱藏的遊戲',
+  AppLocale.hiddenGames: '已隱藏',
+  AppLocale.noHiddenGames: '沒有隱藏的遊戲',
+  AppLocale.noHiddenGamesSubtitle: '在遊戲設定中隱藏遊戲後，它會顯示在這裡。',
 };

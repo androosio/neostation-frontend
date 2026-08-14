@@ -1117,4 +1117,19 @@ const Map<String, dynamic> appLocaleEn = {
   AppLocale.wizardArtPackUnavailable:
       'The art pack couldn\'t be reached right now. You can install it later '
       'from Settings once you\'re online.',
+
+  // Hide / unhide games
+  AppLocale.hideGame: 'Hide Game',
+  AppLocale.hideGameSubtitle:
+      'Hides it from your game lists. Nothing is deleted.',
+  AppLocale.hide: 'Hide',
+  AppLocale.unhide: 'Unhide',
+  AppLocale.unhideAll: 'Unhide All',
+  AppLocale.gameHidden: '{name} hidden',
+  AppLocale.gameUnhidden: '{name} restored',
+  AppLocale.allGamesUnhidden: 'All hidden games restored',
+  AppLocale.hiddenGames: 'Hidden',
+  AppLocale.noHiddenGames: 'No hidden games',
+  AppLocale.noHiddenGamesSubtitle:
+      'Hide a game from its own settings and it appears here.',
 };

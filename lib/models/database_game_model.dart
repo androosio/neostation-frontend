@@ -16,6 +16,10 @@ class DatabaseGameModel {
   /// Whether the user has marked this game as a favorite.
   final bool isFavorite;
 
+  /// Whether the user hid this game from the game lists. Hidden games stay in
+  /// the database and are restored from the system settings dialog.
+  final bool isHidden;
+
   /// Unique identifier on RetroAchievements.org.
   final int? idRa;
 
@@ -96,6 +100,7 @@ class DatabaseGameModel {
     required this.filename,
     required this.romPath,
     this.isFavorite = false,
+    this.isHidden = false,
     this.idRa,
     this.emulatorName,
     this.emulatorPath,
@@ -165,6 +170,12 @@ class DatabaseGameModel {
                   .toLowerCase() ==
               'true' ||
           (json['is_favorite'] ?? json['isFavorite'] ?? 0).toString() == '1',
+      isHidden:
+          (json['is_hidden'] ?? json['isHidden'] ?? 0)
+                  .toString()
+                  .toLowerCase() ==
+              'true' ||
+          (json['is_hidden'] ?? json['isHidden'] ?? 0).toString() == '1',
       idRa: int.tryParse((json['id_ra'] ?? json['idRa'] ?? '').toString()),
       emulatorName: (json['emulator_name'] ?? json['emulatorName'])?.toString(),
       emulatorPath: (json['emulator_path'] ?? json['emulatorPath'])?.toString(),
@@ -229,6 +240,7 @@ class DatabaseGameModel {
       'filename': filename,
       'romPath': romPath,
       'isFavorite': isFavorite,
+      'isHidden': isHidden,
       'idRa': idRa,
       'emulatorName': emulatorName,
       'emulatorPath': emulatorPath,
@@ -264,6 +276,7 @@ class DatabaseGameModel {
     String? filename,
     String? romPath,
     bool? isFavorite,
+    bool? isHidden,
     int? idRa,
     String? emulatorName,
     String? emulatorPath,
@@ -295,6 +308,7 @@ class DatabaseGameModel {
       filename: filename ?? this.filename,
       romPath: romPath ?? this.romPath,
       isFavorite: isFavorite ?? this.isFavorite,
+      isHidden: isHidden ?? this.isHidden,
       idRa: idRa ?? this.idRa,
       emulatorName: emulatorName ?? this.emulatorName,
       emulatorPath: emulatorPath ?? this.emulatorPath,

@@ -1130,4 +1130,19 @@ const Map<String, dynamic> appLocaleId = {
   AppLocale.wizardArtPackUnavailable:
       'Paket gambar tidak dapat dijangkau saat ini. Anda dapat memasangnya '
       'nanti dari Pengaturan setelah online.',
+
+  // Hide / unhide games
+  AppLocale.hideGame: 'Sembunyikan Game',
+  AppLocale.hideGameSubtitle:
+      'Menyembunyikannya dari daftar game. Tidak ada yang dihapus.',
+  AppLocale.hide: 'Sembunyikan',
+  AppLocale.unhide: 'Tampilkan',
+  AppLocale.unhideAll: 'Tampilkan Semua',
+  AppLocale.gameHidden: '{name} disembunyikan',
+  AppLocale.gameUnhidden: '{name} dipulihkan',
+  AppLocale.allGamesUnhidden: 'Semua game tersembunyi telah dipulihkan',
+  AppLocale.hiddenGames: 'Tersembunyi',
+  AppLocale.noHiddenGames: 'Tidak ada game tersembunyi',
+  AppLocale.noHiddenGamesSubtitle:
+      'Sembunyikan game dari pengaturannya dan game itu akan muncul di sini.',
 };

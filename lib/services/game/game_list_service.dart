@@ -132,6 +132,7 @@ class GameListService {
         final databaseGames = (await GameRepository.getAllGames())
             .where(
               (dbGame) =>
+                  !dbGame.isHidden &&
                   dbGame.systemFolderName != 'android' &&
                   dbGame.systemFolderName != 'music',
             )
@@ -201,7 +202,9 @@ class GameListService {
         return [];
       }
 
-      final databaseGames = await GameRepository.getGamesBySystem(system.id!);
+      final databaseGames = (await GameRepository.getGamesBySystem(
+        system.id!,
+      )).where((dbGame) => !dbGame.isHidden).toList();
       final validExtensions = await SystemRepository.getExtensionsForSystem(
         system.id!,
       );
@@ -261,7 +264,9 @@ class GameListService {
   }
 
   static Future<List<GameModel>> _loadFavoriteGames() async {
-    final databaseGames = await GameRepository.getFavoriteGames();
+    final databaseGames = (await GameRepository.getFavoriteGames())
+        .where((dbGame) => !dbGame.isHidden)
+        .toList();
 
     final systemIds = databaseGames
         .map((g) => g.appSystemId)

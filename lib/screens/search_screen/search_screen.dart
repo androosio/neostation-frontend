@@ -278,7 +278,11 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Future<void> _loadGames() async {
-    final games = await GameRepository.getAllGames();
+    // Games the user hid are dropped here: search is a game list like any
+    // other, so a hidden game must not surface through it either.
+    final games = (await GameRepository.getAllGames())
+        .where((g) => !g.isHidden)
+        .toList();
     if (!mounted) return;
 
     // Phase 1: make the data available and show the loaded UI instantly

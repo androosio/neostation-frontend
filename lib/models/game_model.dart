@@ -41,6 +41,10 @@ class GameModel {
   /// Whether the user has marked this game as a favorite.
   final bool? isFavorite;
 
+  /// Whether the user hid this game from the game lists. Hidden games are
+  /// filtered out of every list; the row and the ROM file are left untouched.
+  final bool isHidden;
+
   /// Timestamp of the last time the game was launched.
   final DateTime? lastPlayed;
 
@@ -101,6 +105,7 @@ class GameModel {
     required this.players,
     required this.rating,
     this.isFavorite,
+    this.isHidden = false,
     this.lastPlayed,
     this.playTime,
     this.romPath,
@@ -163,6 +168,7 @@ class GameModel {
       players: db.players ?? '',
       rating: db.rating ?? 0.0,
       isFavorite: db.isFavorite,
+      isHidden: db.isHidden,
       lastPlayed: db.lastPlayed,
       playTime: db.playTime,
       romPath: db.romPath,
@@ -212,6 +218,7 @@ class GameModel {
     String? players,
     double? rating,
     bool? isFavorite,
+    bool? isHidden,
     DateTime? lastPlayed,
     int? playTime,
     String? romPath,
@@ -241,6 +248,7 @@ class GameModel {
       players: players ?? this.players,
       rating: rating ?? this.rating,
       isFavorite: isFavorite ?? this.isFavorite,
+      isHidden: isHidden ?? this.isHidden,
       lastPlayed: lastPlayed ?? this.lastPlayed,
       playTime: playTime ?? this.playTime,
       romPath: romPath ?? this.romPath,

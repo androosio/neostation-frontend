@@ -1037,4 +1037,17 @@ const Map<String, dynamic> appLocaleKo = {
   AppLocale.sourceLocal: '이 기기',
   AppLocale.searchRatingLocalOnly: '평점 필터는 로컬 게임에만 적용됩니다',
   AppLocale.searchNoRommEquivalent: 'RomM에 ‘{value}’로 분류된 항목이 없습니다',
+
+  // Hide / unhide games
+  AppLocale.hideGame: '게임 숨기기',
+  AppLocale.hideGameSubtitle: '게임 목록에서 숨깁니다. 삭제되지 않습니다.',
+  AppLocale.hide: '숨기기',
+  AppLocale.unhide: '숨김 해제',
+  AppLocale.unhideAll: '모두 숨김 해제',
+  AppLocale.gameHidden: '{name} 숨김',
+  AppLocale.gameUnhidden: '{name} 복원됨',
+  AppLocale.allGamesUnhidden: '숨긴 게임을 모두 복원했습니다',
+  AppLocale.hiddenGames: '숨김',
+  AppLocale.noHiddenGames: '숨긴 게임 없음',
+  AppLocale.noHiddenGamesSubtitle: '게임 설정에서 게임을 숨기면 여기에 표시됩니다.',
 };

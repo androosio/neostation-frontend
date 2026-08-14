@@ -472,6 +472,9 @@ class SqliteMigrations {
       case 119:
         await _migrateToVersion119(db);
         break;
+      case 122:
+        await _migrateToVersion122(db);
+        break;
       default:
         _log.w('No migration defined for version $version');
     }
@@ -5371,6 +5374,42 @@ class SqliteMigrations {
       _log.i('Migration v119 completed');
     } catch (e, stackTrace) {
       _log.e('Error in migration v119: $e');
+      _log.e('   StackTrace: $stackTrace');
+      rethrow;
+    }
+  }
+
+  /// Migration v122: Adds `user_roms.is_hidden`, the per-game hide flag.
+  ///
+  /// Hiding is a view filter, not a deletion: the row keeps its favorite flag,
+  /// play time, emulator override and cloud-sync state, and the ROM file is
+  /// untouched. Games hidden here are restored from the system settings dialog.
+  /// Defaults to `0`, so nobody's library changes on upgrade.
+  ///
+  /// Numbered above every slot in use anywhere — main is at v119 and
+  /// `feat/ra-improvements` claims v121 — rather than at main + 1. A device
+  /// that migrated on that branch is already past 120, so it would skip a
+  /// `case 120` forever and every game query would then fail on the missing
+  /// column. Taking the highest number keeps this step reachable whatever
+  /// order the branches merge in.
+  static Future<void> _migrateToVersion122(Database db) async {
+    _log.i('Migration v122: Adding is_hidden to user_roms');
+    try {
+      final tableInfo = db.select('PRAGMA table_info(user_roms)');
+      final columns = tableInfo.map((c) => c['name'].toString()).toList();
+
+      if (!columns.contains('is_hidden')) {
+        db.execute(
+          'ALTER TABLE user_roms ADD COLUMN is_hidden INTEGER DEFAULT 0',
+        );
+        _log.i('Column is_hidden added via v122');
+      } else {
+        _log.i('Column is_hidden already exists');
+      }
+
+      _log.i('Migration v122 completed');
+    } catch (e, stackTrace) {
+      _log.e('Error in migration v122: $e');
       _log.e('   StackTrace: $stackTrace');
       rethrow;
     }

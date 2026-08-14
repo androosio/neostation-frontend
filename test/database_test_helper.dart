@@ -79,6 +79,7 @@ class DatabaseTestHelper {
         ss_hash TEXT,
         id_ra INTEGER,
         is_favorite INTEGER DEFAULT 0,
+        is_hidden INTEGER DEFAULT 0,
         play_time INTEGER DEFAULT 0,
         last_played TEXT,
         cloud_sync_enabled INTEGER DEFAULT 0,

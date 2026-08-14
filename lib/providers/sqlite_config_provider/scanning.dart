@@ -555,6 +555,13 @@ extension SqliteConfigScanning on SqliteConfigProvider {
           .expand((m) => m.keys.map((k) => k.toLowerCase()))
           .toSet();
 
+      // Hidden games per system, in a single query. They stay in the ROM count
+      // that decides whether a system is kept (otherwise a system whose games
+      // are all hidden would vanish, taking the unhide UI with it) but are
+      // subtracted from the count shown on the system card, which has to match
+      // the list the user actually sees.
+      final hiddenBySystem = await GameRepository.getHiddenRomCountsBySystem();
+
       // First pass: collect all systems except 'all'
       for (final system in allSystems) {
         if (system.folderName == 'all') continue;
@@ -582,7 +589,8 @@ extension SqliteConfigScanning on SqliteConfigProvider {
             (system.folderName == 'android' && Platform.isAndroid);
 
         if (romCount > 0 || hasFolderWhenNonRecursive || isAndroidVirtual) {
-          systemsToKeep.add(system.copyWith(romCount: romCount));
+          final visibleRomCount = romCount - (hiddenBySystem[system.id!] ?? 0);
+          systemsToKeep.add(system.copyWith(romCount: visibleRomCount));
 
           // Increment count for 'all' logic if it's a real emulator system with games
           if (romCount > 0 && !virtualSystems.contains(system.folderName)) {
@@ -729,11 +737,19 @@ extension SqliteConfigScanning on SqliteConfigProvider {
         }
       }
 
+      // Raw ROM count, hidden games included. [updatedSystem.romCount] is the
+      // visible one (what the card shows), and pruning on it would make a
+      // system whose games are all hidden disappear — along with the only place
+      // to unhide them.
+      final totalRomCount = await SystemRepository.getRomCountForSystem(
+        updatedSystem.id!,
+      );
+
       // INCREMENTAL PERSISTENCE: Keep a system when it has ROMs, when its
       // folder exists and recursive scan is explicitly OFF (user can re-enable),
       // or when it is a virtual system (android / all).
       final bool shouldKeep =
-          updatedSystem.romCount > 0 ||
+          totalRomCount > 0 ||
           hasFolderWhenNonRecursive ||
           (updatedSystem.folderName == 'android' && Platform.isAndroid) ||
           updatedSystem.folderName == 'all' ||

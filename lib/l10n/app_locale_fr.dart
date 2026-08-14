@@ -1166,4 +1166,19 @@ const Map<String, dynamic> appLocaleFr = {
   AppLocale.wizardArtPackUnavailable:
       'Le pack visuel est actuellement inaccessible. Vous pourrez l\'installer '
       'plus tard depuis les Paramètres une fois en ligne.',
+
+  // Hide / unhide games
+  AppLocale.hideGame: 'Masquer le jeu',
+  AppLocale.hideGameSubtitle:
+      'Le retire de vos listes de jeux. Rien n\'est supprimé.',
+  AppLocale.hide: 'Masquer',
+  AppLocale.unhide: 'Afficher',
+  AppLocale.unhideAll: 'Tout afficher',
+  AppLocale.gameHidden: '{name} masqué',
+  AppLocale.gameUnhidden: '{name} restauré',
+  AppLocale.allGamesUnhidden: 'Tous les jeux masqués ont été restaurés',
+  AppLocale.hiddenGames: 'Masqués',
+  AppLocale.noHiddenGames: 'Aucun jeu masqué',
+  AppLocale.noHiddenGamesSubtitle:
+      'Masquez un jeu depuis ses paramètres pour le retrouver ici.',
 };

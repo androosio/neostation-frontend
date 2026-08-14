@@ -1163,4 +1163,20 @@ const Map<String, dynamic> appLocaleDe = {
   AppLocale.wizardArtPackUnavailable:
       'Das Artwork-Paket ist derzeit nicht erreichbar. Du kannst es später in '
       'den Einstellungen installieren, sobald du online bist.',
+
+  // Hide / unhide games
+  AppLocale.hideGame: 'Spiel ausblenden',
+  AppLocale.hideGameSubtitle:
+      'Blendet es aus deinen Spielelisten aus. Es wird nichts gelöscht.',
+  AppLocale.hide: 'Ausblenden',
+  AppLocale.unhide: 'Einblenden',
+  AppLocale.unhideAll: 'Alle einblenden',
+  AppLocale.gameHidden: '{name} ausgeblendet',
+  AppLocale.gameUnhidden: '{name} wiederhergestellt',
+  AppLocale.allGamesUnhidden:
+      'Alle ausgeblendeten Spiele wurden wiederhergestellt',
+  AppLocale.hiddenGames: 'Ausgeblendet',
+  AppLocale.noHiddenGames: 'Keine ausgeblendeten Spiele',
+  AppLocale.noHiddenGamesSubtitle:
+      'Blende ein Spiel in seinen Einstellungen aus, dann erscheint es hier.',
 };

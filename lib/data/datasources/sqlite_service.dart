@@ -422,7 +422,7 @@ class SqliteService {
   SqliteService._internal();
 
   // Database configuration
-  static const int _databaseVersion = 119;
+  static const int _databaseVersion = 122;
   static const String _databaseName = 'data.sqlite';
 
   DatabaseAdapter? _database;
@@ -463,7 +463,7 @@ class SqliteService {
     // Retrieve base systems with user settings and calculated ROM counts
     final systemsResults = await db.rawQuery('''
       SELECT s.*,
-             (SELECT COUNT(*) FROM user_roms ur WHERE ur.app_system_id = s.id) as rom_count,
+             (SELECT COUNT(*) FROM user_roms ur WHERE ur.app_system_id = s.id AND ur.is_hidden = 0) as rom_count,
              ss.recursive_scan,
              ss.custom_background_path,
              ss.custom_logo_path,
@@ -1890,6 +1890,7 @@ class SqliteService {
         ss_hash TEXT,
         id_ra INTEGER,
         is_favorite INTEGER DEFAULT 0,
+        is_hidden INTEGER DEFAULT 0,
         play_time INTEGER DEFAULT 0,
         last_played TEXT,
         cloud_sync_enabled INTEGER DEFAULT 1,
@@ -3047,7 +3048,7 @@ class SqliteService {
 
     final results = await db.rawQuery('''
       SELECT s.*, uds.actual_folder_name,
-             (SELECT COUNT(*) FROM user_roms ur WHERE ur.app_system_id = s.id) as rom_count,
+             (SELECT COUNT(*) FROM user_roms ur WHERE ur.app_system_id = s.id AND ur.is_hidden = 0) as rom_count,
              ss.recursive_scan,
              ss.hide_extension,
              ss.hide_parentheses,
@@ -3207,8 +3208,11 @@ class SqliteService {
         return false;
       });
 
-      // Synchronize exact ROM count from persistent storage.
-      final romCount = await getRomCountForSystem(system.id!);
+      // Synchronize exact ROM count from persistent storage. Hidden games are
+      // left out so the count always matches the list the user can see; the
+      // callers that decide whether a system still exists ask for the raw count
+      // instead ([getRomCountForSystem]).
+      final romCount = await getVisibleRomCountForSystem(system.id!);
       system = system.copyWith(romCount: romCount);
 
       // Enrich with user-specific system overrides.
@@ -3271,6 +3275,23 @@ class SqliteService {
     final db = await instance.database;
     final results = await db.rawQuery(
       'SELECT COUNT(*) as count FROM user_roms WHERE app_system_id = ?',
+      [systemId],
+    );
+    if (results.isEmpty) return 0;
+    return int.tryParse(results.first['count']?.toString() ?? '0') ?? 0;
+  }
+
+  /// Calculates the number of ROMs a system shows in its game list — the total
+  /// minus the ones the user hid.
+  ///
+  /// Never use this to decide whether a system still exists: a library whose
+  /// games are all hidden would prune the system and take the unhide UI with
+  /// it. Gate existence on [getRomCountForSystem].
+  static Future<int> getVisibleRomCountForSystem(String systemId) async {
+    final db = await instance.database;
+    final results = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM user_roms '
+      'WHERE app_system_id = ? AND is_hidden = 0',
       [systemId],
     );
     if (results.isEmpty) return 0;
@@ -3529,7 +3550,7 @@ class SqliteService {
     // Fetch systems with comprehensive metadata and game statistics.
     final results = await db.rawQuery('''
       SELECT s.*,
-             (SELECT COUNT(*) FROM user_roms ur WHERE ur.app_system_id = s.id) as rom_count,
+             (SELECT COUNT(*) FROM user_roms ur WHERE ur.app_system_id = s.id AND ur.is_hidden = 0) as rom_count,
              ss.recursive_scan,
              ss.custom_background_path,
              ss.custom_logo_path,
@@ -4133,7 +4154,7 @@ class SqliteService {
     final results = await db.rawQuery(
       '''
       SELECT
-        ur.filename, ur.rom_path, ur.is_favorite, ur.play_time, ur.last_played,
+        ur.filename, ur.rom_path, ur.is_favorite, ur.is_hidden, ur.play_time, ur.last_played,
         ur.cloud_sync_enabled, ur.title_id, ur.title_name,
         ur.app_emulator_unique_id as emulator_name,
         s.id as system_id, s.real_name as system_real_name, s.folder_name as system_folder_name,
@@ -4176,7 +4197,7 @@ class SqliteService {
     final db = await instance.database;
     final results = await db.rawQuery('''
       SELECT
-        ur.filename, ur.rom_path, ur.is_favorite, ur.play_time, ur.last_played,
+        ur.filename, ur.rom_path, ur.is_favorite, ur.is_hidden, ur.play_time, ur.last_played,
         ur.cloud_sync_enabled, ur.title_id, ur.title_name,
         ur.app_emulator_unique_id as emulator_name,
         s.id as system_id, s.real_name as system_real_name, s.folder_name as system_folder_name,
@@ -4208,7 +4229,7 @@ class SqliteService {
     final db = await instance.database;
     final results = await db.rawQuery('''
       SELECT
-        ur.filename, ur.rom_path, ur.is_favorite, ur.play_time, ur.last_played,
+        ur.filename, ur.rom_path, ur.is_favorite, ur.is_hidden, ur.play_time, ur.last_played,
         ur.cloud_sync_enabled, ur.title_id, ur.title_name,
         ur.app_emulator_unique_id as emulator_name,
         s.id as system_id, s.real_name as system_real_name, s.folder_name as system_folder_name,
@@ -4244,7 +4265,7 @@ class SqliteService {
     final results = await db.rawQuery(
       '''
       SELECT
-        ur.filename, ur.rom_path, ur.is_favorite, ur.play_time, ur.last_played,
+        ur.filename, ur.rom_path, ur.is_favorite, ur.is_hidden, ur.play_time, ur.last_played,
         ur.cloud_sync_enabled, ur.title_id, ur.title_name,
         ur.app_emulator_unique_id as emulator_name,
         s.id as system_id, s.real_name as system_real_name, s.folder_name as system_folder_name,
@@ -4444,6 +4465,93 @@ class SqliteService {
       where: 'app_system_id = ? AND filename = ?',
       whereArgs: [system.id, filename],
     );
+  }
+
+  /// Hides or unhides a single game.
+  ///
+  /// Hidden ROMs stay in the database (favorites, play time, saves and cloud
+  /// sync are all preserved) — they are only filtered out of the game lists.
+  /// The user restores them from the system's settings dialog.
+  static Future<void> setRomHidden(
+    String systemFolderName,
+    String filename,
+    bool hidden,
+  ) async {
+    final db = await instance.database;
+    final system = await getSystemByFolderName(systemFolderName);
+    await db.update(
+      'user_roms',
+      {'is_hidden': hidden ? 1 : 0},
+      where: 'app_system_id = ? AND filename = ?',
+      whereArgs: [system.id, filename],
+    );
+  }
+
+  /// Restores every hidden game of [systemId] in one shot.
+  static Future<void> unhideAllRomsForSystem(String systemId) async {
+    final db = await instance.database;
+    await db.update(
+      'user_roms',
+      {'is_hidden': 0},
+      where: 'app_system_id = ? AND is_hidden = 1',
+      whereArgs: [systemId],
+    );
+  }
+
+  /// Restores every hidden game across all systems.
+  static Future<void> unhideAllRoms() async {
+    final db = await instance.database;
+    await db.update('user_roms', {'is_hidden': 0}, where: 'is_hidden = 1');
+  }
+
+  /// Retrieves the games hidden by the user.
+  ///
+  /// Pass [systemId] to scope the result to a single system; omit it (or pass
+  /// the virtual `all` system) to list the hidden games of the whole library.
+  static Future<List<DatabaseGameModel>> getHiddenGames({
+    String? systemId,
+  }) async {
+    final db = await instance.database;
+    final results = await db.rawQuery(
+      '''
+      SELECT
+        ur.filename, ur.rom_path, ur.is_favorite, ur.is_hidden, ur.play_time, ur.last_played,
+        ur.cloud_sync_enabled, ur.title_id, ur.title_name,
+        ur.app_emulator_unique_id as emulator_name,
+        s.id as system_id, s.real_name as system_real_name, s.folder_name as system_folder_name,
+        s.short_name as system_short_name,
+        COALESCE(usm.real_name, CASE WHEN s.folder_name IN ('android') THEN ur.title_name END, ur.filename) as game_display_name,
+        usm.real_name as ss_real_name,
+        usm.rating,
+        ur.box2d_aspect_ratio
+      FROM user_roms ur
+      JOIN app_systems s ON ur.app_system_id = s.id
+      LEFT JOIN user_screenscraper_metadata usm ON ur.app_system_id = usm.app_system_id AND ur.filename = usm.filename
+      WHERE ur.is_hidden = 1
+        ${systemId == null ? '' : 'AND ur.app_system_id = ?'}
+      ORDER BY LOWER(system_real_name) ASC, LOWER(game_display_name) ASC
+    ''',
+      [?systemId],
+    );
+
+    return results.map((row) => DatabaseGameModel.fromJson(row)).toList();
+  }
+
+  /// Returns how many games are hidden, keyed by system id.
+  ///
+  /// One query for the whole library: the scan loop subtracts these from the
+  /// raw ROM counts so a system card never advertises games the list won't show.
+  static Future<Map<String, int>> getHiddenRomCountsBySystem() async {
+    final db = await instance.database;
+    final results = await db.rawQuery(
+      'SELECT app_system_id, COUNT(*) as count FROM user_roms '
+      'WHERE is_hidden = 1 GROUP BY app_system_id',
+    );
+    return {
+      for (final row in results)
+        row['app_system_id'].toString():
+            int.tryParse(row['count']?.toString() ?? '0') ?? 0,
+    };
   }
 
   /// Resets a game's play statistics (time and last played) to zero.

@@ -1138,4 +1138,19 @@ const Map<String, dynamic> appLocalePt = {
   AppLocale.wizardArtPackUnavailable:
       'Não foi possível acessar o pacote de arte agora. Você pode instalá-lo '
       'mais tarde nas Configurações quando estiver online.',
+
+  // Hide / unhide games
+  AppLocale.hideGame: 'Ocultar jogo',
+  AppLocale.hideGameSubtitle:
+      'Oculta-o das suas listas de jogos. Nada é excluído.',
+  AppLocale.hide: 'Ocultar',
+  AppLocale.unhide: 'Mostrar',
+  AppLocale.unhideAll: 'Mostrar todos',
+  AppLocale.gameHidden: '{name} ocultado',
+  AppLocale.gameUnhidden: '{name} restaurado',
+  AppLocale.allGamesUnhidden: 'Todos os jogos ocultos foram restaurados',
+  AppLocale.hiddenGames: 'Ocultos',
+  AppLocale.noHiddenGames: 'Nenhum jogo oculto',
+  AppLocale.noHiddenGamesSubtitle:
+      'Oculte um jogo nas configurações dele e ele aparecerá aqui.',
 };

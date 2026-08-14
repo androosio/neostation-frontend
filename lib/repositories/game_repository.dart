@@ -354,6 +354,30 @@ class GameRepository {
     enabled,
   );
 
+  /// Hides or unhides a ROM. Hidden games stay in the database — only the
+  /// game lists filter them out.
+  static Future<void> setGameHidden(
+    String systemFolderName,
+    String romname,
+    bool hidden,
+  ) => SqliteService.setRomHidden(systemFolderName, romname, hidden);
+
+  /// Returns the hidden games of [systemId], or of the whole library when
+  /// [systemId] is null.
+  static Future<List<DatabaseGameModel>> getHiddenGames({String? systemId}) =>
+      SqliteService.getHiddenGames(systemId: systemId);
+
+  /// Restores every hidden game of [systemId].
+  static Future<void> unhideAllGamesForSystem(String systemId) =>
+      SqliteService.unhideAllRomsForSystem(systemId);
+
+  /// Restores every hidden game across all systems.
+  static Future<void> unhideAllGames() => SqliteService.unhideAllRoms();
+
+  /// Returns the number of hidden games per system id.
+  static Future<Map<String, int>> getHiddenRomCountsBySystem() =>
+      SqliteService.getHiddenRomCountsBySystem();
+
   /// Resets play time and last played timestamp for a ROM.
   static Future<void> resetPlayTime(String systemFolderName, String romname) =>
       SqliteService.resetRomPlayTime(systemFolderName, romname);

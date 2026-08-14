@@ -973,6 +973,21 @@ mixin AppLocale {
   static const String deleteGameConfirm = 'delete_game_confirm';
   static const String deleteGameConfirmBody = 'delete_game_confirm_body';
   static const String deleteGameSubtitle = 'delete_game_subtitle';
+
+  // ---------------------------------------------------------------------------
+  // Hide / unhide games
+  // ---------------------------------------------------------------------------
+  static const String hideGame = 'hide_game';
+  static const String hideGameSubtitle = 'hide_game_subtitle';
+  static const String hide = 'hide';
+  static const String unhide = 'unhide';
+  static const String unhideAll = 'unhide_all';
+  static const String gameHidden = 'game_hidden';
+  static const String gameUnhidden = 'game_unhidden';
+  static const String allGamesUnhidden = 'all_games_unhidden';
+  static const String hiddenGames = 'hidden_games';
+  static const String noHiddenGames = 'no_hidden_games';
+  static const String noHiddenGamesSubtitle = 'no_hidden_games_subtitle';
   static const String restartRequired = 'restart_required';
   static const String restartRequiredBody = 'restart_required_body';
   static const String userDataLocationUpdated = 'user_data_location_updated';

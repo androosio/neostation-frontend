@@ -1154,4 +1154,19 @@ const Map<String, dynamic> appLocaleIt = {
   AppLocale.wizardArtPackUnavailable:
       'Al momento non è stato possibile raggiungere il pacchetto grafico. Puoi '
       'installarlo in seguito dalle Impostazioni una volta online.',
+
+  // Hide / unhide games
+  AppLocale.hideGame: 'Nascondi gioco',
+  AppLocale.hideGameSubtitle:
+      'Lo nasconde dalle liste dei giochi. Non viene eliminato nulla.',
+  AppLocale.hide: 'Nascondi',
+  AppLocale.unhide: 'Mostra',
+  AppLocale.unhideAll: 'Mostra tutti',
+  AppLocale.gameHidden: '{name} nascosto',
+  AppLocale.gameUnhidden: '{name} ripristinato',
+  AppLocale.allGamesUnhidden: 'Tutti i giochi nascosti sono stati ripristinati',
+  AppLocale.hiddenGames: 'Nascosti',
+  AppLocale.noHiddenGames: 'Nessun gioco nascosto',
+  AppLocale.noHiddenGamesSubtitle:
+      'Nascondi un gioco dalle sue impostazioni e comparirà qui.',
 };

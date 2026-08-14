@@ -1027,4 +1027,17 @@ const Map<String, dynamic> appLocaleJa = {
   AppLocale.wizardArtPackUnavailable:
       '現在アートパックにアクセスできませんでした。オンラインになったら、後で'
       '設定からインストールできます。',
+
+  // Hide / unhide games
+  AppLocale.hideGame: 'ゲームを非表示',
+  AppLocale.hideGameSubtitle: 'ゲーム一覧から隠します。削除はされません。',
+  AppLocale.hide: '非表示',
+  AppLocale.unhide: '再表示',
+  AppLocale.unhideAll: 'すべて再表示',
+  AppLocale.gameHidden: '{name} を非表示にしました',
+  AppLocale.gameUnhidden: '{name} を再表示しました',
+  AppLocale.allGamesUnhidden: '非表示のゲームをすべて再表示しました',
+  AppLocale.hiddenGames: '非表示',
+  AppLocale.noHiddenGames: '非表示のゲームはありません',
+  AppLocale.noHiddenGamesSubtitle: 'ゲーム設定から非表示にすると、ここに表示されます。',
 };

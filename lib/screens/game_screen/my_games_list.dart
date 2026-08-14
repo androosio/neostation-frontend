@@ -507,6 +507,7 @@ class _SystemGamesListState extends State<SystemGamesList> {
             widget.system.folderName == SystemFolderNames.favorites,
         onGameUpdated: _handleGameUpdated,
         onGameDeleted: _handleGameDeleted,
+        onGameHidden: _handleGameHidden,
       ),
     );
   }
@@ -1770,6 +1771,11 @@ class _SystemGamesListState extends State<SystemGamesList> {
     });
     _reorderGamesListKeepingVisualPosition();
   }
+
+  /// Called after a game is hidden. Hiding only takes the game out of the
+  /// lists, and this list is one of them — so it drops out exactly the way a
+  /// deleted game does.
+  void _handleGameHidden(String romname) => _handleGameDeleted(romname);
 
   /// Called after a game is permanently deleted. Removes it from the list and
   /// selects the previous game (or the next one if at the start).

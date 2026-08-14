@@ -168,6 +168,8 @@ extension _Chrome on _SystemEmulatorSettingsDialogState {
           ],
           SizedBox(width: 16.r),
           _buildTabItem(2, AppLocale.appearance.getString(context)),
+          SizedBox(width: 16.r),
+          _buildTabItem(3, AppLocale.hiddenGames.getString(context)),
           const Spacer(),
           // RB Icon
           Padding(
