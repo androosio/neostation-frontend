@@ -148,13 +148,9 @@ extension _GamepadNav on _SystemEmulatorSettingsDialogState {
   }
 
   void _previousTab() {
-    List<int> availableTabs = [0, 2, 3];
-    if (widget.system.folderName != 'all' &&
-        widget.system.folderName != 'android') {
-      availableTabs = [0, 1, 2, 3];
-    }
-
+    final availableTabs = _availableTabs;
     int currentIndex = availableTabs.indexOf(_currentTab);
+    if (currentIndex == -1) currentIndex = 0;
     int prevIndex =
         (currentIndex - 1 + availableTabs.length) % availableTabs.length;
     rebuild(() {
@@ -164,13 +160,9 @@ extension _GamepadNav on _SystemEmulatorSettingsDialogState {
   }
 
   void _nextTab() {
-    List<int> availableTabs = [0, 2, 3];
-    if (widget.system.folderName != 'all' &&
-        widget.system.folderName != 'android') {
-      availableTabs = [0, 1, 2, 3];
-    }
-
+    final availableTabs = _availableTabs;
     int currentIndex = availableTabs.indexOf(_currentTab);
+    if (currentIndex == -1) currentIndex = 0;
     int nextIndex = (currentIndex + 1) % availableTabs.length;
     rebuild(() {
       _currentTab = availableTabs[nextIndex];
