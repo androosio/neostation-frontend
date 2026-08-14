@@ -42,8 +42,7 @@
     },
     {
       "name": "Standalone ARMSX3",
-      "default_standalone": true,
-      "unique_id": "ps3.armsx3.",
+      "unique_id": "ps3.com.armsx3",
       "description": "Supported extensions: iso.",
       "is_retroachievements_compatible": false,
       "platforms": {
@@ -71,7 +70,7 @@
         "macos": {
           "executable": "rpcs3",
           "args": "--no-gui \"{file.path}\""
-      }
+        }
       }
     }
   ],
