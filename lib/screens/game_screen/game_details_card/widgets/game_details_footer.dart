@@ -208,6 +208,12 @@ class GameDetailsFooter extends StatelessWidget {
         final isFocused = Focus.of(context).hasFocus;
         return AnimatedContainer(
           duration: const Duration(milliseconds: 200),
+          // Deliberately a fixed width. The footer row has no slack — the
+          // achievements pill beside it is Expanded, so anything this button
+          // takes comes straight out of that pill (at 104.r it is already only
+          // ~97.r wide on a 640x480-design handheld, just enough for "0/9").
+          // Long labels are absorbed by scaling the text down, not by growing
+          // the button; see the FittedBox below.
           width: 104.r,
           height: 45.r,
           decoration: BoxDecoration(
@@ -255,14 +261,28 @@ class GameDetailsFooter extends StatelessWidget {
                       color: Theme.of(context).colorScheme.onPrimary,
                     ),
                     SizedBox(width: 8.r),
-                    Text(
-                      AppLocale.playButton.getString(context),
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.onPrimary,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 14.r,
-                        letterSpacing: 1.5,
-                        height: 1.0,
+                    // The label is localized and the button is a fixed width,
+                    // so only "PLAY" fits at the full 14.r: "SPIELEN",
+                    // "ИГРАТЬ" and "开始游戏" used to render past the pill's
+                    // right edge and off the screen. scaleDown shrinks just
+                    // those to fit — it never scales up, so every label that
+                    // already fit is untouched — and keeps the button's
+                    // footprint constant so the pills beside it don't move.
+                    Flexible(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          AppLocale.playButton.getString(context),
+                          maxLines: 1,
+                          softWrap: false,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onPrimary,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 14.r,
+                            letterSpacing: 1.5,
+                            height: 1.0,
+                          ),
+                        ),
                       ),
                     ),
                   ],
