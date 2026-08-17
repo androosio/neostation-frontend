@@ -168,6 +168,26 @@ class SystemsUpdateService {
     }
   }
 
+  /// Whether the cached system definitions are from a *newer* generation than
+  /// the ones bundled with this build.
+  ///
+  /// False on a tie, which is the steady state: after any systems update the
+  /// cached version equals the version the next app release bundles, because
+  /// the remote manifest is the bundled one. Callers use it to decide which
+  /// copy of a field to believe when both exist.
+  static Future<bool> cacheIsNewerThanBundle() async {
+    try {
+      final bundledVersion = await _readBundledManifestVersion();
+      final cachedVersion = await SqliteService.getSystemsVersion();
+      if (bundledVersion.isEmpty || cachedVersion.isEmpty) return false;
+      if (cachedVersion == bundledVersion) return false;
+      return _meetsMinimumVersion(cachedVersion, bundledVersion);
+    } catch (e) {
+      _log.w('SystemsUpdateService: cacheIsNewerThanBundle error: $e');
+      return false;
+    }
+  }
+
   /// Reads the `latest_version` from the manifest bundled with this app build.
   static Future<String> _readBundledManifestVersion() async {
     try {
