@@ -30,11 +30,10 @@ static const uint8_t kSyncHeader[12] = {0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
 typedef struct {
   int32_t number;
   int32_t mode;
-  uint32_t frames;      /* stored length, including a stored pregap */
-  uint32_t pregap;      /* frames of pregap actually present in the file */
-  uint32_t gap;         /* frames of pregap the disc addresses, stored or not */
-  uint32_t start;       /* first physical frame of the track within the CHD */
-  uint32_t start_lba;   /* first sector of the track as the disc addresses it */
+  uint32_t frames;    /* total stored length, pregap included */
+  uint32_t pregap;    /* leading frames that are gap rather than track data */
+  uint32_t start;     /* first physical frame of the track within the CHD */
+  uint32_t start_lba; /* first sector of the track as the disc addresses it */
 } nchd_track;
 
 struct nchd_disc {
@@ -79,11 +78,11 @@ static uint32_t nchd_read_track_metadata(chd_file *chd, uint32_t index,
 
   memset(track, 0, sizeof(*track));
   metadata[0] = '\0';
-  pgtype[0] = 'V'; /* a pregap nothing describes is a virtual one */
-  pgtype[1] = '\0';
+  pgtype[0] = '\0';
 
-  /* CHT2 is what chdman writes today: it carries the pregap, which decides
-   * whether sector 0 of the track is the first stored frame or 150 frames in. */
+  /* CHT2 is what chdman writes today, and the only form that carries the
+   * pregap — which decides whether sector 0 of the track is its first stored
+   * frame or a few hundred frames in. */
   if (chd_get_metadata(chd, CDROM_TRACK_METADATA2_TAG, index, metadata,
                        sizeof(metadata), &length, NULL, NULL) == CHDERR_NONE) {
     if (sscanf(metadata, CDROM_TRACK_METADATA2_FORMAT, &number, type, subtype,
@@ -114,11 +113,17 @@ static uint32_t nchd_read_track_metadata(chd_file *chd, uint32_t index,
   track->number = number;
   track->mode = nchd_mode_for_type(type);
   track->frames = (uint32_t)frames;
-  /* A pregap always occupies disc addresses, but only a non-virtual one takes
-   * up frames in the file — so one number decides where the track's sectors
-   * start on the disc and the other where they start in the image. */
-  track->gap = pregap > 0 ? (uint32_t)pregap : 0u;
-  track->pregap = (pgtype[0] == 'V') ? 0u : track->gap;
+  /* A declared pregap is always present in the image and always counted in
+   * FRAMES, whatever PGTYPE says. The `V` prefix chdman writes there means the
+   * pregap was not in the *source* image, not that it is absent from this one:
+   * it synthesises the frames and stores them as silence. Measured on a real
+   * PC Engine CD, whose data track declares `PGTYPE:VMODE1_RAW PREGAP:225` and
+   * begins 225 frames of zeroes into its own span — and confirmed by
+   * arithmetic, since the sum of every track's FRAMES plus padding accounts for
+   * the whole file exactly. Reading a track from frame 0 lands in that silence
+   * and identifies nothing. */
+  track->pregap = pregap > 0 ? (uint32_t)pregap : 0u;
+  if (track->pregap > track->frames) track->pregap = 0u;
 
   if (pad > 0) return track->frames + (uint32_t)pad;
   return track->frames + nchd_padding_frames(track->frames);
@@ -160,9 +165,9 @@ static nchd_disc *nchd_create(chd_file *chd, FILE *fp, int32_t *out_error) {
     uint32_t occupied = nchd_read_track_metadata(chd, index, &track);
     if (occupied == 0) break;
     track.start = start;
-    /* The disc addresses the pregap before the track proper, whether or not
-     * the image stores those frames. */
-    track.start_lba = start_lba + track.gap;
+    /* The disc addresses the gap before the track proper, so the track's own
+     * first sector is that far past where the previous track's data ended. */
+    track.start_lba = start_lba + track.pregap;
     disc->tracks[disc->track_count++] = track;
     start += occupied;
     start_lba = track.start_lba + (track.frames - track.pregap);
@@ -345,8 +350,8 @@ FFI_PLUGIN_EXPORT int32_t nchd_read_sector(nchd_disc *disc, int32_t track_index,
   track = &disc->tracks[track_index];
   if (lba >= track->frames - track->pregap) return -1;
 
-  /* Skip the pregap the file actually holds, so sector 0 is the sector the
-   * disc's own filesystem calls 0. */
+  /* Skip the track's pregap, so sector 0 is the first sector of the track's
+   * own data rather than the silence in front of it. */
   frame = track->start + track->pregap + lba;
   hunk_number = frame / disc->frames_per_hunk;
   frame_offset = (frame % disc->frames_per_hunk) * disc->unit_bytes;
