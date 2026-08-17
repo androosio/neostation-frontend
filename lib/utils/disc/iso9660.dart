@@ -53,7 +53,9 @@ class Iso9660 {
   /// sector, with its length expressed in sectors.
   static Future<IsoFile?> _readRootDirectory(DiscTrack track) async {
     final buffer = await track.read(track.info.startLba + 16);
-    if (buffer == null || buffer.length < 160) return null;
+    // The root directory record ends 190 bytes in; a shorter read cannot
+    // answer, and reading past it would throw rather than fail.
+    if (buffer == null || buffer.length < 190) return null;
 
     // The root directory record sits 156 bytes into the descriptor; its extent
     // is 2 bytes into that, and its length 10 bytes in, both little-endian.
