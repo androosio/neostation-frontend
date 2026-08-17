@@ -18,8 +18,18 @@ import 'package:ffi/ffi.dart';
 
 const String _libName = 'flutter_chd';
 
+/// An absolute path to load the native library from instead of the bundled
+/// one. Null in an app, where Flutter ships the library beside the binary.
+///
+/// This exists for tests: `flutter test` runs in the Dart VM with no plugin
+/// build, so a test that wants to exercise the reader has to build the library
+/// itself and say where it put it. Set it before the first call.
+String? chdLibraryOverridePath;
+
 /// The dynamic library holding the native reader.
 final DynamicLibrary _dylib = () {
+  final override = chdLibraryOverridePath;
+  if (override != null) return DynamicLibrary.open(override);
   if (Platform.isMacOS || Platform.isIOS) {
     return DynamicLibrary.open('$_libName.framework/$_libName');
   }
