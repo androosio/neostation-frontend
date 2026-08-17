@@ -434,6 +434,14 @@ class MainActivity: MultiDisplayFlutterActivity(), GamepadsCompatibleActivity {
                         result.error("INVALID_ARGUMENTS", "URI is required", null)
                     }
                 }
+                "openSafFileDescriptor" -> {
+                    val uriString = call.argument<String>("uri")
+                    if (uriString != null) {
+                        openSafFileDescriptor(uriString, result)
+                    } else {
+                        result.error("INVALID_ARGUMENTS", "URI is required", null)
+                    }
+                }
                 "getSafFileSize" -> {
                     val uriString = call.argument<String>("uri")
                     if (uriString != null) {
@@ -1709,6 +1717,35 @@ class MainActivity: MultiDisplayFlutterActivity(), GamepadsCompatibleActivity {
             } catch (e: Exception) {
                 runOnUiThread {
                     result.error("READ_FAILED", e.message, null)
+                }
+            }
+        }.start()
+    }
+
+    /**
+     * Opens a SAF document and detaches its file descriptor for native code.
+     *
+     * The CHD reader seeks all over a multi-gigabyte disc image, so going back
+     * through this channel per read would cost thousands of round trips. The
+     * descriptor is detached rather than closed here: whoever asked for it owns
+     * it, and the native reader closes it when it closes the disc.
+     */
+    private fun openSafFileDescriptor(uriString: String, result: MethodChannel.Result) {
+        Thread {
+            try {
+                val uri = Uri.parse(uriString)
+                val pfd = contentResolver.openFileDescriptor(uri, "r")
+
+                if (pfd == null) {
+                    runOnUiThread { result.error("OPEN_FAILED", "Could not open file descriptor", null) }
+                    return@Thread
+                }
+
+                val fd = pfd.detachFd()
+                runOnUiThread { result.success(fd) }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    result.error("OPEN_FAILED", e.message, null)
                 }
             }
         }.start()
