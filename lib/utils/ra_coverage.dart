@@ -19,8 +19,10 @@ enum RaCoverage {
   /// no set to be missing.
   unsupportedSystem,
 
-  /// A disc image. Disc hashing is not implemented yet, so an absent match here
-  /// carries no information about whether the game has a set.
+  /// A disc image nothing has read. The systems whose containers the disc
+  /// reader opens are hashed like anything else; this is what is left — a
+  /// `.gdi`, a `.cdi`, a compressed `.cso` — where an absent match carries no
+  /// information about whether the game has a set.
   pendingDiscSupport,
 
   /// Hashing has never been attempted for this ROM. "No achievements" would be
@@ -38,10 +40,11 @@ enum RaCoverage {
 
 /// Containers that hold a disc image rather than a cartridge dump.
 ///
-/// Disc images are hashed from their primary executable, which needs a CHD /
-/// ISO9660 reader the app does not have yet, so the plain whole-file MD5 they
-/// currently get can never match. Kept here rather than in the hash service so
-/// the UI can explain the gap without depending on the hashing layer.
+/// Used only to explain a ROM that has *not* been hashed: a disc image is
+/// identified by its boot executable, so an unread one says nothing about
+/// whether the game has a set, while an unread cartridge is simply unchecked.
+/// Kept here rather than in the hash service so the UI can explain the gap
+/// without depending on the hashing layer.
 const Set<String> kDiscImageExtensions = {
   'chd',
   'iso',
@@ -91,9 +94,14 @@ RaCoverage raCoverageOf({
   // game id is on the row.
   if (idRa != null && idRa > 0) return RaCoverage.matched;
   if (!isRaSupportedSystem(systemRaId)) return RaCoverage.unsupportedSystem;
+  // A hash means the ROM was read and identified as far as it can be, whatever
+  // container it arrived in. Disc images used to be excluded here because the
+  // whole-file MD5 they got could never match, so the hash on the row proved
+  // nothing; now that they are hashed from their boot executable it proves the
+  // same thing a cartridge's hash does.
+  if (raHash != null && raHash.isNotEmpty) return RaCoverage.noSet;
   if (isDiscImageFilename(filename)) return RaCoverage.pendingDiscSupport;
-  if (raHash == null || raHash.isEmpty) return RaCoverage.notChecked;
-  return RaCoverage.noSet;
+  return RaCoverage.notChecked;
 }
 
 /// The coverage states the library can filter on, in the order the chip cycles.

@@ -84,13 +84,17 @@ void main() {
       expect(of(filename: 'Game.chd'), RaCoverage.pendingDiscSupport);
     });
 
-    test('a disc image stays pending even once something hashed it', () {
-      // The current whole-file MD5 of a disc can never match, so the hash on
-      // the row proves nothing about coverage.
-      expect(
-        of(filename: 'Game.chd', raHash: 'deadbeef'),
-        RaCoverage.pendingDiscSupport,
-      );
+    test('a hashed disc image reports no set, like any other ROM', () {
+      // Disc images are now hashed from their boot executable, so a hash on
+      // the row means the same thing it means for a cartridge: this dump was
+      // read and RetroAchievements does not register it.
+      expect(of(filename: 'Game.chd', raHash: 'deadbeef'), RaCoverage.noSet);
+    });
+
+    test('an unread disc image is still pending, not missing', () {
+      // What is left are the containers the reader does not open — a .gdi, a
+      // .cdi — where an absent match says nothing about the game.
+      expect(of(filename: 'Game.gdi'), RaCoverage.pendingDiscSupport);
     });
 
     test('a cartridge nothing has hashed is unknown, not empty', () {
