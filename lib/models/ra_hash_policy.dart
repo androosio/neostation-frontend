@@ -40,12 +40,56 @@ enum RaHashAlgo {
 
   /// MD5 of the MAME short name, not of any file content. Archives are left
   /// packed, because the archive *is* the ROM as far as RA is concerned.
-  arcade('arcade');
+  arcade('arcade'),
+
+  /// PlayStation: the boot executable named by `SYSTEM.CNF`, hashed with its
+  /// own filename.
+  psx('psx'),
+
+  /// PlayStation 2: the same, from the `BOOT2` key.
+  ps2('ps2'),
+
+  /// PSP: `PARAM.SFO` followed by `EBOOT.BIN`.
+  psp('psp'),
+
+  /// Sega CD: the disc's first 512 bytes, which hold the volume and ROM
+  /// headers.
+  segacd('segacd'),
+
+  /// Saturn: the same 512 bytes, under its own name because a system's JSON
+  /// should read as the console it is.
+  saturn('saturn'),
+
+  /// PC Engine CD: the boot header in sector 1 and the program it points at.
+  pcecd('pcecd');
 
   const RaHashAlgo(this.jsonName);
 
   /// The value written in `assets/systems/<sys>.json`.
   final String jsonName;
+
+  /// Whether the hash covers something *inside* a disc image rather than the
+  /// file itself.
+  ///
+  /// Disc systems need their own reader, are exempt from the file size cap that
+  /// protects the cartridge path — nothing reads a whole disc — and their ROMs
+  /// are the ones the bulk pass used to park as unhashable.
+  bool get isDisc => switch (this) {
+    RaHashAlgo.psx ||
+    RaHashAlgo.ps2 ||
+    RaHashAlgo.psp ||
+    RaHashAlgo.segacd ||
+    RaHashAlgo.saturn ||
+    RaHashAlgo.pcecd => true,
+    _ => false,
+  };
+
+  /// The names of every disc algorithm, for the SQL that has to select the
+  /// systems using one.
+  static List<String> get discJsonNames => RaHashAlgo.values
+      .where((algo) => algo.isDisc)
+      .map((algo) => algo.jsonName)
+      .toList(growable: false);
 
   /// Parses [value], falling back to [RaHashAlgo.file] for anything unknown —
   /// an older build reading a newer systems JSON, or a system that declares no

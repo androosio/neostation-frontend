@@ -15,8 +15,8 @@
       "retroachievements": 12
     },
     "ra_hash": {
-      "algo": "file",
-      "mode": "filename_fallback"
+      "algo": "psx",
+      "mode": "hash_only"
     },
     "folders": [
       "ps1",

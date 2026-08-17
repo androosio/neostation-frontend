@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:neostation/data/datasources/sqlite_service.dart';
+import 'package:neostation/models/ra_hash_policy.dart';
 import 'package:neostation/repositories/retro_achievements_repository.dart';
 
 import 'database_test_helper.dart';
@@ -308,19 +309,37 @@ void main() {
         expect(candidates.first.systemFolderName, 'nes');
       });
 
-      test('getRomsNeedingRaHash excludes disc systems by default', () async {
-        await db.execute(
-          "INSERT INTO user_roms (filename, rom_path, app_system_id) VALUES ('disc.chd', '/roms/ps1/disc.chd', 'ps1')",
-        );
+      test(
+        'getRomsNeedingRaHash excludes a disc system with no disc algorithm',
+        () async {
+          // Hashing the container of a disc image produces something
+          // RetroAchievements has never registered, so a disc system is only
+          // worth walking once it declares an algorithm that reads inside it.
+          await db.execute(
+            "INSERT INTO user_roms (filename, rom_path, app_system_id) VALUES ('disc.chd', '/roms/ps1/disc.chd', 'ps1')",
+          );
 
-        expect(await RetroAchievementsRepository.getRomsNeedingRaHash(), []);
+          expect(await RetroAchievementsRepository.getRomsNeedingRaHash(), []);
+        },
+      );
 
-        final withDiscs =
-            await RetroAchievementsRepository.getRomsNeedingRaHash(
-              includeDiscSystems: true,
-            );
-        expect(withDiscs.map((c) => c.filename), ['disc.chd']);
-      });
+      test(
+        'getRomsNeedingRaHash includes a disc system that declares one',
+        () async {
+          await db.execute(
+            "UPDATE app_systems SET ra_hash_algo = 'psx', ra_hash_mode = 'hash_only' WHERE id = 'ps1'",
+          );
+          await db.execute(
+            "INSERT INTO user_roms (filename, rom_path, app_system_id) VALUES ('disc.chd', '/roms/ps1/disc.chd', 'ps1')",
+          );
+
+          final candidates =
+              await RetroAchievementsRepository.getRomsNeedingRaHash();
+
+          expect(candidates.map((c) => c.filename), ['disc.chd']);
+          expect(candidates.single.policy.algo, RaHashAlgo.psx);
+        },
+      );
 
       test('getRomsNeedingRaHash skips systems RA does not support', () async {
         await db.execute(

@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:neostation/services/retroachievements_hash_service.dart';
+import 'package:neostation/utils/disc/ra_disc_hash.dart';
 
 import 'database_test_helper.dart';
 
@@ -59,6 +60,79 @@ void main() {
         RetroAchievementsHashService.isDiscContainer('/roms/ps1/GAME.CHD'),
         isTrue,
       );
+    });
+  });
+
+  group('containers the disc reader can open', () {
+    test('recognises the ones it reads', () {
+      for (final path in const [
+        '/roms/ps1/Game.chd',
+        '/roms/ps1/Game.cue',
+        '/roms/ps2/Game.iso',
+        '/roms/ps1/Game.m3u',
+        '/roms/psp/Game.pbp',
+        '/roms/ps1/GAME.CHD',
+      ]) {
+        expect(RaDiscHash.canHash(path), isTrue, reason: path);
+      }
+    });
+
+    test('rejects the ones it does not, so they are parked not guessed', () {
+      // A container this cannot open must be recorded as unhashable rather
+      // than hashed some other way, which would produce something
+      // RetroAchievements never registered.
+      for (final path in const [
+        '/roms/dc/Game.gdi',
+        '/roms/dc/Game.cdi',
+        '/roms/psp/Game.cso',
+        '/roms/gc/Game.rvz',
+      ]) {
+        expect(RaDiscHash.canHash(path), isFalse, reason: path);
+      }
+    });
+  });
+
+  group('a disc system reaches the pass', () {
+    final dbHelper = DatabaseTestHelper();
+    late dynamic db;
+
+    setUp(() async {
+      db = await dbHelper.setUp();
+      await db.execute(
+        "INSERT INTO app_systems (id, real_name, folder_name, ra_id, multidisc)"
+        " VALUES ('ps1', 'PlayStation', 'ps1', '12', 1)",
+      );
+      await db.execute(
+        "INSERT INTO user_roms (filename, rom_path, app_system_id) "
+        "VALUES ('Game.chd', '/roms/ps1/Game.chd', 'ps1')",
+      );
+    });
+
+    tearDown(() async {
+      await dbHelper.tearDown();
+    });
+
+    test('is walked once it declares a disc algorithm', () async {
+      await db.execute(
+        "UPDATE app_systems SET ra_hash_algo = 'psx', "
+        "ra_hash_mode = 'hash_only' WHERE id = 'ps1'",
+      );
+
+      final result = await RetroAchievementsHashService.rematchLibrary();
+
+      expect(result.total, 1);
+      // The file is not there, so it parks — but as a missing file, which is
+      // the truth, rather than as a disc image nothing can hash.
+      final row = await db.rawQuery(
+        "SELECT ra_hash_skipped FROM user_roms WHERE filename = 'Game.chd'",
+      );
+      expect(row.first['ra_hash_skipped'], 'missing');
+    });
+
+    test('is left out while it declares none', () async {
+      final result = await RetroAchievementsHashService.rematchLibrary();
+
+      expect(result.total, 0);
     });
   });
 

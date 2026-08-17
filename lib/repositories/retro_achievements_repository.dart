@@ -2,6 +2,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../data/datasources/sqlite_service.dart';
 import '../models/database_game_model.dart';
 import '../models/ra_game_list_entry.dart';
+import '../models/ra_hash_policy.dart';
 import '../models/ra_match_candidate.dart';
 import '../models/retro_achievements_dashboard_models.dart';
 import '../services/logger_service.dart';
@@ -184,10 +185,16 @@ class RetroAchievementsRepository {
   /// ROMs parked by an earlier run (see [markRomRaHashSkipped]) are excluded
   /// too, so a file that can never be hashed does not reappear every run.
   static Future<List<RaMatchCandidate>> getRomsNeedingRaHash({
-    bool includeDiscSystems = false,
     bool includeSkipped = false,
   }) async {
     final db = await SqliteService.getDatabase();
+    // A disc system is only worth walking once it declares an algorithm that
+    // reads inside the image; without one, hashing the container produces
+    // something RetroAchievements has never registered. Which systems those
+    // are is the policy's business, so the names come from it rather than
+    // being spelled out here.
+    final discAlgos = RaHashAlgo.discJsonNames;
+    final placeholders = List.filled(discAlgos.length, '?').join(', ');
     final rows = await db.rawQuery('''
       SELECT ur.rom_path, ur.filename, ur.ra_hash,
              s.folder_name AS system_folder_name,
@@ -199,9 +206,10 @@ class RetroAchievementsRepository {
         AND ur.rom_path IS NOT NULL AND ur.rom_path != ''
         AND s.ra_id IS NOT NULL
         ${includeSkipped ? '' : 'AND ur.ra_hash_skipped IS NULL'}
-        ${includeDiscSystems ? '' : 'AND COALESCE(s.multidisc, 0) = 0'}
+        AND (COALESCE(s.multidisc, 0) = 0
+             OR s.ra_hash_algo IN ($placeholders))
       ORDER BY s.folder_name, ur.filename
-    ''');
+    ''', discAlgos);
     return rows.map((r) => RaMatchCandidate.fromRow(Map.from(r))).toList();
   }
 

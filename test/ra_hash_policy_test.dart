@@ -139,6 +139,39 @@ void main() {
       });
     });
 
+    test('only a disc system declares a disc algorithm', () {
+      // A disc algorithm reads a filesystem inside the image. Pointed at a
+      // cartridge folder it would find none and the system would match
+      // nothing at all, which is a worse failure than the wrong algorithm.
+      final discNames = RaHashAlgo.discJsonNames.toSet();
+      systems.forEach((id, system) {
+        final algo = system['ra_hash']?['algo'];
+        if (algo == null || !discNames.contains(algo)) return;
+        expect(
+          system['multidisc'],
+          isTrue,
+          reason: '$id.json is not a disc system',
+        );
+        expect(
+          (system['ids'] as Map?)?['retroachievements'],
+          isNotNull,
+          reason: '$id.json has no RetroAchievements console',
+        );
+      });
+    });
+
+    test('a system that reads inside its discs never guesses by filename', () {
+      // Guessing is what attached partial sets and subsets to PlayStation
+      // games (issue #8): a disc whose dump RetroAchievements has not
+      // registered cannot earn anything, so naming it is worse than silence.
+      final discNames = RaHashAlgo.discJsonNames.toSet();
+      systems.forEach((id, system) {
+        final algo = system['ra_hash']?['algo'];
+        if (algo == null || !discNames.contains(algo)) return;
+        expect(system['ra_hash']?['mode'], 'hash_only', reason: '$id mode');
+      });
+    });
+
     test('hack folders never guess by filename', () {
       // A hack is precisely the ROM RetroAchievements has not registered, so a
       // title guess there attaches a set the user can never earn.

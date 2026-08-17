@@ -15,8 +15,8 @@
       "retroachievements": 21
     },
     "ra_hash": {
-      "algo": "file",
-      "mode": "filename_fallback"
+      "algo": "ps2",
+      "mode": "hash_only"
     },
     "folders": [
       "ps2",

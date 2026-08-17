@@ -6,6 +6,7 @@ import '../models/ra_hash_policy.dart';
 import '../models/ra_match_candidate.dart';
 import '../repositories/retro_achievements_repository.dart';
 import '../repositories/system_repository.dart';
+import '../utils/disc/ra_disc_hash.dart';
 import '../utils/optimized_md5_utils.dart';
 import 'archive_service.dart';
 
@@ -67,12 +68,17 @@ class RetroAchievementsHashService {
         return existingHash;
       }
 
-      final fileSize = await OptimizedMd5Utils.getFileSize(game.romPath!);
-      if (fileSize > maxFileSizeBytes) {
-        return null;
-      }
-
       final policy = await policyForSystem(game.systemFolderName);
+
+      // The cap protects the cartridge path, which reads whole files. Disc
+      // hashing reads a handful of sectors however large the image is, and
+      // every disc image is over the cap.
+      if (!policy.algo.isDisc) {
+        final fileSize = await OptimizedMd5Utils.getFileSize(game.romPath!);
+        if (fileSize > maxFileSizeBytes) {
+          return null;
+        }
+      }
 
       String romPathToProcess = game.romPath!;
       final bool isArchive =
@@ -151,7 +157,6 @@ class RetroAchievementsHashService {
   /// lives in [RetroAchievementsRepository].
   static Future<RaRematchResult> rematchLibrary({
     RaRematchMode mode = RaRematchMode.hashMissing,
-    bool includeDiscSystems = false,
     void Function(int processed, int total, String label)? onProgress,
     bool Function()? isCancelled,
   }) async {
@@ -173,7 +178,6 @@ class RetroAchievementsHashService {
     try {
       return await _runRematch(
         mode: mode,
-        includeDiscSystems: includeDiscSystems,
         onProgress: onProgress,
         isCancelled: isCancelled,
       );
@@ -185,7 +189,6 @@ class RetroAchievementsHashService {
 
   static Future<RaRematchResult> _runRematch({
     required RaRematchMode mode,
-    required bool includeDiscSystems,
     void Function(int processed, int total, String label)? onProgress,
     bool Function()? isCancelled,
   }) async {
@@ -194,9 +197,7 @@ class RetroAchievementsHashService {
         _rematchPauseRequested || (isCancelled?.call() ?? false);
     var candidates = mode == RaRematchMode.lookupOnly
         ? await RetroAchievementsRepository.getRomsNeedingRaGameId()
-        : await RetroAchievementsRepository.getRomsNeedingRaHash(
-            includeDiscSystems: includeDiscSystems,
-          );
+        : await RetroAchievementsRepository.getRomsNeedingRaHash();
 
     // Everything hashable is done, but some ROMs were parked as unhashable on
     // an earlier run. Give those one more go — the user may have restored a
@@ -206,9 +207,7 @@ class RetroAchievementsHashService {
       final reopened = await RetroAchievementsRepository.clearRaHashSkips();
       if (reopened > 0) {
         _log.i('RA re-match: retrying $reopened previously skipped ROMs');
-        candidates = await RetroAchievementsRepository.getRomsNeedingRaHash(
-          includeDiscSystems: includeDiscSystems,
-        );
+        candidates = await RetroAchievementsRepository.getRomsNeedingRaHash();
       }
     }
 
@@ -309,8 +308,17 @@ class RetroAchievementsHashService {
   static Future<({String? hash, String? skipReason})> _hashCandidate(
     RaMatchCandidate candidate,
   ) async {
-    if (isDiscContainer(candidate.romPath)) {
-      // A disc image needs RA's own disc hashing, not a hash of the container.
+    final isDisc = candidate.policy.algo.isDisc;
+
+    if (isDisc) {
+      // A container the disc reader cannot open — a .gdi, a compressed .cso —
+      // is parked rather than hashed wrongly.
+      if (!RaDiscHash.canHash(candidate.romPath)) {
+        return (hash: null, skipReason: RetroAchievementsRepository.raSkipDisc);
+      }
+    } else if (isDiscContainer(candidate.romPath)) {
+      // A stray disc image in a cartridge system's folder: hashing the
+      // container would produce something RetroAchievements never registered.
       return (hash: null, skipReason: RetroAchievementsRepository.raSkipDisc);
     }
 
@@ -322,8 +330,10 @@ class RetroAchievementsHashService {
       );
     }
 
-    if (await OptimizedMd5Utils.getFileSize(candidate.romPath) >
-        maxFileSizeBytes) {
+    // Disc hashing reads a few sectors of an image that is always over the cap.
+    if (!isDisc &&
+        await OptimizedMd5Utils.getFileSize(candidate.romPath) >
+            maxFileSizeBytes) {
       return (
         hash: null,
         skipReason: RetroAchievementsRepository.raSkipOversize,
@@ -453,6 +463,10 @@ class RetroAchievementsHashService {
     final algo = RaHashAlgo.fromJson(params['algo']?.toString());
 
     try {
+      // A disc's hash covers the boot executable inside the image, so it needs
+      // the disc reader rather than any transformation of the file's bytes.
+      if (algo.isDisc) return await RaDiscHash.compute(algo, romPath);
+
       return switch (algo) {
         RaHashAlgo.nes => await OptimizedMd5Utils.calculateNesMd5(romPath),
         RaHashAlgo.snes => await OptimizedMd5Utils.calculateSnesMd5(romPath),
@@ -466,7 +480,7 @@ class RetroAchievementsHashService {
           romPath,
         ),
         RaHashAlgo.arcade => OptimizedMd5Utils.calculateArcadeMd5(romPath),
-        RaHashAlgo.file => await OptimizedMd5Utils.calculateFileMd5(romPath),
+        _ => await OptimizedMd5Utils.calculateFileMd5(romPath),
       };
     } catch (e) {
       _log.e('Error generating ${algo.jsonName} hash for $romPath: $e');

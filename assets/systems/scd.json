@@ -15,8 +15,8 @@
       "retroachievements": 9
     },
     "ra_hash": {
-      "algo": "file",
-      "mode": "filename_fallback"
+      "algo": "segacd",
+      "mode": "hash_only"
     },
     "folders": [
       "scd",

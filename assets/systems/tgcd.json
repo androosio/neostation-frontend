@@ -15,8 +15,8 @@
       "retroachievements": 76
     },
     "ra_hash": {
-      "algo": "file",
-      "mode": "filename_fallback"
+      "algo": "pcecd",
+      "mode": "hash_only"
     },
     "folders": [
       "tgcd",

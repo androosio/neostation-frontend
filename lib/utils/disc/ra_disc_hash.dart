@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import '../../models/ra_hash_policy.dart';
 import '../../services/logger_service.dart';
 import '../optimized_md5_utils.dart';
 import 'binary_disc_image.dart';
@@ -8,13 +9,6 @@ import 'disc_image.dart';
 import 'disc_paths.dart';
 import 'm3u_playlist.dart';
 import 'ra_disc_hasher.dart';
-
-/// Which console's disc layout a system uses.
-///
-/// The container (`.chd`, `.cue`, `.iso`) and the console are independent: a
-/// PlayStation game and a Sega CD game can arrive in the same container and
-/// still need entirely different hashes.
-enum DiscConsole { playstation, playstation2, psp, segaCd, saturn, pcEngineCd }
 
 /// Produces the hash RetroAchievements would recognise for a disc image.
 class RaDiscHash {
@@ -38,18 +32,18 @@ class RaDiscHash {
     return supportedExtensions.any(lower.endsWith);
   }
 
-  /// Hashes the disc at [romPath] the way [console] expects, or returns null
-  /// when the image cannot be read or holds no recognisable game.
-  static Future<String?> compute(DiscConsole console, String romPath) async {
+  /// Hashes the disc at [romPath] the way [algo]'s console expects, or returns
+  /// null when the image cannot be read or holds no recognisable game.
+  static Future<String?> compute(RaHashAlgo algo, String romPath) async {
+    if (!algo.isDisc) return null;
+
     final resolved = await _resolvePlaylist(romPath);
     if (resolved == null) return null;
 
-    final lower = resolved.toLowerCase();
-
     // A PSP `.pbp` is an archive of the metadata and the executable both, so
     // RetroAchievements hashes the whole file rather than unpacking it.
-    if (lower.endsWith('.pbp')) {
-      if (console != DiscConsole.psp) return null;
+    if (resolved.toLowerCase().endsWith('.pbp')) {
+      if (algo != RaHashAlgo.psp) return null;
       return OptimizedMd5Utils.calculateFileMd5(resolved);
     }
 
@@ -60,20 +54,21 @@ class RaDiscHash {
     }
 
     try {
-      final trackIndex = _trackIndexFor(console, image);
+      final trackIndex = _trackIndexFor(algo, image);
       if (trackIndex < 0) {
         _log.w('RA disc: no usable track in $resolved');
         return null;
       }
       final track = DiscTrack(image, trackIndex);
 
-      return switch (console) {
-        DiscConsole.playstation => await RaDiscHasher.hashPlaystation(track),
-        DiscConsole.playstation2 => await RaDiscHasher.hashPlaystation2(track),
-        DiscConsole.psp => await RaDiscHasher.hashPsp(track),
-        DiscConsole.segaCd ||
-        DiscConsole.saturn => await RaDiscHasher.hashSegaDisc(track),
-        DiscConsole.pcEngineCd => await RaDiscHasher.hashPcEngineCd(track),
+      return switch (algo) {
+        RaHashAlgo.psx => await RaDiscHasher.hashPlaystation(track),
+        RaHashAlgo.ps2 => await RaDiscHasher.hashPlaystation2(track),
+        RaHashAlgo.psp => await RaDiscHasher.hashPsp(track),
+        RaHashAlgo.segacd ||
+        RaHashAlgo.saturn => await RaDiscHasher.hashSegaDisc(track),
+        RaHashAlgo.pcecd => await RaDiscHasher.hashPcEngineCd(track),
+        _ => null,
       };
     } finally {
       await image.close();
@@ -93,8 +88,8 @@ class RaDiscHash {
   /// PlayStation and Sega discs put it first; a PC Engine CD leads with an
   /// audio track often enough that the first *data* track is the only reliable
   /// answer there.
-  static int _trackIndexFor(DiscConsole console, DiscImage image) {
-    if (console == DiscConsole.pcEngineCd) return image.firstDataTrackIndex;
+  static int _trackIndexFor(RaHashAlgo algo, DiscImage image) {
+    if (algo == RaHashAlgo.pcecd) return image.firstDataTrackIndex;
     for (var i = 0; i < image.tracks.length; i++) {
       if (image.tracks[i].number == 1) return i;
     }

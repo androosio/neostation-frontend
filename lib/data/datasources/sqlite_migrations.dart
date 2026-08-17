@@ -498,6 +498,9 @@ class SqliteMigrations {
       case 131:
         await _migrateToVersion131(db);
         break;
+      case 134:
+        await _migrateToVersion134(db);
+        break;
       default:
         _log.w('No migration defined for version $version');
     }
@@ -6172,6 +6175,71 @@ class SqliteMigrations {
     final cleared = db.select('SELECT changes() AS n').first['n'];
     if ((cleared as int) > 0) {
       _log.i('v130: cleared $cleared stale hack-folder hashes for re-matching');
+    }
+  }
+
+  /// Migration v134: reopens disc ROMs now that they can be hashed properly.
+  ///
+  /// Adds no column. Everything a disc system has stored so far is wrong or
+  /// absent: ROMs the bulk pass reached were parked with `ra_hash_skipped =
+  /// 'disc'`, and the handful the lazy path hashed before that carry a
+  /// whole-file MD5 of the container, which RetroAchievements has never
+  /// registered for anything. Neither state would ever be revisited — the pass
+  /// walks ROMs with no hash and skips parked ones — so the disc support this
+  /// migration accompanies would reach only newly added ROMs without it.
+  static Future<void> _migrateToVersion134(Database db) async {
+    _log.i('Migration v134: Reopening disc ROMs for re-matching');
+    try {
+      final romColumns = db
+          .select('PRAGMA table_info(user_roms)')
+          .map((c) => c['name'].toString())
+          .toSet();
+      if (!romColumns.contains('ra_hash')) {
+        _log.i('v134: user_roms has no ra_hash yet, nothing to reopen');
+        return;
+      }
+
+      final manualGuard = romColumns.contains('ra_match_source')
+          ? "AND (ra_match_source IS NULL OR ra_match_source != 'manual')"
+          : '';
+
+      if (romColumns.contains('ra_hash_skipped')) {
+        db.execute('''
+          UPDATE user_roms SET ra_hash_skipped = NULL
+          WHERE ra_hash_skipped = 'disc'
+        ''');
+        final reopened = db.select('SELECT changes() AS n').first['n'] as int;
+        if (reopened > 0) {
+          _log.i('v134: reopened $reopened ROMs parked as unhashable discs');
+        }
+      }
+
+      // The folders whose stored hashes are known wrong, which is a statement
+      // about history rather than a policy: the live policy is in
+      // `assets/systems/<sys>.json`, and this runs before `syncSystems` has
+      // written it. A hand-picked match outranks any automatic answer.
+      const folders = ['ps1', 'ps2', 'psp', 'scd', 'sat', 'pccd', 'tgcd'];
+      final placeholders = List.filled(folders.length, '?').join(', ');
+      db.execute('''
+        UPDATE user_roms
+        SET ra_hash = NULL, id_ra = NULL
+        WHERE ra_hash IS NOT NULL AND ra_hash != ''
+          $manualGuard
+          AND app_system_id IN (
+            SELECT id FROM app_systems WHERE folder_name IN ($placeholders)
+          )
+      ''', folders);
+
+      final cleared = db.select('SELECT changes() AS n').first['n'] as int;
+      if (cleared > 0) {
+        _log.i('v134: cleared $cleared container hashes from disc systems');
+      }
+
+      _log.i('Migration v134 completed');
+    } catch (e, stackTrace) {
+      _log.e('Error in migration v134: $e');
+      _log.e('   StackTrace: $stackTrace');
+      rethrow;
     }
   }
 }
