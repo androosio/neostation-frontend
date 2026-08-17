@@ -246,7 +246,7 @@ const Map<String, dynamic> appLocaleId = {
   AppLocale.rematchAchievementsSubtitle:
       'Memeriksa seluruh pustaka untuk set prestasi, bukan satu game per satu',
   AppLocale.rematchAchievementsWarning:
-      'Ini membaca setiap ROM yang belum cocok untuk mengidentifikasinya, yang bisa memakan waktu pada pustaka besar. Pilih lagi untuk menjeda: semua yang sudah cocok tetap tersimpan, dan menjalankannya lagi akan melanjutkan dari tempat terakhir. Sistem berbasis disc dilewati untuk saat ini. Tidak ada yang dipindahkan atau dihapus.',
+      'Ini membaca setiap ROM yang belum cocok untuk mengidentifikasinya, yang bisa memakan waktu pada pustaka besar. Pilih lagi untuk menjeda: semua yang sudah cocok tetap tersimpan, dan menjalankannya lagi akan melanjutkan dari tempat terakhir. Image disc juga dibaca, tetapi hanya beberapa sektor dari masing-masing. Tidak ada yang dipindahkan atau dihapus.',
   AppLocale.rematchAchievementsSignedOut:
       'Pencocokan tetap berjalan saat Anda keluar, tetapi Anda perlu masuk ke RetroAchievements untuk melihat hasilnya.',
   AppLocale.rematchAchievementsLookingUp:

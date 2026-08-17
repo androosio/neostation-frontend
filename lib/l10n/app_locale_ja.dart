@@ -211,7 +211,7 @@ const Map<String, dynamic> appLocaleJa = {
   AppLocale.rematchAchievements: 'RetroAchievements のゲームを照合',
   AppLocale.rematchAchievementsSubtitle: 'ゲームを1本ずつ開かずに、ライブラリ全体から実績セットを探します',
   AppLocale.rematchAchievementsWarning:
-      '一致していない ROM をすべて読み込んで識別します。大きなライブラリでは時間がかかることがあります。もう一度選択すると一時停止します。それまでに一致したものはすべて保持され、再実行すると中断した所から続きます。ディスク系システムは現在スキップされます。ファイルの移動や削除は行いません。',
+      '一致していない ROM をすべて読み込んで識別します。大きなライブラリでは時間がかかることがあります。もう一度選択すると一時停止します。それまでに一致したものはすべて保持され、再実行すると中断した所から続きます。ディスクイメージも読み込みますが、各イメージの一部のセクターのみです。ファイルの移動や削除は行いません。',
   AppLocale.rematchAchievementsSignedOut:
       'ログアウトしていても照合は実行されますが、結果を見るには RetroAchievements にログインする必要があります。',
   AppLocale.rematchAchievementsLookingUp: 'ハッシュ済みのゲームを確認中...',

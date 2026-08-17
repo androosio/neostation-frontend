@@ -256,7 +256,7 @@ const Map<String, dynamic> appLocaleIt = {
   AppLocale.rematchAchievementsSubtitle:
       'Controlla l\'intera libreria alla ricerca di set di obiettivi, invece di un gioco alla volta',
   AppLocale.rematchAchievementsWarning:
-      'Questo legge ogni ROM non associata per identificarla, il che può richiedere tempo su una libreria grande. Selezionalo di nuovo per mettere in pausa: tutto ciò che è stato trovato viene mantenuto e riavviandolo riprende da dove si era interrotto. I sistemi su disco vengono ignorati per ora. Nulla viene spostato o eliminato.',
+      'Questo legge ogni ROM non associata per identificarla, il che può richiedere tempo su una libreria grande. Selezionalo di nuovo per mettere in pausa: tutto ciò che è stato trovato viene mantenuto e riavviandolo riprende da dove si era interrotto. Anche le immagini disco vengono lette, ma solo alcuni settori di ciascuna. Nulla viene spostato o eliminato.',
   AppLocale.rematchAchievementsSignedOut:
       'L\'abbinamento funziona anche senza aver effettuato l\'accesso, ma devi accedere a RetroAchievements per vedere i risultati.',
   AppLocale.rematchAchievementsLookingUp:
