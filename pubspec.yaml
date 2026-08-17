@@ -5,6 +5,7 @@ publish_to: "none" # Remove this line if you wish to publish to pub.dev
 
 workspace:
   - packages/flutter_7zip
+  - packages/flutter_chd
   - packages/gamepads
   - packages/gamepads_android
   - packages/gamepads_darwin
@@ -27,7 +28,9 @@ dependencies:
     path: packages/gamepads
   flutter_7zip:
     path: packages/flutter_7zip
-    
+  flutter_chd:
+    path: packages/flutter_chd
+
   file_picker: ^12.0.0-beta.7
   device_info_plus: ^13.2.0
   package_info_plus: ^10.2.1

@@ -1,0 +1,370 @@
+#include "flutter_chd.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "libchdr/chd.h"
+#include "libchdr/cdrom.h"
+
+#if _WIN32
+#include <windows.h>
+#else
+#include <unistd.h>
+#endif
+
+/* Red Book allows 99 tracks; a CHD cannot describe more. */
+#define NCHD_MAX_TRACKS 99
+
+/* CD frames are grouped into hunks and every track is padded out to a multiple
+ * of this many frames, so a track's first frame is not simply the sum of the
+ * lengths before it. */
+#define NCHD_TRACK_PADDING 4
+
+/* The 12-byte sync pattern that opens a raw data sector. Its presence is what
+ * tells us where the user data starts, which varies by how the track was
+ * stored — see nchd_sector_data_offset(). */
+static const uint8_t kSyncHeader[12] = {0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                                        0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00};
+
+typedef struct {
+  int32_t number;
+  int32_t mode;
+  uint32_t frames;      /* stored length, including a stored pregap */
+  uint32_t pregap;      /* frames of pregap actually present in the file */
+  uint32_t gap;         /* frames of pregap the disc addresses, stored or not */
+  uint32_t start;       /* first physical frame of the track within the CHD */
+  uint32_t start_lba;   /* first sector of the track as the disc addresses it */
+} nchd_track;
+
+struct nchd_disc {
+  chd_file *chd;
+  FILE *fp; /* non-NULL when this reader opened the file itself */
+  uint32_t unit_bytes;
+  uint32_t frames_per_hunk;
+  uint8_t *hunk;
+  uint32_t hunk_number;
+  int32_t hunk_loaded;
+  int32_t track_count;
+  nchd_track tracks[NCHD_MAX_TRACKS];
+};
+
+static uint32_t nchd_padding_frames(uint32_t frames) {
+  return ((frames + NCHD_TRACK_PADDING - 1) & ~(uint32_t)(NCHD_TRACK_PADDING - 1)) -
+         frames;
+}
+
+static int32_t nchd_mode_for_type(const char *type) {
+  if (type[0] == 'A') return NCHD_MODE_AUDIO; /* AUDIO */
+  if (strncmp(type, "MODE2", 5) == 0) return NCHD_MODE_MODE2;
+  return NCHD_MODE_MODE1; /* MODE1, MODE1_RAW, and anything unfamiliar */
+}
+
+/* Reads track `index` (0-based, in the order the CHD stores them) into `track`,
+ * leaving `start` for the caller to accumulate. Returns the frames this track
+ * occupies including its padding, or 0 when there is no such track. */
+static uint32_t nchd_read_track_metadata(chd_file *chd, uint32_t index,
+                                         nchd_track *track) {
+  char metadata[512];
+  char type[64];
+  char subtype[64];
+  char pgtype[64];
+  char pgsub[64];
+  uint32_t length = 0;
+  int number = 0;
+  int frames = 0;
+  int pregap = 0;
+  int postgap = 0;
+  int pad = 0;
+
+  memset(track, 0, sizeof(*track));
+  metadata[0] = '\0';
+  pgtype[0] = 'V'; /* a pregap nothing describes is a virtual one */
+  pgtype[1] = '\0';
+
+  /* CHT2 is what chdman writes today: it carries the pregap, which decides
+   * whether sector 0 of the track is the first stored frame or 150 frames in. */
+  if (chd_get_metadata(chd, CDROM_TRACK_METADATA2_TAG, index, metadata,
+                       sizeof(metadata), &length, NULL, NULL) == CHDERR_NONE) {
+    if (sscanf(metadata, CDROM_TRACK_METADATA2_FORMAT, &number, type, subtype,
+               &frames, &pregap, pgtype, pgsub, &postgap) != 8) {
+      return 0;
+    }
+  } else if (chd_get_metadata(chd, CDROM_TRACK_METADATA_TAG, index, metadata,
+                              sizeof(metadata), &length, NULL,
+                              NULL) == CHDERR_NONE) {
+    if (sscanf(metadata, CDROM_TRACK_METADATA_FORMAT, &number, type, subtype,
+               &frames) != 4) {
+      return 0;
+    }
+  } else if (chd_get_metadata(chd, GDROM_TRACK_METADATA_TAG, index, metadata,
+                              sizeof(metadata), &length, NULL,
+                              NULL) == CHDERR_NONE) {
+    /* GD-ROM states its own padding rather than implying it. */
+    if (sscanf(metadata, GDROM_TRACK_METADATA_FORMAT, &number, type, subtype,
+               &frames, &pad, &pregap, pgtype, pgsub, &postgap) != 9) {
+      return 0;
+    }
+  } else {
+    return 0;
+  }
+
+  if (frames <= 0) return 0;
+
+  track->number = number;
+  track->mode = nchd_mode_for_type(type);
+  track->frames = (uint32_t)frames;
+  /* A pregap always occupies disc addresses, but only a non-virtual one takes
+   * up frames in the file — so one number decides where the track's sectors
+   * start on the disc and the other where they start in the image. */
+  track->gap = pregap > 0 ? (uint32_t)pregap : 0u;
+  track->pregap = (pgtype[0] == 'V') ? 0u : track->gap;
+
+  if (pad > 0) return track->frames + (uint32_t)pad;
+  return track->frames + nchd_padding_frames(track->frames);
+}
+
+static nchd_disc *nchd_create(chd_file *chd, FILE *fp, int32_t *out_error) {
+  const chd_header *header = chd_get_header(chd);
+  nchd_disc *disc;
+  uint32_t start = 0;
+  uint32_t start_lba = 0;
+  uint32_t index;
+
+  if (header == NULL || header->unitbytes == 0 ||
+      header->hunkbytes < header->unitbytes) {
+    if (out_error != NULL) *out_error = NCHD_ERR_OPEN;
+    return NULL;
+  }
+
+  disc = (nchd_disc *)calloc(1, sizeof(nchd_disc));
+  if (disc == NULL) {
+    if (out_error != NULL) *out_error = NCHD_ERR_MEMORY;
+    return NULL;
+  }
+
+  disc->chd = chd;
+  disc->fp = fp;
+  disc->unit_bytes = header->unitbytes;
+  disc->frames_per_hunk = header->hunkbytes / header->unitbytes;
+  disc->hunk_loaded = 0;
+  disc->hunk = (uint8_t *)malloc(header->hunkbytes);
+  if (disc->hunk == NULL) {
+    free(disc);
+    if (out_error != NULL) *out_error = NCHD_ERR_MEMORY;
+    return NULL;
+  }
+
+  for (index = 0; index < NCHD_MAX_TRACKS; index++) {
+    nchd_track track;
+    uint32_t occupied = nchd_read_track_metadata(chd, index, &track);
+    if (occupied == 0) break;
+    track.start = start;
+    /* The disc addresses the pregap before the track proper, whether or not
+     * the image stores those frames. */
+    track.start_lba = start_lba + track.gap;
+    disc->tracks[disc->track_count++] = track;
+    start += occupied;
+    start_lba = track.start_lba + (track.frames - track.pregap);
+  }
+
+  if (disc->track_count == 0) {
+    free(disc->hunk);
+    free(disc);
+    if (out_error != NULL) *out_error = NCHD_ERR_NO_TRACKS;
+    return NULL;
+  }
+
+  if (out_error != NULL) *out_error = NCHD_OK;
+  return disc;
+}
+
+static int32_t nchd_error_for(chd_error err) {
+  switch (err) {
+    case CHDERR_UNSUPPORTED_VERSION:
+    case CHDERR_UNSUPPORTED_FORMAT:
+    case CHDERR_NOT_SUPPORTED:
+      return NCHD_ERR_UNSUPPORTED;
+    case CHDERR_OUT_OF_MEMORY:
+      return NCHD_ERR_MEMORY;
+    default:
+      return NCHD_ERR_OPEN;
+  }
+}
+
+static FILE *nchd_fopen(const char *path) {
+#if _WIN32
+  /* fopen() on Windows takes the active code page, so a ROM with an accented
+   * or Japanese filename — common enough in a real library — would not open. */
+  FILE *file = NULL;
+  int wide_length = MultiByteToWideChar(CP_UTF8, 0, path, -1, NULL, 0);
+  wchar_t *wide_path;
+  if (wide_length <= 0) return NULL;
+  wide_path = (wchar_t *)malloc((size_t)wide_length * sizeof(wchar_t));
+  if (wide_path == NULL) return NULL;
+  if (MultiByteToWideChar(CP_UTF8, 0, path, -1, wide_path, wide_length) > 0) {
+    file = _wfopen(wide_path, L"rb");
+  }
+  free(wide_path);
+  return file;
+#else
+  return fopen(path, "rb");
+#endif
+}
+
+FFI_PLUGIN_EXPORT nchd_disc *nchd_open(const char *path, int32_t *out_error) {
+  chd_file *chd = NULL;
+  chd_error err;
+  FILE *fp;
+  nchd_disc *disc;
+
+  if (path == NULL) {
+    if (out_error != NULL) *out_error = NCHD_ERR_OPEN;
+    return NULL;
+  }
+
+  fp = nchd_fopen(path);
+  if (fp == NULL) {
+    if (out_error != NULL) *out_error = NCHD_ERR_OPEN;
+    return NULL;
+  }
+
+  err = chd_open_file(fp, CHD_OPEN_READ, NULL, &chd);
+  if (err != CHDERR_NONE) {
+    fclose(fp);
+    if (out_error != NULL) *out_error = nchd_error_for(err);
+    return NULL;
+  }
+
+  disc = nchd_create(chd, fp, out_error);
+  if (disc == NULL) {
+    chd_close(chd);
+    fclose(fp);
+  }
+  return disc;
+}
+
+FFI_PLUGIN_EXPORT nchd_disc *nchd_open_fd(int32_t fd, int32_t *out_error) {
+#if _WIN32
+  (void)fd;
+  if (out_error != NULL) *out_error = NCHD_ERR_OPEN;
+  return NULL;
+#else
+  chd_file *chd = NULL;
+  chd_error err;
+  nchd_disc *disc;
+  FILE *fp = fdopen((int)fd, "rb");
+
+  if (fp == NULL) {
+    if (out_error != NULL) *out_error = NCHD_ERR_OPEN;
+    return NULL;
+  }
+
+  err = chd_open_file(fp, CHD_OPEN_READ, NULL, &chd);
+  if (err != CHDERR_NONE) {
+    fclose(fp);
+    if (out_error != NULL) *out_error = nchd_error_for(err);
+    return NULL;
+  }
+
+  disc = nchd_create(chd, fp, out_error);
+  if (disc == NULL) {
+    chd_close(chd);
+    fclose(fp);
+  }
+  return disc;
+#endif
+}
+
+FFI_PLUGIN_EXPORT int32_t nchd_track_count(nchd_disc *disc) {
+  return disc == NULL ? 0 : disc->track_count;
+}
+
+FFI_PLUGIN_EXPORT int32_t nchd_track_field(nchd_disc *disc, int32_t track_index,
+                                           int32_t field) {
+  const nchd_track *track;
+  if (disc == NULL || track_index < 0 || track_index >= disc->track_count) {
+    return -1;
+  }
+  track = &disc->tracks[track_index];
+  switch (field) {
+    case NCHD_FIELD_NUMBER:
+      return track->number;
+    case NCHD_FIELD_MODE:
+      return track->mode;
+    case NCHD_FIELD_SECTORS:
+      return (int32_t)(track->frames - track->pregap);
+    case NCHD_FIELD_START_LBA:
+      return (int32_t)track->start_lba;
+    default:
+      return -1;
+  }
+}
+
+/* Where the 2048 bytes of user data begin within a stored frame.
+ *
+ * It is not a constant: a track written as raw 2352-byte sectors keeps its sync
+ * header and its data starts past that, while a MODE1/2048 track stores the
+ * payload flat. Reading the sync pattern rather than trusting the track type
+ * covers both, and covers libchdr regenerating a stripped sync header when it
+ * decompresses. */
+static int32_t nchd_sector_data_offset(const uint8_t *sector, int32_t mode) {
+  if (memcmp(sector, kSyncHeader, sizeof(kSyncHeader)) == 0) {
+    /* Byte 15 is the sector mode; mode 2 puts an 8-byte subheader first. */
+    return sector[15] == 2 ? 24 : 16;
+  }
+  /* No sync header: MODE2/2336 still leads with the subheader. */
+  return mode == NCHD_MODE_MODE2 ? 8 : 0;
+}
+
+static int32_t nchd_load_hunk(nchd_disc *disc, uint32_t hunk_number) {
+  if (disc->hunk_loaded && disc->hunk_number == hunk_number) return 1;
+  if (chd_read(disc->chd, hunk_number, disc->hunk) != CHDERR_NONE) {
+    disc->hunk_loaded = 0;
+    return 0;
+  }
+  disc->hunk_number = hunk_number;
+  disc->hunk_loaded = 1;
+  return 1;
+}
+
+FFI_PLUGIN_EXPORT int32_t nchd_read_sector(nchd_disc *disc, int32_t track_index,
+                                           uint32_t lba, uint8_t *out) {
+  const nchd_track *track;
+  uint32_t frame;
+  uint32_t hunk_number;
+  uint32_t frame_offset;
+  const uint8_t *sector;
+  int32_t data_offset;
+
+  if (disc == NULL || out == NULL || track_index < 0 ||
+      track_index >= disc->track_count) {
+    return -1;
+  }
+
+  track = &disc->tracks[track_index];
+  if (lba >= track->frames - track->pregap) return -1;
+
+  /* Skip the pregap the file actually holds, so sector 0 is the sector the
+   * disc's own filesystem calls 0. */
+  frame = track->start + track->pregap + lba;
+  hunk_number = frame / disc->frames_per_hunk;
+  frame_offset = (frame % disc->frames_per_hunk) * disc->unit_bytes;
+
+  if (!nchd_load_hunk(disc, hunk_number)) return -2;
+
+  sector = disc->hunk + frame_offset;
+  data_offset = nchd_sector_data_offset(sector, track->mode);
+  if ((uint32_t)data_offset + NCHD_SECTOR_SIZE > disc->unit_bytes) return -3;
+
+  memcpy(out, sector + data_offset, NCHD_SECTOR_SIZE);
+  return NCHD_SECTOR_SIZE;
+}
+
+FFI_PLUGIN_EXPORT void nchd_close(nchd_disc *disc) {
+  if (disc == NULL) return;
+  if (disc->chd != NULL) chd_close(disc->chd);
+  if (disc->fp != NULL) fclose(disc->fp);
+  free(disc->hunk);
+  free(disc);
+}
