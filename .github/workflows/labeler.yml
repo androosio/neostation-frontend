@@ -22,7 +22,11 @@ jobs:
     name: Apply path labels
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/labeler@v5
+      # v7, not v5: v5 runs on Node 20, which the runners now force onto Node 24
+      # and warn about on every run. v6 moved the action to Node 24 (needs runner
+      # v2.327.1+, well below what the hosted images ship) and v7 moved it to ESM.
+      # Neither touched the config schema, so .github/labeler.yml is unchanged.
+      - uses: actions/labeler@v7
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           configuration-path: .github/labeler.yml

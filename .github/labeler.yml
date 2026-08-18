@@ -4,6 +4,9 @@
 # write or triage permission on this repository. These rules apply the platform and
 # area labels on their behalf. Release-note categories are NOT set here: they come
 # from the Conventional Commits prefix in the PR title (see .github/changelog-config.json).
+#
+# `bug`, `enhancement` and `performance` stay manual on purpose: nothing about a
+# changed path predicts them.
 
 android:
   - changed-files:
@@ -28,6 +31,19 @@ macos:
           - 'macos/**'
           - 'build-utils/build-macos.sh'
 
+# The three desktop platforms share a Flutter runner and the same build-utils
+# scripts, so a change to any one of them is desktop-relevant. Deliberately
+# overlaps the per-platform rules above rather than replacing them.
+desktop:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'linux/**'
+          - 'windows/**'
+          - 'macos/**'
+          - 'build-utils/build-linux*.sh'
+          - 'build-utils/build-windows.ps1'
+          - 'build-utils/build-macos.sh'
+
 systems:
   - changed-files:
       - any-glob-to-any-file:
@@ -39,6 +55,15 @@ themes:
       - any-glob-to-any-file:
           - 'lib/themes/**'
           - 'THEMES.md'
+
+# Anything the user actually sees: screens and the shared widgets they compose.
+# Services, repositories and datasources are deliberately excluded — they change
+# behaviour, not presentation.
+UX/UI:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'lib/screens/**'
+          - 'lib/widgets/**'
 
 RetroAchievements:
   - changed-files:
@@ -55,6 +80,15 @@ screenscraper:
           - 'lib/services/screenscraper/**'
           - 'lib/services/screenscraper_service.dart'
           - 'lib/repositories/scraper_repository.dart'
+
+# Matches what Dependabot touches. The vendored packages under /packages/ carry
+# their own pubspec, and the pub workspace resolves them into the root lockfile.
+dependencies:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'pubspec.yaml'
+          - 'pubspec.lock'
+          - 'packages/*/pubspec.yaml'
 
 ci:
   - changed-files:
