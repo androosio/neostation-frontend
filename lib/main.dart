@@ -24,6 +24,7 @@ import 'package:neostation/providers/collections_provider.dart';
 import 'package:neostation/providers/system_background_provider.dart';
 import 'package:neostation/providers/neo_assets_provider.dart';
 import 'package:neostation/widgets/app_lifecycle_handler.dart';
+import 'package:neostation/widgets/back_swipe_zone.dart';
 import 'package:neostation/services/startup_theme_cache.dart';
 import 'package:neostation/widgets/splash_status_layout.dart';
 import 'package:neostation/widgets/permission_check_wrapper.dart';
@@ -1057,7 +1058,14 @@ class _MyAppState extends State<MyApp> {
                               maxScaleFactor: 1.4,
                             ),
                           ),
-                          child: child!,
+                          // The back swipe lives above every route and dialog
+                          // so touch users have a way back on any screen whose
+                          // navigation layer binds B. Nothing else on screen
+                          // offers one: B is a gamepad button and the system
+                          // back gesture belongs to the platform.
+                          child: Stack(
+                            children: [child!, const BackSwipeZone()],
+                          ),
                         );
                       },
                       theme: themeProvider.currentTheme.copyWith(
