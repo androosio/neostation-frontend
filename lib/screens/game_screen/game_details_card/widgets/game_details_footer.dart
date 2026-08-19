@@ -81,8 +81,8 @@ class GameDetailsFooter extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Identity Section: the ROM filename, and only the ROM
-                // filename.
+                // Identity Section: the ROM filename, plus the read-only
+                // status this footer has to show somewhere.
                 //
                 // There used to be a game title above this line. It was a
                 // strict duplicate: the list sidebar sits beside this card and
@@ -93,15 +93,23 @@ class GameDetailsFooter extends StatelessWidget {
                 // not carry (it is what the scraped name was matched *from*),
                 // so it is what stays, promoted into the space the title had.
                 //
-                // Consequence worth knowing: this line is only populated for
+                // Consequence worth knowing: the filename is only populated for
                 // scraped games — `GameListService` sets the flag exclusively
                 // on the scraped branch, because a filename under a name
                 // derived from that same filename says nothing. For an
-                // unscraped game, or a user running `preferFileName`, the
-                // footer now carries no identity text at all and the sidebar
-                // row is the only place the name appears. That is deliberate;
-                // the blank line is still laid out so the action row below
-                // keeps a constant baseline either way.
+                // unscraped game, or a user running `preferFileName`, this line
+                // carries no text at all and the sidebar row is the only place
+                // the name appears. That is deliberate; the blank line is still
+                // laid out so the action row below keeps a constant baseline
+                // either way.
+                //
+                // The rating, the play-time clock and the cloud-sync state ride
+                // along on the right of this line. They are here rather than in
+                // the row below because the row below is for controls: every
+                // pill in it should do something when pressed, and these three
+                // never did. As inline glyph+text they also cost the artwork a
+                // line it was already paying for, instead of three more 45.r
+                // pills.
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
@@ -125,75 +133,61 @@ class GameDetailsFooter extends StatelessWidget {
                             fontSize: 16.r,
                             fontWeight: FontWeight.w600,
                             height: 1.15,
-                            shadows: [
-                              Shadow(
-                                blurRadius: 1.r,
-                                color: Colors.black,
-                                offset: const Offset(2, 2),
-                              ),
-                            ],
+                            shadows: _onArtShadows,
                           ),
                         ),
                       ),
+                    ),
+
+                    // Score, as a bare star and number rather than the pill it
+                    // used to be. Colour still runs error -> success across the
+                    // range, so a glance still reads good/bad without the pill.
+                    if (game.rating > 0) ...[
+                      SizedBox(width: 14.r),
+                      _InlineRating(game: game),
+                    ],
+
+                    // Accumulated play time, once there is any.
+                    if (GameUtils.formatPlayTime(game.playTime ?? 0) != '0s')
+                      _InlinePlayTime(game: game),
+
+                    // Cloud-sync state for this game. Every "nothing to say"
+                    // state collapses to zero size, so the gap before it has to
+                    // travel with the widget rather than sit beside it.
+                    NeoSyncStatusIcon(
+                      system: system,
+                      game: game,
+                      syncProvider: syncProvider,
+                      size: 18.0,
+                      margin: EdgeInsets.only(left: 14.r),
                     ),
                   ],
                 ),
                 SizedBox(height: 8.r),
 
-                // Actionable Section: Compact status indicators and primary Play button.
+                // Actionable Section. Everything left in this row responds to a
+                // press: the achievements pill opens the achievements tab, PLAY
+                // launches the game. The rating, play-time and sync widgets that
+                // used to share it were inert — they looked like controls and
+                // answered to nothing — so they moved up to the identity line
+                // and this row is now controls only.
                 ExcludeFocus(
                   child: Row(
                     children: [
-                      // Game rating.
-                      if (game.rating > 0) ...[
-                        _SteamStyleRating(game: game),
-                        SizedBox(width: 8.r),
-                      ],
-
-                      // RetroAchievements Progress. The indicator eases out to
-                      // fill the gap to PLAY (LayoutBuilder gives it a concrete
-                      // target width so the change animates instead of
-                      // snapping) unless the play-time pill is there, in which
-                      // case it rests at its natural width, left-aligned.
+                      // RetroAchievements progress, filling the gap to PLAY.
+                      // Nothing competes for that space any more, so it simply
+                      // takes what the Expanded gives it.
                       Expanded(
                         child: LayoutBuilder(
-                          builder: (context, constraints) => Align(
-                            alignment: Alignment.centerLeft,
-                            child: _buildCompactAchievementsIndicator(
-                              context,
-                              availableWidth: constraints.maxWidth,
-                              hasPlayTime:
-                                  GameUtils.formatPlayTime(
-                                    game.playTime ?? 0,
-                                  ) !=
-                                  '0s',
-                            ),
-                          ),
+                          builder: (context, constraints) =>
+                              _buildCompactAchievementsIndicator(
+                                context,
+                                availableWidth: constraints.maxWidth,
+                              ),
                         ),
                       ),
-                      // Accumulated play time, shown as its own pill to the
-                      // left of PLAY (only once the game has been played).
-                      if (GameUtils.formatPlayTime(game.playTime ?? 0) !=
-                          '0s') ...[
-                        SizedBox(width: 8.r),
-                        _PlayTimePill(game: game),
-                      ],
 
-                      // Cloud-sync state for this game. It used to sit at the
-                      // foot of the vertical action rail; with the rail gone
-                      // this row is where it lives. Every "nothing to say"
-                      // state collapses to zero size, so the gap before PLAY
-                      // travels with the widget rather than sitting beside it.
-                      NeoSyncStatusIcon(
-                        system: system,
-                        game: game,
-                        syncProvider: syncProvider,
-                        size: 22.0,
-                        margin: EdgeInsets.only(left: 8.r),
-                      ),
-
-                      // Consistent 8.r gap before PLAY, matching the spacing
-                      // between the rating, RA and play-time pills.
+                      // Consistent 8.r gap before PLAY.
                       SizedBox(width: 8.r),
 
                       // Primary Launch Control.
@@ -309,7 +303,6 @@ class GameDetailsFooter extends StatelessWidget {
   Widget _buildCompactAchievementsIndicator(
     BuildContext context, {
     required double availableWidth,
-    required bool hasPlayTime,
   }) {
     if (!hasRetroAchievements) return const SizedBox.shrink();
 
@@ -322,11 +315,11 @@ class GameDetailsFooter extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    // The badge fills its (Expanded) slot unless a play-time pill is claiming
-    // the space to its right; otherwise it would leave dead space between
-    // itself and PLAY. When one is there it rests at 120.r. The width is
-    // animated so the change eases in/out.
-    final bool expand = !hasPlayTime;
+    // The badge fills its (Expanded) slot outright. It used to animate between
+    // 120.r and full width, yielding the space to its right whenever a
+    // play-time pill was there; that pill now lives on the identity line, so
+    // nothing can claim the gap between this badge and PLAY and there is no
+    // second width to ease to.
     // The bundled snapshot already records how many achievements a matched
     // game has, so the total costs no network call — only the user's earned
     // count does. See _CompactAchievementsIndicator, which does the same.
@@ -379,43 +372,32 @@ class GameDetailsFooter extends StatelessWidget {
         highlightColor: Colors.transparent,
         splashColor: theme.colorScheme.onSurface.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8.r),
-        // Drive the width from a single 0..1 factor on the same 250ms /
-        // easeOutCubic timing as the sidebar margin, so the pill expands in
-        // lockstep with the legend slide (one motion) rather than shifting
-        // into place first and then easing its width (two steps).
-        child: TweenAnimationBuilder<double>(
-          tween: Tween<double>(end: expand ? 1.0 : 0.0),
-          duration: const Duration(milliseconds: 250),
-          curve: Curves.easeOutCubic,
-          builder: (context, t, child) => Container(
-            width: 120.r + (availableWidth - 120.r) * t,
-            height: 45.r,
-            decoration: BoxDecoration(
-              color: ChromeSurface.fill(context),
-              borderRadius:
-                  Theme.of(context).extension<CornerRadii>()?.radiusExternal ??
-                  BorderRadius.circular(14.r),
-              border: Border.all(
-                color: Theme.of(context).colorScheme.outline,
-                width: 1.r,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.shadow.withValues(alpha: 0.1),
-                  blurRadius: 4.r,
-                  offset: Offset(2.0.r, 2.0.r),
-                ),
-              ],
+        child: Container(
+          width: availableWidth,
+          height: 45.r,
+          decoration: BoxDecoration(
+            color: ChromeSurface.fill(context),
+            borderRadius:
+                Theme.of(context).extension<CornerRadii>()?.radiusExternal ??
+                BorderRadius.circular(14.r),
+            border: Border.all(
+              color: Theme.of(context).colorScheme.outline,
+              width: 1.r,
             ),
-            child: child,
+            boxShadow: [
+              BoxShadow(
+                color: Theme.of(
+                  context,
+                ).colorScheme.shadow.withValues(alpha: 0.1),
+                blurRadius: 4.r,
+                offset: Offset(2.0.r, 2.0.r),
+              ),
+            ],
           ),
           child: Padding(
             // Symmetric 8.r horizontal inset so neither the trophy icon nor the
             // progress bar hugs the pill border. The progress column is always
-            // Expanded, so it simply absorbs the padding at any pill width (the
-            // shown/hidden width animation never overflows).
+            // Expanded, so it simply absorbs the padding at any pill width.
             padding: EdgeInsets.symmetric(horizontal: 8.r, vertical: 4.r),
             child: Row(
               children: [
@@ -501,11 +483,26 @@ class GameDetailsFooter extends StatelessWidget {
   }
 }
 
-/// A Steam-inspired rating badge that interpolates color based on the score intensity.
-class _SteamStyleRating extends StatelessWidget {
+/// Drop shadow for text and glyphs painted straight onto the game's fanart.
+///
+/// Everything on the identity line sits on artwork rather than on a chrome
+/// surface, so it all carries the same shadow — the filename, the rating and
+/// the play-time clock read as one line, not three separately styled bits.
+List<Shadow> get _onArtShadows => [
+  Shadow(blurRadius: 1.r, color: Colors.black, offset: const Offset(2, 2)),
+];
+
+/// Score as a bare star and number on the identity line.
+///
+/// This was a 45.r pill on chrome in the action row below. It moved because
+/// that row is for controls and a rating is not one: it showed a number and
+/// answered to nothing. The colour ramp survives the move — error at the
+/// bottom of the range, success at the top — since that is what makes the
+/// number readable at a glance.
+class _InlineRating extends StatelessWidget {
   final GameModel game;
 
-  const _SteamStyleRating({required this.game});
+  const _InlineRating({required this.game});
 
   @override
   Widget build(BuildContext context) {
@@ -519,67 +516,40 @@ class _SteamStyleRating extends StatelessWidget {
       colorRatio,
     )!;
 
-    return Container(
-      height: 45.r,
-      padding: EdgeInsets.symmetric(horizontal: 8.r, vertical: 6.r),
-      decoration: BoxDecoration(
-        color: ChromeSurface.fill(context),
-        borderRadius:
-            Theme.of(context).extension<CornerRadii>()?.radiusExternal ??
-            BorderRadius.circular(14.r),
-        border: Border.all(
-          color: Theme.of(context).colorScheme.outline,
-          width: 1.r,
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Icon(
+          Symbols.star_rounded,
+          color: ratingColor,
+          size: 20.r,
+          fill: 1,
+          shadows: _onArtShadows,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.5),
-            blurRadius: 3.r,
-            offset: Offset(2.0.r, 2.0.r),
+        SizedBox(width: 4.r),
+        Text(
+          ratingValue.toStringAsFixed(0),
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 16.r,
+            fontWeight: FontWeight.w800,
+            height: 1.15,
+            shadows: _onArtShadows,
           ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Icon(Symbols.star_rounded, color: ratingColor, size: 24.r),
-          SizedBox(width: 4.r),
-          // Reserve width for the widest possible value ("10") so the pill
-          // stays a static size regardless of the current score (e.g. "1"
-          // no longer renders narrower than "10"). Scale/font-independent.
-          Stack(
-            alignment: Alignment.centerLeft,
-            children: [
-              Opacity(
-                opacity: 0,
-                child: Text(
-                  '10',
-                  style: TextStyle(fontSize: 22.r, fontWeight: FontWeight.w900),
-                ),
-              ),
-              Text(
-                ratingValue.toStringAsFixed(0),
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurface,
-                  fontSize: 22.r,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
 
-/// Compact pill showing the accumulated play time for a game, styled to match
-/// the rating pill. Sits to the left of the PLAY button.
-class _PlayTimePill extends StatelessWidget {
+/// Accumulated play time as a clock glyph and an HH:MM:SS reading on the
+/// identity line. Moved out of the action row for the same reason as
+/// [_InlineRating]: it reported, it did not act.
+class _InlinePlayTime extends StatelessWidget {
   final GameModel game;
 
-  const _PlayTimePill({required this.game});
+  const _InlinePlayTime({required this.game});
 
   /// Formats accumulated seconds as a zero-padded HH:MM:SS clock.
   String _formatClock(int seconds) {
@@ -592,49 +562,32 @@ class _PlayTimePill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 45.r,
-      padding: EdgeInsets.symmetric(horizontal: 8.r, vertical: 4.r),
-      decoration: BoxDecoration(
-        color: ChromeSurface.fill(context),
-        borderRadius:
-            Theme.of(context).extension<CornerRadii>()?.radiusExternal ??
-            BorderRadius.circular(14.r),
-        border: Border.all(
-          color: Theme.of(context).colorScheme.outline,
-          width: 1.r,
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        SizedBox(width: 14.r),
+        Icon(
+          Symbols.schedule_rounded,
+          color: Colors.white,
+          size: 18.r,
+          shadows: _onArtShadows,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.5),
-            blurRadius: 3.r,
-            offset: Offset(2.0.r, 2.0.r),
+        SizedBox(width: 4.r),
+        Text(
+          _formatClock(game.playTime ?? 0),
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 14.r,
+            fontWeight: FontWeight.w700,
+            height: 1.15,
+            // Tabular figures so a ticking clock does not shuffle the line
+            // width on every redraw.
+            fontFeatures: const [FontFeature.tabularFigures()],
+            shadows: _onArtShadows,
           ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Icon(
-            Symbols.schedule_rounded,
-            color: Theme.of(context).colorScheme.onSurface,
-            size: 14.r,
-          ),
-          SizedBox(height: 1.r),
-          Text(
-            _formatClock(game.playTime ?? 0),
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurface,
-              fontSize: 10.r,
-              fontWeight: FontWeight.w800,
-              height: 1.0,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
