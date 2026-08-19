@@ -32,9 +32,16 @@ class HeaderSortDropdown extends StatefulWidget {
 /// size drive its cards exactly as they drive the systems screen's, while
 /// release year / manufacturer describe hardware and mean nothing for a
 /// collection.
+///
+/// [includeCardStyle] adds the box-art/fanart row. Systems cards are drawn from
+/// theme artwork and have no such choice, but a collection card previews the
+/// games it holds, and that preview follows the same setting the games views
+/// use — so the collections browser offers the switch where its effect is
+/// visible instead of making the user find a games list to change it.
 Future<void> showSystemViewDropdown(
   BuildContext context, {
   bool includeSorting = true,
+  bool includeCardStyle = false,
 }) async {
   final configProvider = context.read<SqliteConfigProvider>();
 
@@ -49,6 +56,7 @@ Future<void> showSystemViewDropdown(
         child: SortDropdownOverlay(
           width: 180.r,
           includeSorting: includeSorting,
+          includeCardStyle: includeCardStyle,
         ),
       );
     },
@@ -75,6 +83,9 @@ Future<void> showSystemViewDropdown(
     } else if (result.startsWith('card_size_')) {
       final size = result.substring('card_size_'.length);
       await configProvider.updateSystemGridColumns(size);
+    } else if (result.startsWith('card_style_')) {
+      final style = result.substring('card_style_'.length);
+      await configProvider.updateGameCarouselCardStyle(style);
     }
   }
 }
@@ -111,12 +122,19 @@ class _DropdownOption {
   final IconData icon;
   final String group;
   final bool isCardSize;
+  final bool isCardStyle;
+
+  /// True for the two rows that hold a horizontal picker rather than being one
+  /// selectable value.
+  bool get isSegmented => isCardSize || isCardStyle;
+
   _DropdownOption(
     this.value,
     this.label,
     this.icon, {
     required this.group,
     this.isCardSize = false,
+    this.isCardStyle = false,
   });
 }
 
@@ -130,10 +148,14 @@ class SortDropdownOverlay extends StatefulWidget {
   /// rows do not. Suppressing rows here keeps one picker instead of a fork.
   final bool includeSorting;
 
+  /// Whether the box-art/fanart row is offered. See [showSystemViewDropdown].
+  final bool includeCardStyle;
+
   const SortDropdownOverlay({
     super.key,
     required this.width,
     this.includeSorting = true,
+    this.includeCardStyle = false,
   });
 
   @override
@@ -149,6 +171,12 @@ class _SortDropdownOverlayState extends State<SortDropdownOverlay> {
   /// Index within the card-size row when it is focused. 0=S,1=M,2=L,3=XL
   int _cardSizeIndex = 1; // default M
 
+  /// The two card styles, in the order the row lays them out.
+  static const List<String> _cardStyles = ['fanart', 'box'];
+
+  /// Index within the card-style row when it is focused.
+  int _cardStyleIndex = 0;
+
   @override
   void initState() {
     super.initState();
@@ -156,6 +184,8 @@ class _SortDropdownOverlayState extends State<SortDropdownOverlay> {
     final sizes = ['S', 'M', 'L', 'XL'];
     final idx = sizes.indexOf(config.systemGridColumns);
     _cardSizeIndex = idx >= 0 ? idx : 1;
+    final styleIdx = _cardStyles.indexOf(config.gameCarouselCardStyle);
+    _cardStyleIndex = styleIdx >= 0 ? styleIdx : 0;
 
     _gamepadNav = GamepadNavigation(
       onNavigateUp: () {
@@ -204,7 +234,7 @@ class _SortDropdownOverlayState extends State<SortDropdownOverlay> {
           position += 16.r; // header
           if (i > 0) position += 4.r; // divider
         }
-        position += options[i].isCardSize ? 32.r : 28.r;
+        position += options[i].isSegmented ? 32.r : 28.r;
       }
       // add header for current if it's the first of group
       if (_selectedIndex == 0 ||
@@ -230,6 +260,13 @@ class _SortDropdownOverlayState extends State<SortDropdownOverlay> {
       });
       SfxService().playNavSound();
       _applyCardSize();
+    } else if (opt.isCardStyle) {
+      setState(() {
+        _cardStyleIndex =
+            (_cardStyleIndex - 1 + _cardStyles.length) % _cardStyles.length;
+      });
+      SfxService().playNavSound();
+      _applyCardStyle();
     }
   }
 
@@ -243,6 +280,12 @@ class _SortDropdownOverlayState extends State<SortDropdownOverlay> {
       });
       SfxService().playNavSound();
       _applyCardSize();
+    } else if (opt.isCardStyle) {
+      setState(() {
+        _cardStyleIndex = (_cardStyleIndex + 1) % _cardStyles.length;
+      });
+      SfxService().playNavSound();
+      _applyCardStyle();
     }
   }
 
@@ -251,6 +294,12 @@ class _SortDropdownOverlayState extends State<SortDropdownOverlay> {
     final size = sizes[_cardSizeIndex];
     final configProvider = context.read<SqliteConfigProvider>();
     configProvider.updateSystemGridColumns(size);
+  }
+
+  void _applyCardStyle() {
+    context.read<SqliteConfigProvider>().updateGameCarouselCardStyle(
+      _cardStyles[_cardStyleIndex],
+    );
   }
 
   void _handleSelection() {
@@ -262,6 +311,11 @@ class _SortDropdownOverlayState extends State<SortDropdownOverlay> {
         context,
         'card_size_${['S', 'M', 'L', 'XL'][_cardSizeIndex]}',
       );
+      return;
+    }
+    if (opt.isCardStyle) {
+      _applyCardStyle();
+      Navigator.pop(context, 'card_style_${_cardStyles[_cardStyleIndex]}');
       return;
     }
     Navigator.pop(context, opt.value);
@@ -300,6 +354,18 @@ class _SortDropdownOverlayState extends State<SortDropdownOverlay> {
           Symbols.crop_free_rounded,
           group: AppLocale.cardSizeGroup.getString(context),
           isCardSize: true,
+        ),
+      );
+    }
+
+    if (widget.includeCardStyle) {
+      options.add(
+        _DropdownOption(
+          'card_style',
+          '',
+          Symbols.image_rounded,
+          group: AppLocale.cardStyleGroup.getString(context),
+          isCardStyle: true,
         ),
       );
     }
@@ -383,9 +449,22 @@ class _SortDropdownOverlayState extends State<SortDropdownOverlay> {
         currentGroup = opt.group;
       }
 
-      if (opt.isCardSize) {
-        final sizes = ['S', 'M', 'L', 'XL'];
-        final currentSizeIndex = sizes.indexOf(config.systemGridColumns);
+      if (opt.isSegmented) {
+        // One row, two shapes: the card-size row picks S/M/L/XL, the card-style
+        // row picks fanart/box art. Same focus, same left/right handling, same
+        // paint — only the values and where they are written differ.
+        final isSize = opt.isCardSize;
+        final values = isSize ? const ['S', 'M', 'L', 'XL'] : _cardStyles;
+        final labels = isSize
+            ? values
+            : [
+                AppLocale.fanartCard.getString(context),
+                AppLocale.boxCard.getString(context),
+              ];
+        final currentValueIndex = values.indexOf(
+          isSize ? config.systemGridColumns : config.gameCarouselCardStyle,
+        );
+        final stagedIndex = isSize ? _cardSizeIndex : _cardStyleIndex;
         final isFocused = i == _selectedIndex;
 
         children.add(
@@ -427,7 +506,7 @@ class _SortDropdownOverlayState extends State<SortDropdownOverlay> {
               child: Row(
                 children: [
                   Icon(
-                    Symbols.crop_free_rounded,
+                    opt.icon,
                     size: 14.r,
                     color: Theme.of(
                       context,
@@ -437,20 +516,28 @@ class _SortDropdownOverlayState extends State<SortDropdownOverlay> {
                   Expanded(
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: sizes.asMap().entries.map((entry) {
+                      children: labels.asMap().entries.map((entry) {
                         final idx = entry.key;
-                        final size = entry.value;
+                        final label = entry.value;
                         final isSelected =
-                            (isFocused && idx == _cardSizeIndex) ||
-                            (!isFocused && idx == currentSizeIndex);
+                            (isFocused && idx == stagedIndex) ||
+                            (!isFocused && idx == currentValueIndex);
                         return InkWell(
                           onTap: () {
                             setState(() {
                               _selectedIndex = i;
-                              _cardSizeIndex = idx;
+                              if (isSize) {
+                                _cardSizeIndex = idx;
+                              } else {
+                                _cardStyleIndex = idx;
+                              }
                             });
                             SfxService().playNavSound();
-                            _applyCardSize();
+                            if (isSize) {
+                              _applyCardSize();
+                            } else {
+                              _applyCardStyle();
+                            }
                           },
                           focusColor: Colors.transparent,
                           hoverColor: Colors.transparent,
@@ -477,7 +564,7 @@ class _SortDropdownOverlayState extends State<SortDropdownOverlay> {
                                   BorderRadius.circular(4.r),
                             ),
                             child: Text(
-                              size,
+                              label,
                               style: TextStyle(
                                 fontSize: 11.r,
                                 fontWeight: FontWeight.w700,

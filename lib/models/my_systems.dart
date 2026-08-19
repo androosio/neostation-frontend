@@ -62,6 +62,13 @@ class SystemInfo {
   /// The underlying game data if [isGame] is true.
   final GameModel? gameModel;
 
+  /// Cover files to draw as a mosaic when the card has no artwork of its own.
+  ///
+  /// Used by collection cards, which have no theme background to fall back on:
+  /// rather than a flat tint, the card previews the games it holds. Empty for
+  /// every real system, which keeps the existing tint fallback untouched.
+  final List<String> mosaicPaths;
+
   SystemInfo({
     this.svgSrc,
     this.title,
@@ -81,6 +88,7 @@ class SystemInfo {
     this.imageVersion = 0,
     this.isGame = false,
     this.gameModel,
+    this.mosaicPaths = const [],
   });
 
   /// Returns a new instance with the specified properties updated.
@@ -103,6 +111,7 @@ class SystemInfo {
     int? imageVersion,
     bool? isGame,
     GameModel? gameModel,
+    List<String>? mosaicPaths,
   }) {
     return SystemInfo(
       svgSrc: svgSrc ?? this.svgSrc,
@@ -123,6 +132,7 @@ class SystemInfo {
       imageVersion: imageVersion ?? this.imageVersion,
       isGame: isGame ?? this.isGame,
       gameModel: gameModel ?? this.gameModel,
+      mosaicPaths: mosaicPaths ?? this.mosaicPaths,
     );
   }
 

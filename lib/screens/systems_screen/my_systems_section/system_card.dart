@@ -14,6 +14,7 @@ import '../../../themes/corner_radii.dart';
 import '../../../widgets/shaders/shader_gif_widget.dart';
 import '../../../widgets/shaders/music_card_shader_background.dart';
 import '../../../utils/image_utils.dart';
+import '../../../widgets/cover_mosaic.dart';
 import '../../../widgets/system_logo_fallback.dart';
 import '../../../utils/game_utils.dart';
 
@@ -392,8 +393,19 @@ class _SystemCardState extends State<SystemCard> {
     }
 
     // SCENARIO C: Static image (Custom or Theme-provided).
+    //
+    // A mosaic outranks the theme path. `resolveBackgroundPathSync` answers
+    // with the `<folder>.webp` path whether or not that file exists, so a
+    // collection card — whose folder name is `collection:<uuid>`, which no
+    // theme will ever carry — otherwise reads as "has a background", tries to
+    // decode a file that is not there, and lands in the error fallback. Only a
+    // card with no artwork of its own is ever given a mosaic, so this can never
+    // hide a picture the user chose.
     final activeBgPath = hasCustomBg ? customBgPath : _themeBackgroundPath;
-    final hasActiveBg = activeBgPath != null && activeBgPath.isNotEmpty;
+    final hasActiveBg =
+        activeBgPath != null &&
+        activeBgPath.isNotEmpty &&
+        (hasCustomBg || widget.info.mosaicPaths.isEmpty);
 
     return Positioned.fill(
       child: ClipRRect(
@@ -406,24 +418,41 @@ class _SystemCardState extends State<SystemCard> {
                 key: ValueKey('${activeBgPath}_${widget.info.imageVersion}'),
                 fit: BoxFit.cover,
                 cacheWidth: widget.backgroundCacheWidth,
-                errorBuilder: (context, error, stackTrace) => Stack(
-                  children: [
-                    Container(color: Theme.of(context).colorScheme.surface),
-                    Container(
-                      color: widget.info.color1AsColor?.withValues(alpha: 0.4),
-                    ),
-                  ],
-                ),
+                errorBuilder: (context, error, stackTrace) =>
+                    _buildArtlessBackground(),
               )
-            : Stack(
-                children: [
-                  Container(color: Theme.of(context).colorScheme.surface),
-                  Container(
-                    color: widget.info.color1AsColor?.withValues(alpha: 0.4),
-                  ),
-                ],
-              ),
+            : _buildArtlessBackground(),
       ),
+    );
+  }
+
+  /// The background for a card with no artwork at all.
+  ///
+  /// A collection carries no theme background — there is no `collections/<id>`
+  /// entry in any theme — so instead of a flat tint it previews the games it
+  /// holds, the same way a subfolder card previews its contents. Falls back to
+  /// the tint when the collection is empty or none of its games have art.
+  Widget _buildArtlessBackground() {
+    final mosaicPaths = widget.info.mosaicPaths;
+    final tint = Stack(
+      children: [
+        Container(color: Theme.of(context).colorScheme.surface),
+        Container(color: widget.info.color1AsColor?.withValues(alpha: 0.4)),
+      ],
+    );
+
+    if (mosaicPaths.isEmpty) return tint;
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        tint,
+        CoverMosaic(
+          key: ValueKey('mosaic_${mosaicPaths.join('|')}'),
+          covers: [for (final path in mosaicPaths) File(path)],
+          gutter: 2.r,
+        ),
+      ],
     );
   }
 
@@ -442,7 +471,13 @@ class _SystemCardState extends State<SystemCard> {
   }
 
   /// Renders the system brand logo with fallback support.
-  /// The white-transparent logo is tinted with [color] (falls back to theme text).
+  ///
+  /// The white-transparent logo is tinted with [color] (falls back to theme
+  /// text). The tint is applied through `frameBuilder`, so it wraps the loaded
+  /// image and *not* the error path: a `srcIn` filter repaints every
+  /// non-transparent pixel it covers, and over the name fallback that includes
+  /// the text's black drop shadow, which comes out as a light halo that reads
+  /// as a blurred title. The fallback takes the colour directly instead.
   Widget _buildSystemLogo(
     String assetLogoPath, {
     double? height,
@@ -450,8 +485,9 @@ class _SystemCardState extends State<SystemCard> {
   }) {
     final customLogoPath = widget.info.customLogoPath;
     final hasCustomLogo = customLogoPath != null && customLogoPath.isNotEmpty;
+    final resolvedHeight = height ?? 32.r;
 
-    Widget buildLogo(Widget image) {
+    Widget tint(Widget image) {
       if (color == null) return image;
       return ColorFiltered(
         colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
@@ -459,41 +495,46 @@ class _SystemCardState extends State<SystemCard> {
       );
     }
 
+    Widget assetLogo() => Image.asset(
+      assetLogoPath,
+      height: resolvedHeight,
+      cacheWidth: 256,
+      fit: BoxFit.contain,
+      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) =>
+          tint(child),
+      errorBuilder: (context, error, stackTrace) =>
+          _buildLogoFallback(height: resolvedHeight, color: color),
+    );
+
     if (hasCustomLogo) {
-      return buildLogo(
-        Image.file(
-          File(customLogoPath),
-          key: ValueKey('${customLogoPath}_${widget.info.imageVersion}'),
-          height: height ?? 32.r,
-          cacheWidth: 256,
-          fit: BoxFit.contain,
-          errorBuilder: (context, error, stackTrace) => Image.asset(
-            assetLogoPath,
-            height: height,
-            cacheWidth: 256,
-            fit: BoxFit.contain,
-            errorBuilder: (context, error, stackTrace) => SystemLogoFallback(
-              title: widget.info.title,
-              shortName: widget.info.shortName,
-              height: height ?? 32.r,
-            ),
-          ),
-        ),
+      return Image.file(
+        File(customLogoPath),
+        key: ValueKey('${customLogoPath}_${widget.info.imageVersion}'),
+        height: resolvedHeight,
+        cacheWidth: 256,
+        fit: BoxFit.contain,
+        frameBuilder: (context, child, frame, wasSynchronouslyLoaded) =>
+            tint(child),
+        errorBuilder: (context, error, stackTrace) => assetLogo(),
       );
     }
 
-    return buildLogo(
-      Image.asset(
-        assetLogoPath,
-        height: height ?? 32.r,
-        cacheWidth: 256,
-        fit: BoxFit.contain,
-        errorBuilder: (context, error, stackTrace) => SystemLogoFallback(
-          title: widget.info.title,
-          shortName: widget.info.shortName,
-          height: height ?? 32.r,
-        ),
-      ),
+    return assetLogo();
+  }
+
+  /// The name-as-logo fallback, already in its final colour.
+  ///
+  /// It must not go through [buildLogo]'s `srcIn` filter. That filter repaints
+  /// every non-transparent pixel in the requested colour *including the text's
+  /// black drop shadow*, which turns the shadow into a light halo and makes
+  /// the name look blurred — the state collection titles were in, since a
+  /// collection never has a logo asset to load.
+  Widget _buildLogoFallback({required double height, Color? color}) {
+    return SystemLogoFallback(
+      title: widget.info.title,
+      shortName: widget.info.shortName,
+      height: height,
+      color: color,
     );
   }
 

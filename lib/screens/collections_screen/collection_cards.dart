@@ -24,9 +24,14 @@ const String kCollectionFallbackColor = '#7C4DFF';
 /// [imageVersion] must be `CollectionsProvider.imageVersion`: replacing the
 /// artwork writes to the same path, so only a changing version busts the
 /// `ValueKey` the card keys its `Image.file` on.
+///
+/// [mosaicPaths] are covers of the games the collection holds, drawn as the
+/// card background when the user has not chosen artwork — a collection has no
+/// theme background to fall back on, so without them the card is a flat tint.
 SystemInfo collectionToSystemInfo(
   CollectionModel collection, {
   required int imageVersion,
+  List<String> mosaicPaths = const [],
 }) {
   return SystemInfo(
     title: collection.name,
@@ -37,6 +42,7 @@ SystemInfo collectionToSystemInfo(
     color2: collection.color2,
     customBackgroundPath: collection.imagePath,
     imageVersion: imageVersion,
+    mosaicPaths: mosaicPaths,
   );
 }
 

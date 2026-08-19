@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -95,6 +97,28 @@ class _CollectionsBrowserScreenState extends State<CollectionsBrowserScreen> {
   /// True while a dialog/picker owns the interaction, so a queued button press
   /// cannot start a second one.
   bool _isBusy = false;
+
+  /// Cover files previewed on each collection card that has no artwork of its
+  /// own, keyed by [_previewKey].
+  ///
+  /// Screen-owned rather than provider-owned on purpose: resolving it costs a
+  /// query plus a `stat` per game, and only this screen draws it. Putting it in
+  /// [CollectionsProvider._refresh] would pay that cost on every membership
+  /// toggle from the games screen's Y menu, which never shows a mosaic.
+  final Map<String, List<String>> _previewCache = {};
+
+  /// Keys whose resolution is in flight, so a rebuild cannot start it twice.
+  final Set<String> _previewsInFlight = {};
+
+  /// Games scanned per collection when picking covers.
+  ///
+  /// Each candidate costs two `existsSync` calls, so a 900-game collection is
+  /// not worth walking to find a fourth cover; the first [_kPreviewScanLimit]
+  /// of a stable shuffle are plenty.
+  static const int _kPreviewScanLimit = 40;
+
+  /// Covers drawn on one card.
+  static const int _kPreviewCovers = 4;
 
   @override
   void initState() {
@@ -264,7 +288,13 @@ class _CollectionsBrowserScreenState extends State<CollectionsBrowserScreen> {
   Future<void> _openViewMenu() async {
     if (_isBusy) return;
     SfxService().playNavSound();
-    await showSystemViewDropdown(context, includeSorting: false);
+    await showSystemViewDropdown(
+      context,
+      includeSorting: false,
+      // The cards preview their games, so the box-art/fanart switch belongs
+      // here — it changes what is on screen.
+      includeCardStyle: true,
+    );
     // The provider notifies; `build` watches `systemViewMode` /
     // `systemGridColumns` and relays out. [_selectedIndex] is screen state and
     // is untouched, so the cursor stays on the same collection across a switch.
@@ -476,6 +506,77 @@ class _CollectionsBrowserScreenState extends State<CollectionsBrowserScreen> {
     );
   }
 
+  // ── Card previews ──────────────────────────────────────────────────────────
+
+  /// Identifies one resolved preview.
+  ///
+  /// [CollectionModel.gameCount] is part of the key so adding or removing a
+  /// game re-resolves the mosaic, and the image type is too, so flipping the
+  /// card style between box art and fanart repaints rather than showing the
+  /// other style's covers.
+  String _previewKey(CollectionModel collection, String imageType) =>
+      '${collection.id}|$imageType|${collection.gameCount}';
+
+  /// The mosaic covers for [collection], resolving them in the background the
+  /// first time they are asked for.
+  ///
+  /// Returns empty until the resolution lands, so the card falls back to its
+  /// tint for a frame rather than blocking the build on disk I/O.
+  List<String> _previewFor(CollectionModel collection, String imageType) {
+    if (collection.imagePath != null && collection.imagePath!.isNotEmpty) {
+      return const [];
+    }
+    final key = _previewKey(collection, imageType);
+    final cached = _previewCache[key];
+    if (cached != null) return cached;
+    if (collection.gameCount > 0) {
+      unawaited(_resolvePreview(collection, imageType, key));
+    }
+    return const [];
+  }
+
+  /// Picks up to [_kPreviewCovers] on-disk covers from [collection]'s games.
+  ///
+  /// The games are shuffled with a seed derived from the collection id, the
+  /// same way the subfolder preview cards sample a folder: stable for a given
+  /// collection, but different between two collections holding the same
+  /// series, so a shelf of them does not show four identical box arts.
+  Future<void> _resolvePreview(
+    CollectionModel collection,
+    String imageType,
+    String key,
+  ) async {
+    if (!_previewsInFlight.add(key)) return;
+    try {
+      final games = await CollectionsService.loadGamesForCollection(
+        collection.id,
+      );
+      if (!mounted) return;
+      final fileProvider = context.read<FileProvider>();
+      final candidates = games.toList()
+        ..shuffle(Random(collection.id.hashCode));
+      final covers = <String>[];
+      for (final game in candidates.take(_kPreviewScanLimit)) {
+        final folder = game.systemFolderName;
+        if (folder == null || folder.isEmpty) continue;
+        final art = game.getImagePath(folder, imageType, fileProvider);
+        if (File(art).existsSync()) {
+          covers.add(art);
+        } else {
+          final shot = game.getScreenshotPath(folder, fileProvider);
+          if (File(shot).existsSync()) covers.add(shot);
+        }
+        if (covers.length >= _kPreviewCovers) break;
+      }
+      if (!mounted) return;
+      setState(() => _previewCache[key] = covers);
+    } catch (e) {
+      _log.e('Collection preview resolution failed: $e');
+    } finally {
+      _previewsInFlight.remove(key);
+    }
+  }
+
   // ── UI ─────────────────────────────────────────────────────────────────────
 
   @override
@@ -502,8 +603,19 @@ class _CollectionsBrowserScreenState extends State<CollectionsBrowserScreen> {
       ),
     );
 
+    // The mosaic on an artless card follows the same box-art/fanart choice the
+    // games views use for their own cards, so a collection previews its games
+    // in the style the user picked to see games in.
+    final imageType =
+        context.select<SqliteConfigProvider, String>(
+              (p) => p.config.gameCarouselCardStyle,
+            ) ==
+            'fanart'
+        ? 'fanarts'
+        : 'box2d';
+
     final showSpinner = provider.isLoading && !provider.hasLoaded;
-    final items = _buildCards(collections, provider.imageVersion);
+    final items = _buildCards(collections, provider.imageVersion, imageType);
 
     return PopScope(
       canPop: _canPop,
@@ -554,10 +666,15 @@ class _CollectionsBrowserScreenState extends State<CollectionsBrowserScreen> {
   List<SystemInfo> _buildCards(
     List<CollectionModel> collections,
     int imageVersion,
+    String imageType,
   ) {
     return [
       for (final collection in collections)
-        collectionToSystemInfo(collection, imageVersion: imageVersion),
+        collectionToSystemInfo(
+          collection,
+          imageVersion: imageVersion,
+          mosaicPaths: _previewFor(collection, imageType),
+        ),
       newCollectionCardInfo(AppLocale.createCollection.getString(context)),
     ];
   }
