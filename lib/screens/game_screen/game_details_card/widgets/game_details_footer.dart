@@ -14,7 +14,6 @@ import '../../../../sync/i_sync_provider.dart';
 import 'package:neostation/themes/chrome_surface.dart';
 import '../../../../themes/corner_radii.dart';
 import '../../../../utils/game_utils.dart';
-import '../../../../widgets/marquee_text.dart';
 import '../../../../widgets/neo_sync_status_icon.dart';
 import '../../music/music_player.dart';
 import 'package:neostation/utils/ra_coverage.dart';
@@ -73,7 +72,7 @@ class GameDetailsFooter extends StatelessWidget {
       bottom: -0.5.r,
       left: -0.5.r,
       right: -0.5.r,
-      height: 105.r,
+      height: 84.r,
       child: ClipRRect(
         child: RepaintBoundary(
           child: Container(
@@ -82,62 +81,58 @@ class GameDetailsFooter extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Identity Section: Title and ROM Filename.
+                // Identity Section: the ROM filename, and only the ROM
+                // filename.
+                //
+                // There used to be a game title above this line. It was a
+                // strict duplicate: the list sidebar sits beside this card and
+                // its selected row renders the same resolved display name, so
+                // the name was on screen twice, one of them painted straight
+                // onto the game's fanart where pale artwork made it hard to
+                // read. The filename is the one identity fact the sidebar does
+                // not carry (it is what the scraped name was matched *from*),
+                // so it is what stays, promoted into the space the title had.
+                //
+                // Consequence worth knowing: this line is only populated for
+                // scraped games — `GameListService` sets the flag exclusively
+                // on the scraped branch, because a filename under a name
+                // derived from that same filename says nothing. For an
+                // unscraped game, or a user running `preferFileName`, the
+                // footer now carries no identity text at all and the sidebar
+                // row is the only place the name appears. That is deliberate;
+                // the blank line is still laid out so the action row below
+                // keeps a constant baseline either way.
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Expanded(
                       child: RepaintBoundary(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            MarqueeText(
-                              text: GameUtils.formatGameName(game.name),
-                              isActive: true,
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 20.r,
-                                fontWeight: FontWeight.bold,
-                                shadows: [
-                                  Shadow(
-                                    blurRadius: 1.r,
-                                    color: Colors.black,
-                                    offset: const Offset(2, 2),
-                                  ),
-                                ],
+                        child: Text(
+                          game.showRomFileNameSubtitle ? game.romname : '',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          strutStyle: StrutStyle(
+                            fontSize: 16.r,
+                            height: 1.15,
+                            forceStrutHeight: true,
+                          ),
+                          style: TextStyle(
+                            // Full white at w600: as the only line left it is
+                            // the primary text here, not a subtitle under a
+                            // heading, and the old 12.r/0.72 treatment let
+                            // pale fanart through the letterforms.
+                            color: Colors.white,
+                            fontSize: 16.r,
+                            fontWeight: FontWeight.w600,
+                            height: 1.15,
+                            shadows: [
+                              Shadow(
+                                blurRadius: 1.r,
+                                color: Colors.black,
+                                offset: const Offset(2, 2),
                               ),
-                            ),
-                            // Always reserve the ROM-filename subtitle's line
-                            // height so the action row below keeps a constant
-                            // baseline. Unscraped games have no subtitle; without
-                            // this reservation the rating/RA pill + PLAY button
-                            // float up one line. The empty string still lays out
-                            // a full line box via the shared strut/style.
-                            Text(
-                              game.showRomFileNameSubtitle ? game.romname : '',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              strutStyle: StrutStyle(
-                                fontSize: 12.r,
-                                height: 1.15,
-                                forceStrutHeight: true,
-                              ),
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.72),
-                                fontSize: 12.r,
-                                fontWeight: FontWeight.w400,
-                                height: 1.15,
-                                shadows: [
-                                  Shadow(
-                                    blurRadius: 1.r,
-                                    color: Colors.black,
-                                    offset: const Offset(2, 2),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ),
