@@ -29,6 +29,7 @@ import '../../utils/gamepad_nav.dart';
 import '../../utils/letter_jump.dart';
 import '../../providers/file_provider.dart';
 import '../../providers/sqlite_config_provider.dart';
+import '../../providers/collections_provider.dart';
 import '../../providers/sqlite_database_provider.dart';
 import '../../providers/scraping_provider.dart';
 import '../../models/system_model.dart';
@@ -45,6 +46,7 @@ import 'music/music_player.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../providers/system_background_provider.dart';
 import '../../models/secondary_display_state.dart';
+import '../../widgets/context_menu/game_context_menu.dart';
 import '../../widgets/game_view_mode_dropdown.dart';
 import '../../widgets/game_action_buttons.dart';
 import '../../widgets/legend_edge_reshow_zone.dart';
@@ -56,6 +58,7 @@ import 'package:neostation/themes/chrome_surface.dart';
 import '../../themes/corner_radii.dart';
 
 part 'my_games_list/gamepad_nav.dart';
+part 'my_games_list/context_menu.dart';
 part 'my_games_list/favorites_reorder.dart';
 part 'my_games_list/data_loading.dart';
 part 'my_games_list/secondary_display.dart';
@@ -262,6 +265,14 @@ class _SystemGamesListState extends State<SystemGamesList> {
   // View keys for scroll synchronization.
   final GlobalKey<GameListViewState> _gameListKey =
       GlobalKey<GameListViewState>();
+
+  // Anchor for the Y context menu. Handed to whichever of the three views is
+  // active; each attaches it to the widget at [_selectedGameIndex], so the menu
+  // opens next to the row/card the user is on. Only one view is built at a
+  // time, so the key is never attached twice.
+  final GlobalKey _selectedItemKey = GlobalKey(
+    debugLabel: 'selectedGameItemAnchor',
+  );
 
   // Multimedia preview orchestration.
   Timer? _videoTimer;
@@ -529,9 +540,7 @@ class _SystemGamesListState extends State<SystemGamesList> {
         system: widget.system,
         fileProvider: _fileProvider,
         syncProvider: context.read<SyncManager>().active,
-        isAllMode:
-            widget.system.folderName == SystemFolderNames.all ||
-            widget.system.folderName == SystemFolderNames.favorites,
+        isAllMode: SystemFolderNames.isAggregate(widget.system.folderName),
         onGameUpdated: _handleGameUpdated,
         onGameDeleted: _handleGameDeleted,
         onGameHidden: _handleGameHidden,
@@ -1229,6 +1238,8 @@ class _SystemGamesListState extends State<SystemGamesList> {
       onBack: _goBack,
       onPlay: _selectCurrentGame,
       onFavorite: _toggleFavorite,
+      onYButton: _openGameContextMenu,
+      selectedItemKey: _selectedItemKey,
       onRandom: _showRandomGameDialog,
       onSettings: _openGameSettingsDialog,
       onScrape: _scrapeSelectedGame,
@@ -1261,6 +1272,8 @@ class _SystemGamesListState extends State<SystemGamesList> {
       onBack: _goBack,
       onPlay: _selectCurrentGame,
       onFavorite: _toggleFavorite,
+      onYButton: _openGameContextMenu,
+      selectedItemKey: _selectedItemKey,
       onRandom: _showRandomGameDialog,
       onSettings: _openGameSettingsDialog,
       onScrape: _scrapeSelectedGame,
@@ -1499,14 +1512,15 @@ class _SystemGamesListState extends State<SystemGamesList> {
                   systemColor: widget.system.colorAsColor,
                   onGameSelected: _selectGame,
                   onGameConfirmed: _selectCurrentGame,
-                  isAllMode:
-                      widget.system.folderName == 'all' ||
-                      widget.system.folderName == SystemFolderNames.favorites,
+                  isAllMode: SystemFolderNames.isAggregate(
+                    widget.system.folderName,
+                  ),
                   isNavigatingFast: _isNavigatingFast,
                   onGamepadReactivated: _reactivateGamepadNavigation,
                   folderCount: _folderCount,
                   folderEntries: _currentFolderEntries,
                   onFolderActivated: _descendToFolderIndex,
+                  selectedItemKey: _selectedItemKey,
                 ),
         ),
       ],
@@ -1747,9 +1761,7 @@ class _SystemGamesListState extends State<SystemGamesList> {
         showVideo: _showVideo,
         videoController: _videoController,
         isVideoLoading: _isVideoLoading,
-        isAllMode:
-            widget.system.folderName == 'all' ||
-            widget.system.folderName == SystemFolderNames.favorites,
+        isAllMode: SystemFolderNames.isAggregate(widget.system.folderName),
         retroAchievementsProvider: _retroAchievementsProvider,
         syncProvider: syncManager.active!,
         localizedDescription: _localizedDescription,
@@ -1951,9 +1963,7 @@ class _SystemGamesListState extends State<SystemGamesList> {
     // Pause any preview playback to avoid resource contention during scraping.
     _resetVideoState();
 
-    final isAllMode =
-        widget.system.folderName == SystemFolderNames.all ||
-        widget.system.folderName == SystemFolderNames.favorites;
+    final isAllMode = SystemFolderNames.isAggregate(widget.system.folderName);
     final targetSystemFolder = isAllMode && game.systemFolderName != null
         ? game.systemFolderName!
         : widget.system.primaryFolderName;

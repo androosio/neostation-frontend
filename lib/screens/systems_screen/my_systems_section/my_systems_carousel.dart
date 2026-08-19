@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:neostation/l10n/app_locale.dart';
 import 'package:flutter_localization/flutter_localization.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:neostation/constants/system_folder_names.dart';
 import 'package:neostation/models/my_systems.dart';
 import 'package:neostation/models/system_model.dart';
 import 'package:neostation/screens/app_screen.dart';
@@ -18,6 +19,7 @@ import '../../../utils/game_launch_utils.dart';
 import '../../../providers/system_background_provider.dart';
 import 'package:neostation/widgets/custom_notification.dart';
 import 'package:neostation/widgets/system_emulator_settings_dialog.dart';
+import '../../collections_screen/collections_browser_screen.dart';
 import '../../game_screen/android_apps/android_apps_grid.dart';
 import 'package:neostation/sync/sync_manager.dart';
 import 'package:neostation/providers/neo_assets_provider.dart';
@@ -389,6 +391,15 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
         await Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => targetScreen),
+        );
+      } else if (systemInfo.folderName == SystemFolderNames.collections) {
+        // Same branch as the grid's: miss one copy and Collections works in
+        // only one of the two systems layouts.
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const CollectionsBrowserScreen(),
+          ),
         );
       } else if (systemInfo.folderName == 'android') {
         final systemMeta = configProvider.detectedSystems.firstWhere(

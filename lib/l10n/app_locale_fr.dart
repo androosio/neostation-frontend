@@ -613,6 +613,32 @@ const Map<String, dynamic> appLocaleFr = {
   AppLocale.hintViewMode: 'Vue',
   AppLocale.hintScrape: 'Scraper',
   AppLocale.hintMoreActions: 'Plus',
+  AppLocale.hintOptions: 'Options',
+  AppLocale.addTo: 'Ajouter à…',
+  AppLocale.removeFrom: 'Retirer de…',
+  AppLocale.addedToCollection: 'Ajouté à {name}',
+  AppLocale.removedFromCollection: 'Retiré de {name}',
+  AppLocale.newCollection: 'Nouvelle collection…',
+  AppLocale.newCollectionDefaultName: 'Collection {number}',
+  AppLocale.collections: 'Collections',
+  AppLocale.collectionsCount: '{count} Collections',
+
+  // Collections browser screen
+  AppLocale.createCollection: 'Nouvelle collection',
+  AppLocale.collectionName: 'Nom de la collection',
+  AppLocale.renameCollection: 'Renommer la collection',
+  AppLocale.changeImage: 'Changer l\'image',
+  AppLocale.removeImage: 'Supprimer l\'image',
+  AppLocale.deleteCollection: 'Supprimer la collection',
+  AppLocale.deleteCollectionConfirm:
+      'Supprimer « {name} » ? Les jeux qu\'elle contient ne sont pas supprimés.',
+  AppLocale.collectionCreated: '{name} créée',
+  AppLocale.collectionDeleted: '{name} supprimée',
+  AppLocale.emptyCollection: 'Cette collection ne contient encore aucun jeu',
+  AppLocale.noCollections: 'Aucune collection pour le moment',
+  AppLocale.noCollectionsSubtitle:
+      'Créez-en une pour regrouper des jeux de tous les systèmes.',
+  AppLocale.errorSavingCollection: 'Impossible d\'enregistrer la collection',
 
   AppLocale.error: 'Erreur',
   AppLocale.loading: 'Chargement...',

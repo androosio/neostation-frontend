@@ -127,6 +127,59 @@ class SqliteMigrations {
     ON app_neo_sync_state(provider, file_path);
   ''';
 
+  // ── Collections schema — single source of truth ───────────────────────────
+  // Referenced by migration v136 and by the fresh-install table list, so a
+  // future column change is made in exactly one place.
+
+  /// CREATE for the user-defined collections table (v136).
+  ///
+  /// `id` is a bare uuid v4 — it is what the `collection:<uuid>` synthesized
+  /// system folder name carries, and what the collection's image file is named
+  /// after, so a rename never orphans the artwork. Deliberately **no** UNIQUE
+  /// on `name`: duplicate collection names are the user's business and must
+  /// never make a write fail.
+  static const String createUserCollectionsTableSql = '''
+    CREATE TABLE IF NOT EXISTS user_collections (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      image_path TEXT,
+      color1 TEXT,
+      color2 TEXT,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+  ''';
+
+  /// CREATE for collection membership (v136).
+  ///
+  /// `rom_path` is the natural key of `user_roms` and is what the favourite
+  /// toggle already keys on; `COLLATE NOCASE` mirrors that column. The cascade
+  /// on `rom_path` gives a ROM that genuinely disappears from disk the same
+  /// semantics it has for favourites today — and because orphan cleanup detects
+  /// renames before deleting, a moved file keeps its membership.
+  static const String createUserCollectionItemsTableSql = '''
+    CREATE TABLE IF NOT EXISTS user_collection_items (
+      collection_id TEXT NOT NULL,
+      rom_path TEXT NOT NULL COLLATE NOCASE,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (collection_id, rom_path),
+      FOREIGN KEY (collection_id) REFERENCES user_collections(id) ON DELETE CASCADE,
+      FOREIGN KEY (rom_path) REFERENCES user_roms(rom_path) ON DELETE CASCADE
+    );
+  ''';
+
+  /// Lookup index for [createUserCollectionItemsTableSql] (v136).
+  ///
+  /// The primary key already covers `(collection_id, rom_path)`; this covers
+  /// the other direction — "which collections is this ROM in?", asked once per
+  /// context-menu open.
+  static const String createUserCollectionItemsIndexSql = '''
+    CREATE INDEX IF NOT EXISTS idx_collection_items_rom
+    ON user_collection_items(rom_path);
+  ''';
+
   /// Routes a specific version upgrade request to its corresponding migration logic.
   ///
   /// [db] is the active SQLite database connection.
@@ -503,6 +556,9 @@ class SqliteMigrations {
         break;
       case 135:
         await _migrateToVersion135(db);
+        break;
+      case 136:
+        await _migrateToVersion136(db);
         break;
       case 138:
         await _migrateToVersion138(db);
@@ -6267,6 +6323,38 @@ class SqliteMigrations {
       _log.i('Migration v138 completed');
     } catch (e, stackTrace) {
       _log.e('Error in migration v138: $e');
+      _log.e('   StackTrace: $stackTrace');
+      rethrow;
+    }
+  }
+
+  /// Migration v136: creates the user collections tables.
+  ///
+  /// Collections are user-defined groups of ROMs, stored as their own `user_*`
+  /// tables rather than as `app_systems` rows: `syncSystems` deletes every
+  /// `app_systems` row missing from the systems JSON, and the cascade from
+  /// `user_system_settings` would take a collection's name and artwork with it
+  /// on the next systems update.
+  ///
+  /// Numbered 136 because 135 was the highest slot in use across `origin/main`
+  /// and every sibling worktree at the time of writing. Whoever renumbers next:
+  /// scan on-disk working trees, not just refs, and re-scan immediately before
+  /// opening the PR — a collision silently skips this step on a device already
+  /// past the number.
+  ///
+  /// Idempotent by construction (`CREATE TABLE/INDEX IF NOT EXISTS`), so a
+  /// device that skipped the case entirely can be repaired by re-running it
+  /// from a later numbered migration.
+  static Future<void> _migrateToVersion136(Database db) async {
+    _log.i('Migration v136: Creating collections tables');
+    try {
+      db.execute(createUserCollectionsTableSql);
+      db.execute(createUserCollectionItemsTableSql);
+      db.execute(createUserCollectionItemsIndexSql);
+
+      _log.i('Migration v136 completed');
+    } catch (e, stackTrace) {
+      _log.e('Error in migration v136: $e');
       _log.e('   StackTrace: $stackTrace');
       rethrow;
     }

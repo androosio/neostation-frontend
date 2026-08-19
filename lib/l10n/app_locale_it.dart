@@ -602,6 +602,32 @@ const Map<String, dynamic> appLocaleIt = {
   AppLocale.hintViewMode: 'Vista',
   AppLocale.hintScrape: 'Scraping',
   AppLocale.hintMoreActions: 'Altro',
+  AppLocale.hintOptions: 'Opzioni',
+  AppLocale.addTo: 'Aggiungi a…',
+  AppLocale.removeFrom: 'Rimuovi da…',
+  AppLocale.addedToCollection: 'Aggiunto a {name}',
+  AppLocale.removedFromCollection: 'Rimosso da {name}',
+  AppLocale.newCollection: 'Nuova raccolta…',
+  AppLocale.newCollectionDefaultName: 'Raccolta {number}',
+  AppLocale.collections: 'Raccolte',
+  AppLocale.collectionsCount: '{count} Raccolte',
+
+  // Collections browser screen
+  AppLocale.createCollection: 'Nuova raccolta',
+  AppLocale.collectionName: 'Nome della raccolta',
+  AppLocale.renameCollection: 'Rinomina raccolta',
+  AppLocale.changeImage: 'Cambia immagine',
+  AppLocale.removeImage: 'Rimuovi immagine',
+  AppLocale.deleteCollection: 'Elimina raccolta',
+  AppLocale.deleteCollectionConfirm:
+      'Eliminare «{name}»? I giochi al suo interno non vengono eliminati.',
+  AppLocale.collectionCreated: '{name} creata',
+  AppLocale.collectionDeleted: '{name} eliminata',
+  AppLocale.emptyCollection: 'Questa raccolta non contiene ancora giochi',
+  AppLocale.noCollections: 'Nessuna raccolta',
+  AppLocale.noCollectionsSubtitle:
+      'Creane una per raggruppare giochi da qualsiasi sistema.',
+  AppLocale.errorSavingCollection: 'Impossibile salvare la raccolta',
 
   AppLocale.error: 'Errore',
   AppLocale.loading: 'Caricamento...',

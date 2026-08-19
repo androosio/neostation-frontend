@@ -47,7 +47,7 @@ class GamesFooter extends CoreFooter {
       SizedBox(width: 8.r),
       GamepadControl(
         iconPath: 'assets/images/gamepad/Xbox_Y_button.png',
-        label: AppLocale.hintFavorite.getString(context),
+        label: AppLocale.hintOptions.getString(context),
         backgroundColor: theme.colorScheme.secondary.withValues(alpha: 0.8),
         textColor: Colors.white,
       ),

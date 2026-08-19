@@ -21,6 +21,7 @@ import 'package:neostation/services/game_legend_visibility.dart';
 import 'package:neostation/repositories/config_repository.dart';
 import 'package:neostation/repositories/scraper_repository.dart';
 import 'package:neostation/services/steam_scraper_service.dart';
+import 'package:neostation/providers/collections_provider.dart';
 import 'package:neostation/providers/system_background_provider.dart';
 import 'package:neostation/providers/neo_assets_provider.dart';
 import 'package:neostation/widgets/app_lifecycle_handler.dart';
@@ -1001,6 +1002,14 @@ class _MyAppState extends State<MyApp> {
         ),
         ChangeNotifierProvider.value(value: widget.rommProvider),
         ChangeNotifierProvider(create: (context) => SystemBackgroundProvider()),
+        ChangeNotifierProvider(
+          // Eager: the systems carousel/grid paints the Collections card's game
+          // count on the first frame it builds, and that card is on the very
+          // first screen. A lazy create would leave the count at zero until
+          // something else read the provider.
+          lazy: false,
+          create: (context) => CollectionsProvider()..load(),
+        ),
         ChangeNotifierProvider(
           // Eager: the theme manifest is a network fetch, and during first-run
           // setup the wizard's art-pack step is the ONLY consumer of this

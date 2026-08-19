@@ -5,6 +5,7 @@ import 'package:neostation/constants/recent_card_sizes.dart';
 import 'package:neostation/l10n/app_locale.dart';
 import 'package:flutter_localization/flutter_localization.dart';
 import 'package:neostation/responsive.dart';
+import 'package:neostation/constants/system_folder_names.dart';
 import 'package:neostation/models/my_systems.dart';
 import 'package:neostation/models/system_model.dart';
 import 'package:neostation/screens/app_screen.dart';
@@ -30,6 +31,7 @@ import 'package:neostation/widgets/custom_notification.dart';
 import 'package:neostation/widgets/system_emulator_settings_dialog.dart';
 import 'package:neostation/sync/sync_manager.dart';
 import 'package:neostation/providers/theme_provider.dart';
+import '../../collections_screen/collections_browser_screen.dart';
 import '../../game_screen/android_apps/android_apps_grid.dart';
 import 'package:neostation/widgets/header_sort_dropdown.dart';
 import 'package:neostation/widgets/systems_grid_footer.dart';
@@ -402,6 +404,18 @@ class MySystems extends StatelessWidget {
           await Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => targetScreen),
+          );
+        }
+      } else if (systemInfo.folderName == SystemFolderNames.collections) {
+        // Collections are user data, not `app_systems` rows, so there is no
+        // SystemModel to open: the browser screen lists them and synthesizes
+        // one per collection on the way into the games list.
+        if (context.mounted) {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const CollectionsBrowserScreen(),
+            ),
           );
         }
       } else if (systemInfo.folderName == 'android') {

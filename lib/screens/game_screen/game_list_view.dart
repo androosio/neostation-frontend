@@ -43,6 +43,10 @@ class GameListView extends StatefulWidget {
   final List<RomFolderEntry> folderEntries;
   final void Function(int folderIndex)? onFolderActivated;
 
+  /// Attached to the currently selected row so the host can anchor an overlay
+  /// (the Y context menu) to it. Null when no anchor is needed.
+  final GlobalKey? selectedItemKey;
+
   const GameListView({
     super.key,
     required this.system,
@@ -57,6 +61,7 @@ class GameListView extends StatefulWidget {
     this.folderCount = 0,
     this.folderEntries = const [],
     this.onFolderActivated,
+    this.selectedItemKey,
   });
 
   @override
@@ -315,7 +320,7 @@ class GameListViewState extends State<GameListView>
                         );
                       }
 
-                      return GestureDetector(
+                      final row = GestureDetector(
                         onTap: () {
                           // Touch users have no A button: the first tap selects
                           // the row (populating the details panel), a second tap
@@ -399,6 +404,25 @@ class GameListViewState extends State<GameListView>
                             ),
                           ),
                         ),
+                      );
+
+                      // Anchor for the Y context menu: an invisible box that
+                      // carries the host's key while this row is selected.
+                      // Wrapped unconditionally (only the key moves) so the
+                      // tree keeps its shape as the selection travels, and with
+                      // StackFit.passthrough so the row's layout is unchanged.
+                      return Stack(
+                        fit: StackFit.passthrough,
+                        children: [
+                          row,
+                          Positioned.fill(
+                            child: IgnorePointer(
+                              child: SizedBox.expand(
+                                key: isSelected ? widget.selectedItemKey : null,
+                              ),
+                            ),
+                          ),
+                        ],
                       );
                     },
                   );

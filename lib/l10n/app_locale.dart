@@ -820,6 +820,36 @@ mixin AppLocale {
   static const String hintViewMode = 'hint_view_mode';
   static const String hintScrape = 'hint_scrape';
   static const String hintMoreActions = 'hint_more_actions';
+  static const String hintOptions = 'hint_options';
+
+  // ---------------------------------------------------------------------------
+  // Game context menu (Y)
+  // ---------------------------------------------------------------------------
+  static const String addTo = 'add_to';
+  static const String removeFrom = 'remove_from';
+  static const String addedToCollection = 'added_to_collection';
+  static const String removedFromCollection = 'removed_from_collection';
+  static const String newCollection = 'new_collection';
+  static const String newCollectionDefaultName = 'new_collection_default_name';
+  static const String collections = 'collections';
+  static const String collectionsCount = 'collections_count';
+
+  // ---------------------------------------------------------------------------
+  // Collections browser screen
+  // ---------------------------------------------------------------------------
+  static const String createCollection = 'create_collection';
+  static const String collectionName = 'collection_name';
+  static const String renameCollection = 'rename_collection';
+  static const String changeImage = 'change_image';
+  static const String removeImage = 'remove_image';
+  static const String deleteCollection = 'delete_collection';
+  static const String deleteCollectionConfirm = 'delete_collection_confirm';
+  static const String collectionCreated = 'collection_created';
+  static const String collectionDeleted = 'collection_deleted';
+  static const String emptyCollection = 'empty_collection';
+  static const String noCollections = 'no_collections';
+  static const String noCollectionsSubtitle = 'no_collections_subtitle';
+  static const String errorSavingCollection = 'error_saving_collection';
 
   // ---------------------------------------------------------------------------
   // Misc

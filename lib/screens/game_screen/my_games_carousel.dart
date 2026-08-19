@@ -74,6 +74,15 @@ class GamesCarousel extends StatefulWidget {
   })?
   folderCoverResolver;
 
+  /// Gamepad Y. Opens the per-game context menu; falls back to [onFavorite]
+  /// when the host does not provide one. The on-screen Y action button keeps
+  /// calling [onFavorite] directly — it is a mouse/touch affordance.
+  final VoidCallback? onYButton;
+
+  /// Attached to the centred card so the host can anchor the context menu to
+  /// it. Null when no anchor is needed.
+  final GlobalKey? selectedItemKey;
+
   const GamesCarousel({
     super.key,
     required this.system,
@@ -94,6 +103,8 @@ class GamesCarousel extends StatefulWidget {
     this.onFolderActivated,
     this.folderCoverResolver,
     this.artworkVersion = 0,
+    this.onYButton,
+    this.selectedItemKey,
   });
 
   @override
@@ -346,6 +357,31 @@ class _GamesCarouselState extends State<GamesCarousel> {
     _chromeSig = null;
   }
 
+  /// Overlays every card with an invisible box that carries the host's anchor
+  /// key while the card is centred, so the Y context menu can be positioned
+  /// against the card the user is actually looking at.
+  ///
+  /// The wrapper is applied unconditionally (only the key moves) so the widget
+  /// tree keeps the same shape as the selection travels — swapping the shape
+  /// per card would tear down and rebuild the artwork subtree on every step.
+  /// `StackFit.passthrough` forwards the incoming constraints unchanged, so the
+  /// card lays out exactly as it did without the wrapper.
+  Widget _withMenuAnchor(Widget card, bool isCentred) {
+    return Stack(
+      fit: StackFit.passthrough,
+      children: [
+        card,
+        Positioned.fill(
+          child: IgnorePointer(
+            child: SizedBox.expand(
+              key: isCentred ? widget.selectedItemKey : null,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   void _initializeGamepad() {
     _gamepadNav = GamepadNavigation(
       onNavigateLeft: () {
@@ -362,7 +398,7 @@ class _GamesCarouselState extends State<GamesCarousel> {
         }
       },
       onBack: widget.onBack,
-      onFavorite: widget.onFavorite,
+      onFavorite: widget.onYButton ?? widget.onFavorite, // Button Y.
       onXButton: () {
         try {
           GameViewModeDropdown.globalKey.currentState?.showDropdown();
@@ -538,8 +574,7 @@ class _GamesCarouselState extends State<GamesCarousel> {
   }
 
   bool get _isAllMode =>
-      widget.system.folderName == SystemFolderNames.all ||
-      widget.system.folderName == SystemFolderNames.favorites;
+      SystemFolderNames.isAggregate(widget.system.folderName);
 
   SystemModel _effectiveSystemFor(GameModel game) {
     final systemFolderName = game.systemFolderName;
@@ -748,8 +783,7 @@ class _GamesCarouselState extends State<GamesCarousel> {
   }
 
   String _folderForGame(GameModel game) {
-    if ((widget.system.folderName == SystemFolderNames.all ||
-            widget.system.folderName == SystemFolderNames.favorites) &&
+    if (SystemFolderNames.isAggregate(widget.system.folderName) &&
         game.systemFolderName != null) {
       return game.systemFolderName!;
     }
@@ -1317,7 +1351,10 @@ class _GamesCarouselState extends State<GamesCarousel> {
                               _carouselKey.currentState?.animateToPage(index);
                             }
                           },
-                          child: _buildFolderCard(folder, isFanart),
+                          child: _withMenuAnchor(
+                            _buildFolderCard(folder, isFanart),
+                            isCentred,
+                          ),
                         ),
                       );
                     }
@@ -1337,9 +1374,12 @@ class _GamesCarouselState extends State<GamesCarousel> {
                             _carouselKey.currentState?.animateToPage(index);
                           }
                         },
-                        child: isFanart
-                            ? _buildFanartCard(game, isCentred)
-                            : _buildBoxCard(game, isCentred),
+                        child: _withMenuAnchor(
+                          isFanart
+                              ? _buildFanartCard(game, isCentred)
+                              : _buildBoxCard(game, isCentred),
+                          isCentred,
+                        ),
                       ),
                     );
                   },

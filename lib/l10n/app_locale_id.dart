@@ -584,6 +584,32 @@ const Map<String, dynamic> appLocaleId = {
   AppLocale.hintViewMode: 'Tampilan',
   AppLocale.hintScrape: 'Ambil',
   AppLocale.hintMoreActions: 'Lainnya',
+  AppLocale.hintOptions: 'Opsi',
+  AppLocale.addTo: 'Tambahkan ke…',
+  AppLocale.removeFrom: 'Hapus dari…',
+  AppLocale.addedToCollection: 'Ditambahkan ke {name}',
+  AppLocale.removedFromCollection: 'Dihapus dari {name}',
+  AppLocale.newCollection: 'Koleksi baru…',
+  AppLocale.newCollectionDefaultName: 'Koleksi {number}',
+  AppLocale.collections: 'Koleksi',
+  AppLocale.collectionsCount: '{count} Koleksi',
+
+  // Collections browser screen
+  AppLocale.createCollection: 'Koleksi baru',
+  AppLocale.collectionName: 'Nama koleksi',
+  AppLocale.renameCollection: 'Ganti nama koleksi',
+  AppLocale.changeImage: 'Ubah gambar',
+  AppLocale.removeImage: 'Hapus gambar',
+  AppLocale.deleteCollection: 'Hapus koleksi',
+  AppLocale.deleteCollectionConfirm:
+      'Hapus "{name}"? Game di dalamnya tidak ikut terhapus.',
+  AppLocale.collectionCreated: '{name} dibuat',
+  AppLocale.collectionDeleted: '{name} dihapus',
+  AppLocale.emptyCollection: 'Koleksi ini belum berisi game',
+  AppLocale.noCollections: 'Belum ada koleksi',
+  AppLocale.noCollectionsSubtitle:
+      'Buat satu untuk mengelompokkan game dari sistem mana pun.',
+  AppLocale.errorSavingCollection: 'Koleksi tidak dapat disimpan',
 
   AppLocale.error: 'Kesalahan',
   AppLocale.loading: 'Memuat...',

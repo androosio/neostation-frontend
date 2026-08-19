@@ -595,6 +595,32 @@ const Map<String, dynamic> appLocalePt = {
   AppLocale.hintViewMode: 'Modo',
   AppLocale.hintScrape: 'Raspar',
   AppLocale.hintMoreActions: 'Mais',
+  AppLocale.hintOptions: 'Opções',
+  AppLocale.addTo: 'Adicionar a…',
+  AppLocale.removeFrom: 'Remover de…',
+  AppLocale.addedToCollection: 'Adicionado a {name}',
+  AppLocale.removedFromCollection: 'Removido de {name}',
+  AppLocale.newCollection: 'Nova coleção…',
+  AppLocale.newCollectionDefaultName: 'Coleção {number}',
+  AppLocale.collections: 'Coleções',
+  AppLocale.collectionsCount: '{count} Coleções',
+
+  // Collections browser screen
+  AppLocale.createCollection: 'Nova coleção',
+  AppLocale.collectionName: 'Nome da coleção',
+  AppLocale.renameCollection: 'Renomear coleção',
+  AppLocale.changeImage: 'Alterar imagem',
+  AppLocale.removeImage: 'Remover imagem',
+  AppLocale.deleteCollection: 'Eliminar coleção',
+  AppLocale.deleteCollectionConfirm:
+      'Eliminar «{name}»? Os jogos nela não são eliminados.',
+  AppLocale.collectionCreated: '{name} criada',
+  AppLocale.collectionDeleted: '{name} eliminada',
+  AppLocale.emptyCollection: 'Esta coleção ainda não tem jogos',
+  AppLocale.noCollections: 'Ainda não há coleções',
+  AppLocale.noCollectionsSubtitle:
+      'Crie uma para agrupar jogos de qualquer sistema.',
+  AppLocale.errorSavingCollection: 'Não foi possível guardar a coleção',
 
   AppLocale.error: 'Erro',
   AppLocale.loading: 'Carregando...',

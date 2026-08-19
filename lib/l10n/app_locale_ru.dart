@@ -594,6 +594,32 @@ const Map<String, dynamic> appLocaleRu = {
   AppLocale.hintViewMode: 'Режим',
   AppLocale.hintScrape: 'Скрейп',
   AppLocale.hintMoreActions: 'Ещё',
+  AppLocale.hintOptions: 'Опции',
+  AppLocale.addTo: 'Добавить в…',
+  AppLocale.removeFrom: 'Убрать из…',
+  AppLocale.addedToCollection: 'Добавлено в {name}',
+  AppLocale.removedFromCollection: 'Удалено из {name}',
+  AppLocale.newCollection: 'Новая коллекция…',
+  AppLocale.newCollectionDefaultName: 'Коллекция {number}',
+  AppLocale.collections: 'Коллекции',
+  AppLocale.collectionsCount: 'Коллекций: {count}',
+
+  // Collections browser screen
+  AppLocale.createCollection: 'Новая коллекция',
+  AppLocale.collectionName: 'Название коллекции',
+  AppLocale.renameCollection: 'Переименовать коллекцию',
+  AppLocale.changeImage: 'Изменить изображение',
+  AppLocale.removeImage: 'Удалить изображение',
+  AppLocale.deleteCollection: 'Удалить коллекцию',
+  AppLocale.deleteCollectionConfirm:
+      'Удалить «{name}»? Игры из неё не удаляются.',
+  AppLocale.collectionCreated: 'Коллекция {name} создана',
+  AppLocale.collectionDeleted: 'Коллекция {name} удалена',
+  AppLocale.emptyCollection: 'В этой коллекции пока нет игр',
+  AppLocale.noCollections: 'Коллекций пока нет',
+  AppLocale.noCollectionsSubtitle:
+      'Создайте коллекцию, чтобы объединить игры с любых систем.',
+  AppLocale.errorSavingCollection: 'Не удалось сохранить коллекцию',
 
   AppLocale.error: 'Ошибка',
   AppLocale.loading: 'Загрузка...',

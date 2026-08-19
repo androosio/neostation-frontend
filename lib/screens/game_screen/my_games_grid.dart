@@ -77,6 +77,15 @@ class GamesGrid extends StatefulWidget {
   })?
   folderCoverResolver;
 
+  /// Gamepad Y. Opens the per-game context menu; falls back to [onFavorite]
+  /// when the host does not provide one. The on-screen Y action button keeps
+  /// calling [onFavorite] directly — it is a mouse/touch affordance.
+  final VoidCallback? onYButton;
+
+  /// Attached to the selected card so the host can anchor the context menu to
+  /// it. Null when no anchor is needed.
+  final GlobalKey? selectedItemKey;
+
   const GamesGrid({
     super.key,
     required this.system,
@@ -97,6 +106,8 @@ class GamesGrid extends StatefulWidget {
     this.onFolderActivated,
     this.folderCoverResolver,
     this.artworkVersion = 0,
+    this.onYButton,
+    this.selectedItemKey,
   });
 
   @override
@@ -278,8 +289,7 @@ class _GamesGridState extends State<GamesGrid> {
       bytes[offset + 3];
 
   String _folderForGame(GameModel game) {
-    if ((widget.system.folderName == SystemFolderNames.all ||
-            widget.system.folderName == SystemFolderNames.favorites) &&
+    if (SystemFolderNames.isAggregate(widget.system.folderName) &&
         game.systemFolderName != null) {
       return game.systemFolderName!;
     }
@@ -716,7 +726,7 @@ class _GamesGridState extends State<GamesGrid> {
       onNavigateRight: _navigateRight,
       onSelectItem: widget.onPlay,
       onBack: widget.onBack,
-      onFavorite: widget.onFavorite,
+      onFavorite: widget.onYButton ?? widget.onFavorite, // Button Y.
       onXButton: () {
         try {
           GameViewModeDropdown.globalKey.currentState?.showDropdown();
@@ -902,8 +912,7 @@ class _GamesGridState extends State<GamesGrid> {
   }
 
   bool get _isAllMode =>
-      widget.system.folderName == SystemFolderNames.all ||
-      widget.system.folderName == SystemFolderNames.favorites;
+      SystemFolderNames.isAggregate(widget.system.folderName);
 
   SystemModel _effectiveSystemFor(GameModel game) {
     final systemFolderName = game.systemFolderName;
@@ -1181,6 +1190,10 @@ class _GamesGridState extends State<GamesGrid> {
                               cell,
                               Positioned.fill(
                                 child: IgnorePointer(
+                                  // Doubles as the anchor for the Y context
+                                  // menu: this row is never memoized, so the
+                                  // global key follows the selection.
+                                  key: widget.selectedItemKey,
                                   child: DecoratedBox(
                                     decoration: BoxDecoration(
                                       border: Border.all(
