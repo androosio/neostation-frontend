@@ -2,11 +2,11 @@ part of '../my_games_list.dart';
 
 /// The Y-button game context menu for the system games list.
 ///
-/// Y used to toggle the favourite directly; it now opens an anchored menu whose
-/// Favourites entry is pre-highlighted, so the old one-press action survives as
-/// `Y, A`. With the vertical action rail gone this menu is also the only route
-/// to the view-level actions (view mode, scrape, random) for a user without a
-/// gamepad, so it carries those below a separator — and a long-press on a row
+/// Y used to toggle the favourite directly; it now opens an anchored menu that
+/// starts on `Settings`, with the favourite one submenu away under `Add to…` /
+/// `Remove from…`. With the vertical action rail gone this menu is also the
+/// only route to the view-level actions (view mode, random) for a user without
+/// a gamepad, so it carries those below a separator — and a long-press on a row
 /// opens it, which is what [_openGameContextMenuFor] is for.
 extension _ContextMenu on _SystemGamesListState {
   /// Long-press entry point: selects [game] first so the menu anchors to its
@@ -81,17 +81,11 @@ extension _ContextMenu on _SystemGamesListState {
       context: context,
       targets: targets,
       anchorKey: _selectedItemKey,
-      // Pre-highlight Favourites, whichever submenu it landed in.
-      preselectTargetId: _favoritesTargetId,
       onSettings: _openGameSettingsDialog,
       onCreateTarget: () => _createCollectionFromMenu(game),
       createTargetLabel: AppLocale.newCollection.getString(context),
       onViewMode: () =>
           GameViewModeDropdown.globalKey.currentState?.showDropdown(),
-      // The details card registers a richer scrape action (progress on the
-      // card itself) while it is mounted; grid and carousel have no details
-      // card, so they fall back to the host's own scrape.
-      onScrape: () => (_scrapeAction ?? _scrapeSelectedGame)(),
       onRandom: _showRandomGameDialog,
     );
   }

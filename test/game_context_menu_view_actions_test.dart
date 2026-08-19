@@ -10,10 +10,11 @@ import 'package:neostation/widgets/context_menu/game_context_menu.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Covers the view-level actions the game context menu absorbed when the
-/// vertical action rail was removed: view mode, scrape and random. With no rail
-/// and no button legend in the games views, this menu is the only route to them
-/// for a user without a gamepad, so each row has to be present when the host
-/// binds it and absent when it does not.
+/// vertical action rail was removed: view mode and random. With no rail and no
+/// button legend in the games views, this menu is the only route to them for a
+/// user without a gamepad, so each row has to be present when the host binds it
+/// and absent when it does not. Scrape is deliberately not one of them — it
+/// lives in game settings and in the scrape tab.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -86,14 +87,35 @@ void main() {
       targets: targets,
       onSettings: () {},
       onViewMode: () {},
-      onScrape: () {},
       onRandom: () {},
     );
     await tester.pumpAndSettle();
 
     expect(find.text(label(ctx, AppLocale.viewMode)), findsOneWidget);
-    expect(find.text(label(ctx, AppLocale.hintScrape)), findsOneWidget);
     expect(find.text(label(ctx, AppLocale.randomGame)), findsOneWidget);
+    // Scrape is not offered here at all.
+    expect(find.text(label(ctx, AppLocale.hintScrape)), findsNothing);
+  });
+
+  testWidgets('opens on Settings, with no submenu pre-opened', (tester) async {
+    final ctx = await pumpHost(tester);
+    // ignore: unawaited_futures
+    showGameContextMenu(
+      context: ctx,
+      targets: targets,
+      onSettings: () {},
+      onViewMode: () {},
+      onRandom: () {},
+    );
+    await tester.pumpAndSettle();
+
+    // The focused row is drawn bold; Settings is the one the cursor starts on.
+    final settings = tester.widget<Text>(
+      find.text(label(ctx, AppLocale.gameSettings)),
+    );
+    expect(settings.style?.fontWeight, FontWeight.w700);
+    // Nothing from `Add to…` is on screen: the submenu is closed.
+    expect(find.text('Favorite'), findsNothing);
   });
 
   testWidgets('omits the rows the host leaves unbound', (tester) async {
@@ -108,7 +130,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text(label(ctx, AppLocale.viewMode)), findsNothing);
-    expect(find.text(label(ctx, AppLocale.hintScrape)), findsNothing);
     expect(find.text(label(ctx, AppLocale.randomGame)), findsOneWidget);
   });
 
@@ -117,7 +138,6 @@ void main() {
   ) async {
     final ctx = await pumpHost(tester);
     var viewMode = 0;
-    var scrape = 0;
     var random = 0;
     // ignore: unawaited_futures
     showGameContextMenu(
@@ -125,18 +145,16 @@ void main() {
       targets: targets,
       onSettings: () {},
       onViewMode: () => viewMode++,
-      onScrape: () => scrape++,
       onRandom: () => random++,
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text(label(ctx, AppLocale.hintScrape)));
+    await tester.tap(find.text(label(ctx, AppLocale.viewMode)));
     await tester.pumpAndSettle();
 
-    expect(scrape, 1);
-    expect(viewMode, 0);
+    expect(viewMode, 1);
     expect(random, 0);
-    expect(find.text(label(ctx, AppLocale.hintScrape)), findsNothing);
+    expect(find.text(label(ctx, AppLocale.viewMode)), findsNothing);
   });
 
   testWidgets('the membership rows still work alongside them', (tester) async {
@@ -156,15 +174,14 @@ void main() {
         ),
       ],
       onSettings: () {},
-      preselectTargetId: 'favorites',
       onViewMode: () {},
-      onScrape: () {},
       onRandom: () {},
     );
     await tester.pumpAndSettle();
 
-    // Favourites is pre-highlighted in an already-open submenu, exactly as it
-    // was before the view-level rows were appended below it.
+    // Favourites now costs one more press: open `Add to…`, then activate it.
+    await tester.tap(find.text(label(ctx, AppLocale.addTo)));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Favorite'));
     await tester.pumpAndSettle();
 

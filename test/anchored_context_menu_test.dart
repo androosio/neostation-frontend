@@ -62,6 +62,16 @@ void main() {
     ),
   );
 
+  /// Waits out [GamepadNavigation]'s post-activation grace window, which drops
+  /// every key event for 150 real milliseconds after a layer is activated. Fake
+  /// time does not move it, so the wait has to be a real one.
+  Future<void> settleNavGrace(WidgetTester tester) async {
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 200)),
+    );
+    await tester.pumpAndSettle();
+  }
+
   Future<BuildContext> pumpHost(WidgetTester tester) async {
     late BuildContext ctx;
     await tester.pumpWidget(
@@ -131,6 +141,49 @@ void main() {
 
     expect(result, 'add:favorites');
     expect(find.text('Add to'), findsNothing);
+  });
+
+  testWidgets('D-pad left leaves the root menu open', (tester) async {
+    useViewport(tester, const Size(1920, 1080));
+    final ctx = await pumpHost(tester);
+    var resolved = false;
+    // ignore: unawaited_futures
+    showAnchoredContextMenu(
+      context: ctx,
+      items: items,
+    ).then((_) => resolved = true);
+    await tester.pumpAndSettle();
+    await settleNavGrace(tester);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pumpAndSettle();
+
+    // Left is inert at the root: only B (or a tap outside) dismisses it.
+    expect(find.text('Settings'), findsOneWidget);
+    expect(resolved, isFalse);
+  });
+
+  testWidgets('D-pad left closes a submenu back to its parent', (tester) async {
+    useViewport(tester, const Size(1920, 1080));
+    final ctx = await pumpHost(tester);
+    var resolved = false;
+    // ignore: unawaited_futures
+    showAnchoredContextMenu(
+      context: ctx,
+      items: items,
+      openSubmenuAtIndex: 1,
+    ).then((_) => resolved = true);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Favorite'), findsOneWidget);
+    await settleNavGrace(tester);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pumpAndSettle();
+
+    // One level walked back, the parent menu is still up.
+    expect(find.text('Favorite'), findsNothing);
+    expect(find.text('Add to'), findsOneWidget);
+    expect(resolved, isFalse);
   });
 
   testWidgets('flips to the left of the anchor when the right edge overflows', (

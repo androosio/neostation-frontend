@@ -42,7 +42,6 @@ class GameContextMenuTarget {
 const String _settingsId = 'settings';
 const String _createId = 'create';
 const String _viewModeId = 'view_mode';
-const String _scrapeId = 'scrape';
 const String _randomId = 'random';
 const String _addPrefix = 'add:';
 const String _removePrefix = 'remove:';
@@ -51,27 +50,27 @@ const String _removePrefix = 'remove:';
 ///
 /// The menu shows `Settings`, `Add to…` (every target the game is not in) and
 /// `Remove from…` (every target it is in); a submenu that would be empty is
-/// omitted entirely rather than greyed out. [preselectTargetId] pre-opens
-/// whichever submenu holds that target and highlights it, so the pre-Y-menu
-/// one-press action survives as two presses (Y, A).
+/// omitted entirely rather than greyed out. `Settings` is the row the cursor
+/// starts on: it is the one action every game has, and the one the menu is
+/// most often opened for.
 ///
 /// [onCreateTarget] adds a trailing `New collection…` row to `Add to…`. It is
 /// the seam collections plug into.
 ///
-/// [onViewMode], [onScrape] and [onRandom] are the view-level actions that used
-/// to live on the vertical action rail. They are grouped below the membership
-/// rows, separated from them, and each is omitted when the host has nothing to
-/// bind — the menu is the only route to them for a user without a gamepad.
+/// [onViewMode] and [onRandom] are the view-level actions that used to live on
+/// the vertical action rail. They are grouped below the membership rows,
+/// separated from them, and each is omitted when the host has nothing to bind —
+/// the menu is the only route to them for a user without a gamepad. Scraping is
+/// deliberately not among them: it is reached from game settings and from the
+/// scrape tab.
 Future<void> showGameContextMenu({
   required BuildContext context,
   required List<GameContextMenuTarget> targets,
   required VoidCallback onSettings,
   GlobalKey? anchorKey,
-  String? preselectTargetId,
   Future<void> Function()? onCreateTarget,
   String? createTargetLabel,
   VoidCallback? onViewMode,
-  VoidCallback? onScrape,
   VoidCallback? onRandom,
 }) async {
   assert(
@@ -135,49 +134,19 @@ Future<void> showGameContextMenu({
         icon: Symbols.grid_view_rounded,
         separatorBefore: true,
       ),
-    if (onScrape != null)
-      ContextMenuItem(
-        id: _scrapeId,
-        label: AppLocale.hintScrape.getString(context),
-        icon: Symbols.cloud_download_rounded,
-        separatorBefore: onViewMode == null,
-      ),
     if (onRandom != null)
       ContextMenuItem(
         id: _randomId,
         label: AppLocale.randomGame.getString(context),
         icon: Symbols.casino_rounded,
-        separatorBefore: onViewMode == null && onScrape == null,
+        separatorBefore: onViewMode == null,
       ),
   ];
-
-  // Pre-open the submenu that holds the preselected target so the old
-  // one-press muscle memory becomes exactly two presses.
-  int? openSubmenuAtIndex;
-  int initialSubmenuIndex = 0;
-  if (preselectTargetId != null) {
-    final addIndex = addChildren.indexWhere(
-      (c) => c.id == '$_addPrefix$preselectTargetId',
-    );
-    final removeIndex = removeChildren.indexWhere(
-      (c) => c.id == '$_removePrefix$preselectTargetId',
-    );
-    if (addIndex >= 0) {
-      openSubmenuAtIndex = items.indexWhere((i) => i.id == 'add');
-      initialSubmenuIndex = addIndex;
-    } else if (removeIndex >= 0) {
-      openSubmenuAtIndex = items.indexWhere((i) => i.id == 'remove');
-      initialSubmenuIndex = removeIndex;
-    }
-  }
 
   final result = await showAnchoredContextMenu(
     context: context,
     items: items,
     anchorKey: anchorKey,
-    initialIndex: openSubmenuAtIndex ?? 0,
-    openSubmenuAtIndex: openSubmenuAtIndex,
-    initialSubmenuIndex: initialSubmenuIndex,
     // The anchor is a whole list row / grid card, so the menu starts at its
     // left edge instead of past its right one — which leaves the room the
     // `Add to…` / `Remove from…` submenus need on the right.
@@ -198,10 +167,6 @@ Future<void> showGameContextMenu({
   }
   if (result == _viewModeId) {
     onViewMode?.call();
-    return;
-  }
-  if (result == _scrapeId) {
-    onScrape?.call();
     return;
   }
   if (result == _randomId) {

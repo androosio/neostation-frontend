@@ -167,6 +167,14 @@ class AnchoredContextMenu extends StatefulWidget {
   final String layerId;
   final String submenuLayerId;
 
+  /// Whether this panel is a nested level rather than the root menu.
+  ///
+  /// Only a submenu closes on D-pad left: left is how the user walks back out
+  /// of the level right walked into. At the root there is nothing to walk back
+  /// to, and closing there made a stray left press dismiss the whole menu, so
+  /// the root leaves left unbound — B (or a tap outside) is the way out.
+  final bool isSubmenu;
+
   const AnchoredContextMenu({
     super.key,
     required this.items,
@@ -178,6 +186,7 @@ class AnchoredContextMenu extends StatefulWidget {
     this.alignment = ContextMenuAlignment.besideAnchor,
     this.layerId = 'context_menu',
     this.submenuLayerId = 'context_submenu',
+    this.isSubmenu = false,
   });
 
   @override
@@ -204,7 +213,8 @@ class _AnchoredContextMenuState extends State<AnchoredContextMenu> {
       onNavigateUp: () => _move(-1),
       onNavigateDown: () => _move(1),
       onNavigateRight: _openSubmenuIfAny,
-      onNavigateLeft: _close,
+      // Root menu: left is inert (see [AnchoredContextMenu.isSubmenu]).
+      onNavigateLeft: widget.isSubmenu ? _close : null,
       onSelectItem: _activate,
       onBack: _close,
       // Y is the button that opened the menu: pressing it again dismisses the
@@ -303,6 +313,7 @@ class _AnchoredContextMenuState extends State<AnchoredContextMenu> {
             layerId: widget.submenuLayerId,
             // One level only: a third level would reuse the same layer id.
             submenuLayerId: widget.submenuLayerId,
+            isSubmenu: true,
           ),
         );
       },
