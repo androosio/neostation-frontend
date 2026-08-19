@@ -368,11 +368,19 @@ class _AnchoredContextMenuState extends State<AnchoredContextMenu> {
     );
     left = left.clamp(margin.clamp(0.0, maxLeft), maxLeft);
 
-    // Vertically: top-align with the anchor, flip upward when the panel would
-    // run past the bottom, then clamp.
-    double top = widget.anchorRect.top;
+    // Vertically: [besideAnchor] sits alongside the anchor, so it top-aligns
+    // with it. [overAnchor] shares the anchor's column, so top-aligning would
+    // bury the very row the menu was opened on — it drops below the anchor
+    // instead, leaving the selected game's name readable above the panel.
+    // Either way, flip to the anchor's other side when the panel would run
+    // past the bottom, then clamp.
+    double top = widget.alignment == ContextMenuAlignment.overAnchor
+        ? widget.anchorRect.bottom + gap
+        : widget.anchorRect.top;
     if (top + height > screen.height - margin) {
-      top = widget.anchorRect.bottom - height;
+      top = widget.alignment == ContextMenuAlignment.overAnchor
+          ? widget.anchorRect.top - height - gap
+          : widget.anchorRect.bottom - height;
     }
     final double maxTop = (screen.height - height - margin).clamp(
       0.0,

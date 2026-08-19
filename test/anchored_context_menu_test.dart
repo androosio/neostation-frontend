@@ -177,6 +177,31 @@ void main() {
     final row = tester.getRect(find.text('Settings'));
     expect(row.left, greaterThanOrEqualTo(anchor.left));
     expect(row.left, lessThan(anchor.center.dx));
+    // Below the anchor, not over it: the row it was opened on stays readable.
+    expect(row.top, greaterThanOrEqualTo(anchor.bottom));
+  });
+
+  testWidgets('overAnchor flips above the anchor rather than off the bottom', (
+    tester,
+  ) async {
+    const size = Size(1280, 800);
+    useViewport(tester, size);
+    // Last visible row of the list: there is no room underneath it.
+    const anchor = Rect.fromLTWH(40, 740, 520, 40);
+
+    await tester.pumpWidget(
+      host(
+        const AnchoredContextMenu(
+          items: items,
+          anchorRect: anchor,
+          alignment: ContextMenuAlignment.overAnchor,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final row = tester.getRect(find.text('Settings'));
+    expect(row.bottom, lessThanOrEqualTo(anchor.top));
   });
 
   testWidgets('a submenu opens to the right of the menu that spawned it', (
