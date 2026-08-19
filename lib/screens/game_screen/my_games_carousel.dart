@@ -357,9 +357,14 @@ class _GamesCarouselState extends State<GamesCarousel> {
     _chromeSig = null;
   }
 
-  /// Overlays every card with an invisible box that carries the host's anchor
-  /// key while the card is centred, so the Y context menu can be positioned
-  /// against the card the user is actually looking at.
+  /// Overlays a slot-filling card with an invisible box that carries the host's
+  /// anchor key while the card is centred, so the Y context menu can be
+  /// positioned against the card the user is actually looking at.
+  ///
+  /// Only for cards that fill their carousel slot (fanart and folder cards). A
+  /// box-art card is aspect-fitted and centred inside a slot that is wider than
+  /// it, so anchoring to the slot would hang the menu off empty space beside
+  /// the artwork; those carry [_menuAnchorBox] inside the painted card instead.
   ///
   /// The wrapper is applied unconditionally (only the key moves) so the widget
   /// tree keeps the same shape as the selection travels — swapping the shape
@@ -371,14 +376,17 @@ class _GamesCarouselState extends State<GamesCarousel> {
       fit: StackFit.passthrough,
       children: [
         card,
-        Positioned.fill(
-          child: IgnorePointer(
-            child: SizedBox.expand(
-              key: isCentred ? widget.selectedItemKey : null,
-            ),
-          ),
-        ),
+        _menuAnchorBox(isCentred ? widget.selectedItemKey : null),
       ],
+    );
+  }
+
+  /// The invisible anchor box itself, sized by whichever `Stack` it is dropped
+  /// into. Always built (with a null key when the card is not centred) so the
+  /// children list keeps its length as the selection moves.
+  Widget _menuAnchorBox(GlobalKey? key) {
+    return Positioned.fill(
+      child: IgnorePointer(child: SizedBox.expand(key: key)),
     );
   }
 
@@ -1156,7 +1164,11 @@ class _GamesCarouselState extends State<GamesCarousel> {
     return const SizedBox.shrink();
   }
 
-  Widget _buildBoxCard(GameModel game, bool isSelected) {
+  Widget _buildBoxCard(
+    GameModel game,
+    bool isSelected, {
+    GlobalKey? anchorKey,
+  }) {
     final theme = Theme.of(context);
     final boxPath = _resolveImagePath(game, 'box2d');
     final hasBox = boxPath.isNotEmpty;
@@ -1193,6 +1205,7 @@ class _GamesCarouselState extends State<GamesCarousel> {
               ),
             if (widget.scrapingGameRomnames.contains(game.romname))
               _buildScrapeProgress(game),
+            _menuAnchorBox(anchorKey),
           ],
         ),
       );
@@ -1273,6 +1286,7 @@ class _GamesCarouselState extends State<GamesCarousel> {
                       bottom: 0,
                       child: _buildScrapeProgress(game),
                     ),
+                  _menuAnchorBox(anchorKey),
                 ],
               ),
             ),
@@ -1378,12 +1392,18 @@ class _GamesCarouselState extends State<GamesCarousel> {
                             _carouselKey.currentState?.animateToPage(index);
                           }
                         },
-                        child: _withMenuAnchor(
-                          isFanart
-                              ? _buildFanartCard(game, isCentred)
-                              : _buildBoxCard(game, isCentred),
-                          isCentred,
-                        ),
+                        child: isFanart
+                            ? _withMenuAnchor(
+                                _buildFanartCard(game, isCentred),
+                                isCentred,
+                              )
+                            : _buildBoxCard(
+                                game,
+                                isCentred,
+                                anchorKey: isCentred
+                                    ? widget.selectedItemKey
+                                    : null,
+                              ),
                       ),
                     );
                   },
