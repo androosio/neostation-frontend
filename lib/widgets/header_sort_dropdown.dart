@@ -23,59 +23,67 @@ class HeaderSortDropdown extends StatefulWidget {
   State<HeaderSortDropdown> createState() => HeaderSortDropdownState();
 }
 
+/// Opens the systems view/sort picker.
+///
+/// This is the picker the systems screen's X button reaches, hoisted out of
+/// [HeaderSortDropdownState] so any screen built from the systems grid/carousel
+/// widgets can open the *same* menu rather than growing a lookalike. The
+/// collections browser calls it with [includeSorting] false: view mode and card
+/// size drive its cards exactly as they drive the systems screen's, while
+/// release year / manufacturer describe hardware and mean nothing for a
+/// collection.
+Future<void> showSystemViewDropdown(
+  BuildContext context, {
+  bool includeSorting = true,
+}) async {
+  final configProvider = context.read<SqliteConfigProvider>();
+
+  final result = await showGeneralDialog<String>(
+    context: context,
+    barrierDismissible: true,
+    barrierLabel: "Sort Dropdown",
+    barrierColor: Colors.transparent,
+    pageBuilder: (context, animation, secondaryAnimation) {
+      return FadeTransition(
+        opacity: animation,
+        child: SortDropdownOverlay(
+          width: 180.r,
+          includeSorting: includeSorting,
+        ),
+      );
+    },
+  );
+
+  if (result != null) {
+    SfxService().playNavSound();
+    if (result == 'sort_alpha') {
+      await configProvider.updateSystemSortBy('alphabetical');
+    } else if (result == 'sort_year') {
+      await configProvider.updateSystemSortBy('year');
+    } else if (result == 'sort_manufacturer') {
+      await configProvider.updateSystemSortBy('manufacturer');
+    } else if (result == 'sort_manufacturer_type') {
+      await configProvider.updateSystemSortBy('manufacturer_type');
+    } else if (result == 'order_asc') {
+      await configProvider.updateSystemSortOrder('asc');
+    } else if (result == 'order_desc') {
+      await configProvider.updateSystemSortOrder('desc');
+    } else if (result == 'view_grid') {
+      await configProvider.updateSystemViewMode('grid');
+    } else if (result == 'view_carousel') {
+      await configProvider.updateSystemViewMode('carousel');
+    } else if (result.startsWith('card_size_')) {
+      final size = result.substring('card_size_'.length);
+      await configProvider.updateSystemGridColumns(size);
+    }
+  }
+}
+
 class HeaderSortDropdownState extends State<HeaderSortDropdown> {
   final GlobalKey _buttonKey = GlobalKey();
 
   void showDropdown() {
-    _showDropdown(context);
-  }
-
-  void _showDropdown(BuildContext context) async {
-    final RenderBox renderBox =
-        _buttonKey.currentContext?.findRenderObject() as RenderBox;
-    final Offset offset = renderBox.localToGlobal(Offset.zero);
-    final Size size = renderBox.size;
-    final configProvider = context.read<SqliteConfigProvider>();
-
-    final result = await showGeneralDialog<String>(
-      context: context,
-      barrierDismissible: true,
-      barrierLabel: "Sort Dropdown",
-      barrierColor: Colors.transparent,
-      pageBuilder: (context, animation, secondaryAnimation) {
-        return FadeTransition(
-          opacity: animation,
-          child: SortDropdownOverlay(
-            offset: offset + Offset(0, size.height + 6.r),
-            width: 180.r,
-          ),
-        );
-      },
-    );
-
-    if (result != null) {
-      SfxService().playNavSound();
-      if (result == 'sort_alpha') {
-        await configProvider.updateSystemSortBy('alphabetical');
-      } else if (result == 'sort_year') {
-        await configProvider.updateSystemSortBy('year');
-      } else if (result == 'sort_manufacturer') {
-        await configProvider.updateSystemSortBy('manufacturer');
-      } else if (result == 'sort_manufacturer_type') {
-        await configProvider.updateSystemSortBy('manufacturer_type');
-      } else if (result == 'order_asc') {
-        await configProvider.updateSystemSortOrder('asc');
-      } else if (result == 'order_desc') {
-        await configProvider.updateSystemSortOrder('desc');
-      } else if (result == 'view_grid') {
-        await configProvider.updateSystemViewMode('grid');
-      } else if (result == 'view_carousel') {
-        await configProvider.updateSystemViewMode('carousel');
-      } else if (result.startsWith('card_size_')) {
-        final size = result.substring('card_size_'.length);
-        await configProvider.updateSystemGridColumns(size);
-      }
-    }
+    showSystemViewDropdown(context);
   }
 
   @override
@@ -88,7 +96,7 @@ class HeaderSortDropdownState extends State<HeaderSortDropdown> {
         iconPath: 'assets/images/gamepad/Xbox_X_button.png',
         onTap: () {
           SfxService().playNavSound();
-          _showDropdown(context);
+          showSystemViewDropdown(context);
         },
         backgroundColor: Theme.of(context).colorScheme.tertiaryFixed,
         textColor: Theme.of(context).colorScheme.onTertiaryFixed,
@@ -113,13 +121,19 @@ class _DropdownOption {
 }
 
 class SortDropdownOverlay extends StatefulWidget {
-  final Offset offset;
   final double width;
+
+  /// Whether the "sort by" and "order" groups are offered.
+  ///
+  /// False for callers whose cards are not systems (the collections browser):
+  /// the view-mode and card-size rows still apply, the hardware-describing sort
+  /// rows do not. Suppressing rows here keeps one picker instead of a fork.
+  final bool includeSorting;
 
   const SortDropdownOverlay({
     super.key,
-    required this.offset,
     required this.width,
+    this.includeSorting = true,
   });
 
   @override
@@ -289,6 +303,8 @@ class _SortDropdownOverlayState extends State<SortDropdownOverlay> {
         ),
       );
     }
+
+    if (!widget.includeSorting) return options;
 
     options.addAll([
       _DropdownOption(

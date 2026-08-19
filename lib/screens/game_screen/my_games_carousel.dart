@@ -714,8 +714,12 @@ class _GamesCarouselState extends State<GamesCarousel> {
     if (exists) {
       imageProvider = FileImage(File(imagePath));
     } else {
-      final sysId = widget.system.id;
-      final path = 'assets/images/logos/$sysId.webp';
+      // Fall back to the logo of the system the *game* belongs to, not the
+      // list's. In an aggregate view the list is not a hardware system, and a
+      // collection has no bundled logo at all ('collection:<uuid>.webp' does
+      // not exist), so keying the asset off the list would resolve to nothing.
+      // Mirrors the secondary display's fallback.
+      final path = 'assets/images/logos/${_folderForGame(game)}.webp';
       imageProvider = AssetImage(path);
       imagePath = path;
     }

@@ -103,11 +103,12 @@ void main() {
       expect(game.systemRealName, 'Nintendo Entertainment System');
       expect(game.systemShortName, 'NES');
 
-      // Parity with getFavoriteGames(): it selects `s.id as system_id`, not
-      // `ur.app_system_id`, so appSystemId is null there too. Kept identical
-      // deliberately — diverging would give collections different display-name
-      // settings resolution from the favourites and 'all' views.
-      expect(game.appSystemId, isNull);
+      // Parity with getFavoriteGames(): both select `s.id as system_id` rather
+      // than `ur.app_system_id`, and `DatabaseGameModel.fromJson` accepts that
+      // alias — so all three aggregate loaders ('all', favourites, a
+      // collection) resolve the same app system id, and therefore the same
+      // per-system display-name settings.
+      expect(game.appSystemId, 'sys-nes');
     });
 
     test('hidden ROMs are returned by the query, filtered above it', () async {

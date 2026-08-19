@@ -17,6 +17,23 @@ import '../../../utils/image_utils.dart';
 import '../../../widgets/system_logo_fallback.dart';
 import '../../../utils/game_utils.dart';
 
+/// Replaces the card the systems grid/carousel would otherwise build for one
+/// entry.
+///
+/// Returning null falls through to the ordinary [SystemCard], so a caller only
+/// describes the entries that are not systems and every other card is still
+/// rendered by the systems widgets themselves. The collections browser uses it
+/// for exactly one entry — the trailing "New collection" card, which is an icon
+/// and a label rather than artwork plus a logo.
+typedef SystemCardOverrideBuilder =
+    Widget? Function(
+      BuildContext context,
+      int index,
+      SystemInfo info,
+      bool isSelected,
+      VoidCallback onTap,
+    );
+
 /// A premium card component representing a system or a 'Recent Game' entry.
 ///
 /// Supports dynamic background effects (GIFs, Shaders, Music Covers), localized

@@ -48,6 +48,12 @@ part 'my_systems_grid/gamepad_grid_nav.dart';
 part 'my_systems_grid/theme_background.dart';
 part 'my_systems_grid/pull_to_refresh.dart';
 
+/// Navigation-layer id the systems screen's own grid registers under.
+///
+/// A default, not a constant every caller shares: see
+/// [SystemCardGridView.navLayerId].
+const String kSystemsGridNavLayerId = 'my_systems_list';
+
 /// Primary widget for the 'My Systems' view, supporting both Grid and Carousel layouts.
 ///
 /// Orchestrates the selection and navigation of gaming systems, including handling
@@ -567,8 +573,18 @@ class SystemCardGridView extends StatefulWidget {
     this.onCardTapped,
     this.onEnterPressed,
     this.onEscapePressed,
+    this.onYPressed,
+    this.onBackPressed,
+    this.onXPressed,
     this.systems = const [],
     this.recentCardSize = RecentCardSizes.defaultSize,
+    this.navLayerId = kSystemsGridNavLayerId,
+    this.cardOverrideBuilder,
+    this.enableTabBumpers = true,
+    this.enablePullToRescan = true,
+    this.enablePinchResize = true,
+    this.enableSecondaryDisplay = true,
+    this.enableThemeAssets = true,
   });
 
   final int crossAxisCount;
@@ -587,7 +603,53 @@ class SystemCardGridView extends StatefulWidget {
   final Function(int index)? onCardTapped;
   final VoidCallback? onEnterPressed;
   final VoidCallback? onEscapePressed;
+
+  /// Y. Unbound on the systems screen; the collections browser opens its
+  /// per-collection menu with it (Start does the same, through
+  /// [onEscapePressed]).
+  final VoidCallback? onYPressed;
+
+  /// B. Unbound on the systems screen, which is a root tab and has nothing to
+  /// go back to. A pushed host (the collections browser) pops itself here.
+  final VoidCallback? onBackPressed;
+
+  /// X. Defaults to the header's view/sort picker, which is what the systems
+  /// screen wants; a host without a header passes [showSystemViewDropdown]
+  /// itself so both reach the same menu.
+  final VoidCallback? onXPressed;
+
   final List<dynamic> systems;
+
+  /// Identifier this view registers its [GamepadNavigationManager] layer under.
+  ///
+  /// Caller-supplied and per-instance on purpose: `popLayer` resolves an id to
+  /// the *first* match, so two live grids sharing one id unregister each
+  /// other's layer and strand a dead one — the failure that had the Android
+  /// apps grid launching several apps per press.
+  final String navLayerId;
+
+  /// Optional per-entry card override; see [SystemCardOverrideBuilder].
+  final SystemCardOverrideBuilder? cardOverrideBuilder;
+
+  /// Whether the shoulder buttons cycle the app's top-level tabs. Off for
+  /// pushed screens, which are not part of the tab strip.
+  final bool enableTabBumpers;
+
+  /// Whether pulling the grid past its top edge rescans the ROM folders.
+  final bool enablePullToRescan;
+
+  /// Whether a two-finger pinch changes `config.systemGridColumns`. Shared with
+  /// the systems screen, so a host that reads the same setting keeps it.
+  final bool enablePinchResize;
+
+  /// Whether the selection is pushed to a dual-screen device's second display.
+  /// Off for hosts whose entries are not systems: the secondary screen shows
+  /// the system the *systems* screen has selected.
+  final bool enableSecondaryDisplay;
+
+  /// Whether per-system theme artwork is resolved and cached for the cards.
+  /// Off where the entries have no theme assets to resolve.
+  final bool enableThemeAssets;
 
   @override
   State<SystemCardGridView> createState() => _SystemCardGridViewState();
@@ -659,7 +721,7 @@ class _SystemCardGridViewState extends State<SystemCardGridView> {
     _cols = widget.crossAxisCount;
     _initializeGamepad();
 
-    if (Platform.isAndroid) {
+    if (Platform.isAndroid && widget.enableSecondaryDisplay) {
       _secondaryDisplayState = SecondaryDisplayState.instance;
       _secondaryDisplayState!.addListener(_onSecondaryStateChanged);
     }
@@ -819,7 +881,7 @@ class _SystemCardGridViewState extends State<SystemCardGridView> {
           ),
         );
 
-        if (Platform.isAndroid) {
+        if (Platform.isAndroid && widget.enablePullToRescan) {
           grid = NotificationListener<ScrollNotification>(
             onNotification: (notification) {
               if (notification is ScrollUpdateNotification) {
@@ -840,7 +902,14 @@ class _SystemCardGridViewState extends State<SystemCardGridView> {
             },
             child: grid,
           );
+        }
 
+        // The pointer listener drives both gestures: the pinch directly, and
+        // the pull's release edge (the pull only ever arms itself through the
+        // scroll notifier above, so a host with rescan off can keep the pinch
+        // without the pull arming).
+        if (Platform.isAndroid &&
+            (widget.enablePinchResize || widget.enablePullToRescan)) {
           grid = Listener(
             onPointerDown: _handlePointerDown,
             onPointerMove: _handlePointerMove,
@@ -1022,41 +1091,51 @@ class _SystemCardGridViewState extends State<SystemCardGridView> {
               selHeight = cardHeight;
             }
 
+            final bool cardIsSelected = cardIdx == widget.selectedIndex;
+            void handleTap() {
+              // Touch users have no A button: tapping the card that is
+              // already selected enters it, so reaching for the footer
+              // is only ever optional. (SystemCard plays the sound.)
+              if (cardIsSelected) {
+                widget.onEnterPressed?.call();
+                return;
+              }
+
+              if (_gamepadNavigationActive) {
+                return;
+              }
+              final now = DateTime.now();
+              if (_lastNavigationTime != null &&
+                  now.difference(_lastNavigationTime!).inMilliseconds < 60) {
+                return;
+              }
+
+              _lastNavigationTime = now;
+              widget.onCardTapped?.call(cardIdx);
+            }
+
+            final Widget cardWidget =
+                widget.cardOverrideBuilder?.call(
+                  context,
+                  cardIdx,
+                  card,
+                  cardIsSelected,
+                  handleTap,
+                ) ??
+                SystemCard(
+                  key: ValueKey('system_card_${card.title}_$cardIdx'),
+                  info: card,
+                  isSelected: cardIsSelected,
+                  onTap: handleTap,
+                );
+
             cardWidgets.add(
               Positioned(
                 left: left,
                 top: top,
                 width: width,
                 height: cardHeight,
-                child: RepaintBoundary(
-                  child: SystemCard(
-                    key: ValueKey('system_card_${card.title}_$cardIdx'),
-                    info: card,
-                    isSelected: cardIdx == widget.selectedIndex,
-                    onTap: () {
-                      // Touch users have no A button: tapping the card that is
-                      // already selected enters it, so reaching for the footer
-                      // is only ever optional. (SystemCard plays the sound.)
-                      if (cardIdx == widget.selectedIndex) {
-                        widget.onEnterPressed?.call();
-                        return;
-                      }
-
-                      if (_gamepadNavigationActive) {
-                        return;
-                      }
-                      final now = DateTime.now();
-                      if (_lastNavigationTime != null &&
-                          now.difference(_lastNavigationTime!).inMilliseconds <
-                              60) {
-                        return;
-                      }
-
-                      _lastNavigationTime = now;
-                      widget.onCardTapped?.call(cardIdx);
-                    },
-                  ),
-                ),
+                child: RepaintBoundary(child: cardWidget),
               ),
             );
 

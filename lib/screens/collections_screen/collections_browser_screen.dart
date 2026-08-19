@@ -14,24 +14,23 @@ import 'package:neostation/models/system_model.dart';
 import 'package:neostation/providers/collections_provider.dart';
 import 'package:neostation/providers/file_provider.dart';
 import 'package:neostation/providers/sqlite_config_provider.dart';
+import 'package:neostation/models/my_systems.dart';
 import 'package:neostation/responsive.dart';
 import 'package:neostation/services/collections/collections_service.dart';
 import 'package:neostation/services/logger_service.dart';
-import 'package:neostation/services/gamepad/gamepad_navigation_manager.dart';
 import 'package:neostation/services/permission_service.dart';
 import 'package:neostation/services/sfx_service.dart';
-import 'package:neostation/utils/gamepad_nav.dart';
 import 'package:neostation/widgets/confirm_action_dialog.dart';
 import 'package:neostation/widgets/context_menu/anchored_context_menu.dart';
 import 'package:neostation/widgets/core_footer.dart';
 import 'package:neostation/widgets/custom_notification.dart';
 import 'package:neostation/widgets/footer_label_pill.dart';
+import 'package:neostation/widgets/header_sort_dropdown.dart';
 import 'package:neostation/widgets/tv_directory_picker.dart';
 
-import '../../themes/corner_radii.dart';
 import '../game_screen/my_games_list.dart';
-import '../systems_screen/my_systems_section/grid_geometry.dart';
-import '../systems_screen/my_systems_section/system_card.dart';
+import '../systems_screen/my_systems_section/my_systems_carousel.dart';
+import '../systems_screen/my_systems_section/my_systems_grid.dart';
 import 'collection_cards.dart';
 import 'collection_name_dialog.dart';
 
@@ -42,6 +41,16 @@ import 'collection_name_dialog.dart';
 /// Activating a collection pushes the ordinary [SystemGamesList] with a
 /// synthesized `collection:<uuid>` [SystemModel] — the same trick the "All
 /// Games" card uses — so no second games UI exists.
+///
+/// The cards themselves are laid out, navigated and drawn by the systems
+/// screen's own [SystemCardGridView] and [MySystemsCarousel]: this screen owns
+/// the selection index and the actions, and hands both widgets a
+/// `List<SystemInfo>` built from the collections. Nothing about the browsing
+/// behaviour is reimplemented here, so it cannot drift from the systems screen
+/// — the two are the same widgets with different data and different A/Y/Start
+/// handlers. Everything those widgets do that belongs to *systems* (rescan on
+/// pull, the secondary-display push, the app-wide dynamic background, theme
+/// artwork, tab bumpers) is switched off through their constructors.
 class CollectionsBrowserScreen extends StatefulWidget {
   const CollectionsBrowserScreen({super.key});
 
@@ -60,19 +69,24 @@ const String _menuDelete = 'delete';
 class _CollectionsBrowserScreenState extends State<CollectionsBrowserScreen> {
   static final _log = LoggerService.instance;
 
-  /// Per-instance layer id. [GamepadNavigationManager.popLayer] resolves an id
-  /// to the *first* matching entry, so a shared constant would let a second
-  /// copy of this route unregister the first one's layer and strand its own —
-  /// a dead layer that swallows input.
-  static int _navLayerSeq = 0;
-  late final String _navLayerId = 'collections_browser#${++_navLayerSeq}';
+  /// Per-instance gamepad layer ids, handed to whichever systems view is on
+  /// screen. [GamepadNavigationManager.popLayer] resolves an id to the *first*
+  /// matching entry, so a shared constant would let a second copy of this route
+  /// unregister the first one's layer and strand its own — a dead layer that
+  /// swallows input, and the shape of the bug that had the Android apps grid
+  /// launching several apps per press. The grid and the carousel get separate
+  /// ids because switching view mode disposes one and mounts the other.
+  static int _instanceSeq = 0;
+  late final int _instance = ++_instanceSeq;
+  late final String _gridLayerId = 'collections_browser_grid#$_instance';
+  late final String _carouselLayerId =
+      'collections_browser_carousel#$_instance';
 
-  late final GamepadNavigation _gamepadNav;
-  final ScrollController _scrollController = ScrollController();
-
-  /// Anchor for the context menu. Attached to whichever card is selected, so
-  /// only ever mounted once at a time.
-  final GlobalKey _selectedCardKey = GlobalKey();
+  /// Anchor for the context menu: the footer's Y control, so the menu drops off
+  /// the button that opens it. The cards belong to the systems widgets now, so
+  /// there is no card-level anchor to hang a [GlobalKey] on — and the footer
+  /// control is mounted exactly when the menu is reachable.
+  final GlobalKey _optionsAnchorKey = GlobalKey();
 
   int _selectedIndex = 0;
   bool _canPop = false;
@@ -82,67 +96,21 @@ class _CollectionsBrowserScreenState extends State<CollectionsBrowserScreen> {
   /// cannot start a second one.
   bool _isBusy = false;
 
-  bool _isNavigatingFast = false;
-  DateTime? _lastNavTime;
-
-  /// Row pitch of the last laid-out grid, cached so scrolling the selection
-  /// into view uses exactly the geometry that was painted.
-  double _rowPitch = 0;
-  int _cols = 1;
-
   @override
   void initState() {
     super.initState();
 
-    _gamepadNav = GamepadNavigation(
-      onNavigateUp: _navigateUp,
-      onNavigateDown: _navigateDown,
-      onNavigateLeft: _navigateLeft,
-      onNavigateRight: _navigateRight,
-      onSelectItem: _activateSelection,
-      onBack: _goBack,
-      onFavorite: _openContextMenu,
-      // Start mirrors Y, matching the systems screen where Start opens the
-      // per-card settings.
-      onSettings: _openContextMenu,
-    );
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _gamepadNav.initialize();
-
-      // Registered with the manager, not merely activated: entering a
-      // collection (and, from there, launching a game) backgrounds this screen,
-      // and the resume path calls GamepadNavigationManager.reactivate(), which
-      // wakes the stack's *top registered* layer. Without this entry that would
-      // be the systems grid still mounted underneath, and two navigators would
-      // then handle the same press.
-      GamepadNavigationManager.pushLayer(
-        _navLayerId,
-        onActivate: () => _gamepadNav.activate(),
-        onDeactivate: () => _gamepadNav.deactivate(),
-      );
-
       final provider = context.read<CollectionsProvider>();
       if (!provider.hasLoaded) provider.load();
     });
-  }
-
-  @override
-  void dispose() {
-    GamepadNavigationManager.popLayer(_navLayerId);
-    _gamepadNav.dispose();
-    _scrollController.dispose();
-    super.dispose();
   }
 
   // ── Model ──────────────────────────────────────────────────────────────────
 
   List<CollectionModel> get _collections =>
       context.read<CollectionsProvider>().collections;
-
-  /// Collections plus the trailing "New collection" card.
-  int get _cardCount => _collections.length + 1;
 
   /// Whether the cursor sits on the "New collection" card.
   bool get _onCreateCard => _selectedIndex >= _collections.length;
@@ -153,69 +121,11 @@ class _CollectionsBrowserScreenState extends State<CollectionsBrowserScreen> {
 
   // ── Navigation ─────────────────────────────────────────────────────────────
 
-  void _navigateUp() {
-    if (_selectedIndex >= _cols) _updateSelection(_selectedIndex - _cols);
-  }
-
-  void _navigateDown() {
-    final count = _cardCount;
-    if (_selectedIndex + _cols < count) {
-      _updateSelection(_selectedIndex + _cols);
-    } else if (_selectedIndex < count - 1) {
-      // Boundary: snap to the last card rather than refusing to move.
-      _updateSelection(count - 1);
-    }
-  }
-
-  void _navigateLeft() {
-    if (_selectedIndex > 0) _updateSelection(_selectedIndex - 1);
-  }
-
-  void _navigateRight() {
-    if (_selectedIndex < _cardCount - 1) _updateSelection(_selectedIndex + 1);
-  }
-
-  void _updateSelection(int newIndex) {
-    if (newIndex == _selectedIndex) return;
-
-    final now = DateTime.now();
-    _isNavigatingFast =
-        _lastNavTime != null &&
-        now.difference(_lastNavTime!).inMilliseconds < 150;
-    _lastNavTime = now;
-
-    SfxService().playNavSound();
-    setState(() => _selectedIndex = newIndex);
-    _ensureSelectedItemVisible();
-  }
-
-  void _ensureSelectedItemVisible() {
-    if (!_scrollController.hasClients || _rowPitch <= 0) return;
-
-    final selectedRow = _selectedIndex ~/ _cols;
-    final totalRows = (_cardCount / _cols).ceil();
-
-    final position = _scrollController.position;
-    final viewportHeight = position.viewportDimension;
-
-    double targetOffset;
-    if (selectedRow == 0) {
-      targetOffset = position.minScrollExtent;
-    } else if (selectedRow >= totalRows - 1) {
-      targetOffset = position.maxScrollExtent;
-    } else {
-      final rowCentre = selectedRow * _rowPitch + (_rowPitch / 2);
-      targetOffset = (rowCentre - viewportHeight / 2).clamp(
-        position.minScrollExtent,
-        position.maxScrollExtent,
-      );
-    }
-
-    _scrollController.animateTo(
-      targetOffset,
-      duration: Duration(milliseconds: _isNavigatingFast ? 180 : 360),
-      curve: Curves.easeOutQuart,
-    );
+  /// Selection moves are owned by the systems grid/carousel — this is only the
+  /// index they report back, exactly as the systems screen keeps it.
+  void _onCardSelected(int index) {
+    if (index == _selectedIndex) return;
+    setState(() => _selectedIndex = index);
   }
 
   void _goBack() {
@@ -324,7 +234,7 @@ class _CollectionsBrowserScreenState extends State<CollectionsBrowserScreen> {
     final result = await showAnchoredContextMenu(
       context: context,
       items: items,
-      anchorKey: _selectedCardKey,
+      anchorKey: _optionsAnchorKey,
       layerId: 'collection_context_menu',
       submenuLayerId: 'collection_context_submenu',
     );
@@ -341,6 +251,23 @@ class _CollectionsBrowserScreenState extends State<CollectionsBrowserScreen> {
       case _menuDelete:
         await _deleteCollection(collection);
     }
+  }
+
+  /// Opens the view picker (X).
+  ///
+  /// The systems screen's own picker, reached through [showSystemViewDropdown]
+  /// rather than through a reduced copy: view mode and card size are the same
+  /// two persisted settings this screen reads, so the same menu has to write
+  /// them. `includeSorting: false` suppresses just the sort/order rows —
+  /// release year and manufacturer describe hardware and say nothing about a
+  /// collection — instead of forking the widget.
+  Future<void> _openViewMenu() async {
+    if (_isBusy) return;
+    SfxService().playNavSound();
+    await showSystemViewDropdown(context, includeSorting: false);
+    // The provider notifies; `build` watches `systemViewMode` /
+    // `systemGridColumns` and relays out. [_selectedIndex] is screen state and
+    // is untouched, so the cursor stays on the same collection across a switch.
   }
 
   /// Creates a collection, prompting for its name with the next unused
@@ -423,7 +350,8 @@ class _CollectionsBrowserScreenState extends State<CollectionsBrowserScreen> {
       await context.read<CollectionsProvider>().delete(collection.id);
       if (!mounted) return;
       setState(() {
-        _selectedIndex = _selectedIndex.clamp(0, _cardCount - 1);
+        // Collections plus the trailing create card.
+        _selectedIndex = _selectedIndex.clamp(0, _collections.length);
       });
       _notify(
         AppLocale.collectionDeleted
@@ -562,13 +490,20 @@ class _CollectionsBrowserScreenState extends State<CollectionsBrowserScreen> {
       _selectedIndex = collections.length;
     }
 
-    _cols = Responsive.getSystemsCrossAxisCountFromSize(
+    // Collections are a screen full of system-style cards, so they honour the
+    // systems screen's own layout preferences rather than introducing a second
+    // set: switching either screen's view mode switches both.
+    final viewMode = context.select<SqliteConfigProvider, String>(
+      (p) => p.config.systemViewMode,
+    );
+    final cols = Responsive.getSystemsCrossAxisCountFromSize(
       context.select<SqliteConfigProvider, String>(
         (p) => p.config.systemGridColumns,
       ),
     );
 
     final showSpinner = provider.isLoading && !provider.hasLoaded;
+    final items = _buildCards(collections, provider.imageVersion);
 
     return PopScope(
       canPop: _canPop,
@@ -585,7 +520,9 @@ class _CollectionsBrowserScreenState extends State<CollectionsBrowserScreen> {
             Expanded(
               child: showSpinner
                   ? const Center(child: CircularProgressIndicator())
-                  : _buildGrid(collections, provider.imageVersion),
+                  : viewMode == 'carousel'
+                  ? _buildCarousel(items)
+                  : _buildGrid(items, cols),
             ),
             _CollectionsFooter(
               label:
@@ -600,12 +537,118 @@ class _CollectionsBrowserScreenState extends State<CollectionsBrowserScreen> {
                           '${_selectedCollection!.gameCount}',
                         ),
               showOptions: _selectedCollection != null,
+              optionsAnchorKey: _optionsAnchorKey,
               onEnter: _activateSelection,
               onOptions: _openContextMenu,
+              onViewMenu: _openViewMenu,
               onBack: _goBack,
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// The card list the systems widgets lay out: one entry per collection, plus
+  /// the trailing "New collection" entry.
+  List<SystemInfo> _buildCards(
+    List<CollectionModel> collections,
+    int imageVersion,
+  ) {
+    return [
+      for (final collection in collections)
+        collectionToSystemInfo(collection, imageVersion: imageVersion),
+      newCollectionCardInfo(AppLocale.createCollection.getString(context)),
+    ];
+  }
+
+  /// Renders the one entry that is not a collection.
+  ///
+  /// Returning null for every other index leaves those cards to the systems
+  /// widgets' own `SystemCard`, so a collection card and a system card are
+  /// literally the same widget with the same artwork, focus and tap handling.
+  Widget? _buildCardOverride(
+    BuildContext context,
+    int index,
+    SystemInfo info,
+    bool isSelected,
+    VoidCallback onTap,
+  ) {
+    if (info.folderName != kNewCollectionCardFolder) return null;
+    return NewCollectionCard(
+      key: const ValueKey('collection_card_new'),
+      label: info.title ?? '',
+      isSelected: isSelected,
+      onTap: onTap,
+    );
+  }
+
+  /// The systems carousel, driven by collections.
+  Widget _buildCarousel(List<SystemInfo> items) {
+    return Padding(
+      padding: EdgeInsets.only(top: 8.r),
+      child: MySystemsCarousel(
+        items: items,
+        selectedIndex: _selectedIndex,
+        onCardTapped: _onCardSelected,
+        onActivate: (index) {
+          _selectedIndex = index;
+          _activateSelection();
+        },
+        onOptions: (index) {
+          _selectedIndex = index;
+          _openContextMenu();
+        },
+        onYPressed: _openContextMenu,
+        onBackPressed: _goBack,
+        onXPressed: _openViewMenu,
+        navLayerId: _carouselLayerId,
+        cardOverrideBuilder: _buildCardOverride,
+        // This screen owns B, so the carousel must not swallow the platform
+        // back gesture on the way to it.
+        blockSystemBack: false,
+        // Everything below belongs to systems, not collections: rescanning ROM
+        // folders, repainting the screen underneath, resolving theme artwork
+        // for folder names that have none, telling a second display which
+        // *system* is selected, and cycling the top-level tabs from a pushed
+        // route.
+        enablePullToRescan: false,
+        enableDynamicBackground: false,
+        enableThemeAssets: false,
+        enableSecondaryDisplay: false,
+        enableTabBumpers: false,
+      ),
+    );
+  }
+
+  /// The systems grid, driven by collections.
+  ///
+  /// Pinch-to-resize is deliberately left on: it writes the same
+  /// `config.systemGridColumns` this screen reads, which is exactly the setting
+  /// the X picker offers here, so the gesture stays consistent with the cards
+  /// on screen.
+  Widget _buildGrid(List<SystemInfo> items, int cols) {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 6.0.r, vertical: 4.0.r),
+      child: SystemCardGridView(
+        crossAxisCount: cols,
+        childAspectRatio: _kCardAspectRatio,
+        systems: items,
+        selectedIndex: _selectedIndex,
+        onCardTapped: _onCardSelected,
+        onEnterPressed: _activateSelection,
+        // Start, matching the systems screen where Start opens the card's
+        // settings; Y does the same thing here.
+        onEscapePressed: _openContextMenu,
+        onYPressed: _openContextMenu,
+        onBackPressed: _goBack,
+        onXPressed: _openViewMenu,
+        navLayerId: _gridLayerId,
+        cardOverrideBuilder: _buildCardOverride,
+        enablePullToRescan: false,
+        enableThemeAssets: false,
+        enableSecondaryDisplay: false,
+        enableTabBumpers: false,
       ),
     );
   }
@@ -679,140 +722,6 @@ class _CollectionsBrowserScreenState extends State<CollectionsBrowserScreen> {
       ),
     );
   }
-
-  /// Manual grid of uniform cards, laid out with the same geometry helper the
-  /// systems grid uses so both screens keep the same card density and spacing.
-  Widget _buildGrid(List<CollectionModel> collections, int imageVersion) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final dims = calculateGridDimensions(
-          screenWidth: constraints.maxWidth - 12.0.r,
-          cols: _cols,
-          childAspectRatio: _kCardAspectRatio,
-        );
-        final colWidth = dims['itemWidth']!;
-        final spX = dims['crossAxisSpacing']!;
-        final spY = dims['mainAxisSpacing']!;
-        final cardHeight = colWidth / _kCardAspectRatio;
-
-        _rowPitch = cardHeight + spY;
-
-        final count = collections.length + 1;
-        final rows = (count / _cols).ceil();
-        final totalHeight = rows * cardHeight + (rows - 1) * spY;
-
-        double leftOf(int index) => (index % _cols) * (colWidth + spX);
-        double topOf(int index) => (index ~/ _cols) * _rowPitch;
-
-        final cards = <Widget>[
-          for (int i = 0; i < count; i++)
-            Positioned(
-              left: leftOf(i),
-              top: topOf(i),
-              width: colWidth,
-              height: cardHeight,
-              child: RepaintBoundary(
-                child: KeyedSubtree(
-                  key: i == _selectedIndex ? _selectedCardKey : null,
-                  child: i < collections.length
-                      ? SystemCard(
-                          key: ValueKey('collection_card_${collections[i].id}'),
-                          info: collectionToSystemInfo(
-                            collections[i],
-                            imageVersion: imageVersion,
-                          ),
-                          isSelected: i == _selectedIndex,
-                          onTap: () => _handleCardTap(i),
-                        )
-                      : NewCollectionCard(
-                          key: const ValueKey('collection_card_new'),
-                          label: AppLocale.createCollection.getString(context),
-                          isSelected: i == _selectedIndex,
-                          onTap: () => _handleCardTap(i),
-                        ),
-                ),
-              ),
-            ),
-        ];
-
-        return SingleChildScrollView(
-          controller: _scrollController,
-          clipBehavior: Clip.none,
-          padding: EdgeInsets.symmetric(horizontal: 6.0.r, vertical: 4.0.r),
-          physics: const BouncingScrollPhysics(
-            parent: AlwaysScrollableScrollPhysics(),
-          ),
-          child: SizedBox(
-            height: totalHeight,
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                ...cards,
-                _buildFocusIndicator(
-                  left: leftOf(_selectedIndex),
-                  top: topOf(_selectedIndex),
-                  width: colWidth,
-                  height: cardHeight,
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  /// Touch users have no A button: tapping the already-selected card activates
-  /// it, so the footer buttons stay optional.
-  void _handleCardTap(int index) {
-    if (index == _selectedIndex) {
-      _activateSelection();
-      return;
-    }
-    setState(() => _selectedIndex = index);
-    _ensureSelectedItemVisible();
-  }
-
-  Widget _buildFocusIndicator({
-    required double left,
-    required double top,
-    required double width,
-    required double height,
-  }) {
-    final theme = Theme.of(context);
-    return AnimatedPositioned(
-      key: const ValueKey('focus_indicator'),
-      duration: const Duration(milliseconds: 256),
-      curve: Curves.fastOutSlowIn,
-      left: left + 1.r,
-      top: top + 1.r,
-      width: width - 2.r,
-      height: height - 2.r,
-      child: IgnorePointer(
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius:
-                theme.extension<CornerRadii>()?.radiusExternal ??
-                BorderRadius.circular(14.r),
-            gradient: LinearGradient(
-              begin: Alignment.bottomCenter,
-              end: Alignment.topCenter,
-              colors: [
-                theme.colorScheme.primary.withValues(alpha: 0.28),
-                theme.colorScheme.primary.withValues(alpha: 0.08),
-                Colors.transparent,
-              ],
-              stops: const [0.0, 0.35, 1.0],
-            ),
-            border: Border.all(
-              color: theme.colorScheme.primary.withValues(alpha: 0.55),
-              width: 2.r,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 /// Card aspect ratio, matching the systems grid so the two look identical.
@@ -825,16 +734,24 @@ class _CollectionsFooter extends CoreFooter {
     required this.label,
     required this.countText,
     required this.showOptions,
+    required this.optionsAnchorKey,
     required this.onEnter,
     required this.onOptions,
+    required this.onViewMenu,
     required this.onBack,
   });
 
   final String label;
   final String? countText;
   final bool showOptions;
+
+  /// Attached to the Y control so the per-collection menu hangs off the button
+  /// that opens it.
+  final GlobalKey optionsAnchorKey;
+
   final VoidCallback onEnter;
   final VoidCallback onOptions;
+  final VoidCallback onViewMenu;
   final VoidCallback onBack;
 
   @override
@@ -860,13 +777,24 @@ class _CollectionsFooter extends CoreFooter {
         textColor: theme.colorScheme.onSurface,
       ),
       SizedBox(width: 8.r),
+      GamepadControl(
+        iconPath: 'assets/images/gamepad/Xbox_X_button.png',
+        label: AppLocale.viewMode.getString(context),
+        onTap: onViewMenu,
+        backgroundColor: theme.colorScheme.onSurface.withValues(alpha: 0.1),
+        textColor: theme.colorScheme.onSurface,
+      ),
+      SizedBox(width: 8.r),
       if (showOptions) ...[
-        GamepadControl(
-          iconPath: 'assets/images/gamepad/Xbox_Y_button.png',
-          label: AppLocale.hintOptions.getString(context),
-          onTap: onOptions,
-          backgroundColor: theme.colorScheme.tertiaryFixed,
-          textColor: theme.colorScheme.onTertiaryFixed,
+        KeyedSubtree(
+          key: optionsAnchorKey,
+          child: GamepadControl(
+            iconPath: 'assets/images/gamepad/Xbox_Y_button.png',
+            label: AppLocale.hintOptions.getString(context),
+            onTap: onOptions,
+            backgroundColor: theme.colorScheme.tertiaryFixed,
+            textColor: theme.colorScheme.onTertiaryFixed,
+          ),
         ),
         SizedBox(width: 8.r),
       ],

@@ -875,8 +875,18 @@ class _SystemGamesListState extends State<SystemGamesList> {
 
   /// specialized view for systems with zero detected media files.
   /// includes controls for recursive scanning and directory management.
+  ///
+  /// Aggregate views ('all', 'favorites', a collection) get the message and the
+  /// Back button only: they scan no directory of their own, and a collection's
+  /// id has no `app_systems` row, so the recursive-scan switch below would
+  /// write per-system settings against an id that does not exist. An empty
+  /// collection is reachable in normal use (a fresh one, or after removing the
+  /// last game), unlike an empty Favourites, whose card hides at zero.
   Widget _buildEmptyState() {
     bool currentScanValue = widget.system.recursiveScan;
+    final isAggregateView = SystemFolderNames.isAggregate(
+      widget.system.folderName,
+    );
 
     return Center(
       child: Container(
@@ -936,7 +946,10 @@ class _SystemGamesListState extends State<SystemGamesList> {
             ),
             SizedBox(height: 4.r),
             Text(
-              AppLocale.checkRomFiles.getString(context),
+              (SystemFolderNames.isCollection(widget.system.folderName)
+                      ? AppLocale.emptyCollection
+                      : AppLocale.checkRomFiles)
+                  .getString(context),
               style: TextStyle(
                 fontSize: 11.r,
                 fontWeight: FontWeight.w400,
@@ -949,208 +962,217 @@ class _SystemGamesListState extends State<SystemGamesList> {
             ),
             SizedBox(height: 16.r),
 
-            // Configuration Component: Recursive Library Scanning. Hidden for
-            // the systems that own no ROM folder to walk — there the switch
-            // would kick off a scan for a folder of that name and file
-            // whatever it found under a system meant to hold nothing.
-            StatefulBuilder(
-              builder: (context, setStateBuilder) {
-                return Column(
-                  children: [
-                    if (!SystemFolderNames.recursiveScanExcluded.contains(
-                      widget.system.folderName,
-                    ))
-                      Container(
-                        margin: EdgeInsets.only(bottom: 12.r),
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 12.r,
-                          vertical: 8.r,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(12.r),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.05),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Symbols.folder_shared_rounded,
-                              color: Colors.white.withValues(alpha: 0.7),
-                              size: 16.r,
-                            ),
-                            SizedBox(width: 8.r),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  AppLocale.recursiveScan.getString(context),
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12.r,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                Text(
-                                  AppLocale.recursiveScanSubtitle.getString(
-                                    context,
-                                  ),
-                                  style: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.5),
-                                    fontSize: 10.r,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            SizedBox(width: 16.r),
-                            Switch(
-                              value: currentScanValue,
-                              activeThumbColor: Theme.of(
-                                context,
-                              ).colorScheme.primary,
-                              onChanged: (value) async {
-                                final oldSystem = widget.system;
-                                setStateBuilder(() {
-                                  currentScanValue = value;
-                                });
-
-                                try {
-                                  await SystemRepository.setRecursiveScan(
-                                    oldSystem.id!,
-                                    value,
-                                  );
-
-                                  if (!context.mounted) return;
-                                  final configProvider = context
-                                      .read<SqliteConfigProvider>();
-
-                                  await configProvider.scanSystems();
-                                  if (!context.mounted) return;
-
-                                  await Provider.of<SqliteDatabaseProvider>(
-                                    context,
-                                    listen: false,
-                                  ).loadDatabase();
-                                  if (!context.mounted) return;
-
-                                  await _loadGames();
-                                } catch (e) {
-                                  _log.e('Error toggling recursive scan: $e');
-                                  if (!context.mounted) return;
-                                  AppNotification.showNotification(
-                                    context,
-                                    AppLocale.failedToSaveSetting.getString(
-                                      context,
-                                    ),
-                                    type: NotificationType.error,
-                                  );
-                                }
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-
-                    // Real-time Scan Progress Feedback.
-                    Consumer<SqliteConfigProvider>(
-                      builder: (context, provider, child) {
-                        if (!provider.isScanning ||
-                            provider.totalSystemsToScan <= 0) {
-                          return const SizedBox.shrink();
-                        }
-
-                        return Container(
-                          width: 320.r,
+            // Configuration Component: Recursive Library Scanning. Hidden
+            // for the systems that own no ROM folder to walk — there the
+            // switch would kick off a scan for a folder of that name and
+            // file whatever it found under a system meant to hold nothing.
+            if (!isAggregateView)
+              StatefulBuilder(
+                builder: (context, setStateBuilder) {
+                  return Column(
+                    children: [
+                      if (!SystemFolderNames.recursiveScanExcluded.contains(
+                            widget.system.folderName,
+                          ) &&
+                          !SystemFolderNames.isCollection(
+                            widget.system.folderName,
+                          ))
+                        Container(
                           margin: EdgeInsets.only(bottom: 12.r),
-                          padding: EdgeInsets.all(12.r),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 12.r,
+                            vertical: 8.r,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.black.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(12.r),
                             border: Border.all(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.primary.withValues(alpha: 0.2),
-                              width: 1.r,
+                              color: Colors.white.withValues(alpha: 0.05),
                             ),
                           ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
+                              Icon(
+                                Symbols.folder_shared_rounded,
+                                color: Colors.white.withValues(alpha: 0.7),
+                                size: 16.r,
+                              ),
+                              SizedBox(width: 8.r),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    provider.scanStatus,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleSmall
-                                        ?.copyWith(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 10.r,
-                                          color: Theme.of(
-                                            context,
-                                          ).colorScheme.primary,
-                                        ),
+                                    AppLocale.recursiveScan.getString(context),
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12.r,
+                                      fontWeight: FontWeight.w500,
+                                    ),
                                   ),
                                   Text(
-                                    '${(provider.scanProgress * 100).toInt()}%',
-                                    style: Theme.of(context).textTheme.bodySmall
-                                        ?.copyWith(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 10.r,
-                                          color: Theme.of(
-                                            context,
-                                          ).colorScheme.primary,
-                                        ),
+                                    AppLocale.recursiveScanSubtitle.getString(
+                                      context,
+                                    ),
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.5,
+                                      ),
+                                      fontSize: 10.r,
+                                    ),
                                   ),
                                 ],
                               ),
-                              SizedBox(height: 8.r),
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(4.r),
-                                child: LinearProgressIndicator(
-                                  value: provider.scanProgress,
-                                  minHeight: 6.r,
-                                  backgroundColor: Theme.of(
-                                    context,
-                                  ).colorScheme.primary.withValues(alpha: 0.1),
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    Theme.of(context).colorScheme.primary,
-                                  ),
-                                ),
-                              ),
-                              SizedBox(height: 4.r),
-                              Text(
-                                AppLocale.scanningSystemOf
-                                    .getString(context)
-                                    .replaceFirst(
-                                      '{current}',
-                                      provider.scannedSystemsCount.toString(),
-                                    )
-                                    .replaceFirst(
-                                      '{total}',
-                                      provider.totalSystemsToScan.toString(),
-                                    ),
-                                style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(
-                                      fontSize: 9.r,
-                                      color: Colors.white.withValues(
-                                        alpha: 0.6,
+                              SizedBox(width: 16.r),
+                              Switch(
+                                value: currentScanValue,
+                                activeThumbColor: Theme.of(
+                                  context,
+                                ).colorScheme.primary,
+                                onChanged: (value) async {
+                                  final oldSystem = widget.system;
+                                  setStateBuilder(() {
+                                    currentScanValue = value;
+                                  });
+
+                                  try {
+                                    await SystemRepository.setRecursiveScan(
+                                      oldSystem.id!,
+                                      value,
+                                    );
+
+                                    if (!context.mounted) return;
+                                    final configProvider = context
+                                        .read<SqliteConfigProvider>();
+
+                                    await configProvider.scanSystems();
+                                    if (!context.mounted) return;
+
+                                    await Provider.of<SqliteDatabaseProvider>(
+                                      context,
+                                      listen: false,
+                                    ).loadDatabase();
+                                    if (!context.mounted) return;
+
+                                    await _loadGames();
+                                  } catch (e) {
+                                    _log.e('Error toggling recursive scan: $e');
+                                    if (!context.mounted) return;
+                                    AppNotification.showNotification(
+                                      context,
+                                      AppLocale.failedToSaveSetting.getString(
+                                        context,
                                       ),
-                                    ),
+                                      type: NotificationType.error,
+                                    );
+                                  }
+                                },
                               ),
                             ],
                           ),
-                        );
-                      },
-                    ),
-                  ],
-                );
-              },
-            ),
+                        ),
+
+                      // Real-time Scan Progress Feedback.
+                      Consumer<SqliteConfigProvider>(
+                        builder: (context, provider, child) {
+                          if (!provider.isScanning ||
+                              provider.totalSystemsToScan <= 0) {
+                            return const SizedBox.shrink();
+                          }
+
+                          return Container(
+                            width: 320.r,
+                            margin: EdgeInsets.only(bottom: 12.r),
+                            padding: EdgeInsets.all(12.r),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(12.r),
+                              border: Border.all(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.primary.withValues(alpha: 0.2),
+                                width: 1.r,
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      provider.scanStatus,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleSmall
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 10.r,
+                                            color: Theme.of(
+                                              context,
+                                            ).colorScheme.primary,
+                                          ),
+                                    ),
+                                    Text(
+                                      '${(provider.scanProgress * 100).toInt()}%',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 10.r,
+                                            color: Theme.of(
+                                              context,
+                                            ).colorScheme.primary,
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                                SizedBox(height: 8.r),
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(4.r),
+                                  child: LinearProgressIndicator(
+                                    value: provider.scanProgress,
+                                    minHeight: 6.r,
+                                    backgroundColor: Theme.of(context)
+                                        .colorScheme
+                                        .primary
+                                        .withValues(alpha: 0.1),
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      Theme.of(context).colorScheme.primary,
+                                    ),
+                                  ),
+                                ),
+                                SizedBox(height: 4.r),
+                                Text(
+                                  AppLocale.scanningSystemOf
+                                      .getString(context)
+                                      .replaceFirst(
+                                        '{current}',
+                                        provider.scannedSystemsCount.toString(),
+                                      )
+                                      .replaceFirst(
+                                        '{total}',
+                                        provider.totalSystemsToScan.toString(),
+                                      ),
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        fontSize: 9.r,
+                                        color: Colors.white.withValues(
+                                          alpha: 0.6,
+                                        ),
+                                      ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  );
+                },
+              ),
 
             // Navigation Component: Exit Action.
             Material(
@@ -1944,7 +1966,12 @@ class _SystemGamesListState extends State<SystemGamesList> {
     if (game == null || _isScrapingSelectedGame) return;
     if (_isFolderEntry(game)) return;
 
-    final scrapeSystemId = widget.system.id;
+    // The ScreenScraper platform id is looked up from the app system id, so
+    // this has to be the game's *own* system. An aggregate view's id either has
+    // no ScreenScraper mapping ('all' / 'favorites') or no `app_systems` row at
+    // all ('collection:<uuid>'), and the scrape would fail with "system not
+    // mapped". The details card already resolves it this way.
+    final scrapeSystemId = game.systemId ?? widget.system.id;
     if (scrapeSystemId == null) return;
 
     if (!await ScreenScraperService.hasSavedCredentials()) {

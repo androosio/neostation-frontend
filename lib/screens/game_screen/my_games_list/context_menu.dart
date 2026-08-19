@@ -78,10 +78,22 @@ extension _ContextMenu on _SystemGamesListState {
   /// [_toggleFavorite] already owns the full follow-up (refreshDetectedSystems
   /// so the Favourites system card appears/disappears, the local
   /// `copyWith(isFavorite:)` and the visual-position-preserving re-sort), so
-  /// the menu only adds the toast.
+  /// the menu adds the toast and — exactly like
+  /// [_setCollectionMembershipFromMenu] — the reload that lets an unfavourited
+  /// game leave the Favourites view it was removed from.
   Future<void> _setFavoriteFromMenu(bool adding, String label) async {
     await _toggleFavorite();
     if (!mounted) return;
+
+    // Viewing Favourites and the game just left it: the re-sort above only
+    // reorders what is already loaded, so without this the row stays visible
+    // until the list is rebuilt. (In this view every game is a favourite, so
+    // only removal can happen here.)
+    if (!adding && widget.system.folderName == SystemFolderNames.favorites) {
+      await _loadGames();
+      if (!mounted) return;
+    }
+
     AppNotification.showNotification(
       context,
       (adding ? AppLocale.addedToCollection : AppLocale.removedFromCollection)

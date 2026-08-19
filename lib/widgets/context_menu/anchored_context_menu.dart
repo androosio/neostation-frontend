@@ -29,12 +29,21 @@ class ContextMenuItem {
   /// Draws a hairline above the row, to group it apart from the rows before it.
   final bool separatorBefore;
 
+  /// Marks the row as the value currently in effect, drawing a trailing check.
+  ///
+  /// For rows that pick a setting rather than perform an action (view mode,
+  /// card size), so the menu shows what is active the way the systems and
+  /// game-view dropdowns do. Ignored on a submenu parent, whose trailing slot
+  /// already carries the chevron.
+  final bool selected;
+
   const ContextMenuItem({
     required this.id,
     required this.label,
     this.icon,
     this.children = const <ContextMenuItem>[],
     this.separatorBefore = false,
+    this.selected = false,
   });
 
   bool get hasSubmenu => children.isNotEmpty;
@@ -455,6 +464,12 @@ class _AnchoredContextMenuState extends State<AnchoredContextMenu> {
                         color: theme.colorScheme.onSurface.withValues(
                           alpha: 0.7,
                         ),
+                      )
+                    else if (item.selected)
+                      Icon(
+                        Symbols.check_rounded,
+                        size: 14.r,
+                        color: theme.colorScheme.primary,
                       ),
                   ],
                 ),
