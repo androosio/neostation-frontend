@@ -72,7 +72,7 @@ class GameDetailsFooter extends StatelessWidget {
       bottom: -0.5.r,
       left: -0.5.r,
       right: -0.5.r,
-      height: 84.r,
+      height: 98.r,
       child: ClipRRect(
         child: RepaintBoundary(
           child: Container(
@@ -81,17 +81,50 @@ class GameDetailsFooter extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Identity Section: the ROM filename, plus the read-only
-                // status this footer has to show somewhere.
+                // Status Section: the read-only facts about this game, on their
+                // own line above the filename.
                 //
-                // There used to be a game title above this line. It was a
-                // strict duplicate: the list sidebar sits beside this card and
-                // its selected row renders the same resolved display name, so
-                // the name was on screen twice, one of them painted straight
-                // onto the game's fanart where pale artwork made it hard to
-                // read. The filename is the one identity fact the sidebar does
-                // not carry (it is what the scraped name was matched *from*),
-                // so it is what stays, promoted into the space the title had.
+                // They are here rather than in the action row at the bottom
+                // because that row is for controls — every pill in it should do
+                // something when pressed, and a score and a clock never did.
+                // As inline glyph+text they cost the artwork a line rather than
+                // three 45.r pills.
+                //
+                // Fixed height so the line is laid out whether or not there is
+                // anything to put on it: an unrated, never-played game must not
+                // shorten the footer and drag the action row up with it.
+                SizedBox(
+                  height: _statusLineHeight,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      // Score, as a bare star and number rather than the pill it
+                      // used to be. Colour still runs error -> success across
+                      // the range, so a glance still reads good/bad.
+                      if (game.rating > 0) _InlineRating(game: game),
+
+                      // Accumulated play time, once there is any.
+                      if (GameUtils.formatPlayTime(game.playTime ?? 0) !=
+                          '0s') ...[
+                        if (game.rating > 0) SizedBox(width: 12.r),
+                        _InlinePlayTime(game: game),
+                      ],
+                    ],
+                  ),
+                ),
+                SizedBox(height: 2.r),
+
+                // Identity Section: the ROM filename, with cloud-sync state at
+                // the far end of the line.
+                //
+                // There used to be a game title above this. It was a strict
+                // duplicate: the list sidebar sits beside this card and its
+                // selected row renders the same resolved display name, so the
+                // name was on screen twice, one of them painted straight onto
+                // the game's fanart where pale artwork made it hard to read.
+                // The filename is the one identity fact the sidebar does not
+                // carry (it is what the scraped name was matched *from*), so it
+                // is what stays.
                 //
                 // Consequence worth knowing: the filename is only populated for
                 // scraped games — `GameListService` sets the flag exclusively
@@ -102,66 +135,48 @@ class GameDetailsFooter extends StatelessWidget {
                 // the name appears. That is deliberate; the blank line is still
                 // laid out so the action row below keeps a constant baseline
                 // either way.
-                //
-                // The rating, the play-time clock and the cloud-sync state ride
-                // along on the right of this line. They are here rather than in
-                // the row below because the row below is for controls: every
-                // pill in it should do something when pressed, and these three
-                // never did. As inline glyph+text they also cost the artwork a
-                // line it was already paying for, instead of three more 45.r
-                // pills.
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Expanded(
-                      child: RepaintBoundary(
-                        child: Text(
-                          game.showRomFileNameSubtitle ? game.romname : '',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          strutStyle: StrutStyle(
-                            fontSize: 16.r,
-                            height: 1.15,
-                            forceStrutHeight: true,
-                          ),
-                          style: TextStyle(
-                            // Full white at w600: as the only line left it is
-                            // the primary text here, not a subtitle under a
-                            // heading, and the old 12.r/0.72 treatment let
-                            // pale fanart through the letterforms.
-                            color: Colors.white,
-                            fontSize: 16.r,
-                            fontWeight: FontWeight.w600,
-                            height: 1.15,
-                            shadows: _onArtShadows,
+                SizedBox(
+                  height: _identityLineHeight,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: RepaintBoundary(
+                          child: Text(
+                            game.showRomFileNameSubtitle ? game.romname : '',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            strutStyle: StrutStyle(
+                              fontSize: 13.r,
+                              height: 1.15,
+                              forceStrutHeight: true,
+                            ),
+                            style: TextStyle(
+                              // Full white: the old 0.72 let pale fanart
+                              // through the letterforms, which is where this
+                              // line lost legibility first.
+                              color: Colors.white,
+                              fontSize: 13.r,
+                              fontWeight: FontWeight.w600,
+                              height: 1.15,
+                              shadows: _onArtShadows,
+                            ),
                           ),
                         ),
                       ),
-                    ),
 
-                    // Score, as a bare star and number rather than the pill it
-                    // used to be. Colour still runs error -> success across the
-                    // range, so a glance still reads good/bad without the pill.
-                    if (game.rating > 0) ...[
-                      SizedBox(width: 14.r),
-                      _InlineRating(game: game),
+                      // Cloud-sync state for this game. Every "nothing to say"
+                      // state collapses to zero size, so the gap before it has
+                      // to travel with the widget rather than sit beside it.
+                      NeoSyncStatusIcon(
+                        system: system,
+                        game: game,
+                        syncProvider: syncProvider,
+                        size: 16.0,
+                        margin: EdgeInsets.only(left: 12.r),
+                      ),
                     ],
-
-                    // Accumulated play time, once there is any.
-                    if (GameUtils.formatPlayTime(game.playTime ?? 0) != '0s')
-                      _InlinePlayTime(game: game),
-
-                    // Cloud-sync state for this game. Every "nothing to say"
-                    // state collapses to zero size, so the gap before it has to
-                    // travel with the widget rather than sit beside it.
-                    NeoSyncStatusIcon(
-                      system: system,
-                      game: game,
-                      syncProvider: syncProvider,
-                      size: 18.0,
-                      margin: EdgeInsets.only(left: 14.r),
-                    ),
-                  ],
+                  ),
                 ),
                 SizedBox(height: 8.r),
 
@@ -485,14 +500,24 @@ class GameDetailsFooter extends StatelessWidget {
 
 /// Drop shadow for text and glyphs painted straight onto the game's fanart.
 ///
-/// Everything on the identity line sits on artwork rather than on a chrome
-/// surface, so it all carries the same shadow — the filename, the rating and
-/// the play-time clock read as one line, not three separately styled bits.
+/// Both text lines of this footer sit on artwork rather than on a chrome
+/// surface, so everything on them carries the same shadow — filename, rating
+/// and play-time clock read as one block, not as separately styled bits.
 List<Shadow> get _onArtShadows => [
   Shadow(blurRadius: 1.r, color: Colors.black, offset: const Offset(2, 2)),
 ];
 
-/// Score as a bare star and number on the identity line.
+/// Height of the status line (rating + play time), fixed so the line is laid
+/// out even when the game has neither and the footer's geometry never moves.
+/// Driven by the tallest thing on it, the 15.r rating star.
+double get _statusLineHeight => 16.r;
+
+/// Height of the identity line (filename + sync icon), fixed for the same
+/// reason: the filename is empty for an unscraped game. Driven by the 16.0
+/// sync icon, with the 13.r filename's forced strut just under it.
+double get _identityLineHeight => 16.r;
+
+/// Score as a bare star and number on the status line.
 ///
 /// This was a 45.r pill on chrome in the action row below. It moved because
 /// that row is for controls and a rating is not one: it showed a number and
@@ -523,16 +548,16 @@ class _InlineRating extends StatelessWidget {
         Icon(
           Symbols.star_rounded,
           color: ratingColor,
-          size: 20.r,
+          size: 15.r,
           fill: 1,
           shadows: _onArtShadows,
         ),
-        SizedBox(width: 4.r),
+        SizedBox(width: 3.r),
         Text(
           ratingValue.toStringAsFixed(0),
           style: TextStyle(
             color: Colors.white,
-            fontSize: 16.r,
+            fontSize: 12.r,
             fontWeight: FontWeight.w800,
             height: 1.15,
             shadows: _onArtShadows,
@@ -544,7 +569,7 @@ class _InlineRating extends StatelessWidget {
 }
 
 /// Accumulated play time as a clock glyph and an HH:MM:SS reading on the
-/// identity line. Moved out of the action row for the same reason as
+/// status line. Moved out of the action row for the same reason as
 /// [_InlineRating]: it reported, it did not act.
 class _InlinePlayTime extends StatelessWidget {
   final GameModel game;
@@ -566,19 +591,18 @@ class _InlinePlayTime extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        SizedBox(width: 14.r),
         Icon(
           Symbols.schedule_rounded,
           color: Colors.white,
-          size: 18.r,
+          size: 13.r,
           shadows: _onArtShadows,
         ),
-        SizedBox(width: 4.r),
+        SizedBox(width: 3.r),
         Text(
           _formatClock(game.playTime ?? 0),
           style: TextStyle(
             color: Colors.white,
-            fontSize: 14.r,
+            fontSize: 11.r,
             fontWeight: FontWeight.w700,
             height: 1.15,
             // Tabular figures so a ticking clock does not shuffle the line
