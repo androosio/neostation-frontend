@@ -379,22 +379,6 @@ class GameListViewState extends State<GameListView>
                                           : Colors.redAccent,
                                     ),
                                   ),
-                                if (_collections?.isInAnyCollection(
-                                      game.romPath,
-                                    ) ==
-                                    true)
-                                  Container(
-                                    margin: EdgeInsets.only(right: 4.r),
-                                    child: CollectionBadge.inline(
-                                      // The row's own foreground, so the mark
-                                      // stays legible on the selected row's
-                                      // inverted background — same rule as the
-                                      // achievements trophy.
-                                      color: isSelected
-                                          ? theme.colorScheme.onPrimary
-                                          : theme.colorScheme.primary,
-                                    ),
-                                  ),
                                 Expanded(
                                   child: RepaintBoundary(
                                     child: AnimatedDefaultTextStyle(
@@ -426,6 +410,29 @@ class GameListViewState extends State<GameListView>
                                     ),
                                   ),
                                 ),
+                                // Collection mark, right-aligned ahead of the
+                                // achievements trophy. The favourite heart
+                                // stays on the left of the name: it is the one
+                                // mark the user sets on the game itself, while
+                                // these two report what the game belongs to and
+                                // what it is matched against, so they cluster
+                                // together at the end of the row.
+                                if (_collections?.isInAnyCollection(
+                                      game.romPath,
+                                    ) ==
+                                    true)
+                                  Padding(
+                                    padding: EdgeInsets.only(left: 4.r),
+                                    child: CollectionBadge.inline(
+                                      // The row's own foreground, so the mark
+                                      // stays legible on the selected row's
+                                      // inverted background — same rule as the
+                                      // achievements trophy.
+                                      color: isSelected
+                                          ? theme.colorScheme.onPrimary
+                                          : theme.colorScheme.primary,
+                                    ),
+                                  ),
                                 if (_showAchievementsBadge &&
                                     AchievementsBadge.showsFor(game))
                                   Padding(
