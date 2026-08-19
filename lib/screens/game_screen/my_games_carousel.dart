@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
+import 'package:neostation/sync/sync_manager.dart';
 import 'package:neostation/models/game_model.dart';
 import 'package:neostation/models/system_model.dart';
 import 'package:neostation/utils/rom_tree.dart';
@@ -19,10 +20,6 @@ import 'package:neostation/providers/collections_provider.dart';
 import 'package:neostation/widgets/achievements_badge.dart';
 import 'package:neostation/widgets/collection_badge.dart';
 import 'package:neostation/widgets/game_view_mode_dropdown.dart';
-import 'package:neostation/widgets/game_action_buttons.dart';
-import 'package:neostation/widgets/legend_edge_reshow_zone.dart';
-import 'package:neostation/services/game_legend_visibility.dart';
-import 'package:neostation/sync/sync_manager.dart';
 import 'package:neostation/widgets/native_carousel.dart';
 import 'package:neostation/widgets/game_view_footer.dart';
 import 'package:neostation/constants/system_folder_names.dart';
@@ -150,7 +147,6 @@ class _GamesCarouselState extends State<GamesCarousel> {
   static const Duration _chromeSettleDelay = Duration(milliseconds: 160);
   String? _chromeSig;
   Widget? _chromeFooter;
-  Widget? _chromeLegend;
   final Map<String, double> _letterWidthCache = {};
   final Map<String, bool> _fileExistsCache = {};
 
@@ -306,7 +302,6 @@ class _GamesCarouselState extends State<GamesCarousel> {
     _currentIndex = widget.selectedIndex.clamp(0, _gamesLength - 1);
     _settledIndex = _currentIndex;
     _initializeGamepad();
-    GameLegendVisibility.hidden.addListener(_onLegendVisibilityChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollToCurrentLetter();
       _updateBackground();
@@ -352,7 +347,6 @@ class _GamesCarouselState extends State<GamesCarousel> {
   void dispose() {
     _achievementsDebounce?.cancel();
     _settleTimer?.cancel();
-    GameLegendVisibility.hidden.removeListener(_onLegendVisibilityChanged);
     _cleanupGamepad();
     _letterBarController.dispose();
     super.dispose();
@@ -425,7 +419,6 @@ class _GamesCarouselState extends State<GamesCarousel> {
       onLeftStickClick: widget.onRandom,
       onSelectButton: _toggleVideoMute, // Select tap - Mute preview video.
       onSelectModifierA: widget.onScrape, // Select + A - Scrape.
-      onSelectModifierB: _toggleLegend, // Select + B - Hide/show legend.
       onSelectModifierY: widget.onRandom, // Select + Y - Random game.
       onSettings: widget.onSettings,
       // The bumpers deliberately bind nothing here. This view lives on a route
@@ -488,6 +481,21 @@ class _GamesCarouselState extends State<GamesCarousel> {
     _gamepadNav.dispose();
   }
 
+  /// Long-press on the centred card — the touch route to the game context menu
+  /// the gamepad opens with Y.
+  ///
+  /// Centred only, and that is not just a design choice: an off-centre card is
+  /// painted outside the page slot the viewport hit-tests it by (the depth
+  /// envelope scales it down and pulls it toward the middle), so a long press
+  /// on one is never delivered to it. Tapping it centres it first — the
+  /// carousel's existing contract — and the press then lands. The guard is
+  /// kept explicit so the menu can never anchor to a card that is not the one
+  /// the anchor key is on.
+  void _handleCardLongPress(int index) {
+    if (index != _currentIndex) return;
+    widget.onYButton?.call();
+  }
+
   void _onPageChanged(int index, CarouselPageChangeReason reason) {
     if (reason == CarouselPageChangeReason.manual) {
       SfxService().playNavSound();
@@ -546,7 +554,7 @@ class _GamesCarouselState extends State<GamesCarousel> {
     final sig =
         '$_settledIndex|${settledGame.romname}|${settledGame.isFavorite}'
         '|$hasRa|$loadingRa|${identityHashCode(_currentGameInfo)}';
-    if (sig == _chromeSig && _chromeFooter != null && _chromeLegend != null) {
+    if (sig == _chromeSig && _chromeFooter != null) {
       return;
     }
     _chromeSig = sig;
@@ -560,33 +568,11 @@ class _GamesCarouselState extends State<GamesCarousel> {
       onToggleMute: _toggleVideoMute,
       hasVideo: !isFolder && _hasVideoFor(settledGame),
       isFolder: isFolder,
+      // The game's own system, so the cloud-sync icon reflects the game rather
+      // than the placeholder an aggregate view is browsing under.
+      system: isFolder ? null : _effectiveSystemFor(settledGame),
+      syncProvider: context.read<SyncManager>().active,
     );
-    // Positioning/visibility is applied at the Stack level (AnimatedPositioned)
-    // so Select + B can slide it without invalidating this memoized subtree.
-    _chromeLegend = Consumer<SyncManager>(
-      builder: (context, syncManager, child) => GameActionButtons(
-        system: widget.system,
-        selectedGame: settledGame,
-        syncProvider: syncManager.active,
-        onBack: widget.onBack,
-        onFavorite: widget.onFavorite ?? () {},
-        onViewMode: () =>
-            GameViewModeDropdown.globalKey.currentState?.showDropdown(),
-        onSettings: widget.onSettings ?? () {},
-        onRandom: widget.onRandom,
-        onScrape: widget.onScrape,
-      ),
-    );
-  }
-
-  /// Select + B — toggles the (session-global) vertical action-button legend.
-  void _toggleLegend() {
-    SfxService().playNavSound();
-    GameLegendVisibility.toggle();
-  }
-
-  void _onLegendVisibilityChanged() {
-    if (mounted) setState(() {});
   }
 
   bool get _isAllMode =>
@@ -1418,6 +1404,7 @@ class _GamesCarouselState extends State<GamesCarousel> {
                         // Tapping an off-centre card brings it to the middle;
                         // tapping the centred one plays it, so touch users
                         // never need the footer's A button.
+                        onLongPress: () => _handleCardLongPress(index),
                         onTap: () {
                           if (isCentred) {
                             SfxService().playEnterSound();
@@ -1526,23 +1513,6 @@ class _GamesCarouselState extends State<GamesCarousel> {
             _chromeFooter!,
           ],
         ),
-        // Vertical action-button legend (shared with the game list view);
-        // also memoized on the settled selection. Select + B slides it off the
-        // left edge. The centered carousel itself is left in place (there is no
-        // left-gutter to reflow into for a centered PageView).
-        AnimatedPositioned(
-          duration: const Duration(milliseconds: 250),
-          curve: Curves.easeOutCubic,
-          top: 12.r,
-          left: GameLegendVisibility.hidden.value ? -60.r : 10.r,
-          child: AnimatedOpacity(
-            duration: const Duration(milliseconds: 250),
-            opacity: GameLegendVisibility.hidden.value ? 0.0 : 1.0,
-            child: _chromeLegend!,
-          ),
-        ),
-        // Touch: swipe-right from the left edge reveals a hidden legend.
-        const LegendEdgeReshowZone(),
       ],
     );
   }

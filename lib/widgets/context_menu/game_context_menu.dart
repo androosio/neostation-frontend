@@ -41,6 +41,9 @@ class GameContextMenuTarget {
 
 const String _settingsId = 'settings';
 const String _createId = 'create';
+const String _viewModeId = 'view_mode';
+const String _scrapeId = 'scrape';
+const String _randomId = 'random';
 const String _addPrefix = 'add:';
 const String _removePrefix = 'remove:';
 
@@ -54,6 +57,11 @@ const String _removePrefix = 'remove:';
 ///
 /// [onCreateTarget] adds a trailing `New collection…` row to `Add to…`. It is
 /// the seam collections plug into.
+///
+/// [onViewMode], [onScrape] and [onRandom] are the view-level actions that used
+/// to live on the vertical action rail. They are grouped below the membership
+/// rows, separated from them, and each is omitted when the host has nothing to
+/// bind — the menu is the only route to them for a user without a gamepad.
 Future<void> showGameContextMenu({
   required BuildContext context,
   required List<GameContextMenuTarget> targets,
@@ -62,6 +70,9 @@ Future<void> showGameContextMenu({
   String? preselectTargetId,
   Future<void> Function()? onCreateTarget,
   String? createTargetLabel,
+  VoidCallback? onViewMode,
+  VoidCallback? onScrape,
+  VoidCallback? onRandom,
 }) async {
   assert(
     onCreateTarget == null || createTargetLabel != null,
@@ -115,6 +126,29 @@ Future<void> showGameContextMenu({
         icon: Symbols.playlist_remove_rounded,
         children: removeChildren,
       ),
+    // View-level actions. The hairline marks where the menu stops acting on
+    // this one game and starts acting on the whole view.
+    if (onViewMode != null)
+      ContextMenuItem(
+        id: _viewModeId,
+        label: AppLocale.viewMode.getString(context),
+        icon: Symbols.grid_view_rounded,
+        separatorBefore: true,
+      ),
+    if (onScrape != null)
+      ContextMenuItem(
+        id: _scrapeId,
+        label: AppLocale.hintScrape.getString(context),
+        icon: Symbols.cloud_download_rounded,
+        separatorBefore: onViewMode == null,
+      ),
+    if (onRandom != null)
+      ContextMenuItem(
+        id: _randomId,
+        label: AppLocale.randomGame.getString(context),
+        icon: Symbols.casino_rounded,
+        separatorBefore: onViewMode == null && onScrape == null,
+      ),
   ];
 
   // Pre-open the submenu that holds the preselected target so the old
@@ -160,6 +194,18 @@ Future<void> showGameContextMenu({
   }
   if (result == _createId) {
     await onCreateTarget?.call();
+    return;
+  }
+  if (result == _viewModeId) {
+    onViewMode?.call();
+    return;
+  }
+  if (result == _scrapeId) {
+    onScrape?.call();
+    return;
+  }
+  if (result == _randomId) {
+    onRandom?.call();
     return;
   }
   if (result.startsWith(_addPrefix)) {

@@ -7,12 +7,15 @@ import 'package:neostation/l10n/app_locale.dart';
 import 'package:neostation/providers/retro_achievements_provider.dart';
 import 'package:neostation/providers/sqlite_config_provider.dart';
 import 'package:neostation/models/game_model.dart';
+import 'package:neostation/models/system_model.dart';
 import 'package:neostation/models/retro_achievements_game_info.dart';
 import 'package:neostation/services/sfx_service.dart';
 import 'package:neostation/utils/ra_coverage.dart';
 import 'package:neostation/themes/app_themes.dart';
 import 'package:neostation/utils/game_utils.dart';
+import 'package:neostation/sync/i_sync_provider.dart';
 import 'package:neostation/widgets/marquee_text.dart';
+import 'package:neostation/widgets/neo_sync_status_icon.dart';
 import 'package:neostation/themes/chrome_surface.dart';
 import '../../themes/corner_radii.dart';
 
@@ -44,6 +47,12 @@ class GameViewFooter extends StatelessWidget {
   /// it, so the confirm button reads OPEN instead of PLAY.
   final bool isFolder;
 
+  /// The game's *own* system and the active sync provider, for the cloud-sync
+  /// status icon. This footer is where that indicator lives now that the
+  /// vertical action rail is gone; both null hides it.
+  final SystemModel? system;
+  final ISyncProvider? syncProvider;
+
   const GameViewFooter({
     super.key,
     required this.game,
@@ -55,6 +64,8 @@ class GameViewFooter extends StatelessWidget {
     this.onToggleMute,
     this.hasVideo = false,
     this.isFolder = false,
+    this.system,
+    this.syncProvider,
   });
 
   @override
@@ -148,6 +159,17 @@ class GameViewFooter extends StatelessWidget {
                   _PlayTimePill(game: game),
                   SizedBox(width: 6.r),
                 ],
+                // Cloud-sync state for this game. Every "nothing to say" state
+                // collapses to zero size, hence the margin on the widget rather
+                // than a spacer beside it.
+                if (!isFolder && system != null && syncProvider != null)
+                  NeoSyncStatusIcon(
+                    system: system!,
+                    game: game,
+                    syncProvider: syncProvider!,
+                    size: 22.0,
+                    margin: EdgeInsets.only(right: 6.r),
+                  ),
                 _buildPlayButton(context),
               ],
             ),

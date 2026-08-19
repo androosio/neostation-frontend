@@ -104,10 +104,6 @@ class ConfigModel {
   /// (3x2) or `'2x1'`. Ignored by the carousel, where every card is one slot.
   final String recentCardSize;
 
-  /// Whether the vertical action-button legend is hidden across every game view
-  /// (list, grid, carousel). Toggled by the Select + B chord.
-  final bool legendHidden;
-
   /// The game details card tab the user last selected with L1/R1, stored as the
   /// `DetailTab` enum name (e.g. 'wheel', 'box2d', 'screenshotVideo').
   ///
@@ -231,7 +227,6 @@ class ConfigModel {
     this.appLanguage = 'es',
     this.hideRecentCard = false,
     this.recentCardSize = RecentCardSizes.defaultSize,
-    this.legendHidden = false,
     this.gameDetailsTab = 'wheel',
     this.hideTabSync = false,
     this.hideTabAchievements = false,
@@ -354,10 +349,6 @@ class ConfigModel {
                   json['recent_card_size'] ??
                   RecentCardSizes.defaultSize)
               .toString(),
-      legendHidden:
-          (json['legendHidden'] ?? json['legend_hidden'] ?? 0).toString() ==
-              '1' ||
-          (json['legendHidden'] ?? false).toString().toLowerCase() == 'true',
       gameDetailsTab:
           (json['gameDetailsTab'] ?? json['game_details_tab'] ?? 'wheel')
               .toString(),
@@ -500,7 +491,6 @@ class ConfigModel {
       'appLanguage': appLanguage,
       'hideRecentCard': hideRecentCard,
       'recentCardSize': recentCardSize,
-      'legendHidden': legendHidden,
       'gameDetailsTab': gameDetailsTab,
       'hideTabSync': hideTabSync,
       'hideTabAchievements': hideTabAchievements,
@@ -550,7 +540,6 @@ class ConfigModel {
     String? appLanguage,
     bool? hideRecentCard,
     String? recentCardSize,
-    bool? legendHidden,
     String? gameDetailsTab,
     bool? hideTabSync,
     bool? hideTabAchievements,
@@ -597,7 +586,6 @@ class ConfigModel {
       appLanguage: appLanguage ?? this.appLanguage,
       hideRecentCard: hideRecentCard ?? this.hideRecentCard,
       recentCardSize: recentCardSize ?? this.recentCardSize,
-      legendHidden: legendHidden ?? this.legendHidden,
       gameDetailsTab: gameDetailsTab ?? this.gameDetailsTab,
       hideTabSync: hideTabSync ?? this.hideTabSync,
       hideTabAchievements: hideTabAchievements ?? this.hideTabAchievements,

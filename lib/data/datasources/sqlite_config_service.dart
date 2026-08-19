@@ -177,10 +177,6 @@ class SqliteConfigService {
             userConfig?['recent_card_size']?.toString().isNotEmpty == true
             ? userConfig!['recent_card_size'].toString()
             : RecentCardSizes.defaultSize,
-        legendHidden:
-            (int.tryParse(userConfig?['legend_hidden']?.toString() ?? '0') ??
-                0) ==
-            1,
         // Missing column/row => the wheel tab (see migration v110).
         gameDetailsTab:
             userConfig?['game_details_tab']?.toString().isNotEmpty == true
@@ -315,7 +311,6 @@ class SqliteConfigService {
         appLanguage: config.appLanguage,
         hideRecentCard: config.hideRecentCard ? 1 : 0,
         recentCardSize: config.recentCardSize,
-        legendHidden: config.legendHidden ? 1 : 0,
         gameDetailsTab: config.gameDetailsTab,
         hideTabSync: config.hideTabSync ? 1 : 0,
         hideTabAchievements: config.hideTabAchievements ? 1 : 0,

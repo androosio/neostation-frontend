@@ -64,7 +64,6 @@ extension _GamepadNav on _SystemGamesListState {
       onSettings: _openGameSettingsDialog, // Button Start.
       onSelectButton: _handleSelectButton, // Button Select (View) - tap.
       onSelectModifierA: () => _scrapeAction?.call(), // Select + A - Scrape.
-      onSelectModifierB: _toggleLegend, // Select + B - Hide/show legend.
       onSelectModifierY: _showRandomGameDialog, // Select + Y - Random.
       onRightStickClick: null,
       onLeftBumper: _handleLeftBumper,

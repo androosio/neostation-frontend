@@ -24,7 +24,6 @@ import '../../repositories/system_repository.dart';
 import '../../repositories/game_repository.dart';
 import '../../services/screenscraper_service.dart';
 import '../../services/secondary_achievements_controller.dart';
-import '../../services/game_legend_visibility.dart';
 import '../../utils/gamepad_nav.dart';
 import '../../utils/letter_jump.dart';
 import '../../providers/file_provider.dart';
@@ -48,8 +47,6 @@ import '../../providers/system_background_provider.dart';
 import '../../models/secondary_display_state.dart';
 import '../../widgets/context_menu/game_context_menu.dart';
 import '../../widgets/game_view_mode_dropdown.dart';
-import '../../widgets/game_action_buttons.dart';
-import '../../widgets/legend_edge_reshow_zone.dart';
 import '../../widgets/letter_indicator.dart';
 import '../../constants/system_folder_names.dart';
 import '../../utils/artwork_cache.dart';
@@ -365,8 +362,6 @@ class _SystemGamesListState extends State<SystemGamesList> {
     _artworkVersion = _lastArtworkRevision;
     _invalidateArtworkCaches();
 
-    GameLegendVisibility.hidden.addListener(_onLegendVisibilityChanged);
-
     _lastShowInfo = _configProvider.config.showGameInfo;
 
     MusicPlayerService().addListener(_onMusicPlayerStateChanged);
@@ -422,7 +417,6 @@ class _SystemGamesListState extends State<SystemGamesList> {
     _databaseProvider.removeListener(_onDatabaseUpdated);
     _scrapingProvider.removeListener(_onScrapingUpdated);
     MusicPlayerService().removeListener(_onMusicPlayerStateChanged);
-    GameLegendVisibility.hidden.removeListener(_onLegendVisibilityChanged);
     GameService.deviceScreenOn.removeListener(_onDeviceScreenPowerChanged);
 
     // Shared singleton — detach our listener, never dispose the instance.
@@ -464,10 +458,9 @@ class _SystemGamesListState extends State<SystemGamesList> {
     // Hand input to whichever layer owns the new view mode — but ONLY on an
     // actual mode change. Re-asserting this on every config write is not free:
     // deactivate() resets the shared Select chord-modifier state, so any
-    // setting written while Select is held (the legend toggle persists
-    // `legend_hidden`, for one) would drop the legend back to its default layer
-    // mid-hold, and `SelectTap.reset()` means it can't recover until Select is
-    // released and pressed again.
+    // setting written while Select is held would drop this screen back to its
+    // default layer mid-hold, and `SelectTap.reset()` means it can't recover
+    // until Select is released and pressed again.
     if (gameViewMode != _lastGameViewMode) {
       _lastGameViewMode = gameViewMode;
       try {
@@ -576,18 +569,6 @@ class _SystemGamesListState extends State<SystemGamesList> {
   /// rebuild — [State.setState] is `@protected` and cannot be invoked from an
   /// extension. Behaviourally identical to calling `setState` directly.
   void rebuild(VoidCallback fn) => setState(fn);
-
-  /// Select + B — toggles the (session-global) vertical action-button legend.
-  /// When hidden the legend slides off the left edge and the list sidebar +
-  /// details reflow into the reclaimed 60.r gutter.
-  void _toggleLegend() {
-    SfxService().playNavSound();
-    GameLegendVisibility.toggle();
-  }
-
-  void _onLegendVisibilityChanged() {
-    if (mounted) setState(() {});
-  }
 
   /// Core logic for updating selection and managing rapid-scrolling UI state.
   ///
@@ -1355,11 +1336,7 @@ class _SystemGamesListState extends State<SystemGamesList> {
               curve: Curves.easeOutCubic,
               width: 200.r,
               height: availableHeight,
-              margin: EdgeInsets.only(
-                left: GameLegendVisibility.hidden.value ? 12.r : 60.r,
-                top: 12.r,
-                bottom: 12.r,
-              ),
+              margin: EdgeInsets.only(left: 12.r, top: 12.r, bottom: 12.r),
               decoration: BoxDecoration(
                 // A horizontal wash rather than a flat fill: the panel stays
                 // opaque where the row text sits and thins out towards its
@@ -1407,42 +1384,6 @@ class _SystemGamesListState extends State<SystemGamesList> {
             ),
           ],
         ),
-
-        // Floating action buttons on the left side of the game list. Select + B
-        // slides this legend off the left edge (in sync with the sidebar
-        // margin). The column is 40.r wide, so a 10.r inset centres it in the
-        // 60.r gutter — equal air either side of it.
-        if (!isMusic)
-          AnimatedPositioned(
-            duration: const Duration(milliseconds: 250),
-            curve: Curves.easeOutCubic,
-            top: 12.r,
-            left: GameLegendVisibility.hidden.value ? -60.r : 10.r,
-            child: AnimatedOpacity(
-              duration: const Duration(milliseconds: 250),
-              opacity: GameLegendVisibility.hidden.value ? 0.0 : 1.0,
-              child: Consumer<SyncManager>(
-                builder: (context, syncManager, child) {
-                  return GameActionButtons(
-                    system: widget.system,
-                    selectedGame: _selectedGame,
-                    syncProvider: syncManager.active,
-                    onBack: _goBack,
-                    onFavorite: _toggleFavorite,
-                    onViewMode: () => GameViewModeDropdown
-                        .globalKey
-                        .currentState
-                        ?.showDropdown(),
-                    onSettings: _openGameSettingsDialog,
-                    onRandom: _showRandomGameDialog,
-                    onScrape: () => _scrapeAction?.call(),
-                  );
-                },
-              ),
-            ),
-          ),
-        // Touch: swipe-right from the left edge reveals a hidden legend.
-        const LegendEdgeReshowZone(),
       ],
     );
   }
@@ -1534,6 +1475,7 @@ class _SystemGamesListState extends State<SystemGamesList> {
                   systemColor: widget.system.colorAsColor,
                   onGameSelected: _selectGame,
                   onGameConfirmed: _selectCurrentGame,
+                  onGameOptions: _openGameContextMenuFor,
                   isAllMode: SystemFolderNames.isAggregate(
                     widget.system.folderName,
                   ),

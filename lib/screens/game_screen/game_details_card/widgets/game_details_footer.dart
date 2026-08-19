@@ -5,7 +5,6 @@ import 'package:neostation/providers/retro_achievements_provider.dart';
 import 'package:flutter_localization/flutter_localization.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:neostation/l10n/app_locale.dart';
-import 'package:neostation/services/game_legend_visibility.dart';
 import 'package:neostation/services/sfx_service.dart';
 import 'package:neostation/themes/app_themes.dart';
 import '../../../../models/system_model.dart';
@@ -16,6 +15,7 @@ import 'package:neostation/themes/chrome_surface.dart';
 import '../../../../themes/corner_radii.dart';
 import '../../../../utils/game_utils.dart';
 import '../../../../widgets/marquee_text.dart';
+import '../../../../widgets/neo_sync_status_icon.dart';
 import '../../music/music_player.dart';
 import 'package:neostation/utils/ra_coverage.dart';
 
@@ -155,12 +155,11 @@ class GameDetailsFooter extends StatelessWidget {
                         SizedBox(width: 8.r),
                       ],
 
-                      // RetroAchievements Progress. When the legend is hidden
-                      // the row gains width on the left; the indicator eases out
-                      // to fill the gap to PLAY (LayoutBuilder gives it a
-                      // concrete target width so the change animates instead of
-                      // snapping). When shown it rests at its natural width,
-                      // left-aligned, and the rest of the slot stays empty.
+                      // RetroAchievements Progress. The indicator eases out to
+                      // fill the gap to PLAY (LayoutBuilder gives it a concrete
+                      // target width so the change animates instead of
+                      // snapping) unless the play-time pill is there, in which
+                      // case it rests at its natural width, left-aligned.
                       Expanded(
                         child: LayoutBuilder(
                           builder: (context, constraints) => Align(
@@ -184,6 +183,19 @@ class GameDetailsFooter extends StatelessWidget {
                         SizedBox(width: 8.r),
                         _PlayTimePill(game: game),
                       ],
+
+                      // Cloud-sync state for this game. It used to sit at the
+                      // foot of the vertical action rail; with the rail gone
+                      // this row is where it lives. Every "nothing to say"
+                      // state collapses to zero size, so the gap before PLAY
+                      // travels with the widget rather than sitting beside it.
+                      NeoSyncStatusIcon(
+                        system: system,
+                        game: game,
+                        syncProvider: syncProvider,
+                        size: 22.0,
+                        margin: EdgeInsets.only(left: 8.r),
+                      ),
 
                       // Consistent 8.r gap before PLAY, matching the spacing
                       // between the rating, RA and play-time pills.
@@ -315,12 +327,11 @@ class GameDetailsFooter extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    // The badge fills its (Expanded) slot when the legend is hidden, or when
-    // there is no play-time pill claiming the space to its right (otherwise it
-    // would leave dead space between itself and PLAY). When neither applies it
-    // rests at 120.r. The width is animated so toggling eases in/out.
-    final bool legendHidden = GameLegendVisibility.hidden.value;
-    final bool expand = legendHidden || !hasPlayTime;
+    // The badge fills its (Expanded) slot unless a play-time pill is claiming
+    // the space to its right; otherwise it would leave dead space between
+    // itself and PLAY. When one is there it rests at 120.r. The width is
+    // animated so the change eases in/out.
+    final bool expand = !hasPlayTime;
     // The bundled snapshot already records how many achievements a matched
     // game has, so the total costs no network call — only the user's earned
     // count does. See _CompactAchievementsIndicator, which does the same.

@@ -1923,6 +1923,8 @@ class SqliteService {
         active_theme TEXT DEFAULT '',
         hide_recent_card INTEGER DEFAULT 0,
         recent_card_size TEXT DEFAULT 'default',
+        -- Unused since the vertical action rail was removed. Kept so a fresh
+        -- install matches the schema migration v103 left on upgraded devices.
         legend_hidden INTEGER DEFAULT 0,
         game_details_tab TEXT DEFAULT 'wheel',
         hide_tab_sync INTEGER DEFAULT 0,
@@ -2749,7 +2751,6 @@ class SqliteService {
     String? activeTheme,
     int? hideRecentCard,
     String? recentCardSize,
-    int? legendHidden,
     String? gameDetailsTab,
     int? hideTabSync,
     int? hideTabAchievements,
@@ -2839,9 +2840,6 @@ class SqliteService {
     }
     if (recentCardSize != null) {
       updates['recent_card_size'] = recentCardSize;
-    }
-    if (legendHidden != null) {
-      updates['legend_hidden'] = legendHidden;
     }
     if (gameDetailsTab != null) {
       updates['game_details_tab'] = gameDetailsTab;

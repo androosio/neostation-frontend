@@ -12,12 +12,17 @@ import '../themes/corner_radii.dart';
 ///
 /// Renders a small descriptive icon whose color reflects the current cloud
 /// synchronization state for the selected game. No text is shown, making it
-/// suitable for tight spaces such as the left action column in the game list.
+/// suitable for tight spaces such as the game views' footers.
 class NeoSyncStatusIcon extends StatefulWidget {
   final SystemModel system;
   final GameModel? game;
   final ISyncProvider syncProvider;
   final double size;
+
+  /// Spacing applied *only* when the icon actually renders. Every state that
+  /// says nothing collapses to [SizedBox.shrink], so a caller cannot wrap this
+  /// in a spacer of its own without leaving a hole when sync is unavailable.
+  final EdgeInsetsGeometry? margin;
 
   const NeoSyncStatusIcon({
     super.key,
@@ -25,6 +30,7 @@ class NeoSyncStatusIcon extends StatefulWidget {
     required this.game,
     required this.syncProvider,
     this.size = 24.0,
+    this.margin,
   });
 
   @override
@@ -76,7 +82,7 @@ class _NeoSyncStatusIconState extends State<NeoSyncStatusIcon>
         BorderRadius.circular(8.r);
 
     return Padding(
-      padding: EdgeInsets.only(top: 12.r),
+      padding: widget.margin ?? EdgeInsets.zero,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         width: widget.size.r,

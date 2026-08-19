@@ -13,9 +13,10 @@ import 'footer_label_pill.dart';
 /// the local one. Only the controls differ: both views offer Y to sync the
 /// whole source and B to step back.
 ///
-/// The ROM view's X layout toggle is deliberately *not* here: it lives on the
-/// vertical legend ([RommActionButtons]) alone, so the footer stays short
-/// enough to read at a glance on a handheld.
+/// The ROM view's X layout toggle used to live on the vertical action rail
+/// alone. With the rail gone this footer is the only on-screen route to it, so
+/// the ROM views pass [onToggleView]; the platform view leaves it null and
+/// keeps the shorter legend.
 ///
 /// The pill always names the *focused* item: the platform in the platform view,
 /// the focused ROM in the ROM views (where the grid's cards are artwork
@@ -43,6 +44,10 @@ class RommBrowseFooter extends CoreFooter {
   /// since the same button does both.
   final bool isSyncing;
 
+  /// X — switches the ROM view between list and grid. Null in the platform
+  /// view, which has no layout to switch.
+  final VoidCallback? onToggleView;
+
   const RommBrowseFooter({
     super.key,
     required this.label,
@@ -52,6 +57,7 @@ class RommBrowseFooter extends CoreFooter {
     this.countText,
     this.onSyncAll,
     this.isSyncing = false,
+    this.onToggleView,
   });
 
   @override
@@ -79,6 +85,18 @@ class RommBrowseFooter extends CoreFooter {
           onTap: onSyncAll,
           textColor: scheme.onTertiaryFixed,
           backgroundColor: scheme.tertiaryFixed,
+        ),
+        SizedBox(width: 8.r),
+      ],
+      if (onToggleView != null) ...[
+        GamepadControl(
+          label: AppLocale.viewMode.getString(context),
+          iconPath: 'assets/images/gamepad/Xbox_X_button.png',
+          onTap: onToggleView,
+          textColor: scheme.onSurface,
+          backgroundColor: scheme.surfaceContainerHighest.withValues(
+            alpha: 0.3,
+          ),
         ),
         SizedBox(width: 8.r),
       ],

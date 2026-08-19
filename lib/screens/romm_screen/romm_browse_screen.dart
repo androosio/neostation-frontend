@@ -1666,6 +1666,9 @@ class _RommBrowseScreenState extends State<RommBrowseScreen> {
       // The ROM views memoize this footer against their own sync flag, so
       // reading the live value here stays in step with their repaints.
       isSyncing: provider.bulkSync.isRunning,
+      // X used to live on the vertical rail; this footer is now the only
+      // on-screen route to the list/grid switch.
+      onToggleView: _toggleRomLayout,
     );
   }
 }

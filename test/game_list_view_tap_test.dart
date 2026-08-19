@@ -69,6 +69,7 @@ void main() {
     required int selectedIndex,
     required List<String> selected,
     required List<int> confirmed,
+    List<String>? options,
   }) async {
     await tester.pumpWidget(
       MediaQuery(
@@ -100,6 +101,9 @@ void main() {
                   systemColor: Colors.pink,
                   onGameSelected: (g) => selected.add(g.romname),
                   onGameConfirmed: () => confirmed.add(selectedIndex),
+                  onGameOptions: options == null
+                      ? null
+                      : (g) => options.add(g.romname),
                 ),
               ),
             ),
@@ -137,6 +141,32 @@ void main() {
 
     expect(selected, ['zelda.sfc']);
     expect(confirmed, isEmpty, reason: 'an unselected row must not launch');
+
+    await drain(tester);
+  });
+
+  testWidgets('long-pressing a row asks for its context menu, not a launch', (
+    tester,
+  ) async {
+    final selected = <String>[];
+    final confirmed = <int>[];
+    final options = <String>[];
+    await pumpList(
+      tester,
+      selectedIndex: 0,
+      selected: selected,
+      confirmed: confirmed,
+      options: options,
+    );
+
+    // The touch route to the menu the gamepad opens with Y: it must reach the
+    // row that was pressed, not the one that happened to be selected.
+    await tester.longPress(rowFor('Super Metroid'));
+    await tester.pump();
+
+    expect(options, ['metroid.sfc']);
+    expect(confirmed, isEmpty, reason: 'a long-press must never launch');
+    expect(selected, isEmpty, reason: 'the host selects, from onGameOptions');
 
     await drain(tester);
   });

@@ -99,13 +99,6 @@ extension SqliteConfigMutators on SqliteConfigProvider {
     _notify();
   }
 
-  /// Persists whether the game action-button legend is hidden (Select + B).
-  Future<void> updateLegendHidden(bool value) async {
-    _config = _config.copyWith(legendHidden: value);
-    await SqliteConfigService.saveConfig(_config);
-    _notify();
-  }
-
   /// Persists the game details card tab last chosen with L1/R1, as the
   /// `DetailTab` enum name, so it carries across games, systems and restarts.
   Future<void> updateGameDetailsTab(String tabName) async {

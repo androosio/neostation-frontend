@@ -4,9 +4,25 @@ part of '../my_games_list.dart';
 ///
 /// Y used to toggle the favourite directly; it now opens an anchored menu whose
 /// Favourites entry is pre-highlighted, so the old one-press action survives as
-/// `Y, A`. The one-press toggle is still on the details-card / side-legend Y
-/// action button, which keeps calling [_toggleFavorite] directly.
+/// `Y, A`. With the vertical action rail gone this menu is also the only route
+/// to the view-level actions (view mode, scrape, random) for a user without a
+/// gamepad, so it carries those below a separator — and a long-press on a row
+/// opens it, which is what [_openGameContextMenuFor] is for.
 extension _ContextMenu on _SystemGamesListState {
+  /// Long-press entry point: selects [game] first so the menu anchors to its
+  /// row, then opens the menu once that row has been laid out with the anchor
+  /// key attached (the key follows the *selected* row, so opening in the same
+  /// frame would anchor to whichever row was selected before the press).
+  Future<void> _openGameContextMenuFor(GameModel game) async {
+    if (!identical(game, _selectedGame)) {
+      await _selectGame(game);
+      if (!mounted) return;
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted) return;
+    }
+    await _openGameContextMenu();
+  }
+
   /// Opens the context menu for the selected game.
   ///
   /// Music keeps Y = favourite (the music library has its own toggle branch and
@@ -70,6 +86,13 @@ extension _ContextMenu on _SystemGamesListState {
       onSettings: _openGameSettingsDialog,
       onCreateTarget: () => _createCollectionFromMenu(game),
       createTargetLabel: AppLocale.newCollection.getString(context),
+      onViewMode: () =>
+          GameViewModeDropdown.globalKey.currentState?.showDropdown(),
+      // The details card registers a richer scrape action (progress on the
+      // card itself) while it is mounted; grid and carousel have no details
+      // card, so they fall back to the host's own scrape.
+      onScrape: () => (_scrapeAction ?? _scrapeSelectedGame)(),
+      onRandom: _showRandomGameDialog,
     );
   }
 
