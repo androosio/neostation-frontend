@@ -49,6 +49,18 @@ class ContextMenuItem {
   bool get hasSubmenu => children.isNotEmpty;
 }
 
+/// Which edge of the anchor the panel hangs off.
+enum ContextMenuAlignment {
+  /// Panel starts just past the anchor's right edge. Right for a small anchor
+  /// (an options button), where the menu should sit next to it.
+  besideAnchor,
+
+  /// Panel's left edge lines up with the anchor's. Right for a wide anchor (a
+  /// full-width list row, a grid card), where [besideAnchor] would shove the
+  /// panel to the far side of the screen and leave no room for a submenu.
+  overAnchor,
+}
+
 /// Sentinel result meaning "the user asked to close the whole stack" (Y).
 /// A submenu pops with it so the parent level closes itself too.
 const String _dismissAllResult = '__context_menu_dismiss_all__';
@@ -83,6 +95,7 @@ Future<String?> showAnchoredContextMenu({
   int? openSubmenuAtIndex,
   int initialSubmenuIndex = 0,
   double? width,
+  ContextMenuAlignment alignment = ContextMenuAlignment.besideAnchor,
   String layerId = 'context_menu',
   String submenuLayerId = 'context_submenu',
 }) async {
@@ -106,6 +119,7 @@ Future<String?> showAnchoredContextMenu({
           openSubmenuAtIndex: openSubmenuAtIndex,
           initialSubmenuIndex: initialSubmenuIndex,
           width: width,
+          alignment: alignment,
           layerId: layerId,
           submenuLayerId: submenuLayerId,
         ),
@@ -149,6 +163,7 @@ class AnchoredContextMenu extends StatefulWidget {
   final int? openSubmenuAtIndex;
   final int initialSubmenuIndex;
   final double? width;
+  final ContextMenuAlignment alignment;
   final String layerId;
   final String submenuLayerId;
 
@@ -160,6 +175,7 @@ class AnchoredContextMenu extends StatefulWidget {
     this.openSubmenuAtIndex,
     this.initialSubmenuIndex = 0,
     this.width,
+    this.alignment = ContextMenuAlignment.besideAnchor,
     this.layerId = 'context_menu',
     this.submenuLayerId = 'context_submenu',
   });
@@ -319,12 +335,32 @@ class _AnchoredContextMenuState extends State<AnchoredContextMenu> {
     final double margin = _kViewportMargin.r;
     final double gap = _kAnchorGap.r;
 
-    // Prefer the right of the anchor; flip to its left when that overflows, and
-    // clamp as a last resort so a very wide card can never push the panel off
-    // the edge (the Steam Deck's 1280x800 logical viewport is the tightest).
-    double left = widget.anchorRect.right + gap;
+    // A row with children opens its submenu to the right, because right is the
+    // button the user presses to open it. So the panel is not placed for its
+    // own width but for the whole chain's: reserve a second panel beside it
+    // whenever any row has a submenu, or the submenu flips back over the menu
+    // that spawned it.
+    final bool opensSubmenu = widget.items.any((item) => item.hasSubmenu);
+    final double chainWidth = opensSubmenu ? width * 2 + gap : width;
+
+    // [ContextMenuAlignment.overAnchor] starts the panel at the anchor's left
+    // edge; [besideAnchor] hangs it off the right edge. A full-width list row
+    // is metres wide, so hanging off its right edge would put the panel against
+    // the far side of the screen with nothing but the margin left for a
+    // submenu — which is what overAnchor exists to avoid.
+    double left = widget.alignment == ContextMenuAlignment.overAnchor
+        ? widget.anchorRect.left
+        : widget.anchorRect.right + gap;
+
+    // Flip to the anchor's other side when the panel itself overflows, then
+    // pull it back far enough that the submenu fits too. Clamp last, so a very
+    // wide card can never push the panel off the edge (the Steam Deck's
+    // 1280x800 logical viewport is the tightest).
     if (left + width > screen.width - margin) {
       left = widget.anchorRect.left - width - gap;
+    }
+    if (left + chainWidth > screen.width - margin) {
+      left = screen.width - margin - chainWidth;
     }
     final double maxLeft = (screen.width - width - margin).clamp(
       0.0,

@@ -153,4 +153,81 @@ void main() {
     // Clamped upward so the bottom edge is inside the viewport.
     expect(panel.bottom, lessThanOrEqualTo(size.height));
   });
+
+  testWidgets('overAnchor starts the panel at the anchor\'s left edge', (
+    tester,
+  ) async {
+    const size = Size(1280, 800);
+    useViewport(tester, size);
+    // A full-width games-list row: hanging the panel off its right edge would
+    // shove it against the far side of the screen.
+    const anchor = Rect.fromLTWH(40, 100, 520, 40);
+
+    await tester.pumpWidget(
+      host(
+        const AnchoredContextMenu(
+          items: items,
+          anchorRect: anchor,
+          alignment: ContextMenuAlignment.overAnchor,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final row = tester.getRect(find.text('Settings'));
+    expect(row.left, greaterThanOrEqualTo(anchor.left));
+    expect(row.left, lessThan(anchor.center.dx));
+  });
+
+  testWidgets('a submenu opens to the right of the menu that spawned it', (
+    tester,
+  ) async {
+    const size = Size(1280, 800);
+    useViewport(tester, size);
+    const anchor = Rect.fromLTWH(40, 100, 520, 40);
+
+    await tester.pumpWidget(
+      host(
+        const AnchoredContextMenu(
+          items: items,
+          anchorRect: anchor,
+          alignment: ContextMenuAlignment.overAnchor,
+          openSubmenuAtIndex: 1,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Right is the button that opens a submenu, so right is where it appears.
+    expect(
+      tester.getRect(find.text('Favorite')).left,
+      greaterThan(tester.getRect(find.text('Add to')).left),
+    );
+  });
+
+  testWidgets('an anchor at the right edge still leaves room for a submenu', (
+    tester,
+  ) async {
+    const size = Size(1280, 800);
+    useViewport(tester, size);
+    // Grid card hard against the right edge: the panel has to give up its
+    // preferred position entirely so the submenu is not forced back over it.
+    const anchor = Rect.fromLTWH(1150, 100, 120, 120);
+
+    await tester.pumpWidget(
+      host(
+        const AnchoredContextMenu(
+          items: items,
+          anchorRect: anchor,
+          openSubmenuAtIndex: 1,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final parent = tester.getRect(find.text('Add to'));
+    final submenu = tester.getRect(find.text('Favorite'));
+    expect(submenu.left, greaterThan(parent.left));
+    expect(submenu.right, lessThanOrEqualTo(size.width));
+  });
 }

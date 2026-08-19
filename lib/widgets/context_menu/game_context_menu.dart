@@ -144,6 +144,10 @@ Future<void> showGameContextMenu({
     initialIndex: openSubmenuAtIndex ?? 0,
     openSubmenuAtIndex: openSubmenuAtIndex,
     initialSubmenuIndex: initialSubmenuIndex,
+    // The anchor is a whole list row / grid card, so the menu starts at its
+    // left edge instead of past its right one — which leaves the room the
+    // `Add to…` / `Remove from…` submenus need on the right.
+    alignment: ContextMenuAlignment.overAnchor,
     layerId: 'game_context_menu',
     submenuLayerId: 'game_context_submenu',
   );
