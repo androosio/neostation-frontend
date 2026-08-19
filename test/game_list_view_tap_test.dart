@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:neostation/l10n/app_locale.dart';
 import 'package:neostation/models/game_model.dart';
 import 'package:neostation/models/system_model.dart';
+import 'package:neostation/providers/collections_provider.dart';
 import 'package:neostation/providers/sqlite_config_provider.dart';
 import 'package:neostation/screens/game_screen/game_list_view.dart';
 import 'package:neostation/services/sfx_service.dart';
@@ -79,10 +80,18 @@ void main() {
                 FlutterLocalization.instance.localizationsDelegates,
             supportedLocales: FlutterLocalization.instance.supportedLocales,
             // The row builder reads the achievements-badge setting off the
-            // config provider, as it does in the app; a default provider leaves
-            // it off, which is also the shipped default.
-            home: ChangeNotifierProvider<SqliteConfigProvider>(
-              create: (_) => SqliteConfigProvider(),
+            // config provider and collection membership off the collections
+            // provider, as it does in the app; defaults leave the badge off and
+            // the membership set empty, which is also the shipped default.
+            home: MultiProvider(
+              providers: [
+                ChangeNotifierProvider<SqliteConfigProvider>(
+                  create: (_) => SqliteConfigProvider(),
+                ),
+                ChangeNotifierProvider<CollectionsProvider>(
+                  create: (_) => CollectionsProvider(),
+                ),
+              ],
               child: Scaffold(
                 body: GameListView(
                   system: _system,

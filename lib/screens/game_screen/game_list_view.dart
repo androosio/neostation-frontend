@@ -14,7 +14,10 @@ import '../../providers/sqlite_config_provider.dart';
 import '../../models/system_model.dart';
 import '../../models/game_model.dart';
 import '../../utils/rom_tree.dart';
+import '../../constants/system_folder_names.dart';
+import '../../providers/collections_provider.dart';
 import '../../widgets/achievements_badge.dart';
+import '../../widgets/collection_badge.dart';
 import '../../widgets/marquee_text.dart';
 import '../../widgets/system_logo_fallback.dart';
 
@@ -81,6 +84,13 @@ class GameListViewState extends State<GameListView>
   // Read once per build rather than per row: the row builder runs for every
   // visible entry, and a provider lookup there would subscribe each one.
   bool _showAchievementsBadge = false;
+
+  /// ROM paths filed in at least one collection, read once per build.
+  ///
+  /// Null inside a collection's own view: every row there is a member, so the
+  /// mark would say nothing. The system a list is built for never changes for a
+  /// given instance, so the subscription is stable.
+  CollectionsProvider? _collections;
 
   /// Public API to trigger list scrolling from the parent widget.
   void scrollToIndex(
@@ -228,6 +238,9 @@ class GameListViewState extends State<GameListView>
     _showAchievementsBadge = context.select<SqliteConfigProvider, bool>(
       (p) => p.config.showAchievementsBadge,
     );
+    _collections = SystemFolderNames.isCollection(widget.system.folderName)
+        ? null
+        : context.watch<CollectionsProvider>();
 
     final theme = Theme.of(context);
     final itemHeight = _itemHeightBase.r;
@@ -353,6 +366,22 @@ class GameListViewState extends State<GameListView>
                                       color: isSelected
                                           ? theme.colorScheme.onPrimary
                                           : Colors.redAccent,
+                                    ),
+                                  ),
+                                if (_collections?.isInAnyCollection(
+                                      game.romPath,
+                                    ) ==
+                                    true)
+                                  Container(
+                                    margin: EdgeInsets.only(right: 4.r),
+                                    child: CollectionBadge.inline(
+                                      // The row's own foreground, so the mark
+                                      // stays legible on the selected row's
+                                      // inverted background — same rule as the
+                                      // achievements trophy.
+                                      color: isSelected
+                                          ? theme.colorScheme.onPrimary
+                                          : theme.colorScheme.primary,
                                     ),
                                   ),
                                 Expanded(

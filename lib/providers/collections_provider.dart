@@ -21,6 +21,13 @@ class CollectionsProvider extends ChangeNotifier {
   bool _isLoading = false;
   bool _hasLoaded = false;
 
+  /// Every `rom_path` that belongs to at least one collection.
+  ///
+  /// Held here so the games views can badge a row without a query per card.
+  /// Refreshed with the list itself, which is exactly when membership can have
+  /// changed from this engine.
+  Set<String> _memberRomPaths = const {};
+
   /// Bumped whenever a collection's artwork file is replaced in place.
   ///
   /// Replacing a file at the same path changes no `ValueKey`, so widgets need a
@@ -44,6 +51,15 @@ class CollectionsProvider extends ChangeNotifier {
   /// Cache-busting counter for collection artwork.
   int get imageVersion => _imageVersion;
 
+  /// Whether [romPath] is filed in any collection.
+  ///
+  /// Membership of a *particular* collection still needs [collectionIdsFor];
+  /// this answers only the question a badge asks.
+  bool isInAnyCollection(String? romPath) =>
+      romPath != null &&
+      romPath.isNotEmpty &&
+      _memberRomPaths.contains(romPath);
+
   /// Returns the collection with [id], or null if it is not loaded.
   CollectionModel? byId(String id) {
     for (final collection in _collections) {
@@ -62,6 +78,7 @@ class CollectionsProvider extends ChangeNotifier {
 
     try {
       _collections = await CollectionsService.getCollections();
+      _memberRomPaths = await CollectionsService.memberRomPaths();
     } finally {
       _isLoading = false;
       _hasLoaded = true;
@@ -141,6 +158,7 @@ class CollectionsProvider extends ChangeNotifier {
   /// Re-reads after a mutation, bypassing [load]'s in-flight guard.
   Future<void> _refresh() async {
     _collections = await CollectionsService.getCollections();
+    _memberRomPaths = await CollectionsService.memberRomPaths();
     _hasLoaded = true;
     notifyListeners();
   }

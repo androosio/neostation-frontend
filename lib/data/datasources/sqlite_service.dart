@@ -4732,6 +4732,20 @@ class SqliteService {
     return rows.map((r) => r['collection_id'].toString()).toList();
   }
 
+  /// Returns every `rom_path` that belongs to at least one collection.
+  ///
+  /// One query for the whole library, so the games views can badge their rows
+  /// without asking per game: `user_collection_items` holds only what the user
+  /// actually filed, so the set is bounded by their collections, not by the
+  /// ROM count.
+  static Future<Set<String>> getCollectionMemberRomPaths() async {
+    final db = await instance.database;
+    final rows = await db.rawQuery(
+      'SELECT DISTINCT rom_path FROM user_collection_items',
+    );
+    return {for (final row in rows) row['rom_path'].toString()};
+  }
+
   /// Retrieves the games in a collection, in the same shape as
   /// [getFavoriteGames].
   ///

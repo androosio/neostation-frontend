@@ -221,6 +221,19 @@ class CollectionsService {
     }
   }
 
+  /// Every `rom_path` filed in at least one collection.
+  ///
+  /// Read whole rather than per game: the games views badge every visible row,
+  /// and one query beats one per card.
+  static Future<Set<String>> memberRomPaths() async {
+    try {
+      return await CollectionRepository.getCollectionMemberRomPaths();
+    } catch (e) {
+      _log.e('Error reading collection membership: $e');
+      return <String>{};
+    }
+  }
+
   /// Loads a collection's games as display-ready [GameModel]s.
   ///
   /// Delegates to the games loader so per-system naming preferences

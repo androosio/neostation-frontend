@@ -15,7 +15,9 @@ import 'package:neostation/services/game_service.dart';
 import 'package:neostation/services/sfx_service.dart';
 import 'package:neostation/utils/gamepad_nav.dart';
 import 'package:neostation/utils/letter_jump.dart';
+import 'package:neostation/providers/collections_provider.dart';
 import 'package:neostation/widgets/achievements_badge.dart';
+import 'package:neostation/widgets/collection_badge.dart';
 import 'package:neostation/widgets/game_view_mode_dropdown.dart';
 import 'package:neostation/widgets/game_action_buttons.dart';
 import 'package:neostation/widgets/legend_edge_reshow_zone.dart';
@@ -121,6 +123,12 @@ class _GamesCarouselState extends State<GamesCarousel> {
   // Set from the config this view already watches in build(); the card builders
   // below read it rather than looking the provider up per card.
   bool _showAchievementsBadge = false;
+
+  /// ROM paths filed in at least one collection, read once per build.
+  ///
+  /// Null inside a collection's own view, where every card is a member and the
+  /// mark would say nothing.
+  CollectionsProvider? _collections;
 
   // RetroAchievements info for the selected game (shown in the footer pill).
   GameInfoAndUserProgress? _currentGameInfo;
@@ -912,6 +920,14 @@ class _GamesCarouselState extends State<GamesCarousel> {
                   ),
                 ),
               ),
+            if (_collections?.isInAnyCollection(game.romPath) == true)
+              Positioned(
+                // Under the heart when there is one; the left corner belongs to
+                // the achievements badge.
+                top: (game.isFavorite == true ? 44.r : 8.r),
+                right: 8.r,
+                child: CollectionBadge(size: 32.r),
+              ),
             if (_showAchievementsBadge && AchievementsBadge.showsFor(game))
               Positioned(
                 top: 8.r,
@@ -1197,6 +1213,14 @@ class _GamesCarouselState extends State<GamesCarousel> {
                   ),
                 ),
               ),
+            if (_collections?.isInAnyCollection(game.romPath) == true)
+              Positioned(
+                // Under the heart when there is one; the left corner belongs to
+                // the achievements badge.
+                top: (game.isFavorite == true ? 44.r : 8.r),
+                right: 8.r,
+                child: CollectionBadge(size: 32.r),
+              ),
             if (_showAchievementsBadge && AchievementsBadge.showsFor(game))
               Positioned(
                 top: 8.r,
@@ -1272,6 +1296,14 @@ class _GamesCarouselState extends State<GamesCarousel> {
                         ),
                       ),
                     ),
+                  if (_collections?.isInAnyCollection(game.romPath) == true)
+                    Positioned(
+                      // Under the heart when there is one; the left corner belongs to
+                      // the achievements badge.
+                      top: (game.isFavorite == true ? 44.r : 8.r),
+                      right: 8.r,
+                      child: CollectionBadge(size: 32.r),
+                    ),
                   if (_showAchievementsBadge &&
                       AchievementsBadge.showsFor(game))
                     Positioned(
@@ -1314,6 +1346,9 @@ class _GamesCarouselState extends State<GamesCarousel> {
     final config = context.watch<SqliteConfigProvider>().config;
     final isFanart = config.gameCarouselCardStyle != 'box';
     _showAchievementsBadge = config.showAchievementsBadge;
+    _collections = SystemFolderNames.isCollection(widget.system.folderName)
+        ? null
+        : context.watch<CollectionsProvider>();
     final theme = Theme.of(context);
     final currentGame =
         widget.games[_currentIndex.clamp(0, widget.games.length - 1)];

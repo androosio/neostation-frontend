@@ -76,6 +76,10 @@ class CollectionRepository {
   static Future<List<String>> getCollectionIdsForRom(String romPath) =>
       SqliteService.getCollectionIdsForRom(romPath);
 
+  /// Returns every `rom_path` that belongs to at least one collection.
+  static Future<Set<String>> getCollectionMemberRomPaths() =>
+      SqliteService.getCollectionMemberRomPaths();
+
   /// Returns the games in a collection, in the same shape as the favourites
   /// query (systems joined, so `systemFolderName` is populated).
   static Future<List<DatabaseGameModel>> getGamesInCollection(

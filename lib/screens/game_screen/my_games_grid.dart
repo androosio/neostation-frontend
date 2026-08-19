@@ -13,7 +13,9 @@ import 'package:neostation/providers/sqlite_config_provider.dart';
 import 'package:neostation/services/sfx_service.dart';
 import 'package:neostation/utils/gamepad_nav.dart';
 import 'package:neostation/utils/game_utils.dart';
+import 'package:neostation/providers/collections_provider.dart';
 import 'package:neostation/widgets/achievements_badge.dart';
+import 'package:neostation/widgets/collection_badge.dart';
 import 'package:neostation/widgets/game_view_mode_dropdown.dart';
 import 'package:neostation/widgets/game_action_buttons.dart';
 import 'package:neostation/widgets/legend_edge_reshow_zone.dart';
@@ -125,6 +127,12 @@ class _GamesGridState extends State<GamesGrid> {
   // builders run for every visible card, and a `context.select` there would
   // subscribe each one of them separately.
   bool _showAchievementsBadge = false;
+
+  /// ROM paths filed in at least one collection, read once per build.
+  ///
+  /// Suppressed inside a collection's own view: every card there is a member,
+  /// so the mark would say nothing.
+  CollectionsProvider? _collections;
 
   // RetroAchievements info for the selected game (shown in the footer pill).
   GameInfoAndUserProgress? _currentGameInfo;
@@ -1063,6 +1071,9 @@ class _GamesGridState extends State<GamesGrid> {
     _showAchievementsBadge = context.select<SqliteConfigProvider, bool>(
       (p) => p.config.showAchievementsBadge,
     );
+    _collections = SystemFolderNames.isCollection(widget.system.folderName)
+        ? null
+        : context.watch<CollectionsProvider>();
 
     if (widget.games.isEmpty) {
       return Center(
@@ -1480,6 +1491,14 @@ class _GamesGridState extends State<GamesGrid> {
                   ),
                 ),
               ),
+            if (_collections?.isInAnyCollection(game.romPath) == true)
+              Positioned(
+                // Under the heart when there is one: the left corner is the
+                // achievements badge's.
+                top: (game.isFavorite == true ? 32.r : 6.r),
+                right: 6.r,
+                child: CollectionBadge(size: 22.r),
+              ),
             if (_showAchievementsBadge && AchievementsBadge.showsFor(game))
               Positioned(
                 top: 6.r,
@@ -1651,6 +1670,12 @@ class _GamesGridState extends State<GamesGrid> {
                         color: Colors.redAccent,
                       ),
                     ),
+                  ),
+                if (_collections?.isInAnyCollection(game.romPath) == true)
+                  Positioned(
+                    top: (game.isFavorite == true ? 32.r : 6.r),
+                    right: 6.r,
+                    child: CollectionBadge(size: 22.r),
                   ),
                 if (_showAchievementsBadge && AchievementsBadge.showsFor(game))
                   Positioned(
