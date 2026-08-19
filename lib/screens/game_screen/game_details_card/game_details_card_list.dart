@@ -95,7 +95,6 @@ class GameDetailsCardList extends StatefulWidget {
   /// Callback to register the close overlays method.
   final Function(VoidCallback)? onRegisterCloseOverlays;
 
-  final VoidCallback? onPlayGame;
   final VoidCallback? onShowRandomGame;
   final VoidCallback? onGameUpdated;
   final VoidCallback? onFavoriteToggled;
@@ -148,7 +147,6 @@ class GameDetailsCardList extends StatefulWidget {
     this.onRegisterOverlayState,
     this.onRegisterNavigation,
     this.onRegisterCloseOverlays,
-    this.onPlayGame,
     this.onShowRandomGame,
     this.onGameUpdated,
     this.onFavoriteToggled,
@@ -706,7 +704,6 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
             cloudSyncEnabled: _cloudSyncEnabled,
             syncProvider: widget.syncProvider,
             syncIconController: _syncIconController,
-            onPlayGame: () => widget.onPlayGame?.call(),
             onShowAchievements: () => _setTab(DetailTab.achievements),
             hasRetroAchievements: _hasRetroAchievements,
             isLoadingAchievements: _isLoadingAchievements,

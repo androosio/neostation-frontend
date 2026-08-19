@@ -1774,7 +1774,6 @@ class _SystemGamesListState extends State<SystemGamesList> {
         onRegisterIsPlayingGameBlocked: (isBlocked) {
           _isPlayingGameBlocked = isBlocked;
         },
-        onPlayGame: _selectCurrentGame,
         onShowRandomGame: _showRandomGameDialog,
         onBack: _goBack,
         onGameUpdated: _handleGameUpdated, // Sync UI after metadata edits.

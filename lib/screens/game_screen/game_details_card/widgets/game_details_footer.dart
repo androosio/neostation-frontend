@@ -32,7 +32,6 @@ class GameDetailsFooter extends StatelessWidget {
   final bool cloudSyncEnabled;
   final ISyncProvider syncProvider;
   final AnimationController? syncIconController;
-  final VoidCallback onPlayGame;
   final VoidCallback onShowAchievements;
   final bool hasRetroAchievements;
   final bool isLoadingAchievements;
@@ -48,7 +47,6 @@ class GameDetailsFooter extends StatelessWidget {
     required this.cloudSyncEnabled,
     required this.syncProvider,
     this.syncIconController,
-    required this.onPlayGame,
     required this.onShowAchievements,
     required this.hasRetroAchievements,
     required this.isLoadingAchievements,
@@ -71,16 +69,26 @@ class GameDetailsFooter extends StatelessWidget {
     final bool hasRating = game.rating > 0;
     final bool hasPlayTime =
         GameUtils.formatPlayTime(game.playTime ?? 0) != '0s';
+    final bool showsAchievements = _showsAchievements(context);
 
+    // No fixed height any more: the achievements pill can be absent, and when
+    // it is the footer has to give the artwork the 53.r back rather than hold
+    // an empty reservation. A `Positioned` with left/right/bottom and no height
+    // takes its child's, so the block hugs its content and stays pinned to the
+    // bottom. The two text lines keep their own fixed heights (see
+    // `_statusLineHeight` / `_identityLineHeight`) so *they* never resize —
+    // only the presence of the row below them changes anything.
+    //
+    // The bottom padding is the slack the fixed-height box used to leave under
+    // the action row; without it the content would drop to the card's edge.
     return Positioned(
       bottom: -0.5.r,
       left: -0.5.r,
       right: -0.5.r,
-      height: 97.r,
       child: ClipRRect(
         child: RepaintBoundary(
           child: Container(
-            padding: EdgeInsets.symmetric(horizontal: 12.r),
+            padding: EdgeInsets.only(left: 12.r, right: 12.r, bottom: 11.r),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -180,38 +188,33 @@ class GameDetailsFooter extends StatelessWidget {
                     ),
                   ),
                 ),
-                SizedBox(height: 8.r),
 
-                // Actionable Section. Everything left in this row responds to a
-                // press: the achievements pill opens the achievements tab, PLAY
-                // launches the game. The rating, play-time and sync widgets that
-                // used to share it were inert — they looked like controls and
-                // answered to nothing — so they moved up to the identity line
-                // and this row is now controls only.
-                ExcludeFocus(
-                  child: Row(
-                    children: [
-                      // RetroAchievements progress, filling the gap to PLAY.
-                      // Nothing competes for that space any more, so it simply
-                      // takes what the Expanded gives it.
-                      Expanded(
-                        child: LayoutBuilder(
-                          builder: (context, constraints) =>
-                              _buildCompactAchievementsIndicator(
-                                context,
-                                availableWidth: constraints.maxWidth,
-                              ),
-                        ),
-                      ),
-
-                      // Consistent 8.r gap before PLAY.
-                      SizedBox(width: 8.r),
-
-                      // Primary Launch Control.
-                      _buildPlayButtonCompact(context),
-                    ],
+                // Actionable Section: the achievements pill, alone, and only
+                // when it has something to report.
+                //
+                // The rating, play-time and sync widgets that used to share
+                // this row were inert — they looked like controls and answered
+                // to nothing — so they moved up to the status line. PLAY went
+                // too: launching is A on the pad, and a double tap on the
+                // already-selected sidebar row for touch
+                // (`game_list_view.dart:348`), so the button was a third route
+                // to something both of those already do.
+                //
+                // When the pill has nothing to say the row is omitted outright
+                // rather than reserved, and because the footer is sized by its
+                // content the two lines above simply settle into the space.
+                if (showsAchievements) ...[
+                  SizedBox(height: 8.r),
+                  ExcludeFocus(
+                    child: LayoutBuilder(
+                      builder: (context, constraints) =>
+                          _buildCompactAchievementsIndicator(
+                            context,
+                            availableWidth: constraints.maxWidth,
+                          ),
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
           ),
@@ -220,100 +223,38 @@ class GameDetailsFooter extends StatelessWidget {
     );
   }
 
-  /// High-contrast primary button for launching the emulator.
+  /// How many achievements this game has, if anything knows.
   ///
-  /// Includes visual feedback for gamepad focus and displays accumulated play-time statistics.
-  Widget _buildPlayButtonCompact(BuildContext context) {
-    return Builder(
-      builder: (context) {
-        final isFocused = Focus.of(context).hasFocus;
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          // Deliberately a fixed width. The footer row has no slack — the
-          // achievements pill beside it is Expanded, so anything this button
-          // takes comes straight out of that pill (at 104.r it is already only
-          // ~97.r wide on a 640x480-design handheld, just enough for "0/9").
-          // Long labels are absorbed by scaling the text down, not by growing
-          // the button; see the FittedBox below.
-          width: 104.r,
-          height: 45.r,
-          decoration: BoxDecoration(
-            color: isFocused
-                ? const Color(0xFF36F184)
-                : const Color(0xFF2ECC71),
-            borderRadius:
-                Theme.of(context).extension<CornerRadii>()?.radiusExternal ??
-                BorderRadius.circular(14.r),
-            border: Border.all(color: Color(0xFF36F184), width: 1.r),
-            boxShadow: [
-              BoxShadow(
-                color: Theme.of(
-                  context,
-                ).colorScheme.shadow.withValues(alpha: 0.1),
-                blurRadius: 4.r,
-                offset: Offset(2.0.r, 2.0.r),
-              ),
-            ],
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              canRequestFocus: false,
-              focusColor: Colors.transparent,
-              hoverColor: Colors.transparent,
-              highlightColor: Colors.transparent,
-              splashColor: Colors.white.withValues(alpha: 0.1),
-              borderRadius:
-                  Theme.of(context).extension<CornerRadii>()?.radiusExternal ??
-                  BorderRadius.circular(14.r),
-              onTap: () {
-                SfxService().playEnterSound();
-                onPlayGame();
-              },
-              child: Padding(
-                padding: EdgeInsets.only(left: 0.r, right: 10.r),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Image.asset(
-                      'assets/images/gamepad/Xbox_A_button.png',
-                      width: 32.r,
-                      height: 32.r,
-                      color: Theme.of(context).colorScheme.onPrimary,
-                    ),
-                    SizedBox(width: 8.r),
-                    // The label is localized and the button is a fixed width,
-                    // so only "PLAY" fits at the full 14.r: "SPIELEN",
-                    // "ИГРАТЬ" and "开始游戏" used to render past the pill's
-                    // right edge and off the screen. scaleDown shrinks just
-                    // those to fit — it never scales up, so every label that
-                    // already fit is untouched — and keeps the button's
-                    // footprint constant so the pills beside it don't move.
-                    Flexible(
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text(
-                          AppLocale.playButton.getString(context),
-                          maxLines: 1,
-                          softWrap: false,
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.onPrimary,
-                            fontWeight: FontWeight.w900,
-                            fontSize: 14.r,
-                            letterSpacing: 1.5,
-                            height: 1.0,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
+  /// The bundled snapshot already records the count for a matched game, so
+  /// this costs no network call — only the user's *earned* count does. See
+  /// _CompactAchievementsIndicator, which does the same.
+  int get _achievementTotal {
+    final int localTotal = game.raCoverage == RaCoverage.matched
+        ? (game.raNumAchievements ?? 0)
+        : 0;
+    return currentGameInfo?.numAchievements ?? localTotal;
+  }
+
+  /// Whether the achievements pill has anything to report.
+  ///
+  /// False collapses the whole action row, not just the pill, and the lines
+  /// above drop into the space — so this is the one thing deciding how tall
+  /// the footer is.
+  ///
+  /// Signed out, nothing ever loads achievement data, so the pill would settle
+  /// on its "none" state for every game and claim the game has no achievements
+  /// when the truth is that nobody asked. While a lookup is genuinely
+  /// outstanding the pill stays (it says "Loading"); it is only a *settled*
+  /// zero that hides it, which is the same condition the pill itself calls
+  /// `noAchievements`.
+  bool _showsAchievements(BuildContext context) {
+    if (!hasRetroAchievements) return false;
+    if (!context.select<RetroAchievementsProvider, bool>(
+      (ra) => ra.isConnected,
+    )) {
+      return false;
+    }
+    return isLoadingAchievements || _achievementTotal > 0;
   }
 
   /// Resolves the current RetroAchievements progress into a compact visual badge.
@@ -321,29 +262,14 @@ class GameDetailsFooter extends StatelessWidget {
     BuildContext context, {
     required double availableWidth,
   }) {
-    if (!hasRetroAchievements) return const SizedBox.shrink();
-
-    // Signed out, nothing ever loads achievement data, so the badge below
-    // would settle on its "none" state for every game and claim the game has
-    // no achievements when the truth is that nobody asked.
-    if (!context.select<RetroAchievementsProvider, bool>(
-      (ra) => ra.isConnected,
-    )) {
-      return const SizedBox.shrink();
-    }
+    if (!_showsAchievements(context)) return const SizedBox.shrink();
 
     // The badge fills its (Expanded) slot outright. It used to animate between
     // 120.r and full width, yielding the space to its right whenever a
     // play-time pill was there; that pill now lives on the identity line, so
     // nothing can claim the gap between this badge and PLAY and there is no
     // second width to ease to.
-    // The bundled snapshot already records how many achievements a matched
-    // game has, so the total costs no network call — only the user's earned
-    // count does. See _CompactAchievementsIndicator, which does the same.
-    final int localTotal = game.raCoverage == RaCoverage.matched
-        ? (game.raNumAchievements ?? 0)
-        : 0;
-    final int total = currentGameInfo?.numAchievements ?? localTotal;
+    final int total = _achievementTotal;
     final int? awarded = currentGameInfo?.numAwardedToUser;
     final bool knowsProgress = awarded != null && currentGameInfo != null;
 
