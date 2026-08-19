@@ -68,11 +68,15 @@ class GameDetailsFooter extends StatelessWidget {
     }
 
     // Scenario 2: Standard Game Metadata UI.
+    final bool hasRating = game.rating > 0;
+    final bool hasPlayTime =
+        GameUtils.formatPlayTime(game.playTime ?? 0) != '0s';
+
     return Positioned(
       bottom: -0.5.r,
       left: -0.5.r,
       right: -0.5.r,
-      height: 98.r,
+      height: 97.r,
       child: ClipRRect(
         child: RepaintBoundary(
           child: Container(
@@ -91,8 +95,9 @@ class GameDetailsFooter extends StatelessWidget {
                 // three 45.r pills.
                 //
                 // Fixed height so the line is laid out whether or not there is
-                // anything to put on it: an unrated, never-played game must not
-                // shorten the footer and drag the action row up with it.
+                // anything to put on it: an unrated, never-played game with
+                // nothing to say about sync must not shorten the footer and
+                // drag the action row up with it.
                 SizedBox(
                   height: _statusLineHeight,
                   child: Row(
@@ -101,21 +106,36 @@ class GameDetailsFooter extends StatelessWidget {
                       // Score, as a bare star and number rather than the pill it
                       // used to be. Colour still runs error -> success across
                       // the range, so a glance still reads good/bad.
-                      if (game.rating > 0) _InlineRating(game: game),
+                      if (hasRating) _InlineRating(game: game),
 
                       // Accumulated play time, once there is any.
-                      if (GameUtils.formatPlayTime(game.playTime ?? 0) !=
-                          '0s') ...[
-                        if (game.rating > 0) SizedBox(width: 12.r),
+                      if (hasPlayTime) ...[
+                        if (hasRating) SizedBox(width: 12.r),
                         _InlinePlayTime(game: game),
                       ],
+
+                      // Cloud-sync state for this game, third in the same
+                      // cluster. Every "nothing to say" state of this widget
+                      // collapses to zero size, so its leading gap has to
+                      // travel with it rather than sit beside it — and it is
+                      // only a gap at all when something precedes it, or a
+                      // game with no rating and no play time would show the
+                      // icon indented from the left edge on its own.
+                      NeoSyncStatusIcon(
+                        system: system,
+                        game: game,
+                        syncProvider: syncProvider,
+                        size: 16.0,
+                        margin: hasRating || hasPlayTime
+                            ? EdgeInsets.only(left: 12.r)
+                            : EdgeInsets.zero,
+                      ),
                     ],
                   ),
                 ),
                 SizedBox(height: 2.r),
 
-                // Identity Section: the ROM filename, with cloud-sync state at
-                // the far end of the line.
+                // Identity Section: the ROM filename, alone on its line.
                 //
                 // There used to be a game title above this. It was a strict
                 // duplicate: the list sidebar sits beside this card and its
@@ -137,45 +157,27 @@ class GameDetailsFooter extends StatelessWidget {
                 // either way.
                 SizedBox(
                   height: _identityLineHeight,
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Expanded(
-                        child: RepaintBoundary(
-                          child: Text(
-                            game.showRomFileNameSubtitle ? game.romname : '',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            strutStyle: StrutStyle(
-                              fontSize: 13.r,
-                              height: 1.15,
-                              forceStrutHeight: true,
-                            ),
-                            style: TextStyle(
-                              // Full white: the old 0.72 let pale fanart
-                              // through the letterforms, which is where this
-                              // line lost legibility first.
-                              color: Colors.white,
-                              fontSize: 13.r,
-                              fontWeight: FontWeight.w600,
-                              height: 1.15,
-                              shadows: _onArtShadows,
-                            ),
-                          ),
-                        ),
+                  child: RepaintBoundary(
+                    child: Text(
+                      game.showRomFileNameSubtitle ? game.romname : '',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      strutStyle: StrutStyle(
+                        fontSize: 13.r,
+                        height: 1.15,
+                        forceStrutHeight: true,
                       ),
-
-                      // Cloud-sync state for this game. Every "nothing to say"
-                      // state collapses to zero size, so the gap before it has
-                      // to travel with the widget rather than sit beside it.
-                      NeoSyncStatusIcon(
-                        system: system,
-                        game: game,
-                        syncProvider: syncProvider,
-                        size: 16.0,
-                        margin: EdgeInsets.only(left: 12.r),
+                      style: TextStyle(
+                        // Full white: the old 0.72 let pale fanart through the
+                        // letterforms, which is where this line lost
+                        // legibility first.
+                        color: Colors.white,
+                        fontSize: 13.r,
+                        fontWeight: FontWeight.w600,
+                        height: 1.15,
+                        shadows: _onArtShadows,
                       ),
-                    ],
+                    ),
                   ),
                 ),
                 SizedBox(height: 8.r),
@@ -507,15 +509,15 @@ List<Shadow> get _onArtShadows => [
   Shadow(blurRadius: 1.r, color: Colors.black, offset: const Offset(2, 2)),
 ];
 
-/// Height of the status line (rating + play time), fixed so the line is laid
-/// out even when the game has neither and the footer's geometry never moves.
-/// Driven by the tallest thing on it, the 15.r rating star.
+/// Height of the status line (rating + play time + sync), fixed so the line is
+/// laid out even when the game has none of them and the footer's geometry never
+/// moves. Driven by the tallest thing on it, the 16.0 sync icon.
 double get _statusLineHeight => 16.r;
 
-/// Height of the identity line (filename + sync icon), fixed for the same
-/// reason: the filename is empty for an unscraped game. Driven by the 16.0
-/// sync icon, with the 13.r filename's forced strut just under it.
-double get _identityLineHeight => 16.r;
+/// Height of the identity line, fixed for the same reason: the filename is
+/// empty for an unscraped game. Just the 13.r filename's forced strut now that
+/// the sync icon has joined the status line.
+double get _identityLineHeight => 15.r;
 
 /// Score as a bare star and number on the status line.
 ///
