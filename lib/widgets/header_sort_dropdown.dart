@@ -191,6 +191,30 @@ class _SortDropdownOverlayState extends State<SortDropdownOverlay> {
 
   final ScrollController _scrollController = ScrollController();
 
+  /// Whether there is more content above / below the viewport.
+  ///
+  /// Drives the edge fades. Without them a menu taller than the screen just
+  /// stops mid-row at the panel border, which reads as broken rather than as
+  /// scrollable — the state the collections picker landed in once its sort
+  /// rows pushed the ORDER group past the bottom of a 1080 px screen.
+  bool _canScrollUp = false;
+  bool _canScrollDown = false;
+
+  void _updateScrollEdges() {
+    if (!mounted || !_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    // A pixel of tolerance: bouncing physics overshoots by fractions and would
+    // otherwise flip the fades on and off at rest.
+    final up = position.pixels > 1.0;
+    final down = position.pixels < position.maxScrollExtent - 1.0;
+    if (up != _canScrollUp || down != _canScrollDown) {
+      setState(() {
+        _canScrollUp = up;
+        _canScrollDown = down;
+      });
+    }
+  }
+
   /// Index within the card-size row when it is focused. 0=S,1=M,2=L,3=XL
   int _cardSizeIndex = 1; // default M
 
@@ -209,6 +233,11 @@ class _SortDropdownOverlayState extends State<SortDropdownOverlay> {
     _cardSizeIndex = idx >= 0 ? idx : 1;
     final styleIdx = _cardStyles.indexOf(config.gameCarouselCardStyle);
     _cardStyleIndex = styleIdx >= 0 ? styleIdx : 0;
+
+    // The controller has no position until after the first layout, so the
+    // initial state is read in a post-frame pass rather than here.
+    _scrollController.addListener(_updateScrollEdges);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _updateScrollEdges());
 
     _gamepadNav = GamepadNavigation(
       onNavigateUp: () {
@@ -348,6 +377,7 @@ class _SortDropdownOverlayState extends State<SortDropdownOverlay> {
   void dispose() {
     GamepadNavigationManager.popLayer('sort_dropdown_overlay');
     _gamepadNav.dispose();
+    _scrollController.removeListener(_updateScrollEdges);
     _scrollController.dispose();
     super.dispose();
   }
@@ -752,6 +782,38 @@ class _SortDropdownOverlayState extends State<SortDropdownOverlay> {
     return children;
   }
 
+  /// Fades whichever edge has content beyond it.
+  ///
+  /// `dstIn` multiplies the child's alpha by the gradient, so the rows nearest
+  /// a scrollable edge dissolve instead of being sliced off square by the
+  /// panel border. An edge with nothing beyond it keeps a hard stop, so the
+  /// first and last rows are never dimmed for no reason, and a menu short
+  /// enough to fit gets no mask at all.
+  Widget _withEdgeFades({required Widget child}) {
+    if (!_canScrollUp && !_canScrollDown) return child;
+
+    return ShaderMask(
+      blendMode: BlendMode.dstIn,
+      shaderCallback: (bounds) => LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        stops: [
+          0.0,
+          _canScrollUp ? 0.05 : 0.0,
+          _canScrollDown ? 0.95 : 1.0,
+          1.0,
+        ],
+        colors: const [
+          Colors.transparent,
+          Colors.white,
+          Colors.white,
+          Colors.transparent,
+        ],
+      ).createShader(bounds),
+      child: child,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final configProvider = context.watch<SqliteConfigProvider>();
@@ -794,13 +856,34 @@ class _SortDropdownOverlayState extends State<SortDropdownOverlay> {
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(12.r),
-                child: SingleChildScrollView(
-                  controller: _scrollController,
-                  physics: const BouncingScrollPhysics(),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: _buildItems(config),
+                child: _withEdgeFades(
+                  // Metrics change without the controller's own listener
+                  // firing — the first layout, and a row group appearing or
+                  // disappearing between callers — so the notification is
+                  // listened to as well as the controller.
+                  child: NotificationListener<ScrollMetricsNotification>(
+                    onNotification: (_) {
+                      WidgetsBinding.instance.addPostFrameCallback(
+                        (_) => _updateScrollEdges(),
+                      );
+                      return false;
+                    },
+                    child: Scrollbar(
+                      controller: _scrollController,
+                      // The pad has no cursor to reveal it and the panel is
+                      // narrow, so the track stays visible whenever it can
+                      // scroll rather than fading out after a drag.
+                      thumbVisibility: _canScrollUp || _canScrollDown,
+                      child: SingleChildScrollView(
+                        controller: _scrollController,
+                        physics: const BouncingScrollPhysics(),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: _buildItems(config),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),

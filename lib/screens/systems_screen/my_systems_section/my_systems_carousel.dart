@@ -1004,13 +1004,27 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
                             onTap: handleTap,
                           );
 
-                      if (isSelected && widget.selectedItemKey != null) {
-                        return KeyedSubtree(
-                          key: widget.selectedItemKey,
-                          child: card,
-                        );
-                      }
-                      return card;
+                      // Sibling overlay rather than a wrapper: wrapping only
+                      // the centred card changes that card's subtree shape as
+                      // the selection travels, remounting it and reloading its
+                      // artwork — a visible flicker on every page change. The
+                      // tree is identical for every card here and only the
+                      // `SizedBox`'s key moves. `passthrough` keeps the card's
+                      // constraints exactly as the carousel supplied them, so
+                      // the anchor still measures the painted card.
+                      return Stack(
+                        fit: StackFit.passthrough,
+                        children: [
+                          card,
+                          Positioned.fill(
+                            child: IgnorePointer(
+                              child: SizedBox.expand(
+                                key: isSelected ? widget.selectedItemKey : null,
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
                     },
                     onPageScrolled: (page) {
                       _pageOffsetNotifier.value = page;
