@@ -868,20 +868,16 @@ class _SortDropdownOverlayState extends State<SortDropdownOverlay> {
                       );
                       return false;
                     },
-                    child: Scrollbar(
+                    // No scrollbar: the panel is narrow enough that a track
+                    // crowds the rows, and the edge fades already say there is
+                    // more. Rejected on device.
+                    child: SingleChildScrollView(
                       controller: _scrollController,
-                      // The pad has no cursor to reveal it and the panel is
-                      // narrow, so the track stays visible whenever it can
-                      // scroll rather than fading out after a drag.
-                      thumbVisibility: _canScrollUp || _canScrollDown,
-                      child: SingleChildScrollView(
-                        controller: _scrollController,
-                        physics: const BouncingScrollPhysics(),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: _buildItems(config),
-                        ),
+                      physics: const BouncingScrollPhysics(),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: _buildItems(config),
                       ),
                     ),
                   ),
