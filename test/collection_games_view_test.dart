@@ -113,7 +113,7 @@ void main() {
 
     setUp(() async {
       final db = await helper.setUp();
-      await SqliteMigrations.migrateToVersion(db.rawDb, 136);
+      await SqliteMigrations.migrateToVersion(db.rawDb, 139);
 
       await db.execute(
         "INSERT INTO app_systems (id, real_name, folder_name, short_name) "

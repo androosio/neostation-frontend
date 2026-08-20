@@ -128,10 +128,10 @@ class SqliteMigrations {
   ''';
 
   // ── Collections schema — single source of truth ───────────────────────────
-  // Referenced by migration v136 and by the fresh-install table list, so a
+  // Referenced by migration v139 and by the fresh-install table list, so a
   // future column change is made in exactly one place.
 
-  /// CREATE for the user-defined collections table (v136).
+  /// CREATE for the user-defined collections table (v139).
   ///
   /// `id` is a bare uuid v4 — it is what the `collection:<uuid>` synthesized
   /// system folder name carries, and what the collection's image file is named
@@ -151,7 +151,7 @@ class SqliteMigrations {
     );
   ''';
 
-  /// CREATE for collection membership (v136).
+  /// CREATE for collection membership (v139).
   ///
   /// `rom_path` is the natural key of `user_roms` and is what the favourite
   /// toggle already keys on; `COLLATE NOCASE` mirrors that column. The cascade
@@ -170,7 +170,7 @@ class SqliteMigrations {
     );
   ''';
 
-  /// Lookup index for [createUserCollectionItemsTableSql] (v136).
+  /// Lookup index for [createUserCollectionItemsTableSql] (v139).
   ///
   /// The primary key already covers `(collection_id, rom_path)`; this covers
   /// the other direction — "which collections is this ROM in?", asked once per
@@ -557,19 +557,19 @@ class SqliteMigrations {
       case 135:
         await _migrateToVersion135(db);
         break;
-      case 136:
-        await _migrateToVersion136(db);
-        break;
-      case 137:
-        await _migrateToVersion137(db);
-        break;
       case 138:
         await _migrateToVersion138(db);
         break;
-      // 139 and 140 are claimed by another branch that is not merged yet.
-      // Taking the next free number instead of the next sequential one is
-      // deliberate: a shared slot with different contents is skipped silently
-      // on any device that already migrated past it.
+      // 139 and 140 are this branch's slots, which main deliberately reserved
+      // by taking the next free number instead of the next sequential one: a
+      // shared slot with different contents is skipped silently on any device
+      // that already migrated past it.
+      case 139:
+        await _migrateToVersion139(db);
+        break;
+      case 140:
+        await _migrateToVersion140(db);
+        break;
       case 141:
         await _migrateToVersion141(db);
         break;
@@ -6339,25 +6339,33 @@ class SqliteMigrations {
   /// `user_system_settings` would take a collection's name and artwork with it
   /// on the next systems update.
   ///
-  /// Numbered 136 because 135 was the highest slot in use across `origin/main`
-  /// and every sibling worktree at the time of writing. Whoever renumbers next:
-  /// scan on-disk working trees, not just refs, and re-scan immediately before
-  /// opening the PR — a collision silently skips this step on a device already
-  /// past the number.
+  /// **Renumbered 136 → 139** when this branch was rebased onto a main that had
+  /// reached v138 (`ra_seed_stamp`, #399). The numbers never collided — main
+  /// deliberately took 138 because this branch held 136 and 137 — but the gap
+  /// did: a device that upgraded on main is already past 136, so its `case`
+  /// would never have run and it would have had no collections tables at all.
+  /// Moving both of this branch's slots above the highest in use is the fix
+  /// CLAUDE.md prescribes, and it works in every direction because this step is
+  /// idempotent: a device that ran the old 136 re-runs this as a no-op.
+  ///
+  /// Whoever renumbers next: scan on-disk working trees, not just refs, and
+  /// re-scan immediately before opening the PR — being *below* the current
+  /// version silently skips the step, which is not the same as colliding
+  /// with it.
   ///
   /// Idempotent by construction (`CREATE TABLE/INDEX IF NOT EXISTS`), so a
   /// device that skipped the case entirely can be repaired by re-running it
   /// from a later numbered migration.
-  static Future<void> _migrateToVersion136(Database db) async {
-    _log.i('Migration v136: Creating collections tables');
+  static Future<void> _migrateToVersion139(Database db) async {
+    _log.i('Migration v139: Creating collections tables');
     try {
       db.execute(createUserCollectionsTableSql);
       db.execute(createUserCollectionItemsTableSql);
       db.execute(createUserCollectionItemsIndexSql);
 
-      _log.i('Migration v136 completed');
+      _log.i('Migration v139 completed');
     } catch (e, stackTrace) {
-      _log.e('Error in migration v136: $e');
+      _log.e('Error in migration v139: $e');
       _log.e('   StackTrace: $stackTrace');
       rethrow;
     }
@@ -6374,10 +6382,15 @@ class SqliteMigrations {
   /// were previously returned in `sort_order` — creation order — with a name
   /// tiebreak that could never fire, because `sort_order` is unique per row.
   ///
-  /// Guarded per column so a device that skipped this case (its DB already past
-  /// 137 when it first saw this binary) is repaired rather than bricked.
-  static Future<void> _migrateToVersion137(Database db) async {
-    _log.i('Migration v137: Adding collection sorting preferences');
+  /// **Renumbered 137 → 140** with its sibling, for the reason recorded on
+  /// [_migrateToVersion139]: main reached 138 first, so a device upgraded on
+  /// main would have skipped the old slot and lost these columns — and every
+  /// whole-config save would then fail with `no such column`.
+  ///
+  /// Guarded per column, so a device that already ran the old 137 re-runs this
+  /// as a no-op and one that skipped it is repaired rather than bricked.
+  static Future<void> _migrateToVersion140(Database db) async {
+    _log.i('Migration v140: Adding collection sorting preferences');
 
     try {
       final tableInfo = db.select('PRAGMA table_info(user_config)');
@@ -6397,9 +6410,9 @@ class SqliteMigrations {
         _log.i('Column collection_sort_order added to user_config');
       }
 
-      _log.i('Migration v137 completed');
+      _log.i('Migration v140 completed');
     } catch (e, stackTrace) {
-      _log.e('Error in migration v137: $e');
+      _log.e('Error in migration v140: $e');
       _log.e('   StackTrace: $stackTrace');
       rethrow;
     }

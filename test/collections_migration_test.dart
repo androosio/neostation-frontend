@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sqlite3/sqlite3.dart';
 import 'package:neostation/data/datasources/sqlite_migrations.dart';
 
-/// Tests for migration v136, which creates the two collections tables and the
+/// Tests for migration v139, which creates the two collections tables and the
 /// reverse-lookup index on membership.
 ///
 /// The setup deliberately gives the database only `user_roms` — the "old
@@ -27,7 +27,7 @@ void main() {
     db.close();
   });
 
-  Future<void> runV136() => SqliteMigrations.migrateToVersion(db, 136);
+  Future<void> runV139() => SqliteMigrations.migrateToVersion(db, 139);
 
   List<String> tableNames() => db
       .select("SELECT name FROM sqlite_master WHERE type = 'table'")
@@ -44,24 +44,24 @@ void main() {
       .map((c) => c['name'].toString())
       .toList();
 
-  group('migration v136', () {
+  group('migration v139', () {
     test('creates both collections tables', () async {
       expect(tableNames(), isNot(contains('user_collections')));
 
-      await runV136();
+      await runV139();
 
       expect(tableNames(), contains('user_collections'));
       expect(tableNames(), contains('user_collection_items'));
     });
 
     test('creates the reverse-lookup index on membership', () async {
-      await runV136();
+      await runV139();
 
       expect(indexNames(), contains('idx_collection_items_rom'));
     });
 
     test('user_collections carries every documented column', () async {
-      await runV136();
+      await runV139();
 
       expect(
         columnsOf('user_collections'),
@@ -79,7 +79,7 @@ void main() {
     });
 
     test('user_collection_items carries every documented column', () async {
-      await runV136();
+      await runV139();
 
       expect(
         columnsOf('user_collection_items'),
@@ -95,7 +95,7 @@ void main() {
     test(
       're-running the migration is a no-op and keeps existing rows',
       () async {
-        await runV136();
+        await runV139();
 
         db.execute(
           "INSERT INTO user_roms (filename, rom_path) VALUES ('a', '/a')",
@@ -108,7 +108,7 @@ void main() {
           "VALUES ('abc', '/a')",
         );
 
-        await runV136();
+        await runV139();
 
         expect(tableNames(), contains('user_collections'));
         expect(indexNames(), contains('idx_collection_items_rom'));
@@ -121,7 +121,7 @@ void main() {
     );
 
     test('duplicate collection names are allowed', () async {
-      await runV136();
+      await runV139();
 
       db.execute(
         "INSERT INTO user_collections (id, name) VALUES ('a', 'Co-op')",
@@ -134,7 +134,7 @@ void main() {
     });
 
     test('membership is unique per (collection, rom)', () async {
-      await runV136();
+      await runV139();
 
       db.execute(
         "INSERT INTO user_roms (filename, rom_path) VALUES ('a', '/a')",
