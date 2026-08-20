@@ -44,22 +44,37 @@ class CollectionsProvider extends ChangeNotifier {
   /// True once the first [load] has completed, successfully or not.
   bool get hasLoaded => _hasLoaded;
 
-  /// Number of distinct games filed in at least one collection.
+  /// Total games across all collections, **counting a game once per
+  /// collection it is filed in**. This is what the Collections card shows.
   ///
-  /// The only "how many games do my collections hold" answer there is, by
-  /// decision: a game in three collections is one game, and a rollup that can
-  /// exceed the size of the library reads as a bug. A getter that summed the
-  /// per-collection counts existed alongside this one and was deleted rather
-  /// than left as a second, disagreeing answer for a future caller to reach
-  /// for by accident.
+  /// Deliberately not a distinct count, at the maintainer's call, and it was
+  /// distinct for a day before being changed — so the reasoning is worth
+  /// keeping. The browser lists every collection with its own count directly
+  /// under the card, and a reader adds those up. A card reading 6 over
+  /// collections of 1, 4 and 4 looks broken, and nothing on screen explains
+  /// the overlap that accounts for it; the arithmetic working is worth more
+  /// here than the stricter number, because the per-collection counts are the
+  /// visible source of truth.
   ///
-  /// Note this is only in tension *across* collections. Within one,
-  /// `CollectionModel.gameCount` is already distinct and needs no `DISTINCT`:
+  /// Known consequence, accepted: with enough overlap this can exceed the
+  /// number of games in the library. If that ever needs fixing, do it by
+  /// showing the overlap rather than by silently switching the number back —
+  /// the distinct count is `_memberRomPaths.length`, already loaded for the
+  /// games views' badge.
+  ///
+  /// Note the question only exists *across* collections. Within one,
+  /// [CollectionModel.gameCount] is already distinct and needs no `DISTINCT`:
   /// `user_collection_items` is keyed on `(collection_id, rom_path)`, so the
   /// same game cannot be filed in one collection twice.
-  ///
-  /// Free: [_memberRomPaths] is already loaded for the games views' badge.
-  int get memberGameCount => _memberRomPaths.length;
+  int get totalGameCount => _collections.fold(0, (sum, c) => sum + c.gameCount);
+
+  /// Seeds [collections] without a database, so a test can pin what the counts
+  /// derived from them mean. Not a general setter: nothing in the app may
+  /// bypass [CollectionsService] to change state.
+  @visibleForTesting
+  void debugSetCollections(List<CollectionModel> collections) {
+    _collections = List.unmodifiable(collections);
+  }
 
   /// Cache-busting counter for collection artwork.
   int get imageVersion => _imageVersion;

@@ -28,7 +28,7 @@ List<SystemInfo> buildSystemsList({
   final collections =
       collectionsProvider ??
       Provider.of<CollectionsProvider>(context, listen: false);
-  final collectionGames = collections.memberGameCount;
+  final collectionGames = collections.totalGameCount;
   const recentCount = 1;
   final hideRecent = configProvider.config.hideRecentCard;
   final recentDbGames = hideRecent
@@ -78,9 +78,10 @@ List<SystemInfo> buildSystemsList({
           // collections themselves. The card sits in a row of system cards
           // that all answer "how many games are in here", and it is the only
           // one whose own contents are a level further down, so counting the
-          // containers would make it the odd one out. Distinct, so a game in
-          // two collections is counted once — see
-          // CollectionsProvider.memberGameCount.
+          // containers would make it the odd one out. It sums the
+          // per-collection counts rather than counting distinct games, so it
+          // agrees with the numbers the browser lists one level down — see
+          // CollectionsProvider.totalGameCount, which carries the tradeoff.
           return info.copyWith(numOfRoms: collectionGames);
         }
         return info;
