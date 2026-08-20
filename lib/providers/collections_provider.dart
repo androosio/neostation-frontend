@@ -44,17 +44,21 @@ class CollectionsProvider extends ChangeNotifier {
   /// True once the first [load] has completed, successfully or not.
   bool get hasLoaded => _hasLoaded;
 
-  /// Total number of games across all collections (each membership counted
-  /// once per collection).
-  int get totalGameCount => _collections.fold(0, (sum, c) => sum + c.gameCount);
-
-  /// Number of *distinct* games filed in at least one collection.
+  /// Number of distinct games filed in at least one collection.
   ///
-  /// Distinct rather than the sum of the per-collection counts, because a game
-  /// in three collections is still one game and a rollup that can exceed the
-  /// size of the library reads as a bug. [totalGameCount] is the sum, for a
-  /// caller that wants memberships. Free: [_memberRomPaths] is already loaded
-  /// for the games views' collection badge.
+  /// The only "how many games do my collections hold" answer there is, by
+  /// decision: a game in three collections is one game, and a rollup that can
+  /// exceed the size of the library reads as a bug. A getter that summed the
+  /// per-collection counts existed alongside this one and was deleted rather
+  /// than left as a second, disagreeing answer for a future caller to reach
+  /// for by accident.
+  ///
+  /// Note this is only in tension *across* collections. Within one,
+  /// `CollectionModel.gameCount` is already distinct and needs no `DISTINCT`:
+  /// `user_collection_items` is keyed on `(collection_id, rom_path)`, so the
+  /// same game cannot be filed in one collection twice.
+  ///
+  /// Free: [_memberRomPaths] is already loaded for the games views' badge.
   int get memberGameCount => _memberRomPaths.length;
 
   /// Cache-busting counter for collection artwork.
