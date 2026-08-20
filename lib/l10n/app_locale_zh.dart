@@ -559,6 +559,8 @@ const Map<String, dynamic> appLocaleZh = {
   AppLocale.listView: '列表视图',
   AppLocale.carouselView: '轮播视图',
   AppLocale.alphabetical: '按字母顺序',
+  AppLocale.dateAdded: '添加日期',
+  AppLocale.sortByGameCount: '游戏数量',
   AppLocale.releaseYear: '发行年份',
   AppLocale.manufacturer: '制造商',
   AppLocale.manufacturerType: '制造商 / 类型',

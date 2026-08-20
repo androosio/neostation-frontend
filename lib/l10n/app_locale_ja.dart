@@ -568,6 +568,8 @@ const Map<String, dynamic> appLocaleJa = {
   AppLocale.listView: 'リスト表示',
   AppLocale.carouselView: 'カルーセル表示',
   AppLocale.alphabetical: 'アルファベット順',
+  AppLocale.dateAdded: '追加日',
+  AppLocale.sortByGameCount: 'ゲーム数',
   AppLocale.releaseYear: '発売年',
   AppLocale.manufacturer: 'メーカー',
   AppLocale.manufacturerType: 'メーカー / タイプ',

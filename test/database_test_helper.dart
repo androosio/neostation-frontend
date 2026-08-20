@@ -124,6 +124,8 @@ class DatabaseTestHelper {
         sfx_volume REAL DEFAULT 0.75,
         system_sort_by TEXT DEFAULT 'alphabetical',
         system_sort_order TEXT DEFAULT 'asc',
+        collection_sort_by TEXT DEFAULT 'name',
+        collection_sort_order TEXT DEFAULT 'asc',
         app_language TEXT DEFAULT 'en',
         active_theme TEXT DEFAULT '',
         hide_recent_card INTEGER DEFAULT 0,

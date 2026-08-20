@@ -94,6 +94,14 @@ class ConfigModel {
   /// The sort direction for the system list ('asc' or 'desc').
   final String systemSortOrder;
 
+  /// How the collections browser orders its cards: `name`, `date_added` or
+  /// `game_count`. Separate from [systemSortBy] on purpose — the two screens
+  /// list different things.
+  final String collectionSortBy;
+
+  /// Direction for [collectionSortBy]: `asc` or `desc`.
+  final String collectionSortOrder;
+
   /// The ISO language code for the application interface (e.g., 'en', 'es').
   final String appLanguage;
 
@@ -224,6 +232,8 @@ class ConfigModel {
     this.use12HourClock = false,
     this.systemSortBy = 'alphabetical',
     this.systemSortOrder = 'asc',
+    this.collectionSortBy = 'name',
+    this.collectionSortOrder = 'asc',
     this.appLanguage = 'es',
     this.hideRecentCard = false,
     this.recentCardSize = RecentCardSizes.defaultSize,
@@ -336,6 +346,14 @@ class ConfigModel {
               .toString(),
       systemSortOrder:
           (json['systemSortOrder'] ?? json['system_sort_order'] ?? 'asc')
+              .toString(),
+      collectionSortBy:
+          (json['collectionSortBy'] ?? json['collection_sort_by'] ?? 'name')
+              .toString(),
+      collectionSortOrder:
+          (json['collectionSortOrder'] ??
+                  json['collection_sort_order'] ??
+                  'asc')
               .toString(),
       appLanguage: (json['appLanguage'] ?? json['app_language'] ?? 'en')
           .toString(),
@@ -488,6 +506,8 @@ class ConfigModel {
       'use12HourClock': use12HourClock,
       'systemSortBy': systemSortBy,
       'systemSortOrder': systemSortOrder,
+      'collectionSortBy': collectionSortBy,
+      'collectionSortOrder': collectionSortOrder,
       'appLanguage': appLanguage,
       'hideRecentCard': hideRecentCard,
       'recentCardSize': recentCardSize,
@@ -537,6 +557,8 @@ class ConfigModel {
     bool? use12HourClock,
     String? systemSortBy,
     String? systemSortOrder,
+    String? collectionSortBy,
+    String? collectionSortOrder,
     String? appLanguage,
     bool? hideRecentCard,
     String? recentCardSize,
@@ -583,6 +605,8 @@ class ConfigModel {
       use12HourClock: use12HourClock ?? this.use12HourClock,
       systemSortBy: systemSortBy ?? this.systemSortBy,
       systemSortOrder: systemSortOrder ?? this.systemSortOrder,
+      collectionSortBy: collectionSortBy ?? this.collectionSortBy,
+      collectionSortOrder: collectionSortOrder ?? this.collectionSortOrder,
       appLanguage: appLanguage ?? this.appLanguage,
       hideRecentCard: hideRecentCard ?? this.hideRecentCard,
       recentCardSize: recentCardSize ?? this.recentCardSize,

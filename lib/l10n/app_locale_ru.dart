@@ -642,6 +642,8 @@ const Map<String, dynamic> appLocaleRu = {
   AppLocale.listView: 'Список',
   AppLocale.carouselView: 'Карусель',
   AppLocale.alphabetical: 'По алфавиту',
+  AppLocale.dateAdded: 'Дата добавления',
+  AppLocale.sortByGameCount: 'Количество игр',
   AppLocale.releaseYear: 'Год выпуска',
   AppLocale.manufacturer: 'Производитель',
   AppLocale.manufacturerType: 'Производитель / Тип',

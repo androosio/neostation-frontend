@@ -167,6 +167,10 @@ class SqliteConfigService {
         systemSortBy:
             userConfig?['system_sort_by']?.toString() ?? 'alphabetical',
         systemSortOrder: userConfig?['system_sort_order']?.toString() ?? 'asc',
+        collectionSortBy:
+            userConfig?['collection_sort_by']?.toString() ?? 'name',
+        collectionSortOrder:
+            userConfig?['collection_sort_order']?.toString() ?? 'asc',
         appLanguage: userConfig?['app_language']?.toString() ?? 'en',
         hideRecentCard:
             (int.tryParse(userConfig?['hide_recent_card']?.toString() ?? '0') ??
@@ -308,6 +312,8 @@ class SqliteConfigService {
         use12HourClock: config.use12HourClock ? 1 : 0,
         systemSortBy: config.systemSortBy,
         systemSortOrder: config.systemSortOrder,
+        collectionSortBy: config.collectionSortBy,
+        collectionSortOrder: config.collectionSortOrder,
         appLanguage: config.appLanguage,
         hideRecentCard: config.hideRecentCard ? 1 : 0,
         recentCardSize: config.recentCardSize,

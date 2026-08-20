@@ -349,4 +349,23 @@ extension SqliteConfigMutators on SqliteConfigProvider {
     await SqliteConfigService.saveConfig(_config);
     _notify();
   }
+
+  /// Updates how the collections browser orders its cards.
+  ///
+  /// No `_sortDetectedSystems()` here: this setting says nothing about the
+  /// systems list, and the browser re-reads the order itself when it rebuilds.
+  Future<void> updateCollectionSortBy(String sortBy) async {
+    if (_config.collectionSortBy == sortBy) return;
+    _config = _config.copyWith(collectionSortBy: sortBy);
+    await SqliteConfigService.saveConfig(_config);
+    _notify();
+  }
+
+  /// Updates the collections browser's sort direction (`asc` / `desc`).
+  Future<void> updateCollectionSortOrder(String order) async {
+    if (_config.collectionSortOrder == order) return;
+    _config = _config.copyWith(collectionSortOrder: order);
+    await SqliteConfigService.saveConfig(_config);
+    _notify();
+  }
 }

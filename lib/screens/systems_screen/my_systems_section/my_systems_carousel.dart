@@ -66,6 +66,7 @@ class MySystemsCarousel extends StatefulWidget {
     this.enableSecondaryDisplay = true,
     this.enableThemeAssets = true,
     this.enableDynamicBackground = true,
+    this.selectedItemKey,
   });
 
   /// The initially selected system index.
@@ -93,6 +94,14 @@ class MySystemsCarousel extends StatefulWidget {
 
   /// X. Defaults to the header's view/sort picker.
   final VoidCallback? onXPressed;
+
+  /// Anchor for a menu opened on the centred card.
+  ///
+  /// Attached to the *painted card* rather than to the page slot: a box-art
+  /// card is aspect-fitted inside a wider slot, so anchoring to the slot hangs
+  /// the menu off empty space beside the artwork. Only the centred card
+  /// carries it, so the key is never attached twice.
+  final GlobalKey? selectedItemKey;
 
   /// Identifier this view registers its [GamepadNavigationManager] layer under.
   ///
@@ -977,7 +986,8 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
                         }
                       }
 
-                      return widget.cardOverrideBuilder?.call(
+                      final Widget card =
+                          widget.cardOverrideBuilder?.call(
                             context,
                             index,
                             system,
@@ -993,6 +1003,14 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
                             backgroundCacheWidth: 1024,
                             onTap: handleTap,
                           );
+
+                      if (isSelected && widget.selectedItemKey != null) {
+                        return KeyedSubtree(
+                          key: widget.selectedItemKey,
+                          child: card,
+                        );
+                      }
+                      return card;
                     },
                     onPageScrolled: (page) {
                       _pageOffsetNotifier.value = page;

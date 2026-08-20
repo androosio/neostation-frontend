@@ -632,6 +632,8 @@ const Map<String, dynamic> appLocaleId = {
   AppLocale.listView: 'Tampilan Daftar',
   AppLocale.carouselView: 'Tampilan Karusel',
   AppLocale.alphabetical: 'Alfabetis',
+  AppLocale.dateAdded: 'Tanggal ditambahkan',
+  AppLocale.sortByGameCount: 'Jumlah gim',
   AppLocale.releaseYear: 'Tahun Rilis',
   AppLocale.manufacturer: 'Pabrikan',
   AppLocale.manufacturerType: 'Pabrikan / Tipe',

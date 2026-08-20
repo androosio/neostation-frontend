@@ -560,6 +560,9 @@ class SqliteMigrations {
       case 136:
         await _migrateToVersion136(db);
         break;
+      case 137:
+        await _migrateToVersion137(db);
+        break;
       case 138:
         await _migrateToVersion138(db);
         break;
@@ -6355,6 +6358,48 @@ class SqliteMigrations {
       _log.i('Migration v136 completed');
     } catch (e, stackTrace) {
       _log.e('Error in migration v136: $e');
+      _log.e('   StackTrace: $stackTrace');
+      rethrow;
+    }
+  }
+
+  /// Adds the collections browser's own sort preference to `user_config`.
+  ///
+  /// Separate columns rather than reuse of `system_sort_by`: the browser and
+  /// the systems screen are different lists of different things, and a user
+  /// who sorts their systems by manufacturer has said nothing about how they
+  /// want their collections ordered.
+  ///
+  /// The default is `name`/`asc`, which is also a behaviour change: collections
+  /// were previously returned in `sort_order` — creation order — with a name
+  /// tiebreak that could never fire, because `sort_order` is unique per row.
+  ///
+  /// Guarded per column so a device that skipped this case (its DB already past
+  /// 137 when it first saw this binary) is repaired rather than bricked.
+  static Future<void> _migrateToVersion137(Database db) async {
+    _log.i('Migration v137: Adding collection sorting preferences');
+
+    try {
+      final tableInfo = db.select('PRAGMA table_info(user_config)');
+      final columns = tableInfo.map((c) => c['name'].toString()).toList();
+
+      if (!columns.contains('collection_sort_by')) {
+        db.execute(
+          'ALTER TABLE user_config ADD COLUMN collection_sort_by TEXT DEFAULT \'name\'',
+        );
+        _log.i('Column collection_sort_by added to user_config');
+      }
+
+      if (!columns.contains('collection_sort_order')) {
+        db.execute(
+          'ALTER TABLE user_config ADD COLUMN collection_sort_order TEXT DEFAULT \'asc\'',
+        );
+        _log.i('Column collection_sort_order added to user_config');
+      }
+
+      _log.i('Migration v137 completed');
+    } catch (e, stackTrace) {
+      _log.e('Error in migration v137: $e');
       _log.e('   StackTrace: $stackTrace');
       rethrow;
     }

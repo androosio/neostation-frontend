@@ -585,6 +585,7 @@ class SystemCardGridView extends StatefulWidget {
     this.enablePinchResize = true,
     this.enableSecondaryDisplay = true,
     this.enableThemeAssets = true,
+    this.selectedItemKey,
   });
 
   final int crossAxisCount;
@@ -650,6 +651,13 @@ class SystemCardGridView extends StatefulWidget {
   /// Whether per-system theme artwork is resolved and cached for the cards.
   /// Off where the entries have no theme assets to resolve.
   final bool enableThemeAssets;
+
+  /// Anchor for a menu opened on the selected card.
+  ///
+  /// Attached to the card at [selectedIndex] so a context menu hangs off the
+  /// card it acts on rather than off the footer button that opened it. Only
+  /// the selected card carries it, so the key is never attached twice.
+  final GlobalKey? selectedItemKey;
 
   @override
   State<SystemCardGridView> createState() => _SystemCardGridViewState();
@@ -1135,7 +1143,14 @@ class _SystemCardGridViewState extends State<SystemCardGridView> {
                 top: top,
                 width: width,
                 height: cardHeight,
-                child: RepaintBoundary(child: cardWidget),
+                child: RepaintBoundary(
+                  child: cardIsSelected && widget.selectedItemKey != null
+                      ? KeyedSubtree(
+                          key: widget.selectedItemKey,
+                          child: cardWidget,
+                        )
+                      : cardWidget,
+                ),
               ),
             );
 

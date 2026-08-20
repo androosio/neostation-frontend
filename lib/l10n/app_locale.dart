@@ -606,6 +606,8 @@ mixin AppLocale {
   static const String carouselView = 'carousel_view';
   static const String listView = 'list_view';
   static const String alphabetical = 'alphabetical';
+  static const String dateAdded = 'dateAdded';
+  static const String sortByGameCount = 'sortByGameCount';
   static const String releaseYear = 'release_year';
   static const String manufacturer = 'manufacturer';
   static const String manufacturerType = 'manufacturer_type';

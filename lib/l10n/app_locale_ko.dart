@@ -574,6 +574,8 @@ const Map<String, dynamic> appLocaleKo = {
   AppLocale.listView: '목록 보기',
   AppLocale.carouselView: '캐러셀 보기',
   AppLocale.alphabetical: '알파벳순',
+  AppLocale.dateAdded: '추가된 날짜',
+  AppLocale.sortByGameCount: '게임 수',
   AppLocale.releaseYear: '출시 연도',
   AppLocale.manufacturer: '제조업체',
   AppLocale.manufacturerType: '제조사 / 종류',

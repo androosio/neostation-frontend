@@ -19,6 +19,7 @@ import 'package:neostation/providers/sqlite_config_provider.dart';
 import 'package:neostation/models/my_systems.dart';
 import 'package:neostation/responsive.dart';
 import 'package:neostation/utils/count_label.dart';
+import 'package:neostation/utils/collection_sort.dart';
 import 'package:neostation/services/collections/collections_service.dart';
 import 'package:neostation/services/logger_service.dart';
 import 'package:neostation/services/permission_service.dart';
@@ -91,6 +92,17 @@ class _CollectionsBrowserScreenState extends State<CollectionsBrowserScreen> {
   /// control is mounted exactly when the menu is reachable.
   final GlobalKey _optionsAnchorKey = GlobalKey();
 
+  /// Anchor for the per-collection menu: the selected card itself.
+  ///
+  /// The menu used to hang off the footer's Y button, which sits in the
+  /// bottom-right corner — so `besideAnchor` found no room on the right,
+  /// left-flipped, and landed the panel over the footer's own B/X controls and
+  /// nowhere near the card it acts on. Anchoring to the card matches what the
+  /// games views do (D11) and keeps the menu next to the thing it changes.
+  final GlobalKey _selectedCardAnchorKey = GlobalKey(
+    debugLabel: 'selectedCollectionCardAnchor',
+  );
+
   int _selectedIndex = 0;
   bool _canPop = false;
   bool _isNavigatingBack = false;
@@ -134,8 +146,26 @@ class _CollectionsBrowserScreenState extends State<CollectionsBrowserScreen> {
 
   // ── Model ──────────────────────────────────────────────────────────────────
 
-  List<CollectionModel> get _collections =>
-      context.read<CollectionsProvider>().collections;
+  List<CollectionModel> get _collections {
+    final config = context.read<SqliteConfigProvider>().config;
+    return _ordered(
+      context.read<CollectionsProvider>().collections,
+      config.collectionSortBy,
+      config.collectionSortOrder,
+    );
+  }
+
+  /// Applies the browser's own sort preference.
+  ///
+  /// Delegates to [sortCollections] so the ordering is testable on its own;
+  /// every read of the list goes through here because [_selectedIndex] is a
+  /// position in it, and a build that ordered differently from [_collections]
+  /// would put the cursor on the wrong collection.
+  List<CollectionModel> _ordered(
+    List<CollectionModel> collections,
+    String sortBy,
+    String sortOrder,
+  ) => sortCollections(collections, sortBy, sortOrder);
 
   /// Whether the cursor sits on the "New collection" card.
   bool get _onCreateCard => _selectedIndex >= _collections.length;
@@ -259,7 +289,13 @@ class _CollectionsBrowserScreenState extends State<CollectionsBrowserScreen> {
     final result = await showAnchoredContextMenu(
       context: context,
       items: items,
-      anchorKey: _optionsAnchorKey,
+      // The card, not the Y button — see [_selectedCardAnchorKey]. Falls back
+      // to the button when no card is mounted (the key resolves to null and
+      // the menu centres itself).
+      anchorKey: _selectedCardAnchorKey.currentContext != null
+          ? _selectedCardAnchorKey
+          : _optionsAnchorKey,
+      alignment: ContextMenuAlignment.overAnchor,
       layerId: 'collection_context_menu',
       submenuLayerId: 'collection_context_submenu',
     );
@@ -291,7 +327,11 @@ class _CollectionsBrowserScreenState extends State<CollectionsBrowserScreen> {
     SfxService().playNavSound();
     await showSystemViewDropdown(
       context,
+      // The systems picker's own sort rows describe hardware — release year,
+      // manufacturer — and say nothing about a collection. These are the rows
+      // that do.
       includeSorting: false,
+      includeCollectionSorting: true,
       // The cards preview their games, so the box-art/fanart switch belongs
       // here — it changes what is on screen.
       includeCardStyle: true,
@@ -585,7 +625,20 @@ class _CollectionsBrowserScreenState extends State<CollectionsBrowserScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final provider = context.watch<CollectionsProvider>();
-    final collections = provider.collections;
+
+    // Selected, not read: the browser has to repaint when the sort preference
+    // changes, and `_ordered` alone would not register the dependency.
+    final collectionSortBy = context.select<SqliteConfigProvider, String>(
+      (p) => p.config.collectionSortBy,
+    );
+    final collectionSortOrder = context.select<SqliteConfigProvider, String>(
+      (p) => p.config.collectionSortOrder,
+    );
+    final collections = _ordered(
+      provider.collections,
+      collectionSortBy,
+      collectionSortOrder,
+    );
 
     // A delete (or a change made by the other engine) can shorten the list
     // under the cursor.
@@ -704,6 +757,7 @@ class _CollectionsBrowserScreenState extends State<CollectionsBrowserScreen> {
       child: MySystemsCarousel(
         items: items,
         selectedIndex: _selectedIndex,
+        selectedItemKey: _selectedCardAnchorKey,
         onCardTapped: _onCardSelected,
         onActivate: (index) {
           _selectedIndex = index;
@@ -749,6 +803,7 @@ class _CollectionsBrowserScreenState extends State<CollectionsBrowserScreen> {
         childAspectRatio: _kCardAspectRatio,
         systems: items,
         selectedIndex: _selectedIndex,
+        selectedItemKey: _selectedCardAnchorKey,
         onCardTapped: _onCardSelected,
         onEnterPressed: _activateSelection,
         // Start, matching the systems screen where Start opens the card's

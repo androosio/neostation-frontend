@@ -650,6 +650,8 @@ const Map<String, dynamic> appLocaleIt = {
   AppLocale.listView: 'Vista a Lista',
   AppLocale.carouselView: 'Vista a Carosello',
   AppLocale.alphabetical: 'Alfabetico',
+  AppLocale.dateAdded: 'Data di aggiunta',
+  AppLocale.sortByGameCount: 'Numero di giochi',
   AppLocale.releaseYear: 'Anno di Uscita',
   AppLocale.manufacturer: 'Produttore',
   AppLocale.manufacturerType: 'Produttore / Tipo',

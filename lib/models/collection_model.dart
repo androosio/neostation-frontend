@@ -38,6 +38,13 @@ class CollectionModel {
   /// Bumped when the file at [imagePath] is replaced, to bust the image cache.
   final int imageVersion;
 
+  /// When the collection was created, as stored in `created_at`.
+  ///
+  /// Read-only: the browser's "date added" ordering sorts on this rather than
+  /// on [sortOrder], so the two stay independent if manual reordering ever
+  /// lands. Null when the column is absent or unparseable.
+  final DateTime? createdAt;
+
   const CollectionModel({
     required this.id,
     required this.name,
@@ -47,6 +54,7 @@ class CollectionModel {
     this.sortOrder = 0,
     this.gameCount = 0,
     this.imageVersion = 0,
+    this.createdAt,
   });
 
   /// Builds a model from a `user_collections` row, including the joined
@@ -61,6 +69,7 @@ class CollectionModel {
       sortOrder: _toInt(json['sort_order']),
       gameCount: _toInt(json['game_count']),
       imageVersion: _toInt(json['image_version']),
+      createdAt: DateTime.tryParse(json['created_at']?.toString() ?? ''),
     );
   }
 
@@ -92,6 +101,7 @@ class CollectionModel {
     int? sortOrder,
     int? gameCount,
     int? imageVersion,
+    DateTime? createdAt,
   }) {
     return CollectionModel(
       id: id ?? this.id,
@@ -102,6 +112,7 @@ class CollectionModel {
       sortOrder: sortOrder ?? this.sortOrder,
       gameCount: gameCount ?? this.gameCount,
       imageVersion: imageVersion ?? this.imageVersion,
+      createdAt: createdAt ?? this.createdAt,
     );
   }
 

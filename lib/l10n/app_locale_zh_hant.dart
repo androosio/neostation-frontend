@@ -559,6 +559,8 @@ const Map<String, dynamic> appLocaleZhHant = {
   AppLocale.listView: '列表檢視',
   AppLocale.carouselView: '輪播檢視',
   AppLocale.alphabetical: '按字母順序',
+  AppLocale.dateAdded: '新增日期',
+  AppLocale.sortByGameCount: '遊戲數量',
   AppLocale.releaseYear: '發行年份',
   AppLocale.manufacturer: '製造商',
   AppLocale.manufacturerType: '製造商 / 類型',

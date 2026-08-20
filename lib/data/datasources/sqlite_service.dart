@@ -1918,6 +1918,8 @@ class SqliteService {
         sfx_enabled INTEGER DEFAULT 1,
         sfx_volume REAL DEFAULT 0.75,
         system_sort_by TEXT DEFAULT 'alphabetical',
+        collection_sort_by TEXT DEFAULT 'name',
+        collection_sort_order TEXT DEFAULT 'asc',
         system_sort_order TEXT DEFAULT 'asc',
         app_language TEXT DEFAULT 'en',
         active_theme TEXT DEFAULT '',
@@ -2747,6 +2749,8 @@ class SqliteService {
     int? use12HourClock,
     String? systemSortBy,
     String? systemSortOrder,
+    String? collectionSortBy,
+    String? collectionSortOrder,
     String? appLanguage,
     String? activeTheme,
     int? hideRecentCard,
@@ -2828,6 +2832,12 @@ class SqliteService {
     }
     if (systemSortOrder != null) {
       updates['system_sort_order'] = systemSortOrder;
+    }
+    if (collectionSortBy != null) {
+      updates['collection_sort_by'] = collectionSortBy;
+    }
+    if (collectionSortOrder != null) {
+      updates['collection_sort_order'] = collectionSortOrder;
     }
     if (appLanguage != null) {
       updates['app_language'] = appLanguage;

@@ -38,10 +38,17 @@ class HeaderSortDropdown extends StatefulWidget {
 /// games it holds, and that preview follows the same setting the games views
 /// use — so the collections browser offers the switch where its effect is
 /// visible instead of making the user find a games list to change it.
+///
+/// [includeCollectionSorting] swaps in the sort rows that mean something for a
+/// collection — name, date added, game count — writing
+/// `collectionSortBy` / `collectionSortOrder` instead of the system pair. It is
+/// the collections answer to [includeSorting]: the two are mutually exclusive,
+/// because a picker cannot offer two different "sort by" groups at once.
 Future<void> showSystemViewDropdown(
   BuildContext context, {
   bool includeSorting = true,
   bool includeCardStyle = false,
+  bool includeCollectionSorting = false,
 }) async {
   final configProvider = context.read<SqliteConfigProvider>();
 
@@ -57,6 +64,7 @@ Future<void> showSystemViewDropdown(
           width: 180.r,
           includeSorting: includeSorting,
           includeCardStyle: includeCardStyle,
+          includeCollectionSorting: includeCollectionSorting,
         ),
       );
     },
@@ -72,6 +80,16 @@ Future<void> showSystemViewDropdown(
       await configProvider.updateSystemSortBy('manufacturer');
     } else if (result == 'sort_manufacturer_type') {
       await configProvider.updateSystemSortBy('manufacturer_type');
+    } else if (result == 'csort_name') {
+      await configProvider.updateCollectionSortBy('name');
+    } else if (result == 'csort_date') {
+      await configProvider.updateCollectionSortBy('date_added');
+    } else if (result == 'csort_count') {
+      await configProvider.updateCollectionSortBy('game_count');
+    } else if (result == 'corder_asc') {
+      await configProvider.updateCollectionSortOrder('asc');
+    } else if (result == 'corder_desc') {
+      await configProvider.updateCollectionSortOrder('desc');
     } else if (result == 'order_asc') {
       await configProvider.updateSystemSortOrder('asc');
     } else if (result == 'order_desc') {
@@ -148,6 +166,10 @@ class SortDropdownOverlay extends StatefulWidget {
   /// rows do not. Suppressing rows here keeps one picker instead of a fork.
   final bool includeSorting;
 
+  /// Whether the collection-shaped "sort by"/"order" groups are offered
+  /// instead. See [showSystemViewDropdown].
+  final bool includeCollectionSorting;
+
   /// Whether the box-art/fanart row is offered. See [showSystemViewDropdown].
   final bool includeCardStyle;
 
@@ -156,6 +178,7 @@ class SortDropdownOverlay extends StatefulWidget {
     required this.width,
     this.includeSorting = true,
     this.includeCardStyle = false,
+    this.includeCollectionSorting = false,
   });
 
   @override
@@ -368,6 +391,42 @@ class _SortDropdownOverlayState extends State<SortDropdownOverlay> {
           isCardStyle: true,
         ),
       );
+    }
+
+    if (widget.includeCollectionSorting) {
+      options.addAll([
+        _DropdownOption(
+          'csort_name',
+          AppLocale.alphabetical.getString(context),
+          Symbols.sort_by_alpha_rounded,
+          group: AppLocale.sortByGroup.getString(context),
+        ),
+        _DropdownOption(
+          'csort_date',
+          AppLocale.dateAdded.getString(context),
+          Symbols.calendar_today_rounded,
+          group: AppLocale.sortByGroup.getString(context),
+        ),
+        _DropdownOption(
+          'csort_count',
+          AppLocale.sortByGameCount.getString(context),
+          Symbols.tag_rounded,
+          group: AppLocale.sortByGroup.getString(context),
+        ),
+        _DropdownOption(
+          'corder_asc',
+          AppLocale.ascending.getString(context),
+          Symbols.arrow_upward_rounded,
+          group: AppLocale.orderGroup.getString(context),
+        ),
+        _DropdownOption(
+          'corder_desc',
+          AppLocale.descending.getString(context),
+          Symbols.arrow_downward_rounded,
+          group: AppLocale.orderGroup.getString(context),
+        ),
+      ]);
+      return options;
     }
 
     if (!widget.includeSorting) return options;
@@ -599,6 +658,16 @@ class _SortDropdownOverlayState extends State<SortDropdownOverlay> {
         isSelected = config.systemSortOrder == 'asc';
       } else if (opt.value == 'order_desc') {
         isSelected = config.systemSortOrder == 'desc';
+      } else if (opt.value == 'csort_name') {
+        isSelected = config.collectionSortBy == 'name';
+      } else if (opt.value == 'csort_date') {
+        isSelected = config.collectionSortBy == 'date_added';
+      } else if (opt.value == 'csort_count') {
+        isSelected = config.collectionSortBy == 'game_count';
+      } else if (opt.value == 'corder_asc') {
+        isSelected = config.collectionSortOrder == 'asc';
+      } else if (opt.value == 'corder_desc') {
+        isSelected = config.collectionSortOrder == 'desc';
       } else if (opt.value == 'view_grid') {
         isSelected = config.systemViewMode == 'grid';
       } else if (opt.value == 'view_carousel') {
