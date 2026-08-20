@@ -702,7 +702,6 @@ class _CollectionsBrowserScreenState extends State<CollectionsBrowserScreen> {
               optionsAnchorKey: _optionsAnchorKey,
               onEnter: _activateSelection,
               onOptions: _openContextMenu,
-              onViewMenu: _openViewMenu,
               onBack: _goBack,
             ),
           ],
@@ -824,35 +823,60 @@ class _CollectionsBrowserScreenState extends State<CollectionsBrowserScreen> {
 
   Widget _buildHeader(ThemeData theme, int count) {
     return Container(
-      padding: EdgeInsets.only(top: 12.r, left: 16.r, right: 16.r, bottom: 4.r),
-      child: Row(
+      padding: EdgeInsets.only(top: 10.r, left: 6.r, right: 16.r, bottom: 4.r),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Opacity(
-            opacity: 0.8,
-            child: Icon(
-              Symbols.bookmarks_rounded,
-              size: 16.r,
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-            ),
+          // View Mode sits top-left, where the systems screen puts it, rather
+          // than in the footer: this screen is a grid of system-style cards and
+          // reads as one, so the control that changes how they are drawn
+          // belongs in the same corner. X still opens it on the pad; the
+          // footer's copy is gone, so there is only ever one of them.
+          Row(
+            children: [
+              GamepadControl(
+                label: AppLocale.viewMode.getString(context),
+                iconPath: 'assets/images/gamepad/Xbox_X_button.png',
+                onTap: _openViewMenu,
+                backgroundColor: theme.colorScheme.tertiaryFixed,
+                textColor: theme.colorScheme.onTertiaryFixed,
+              ),
+              const Spacer(),
+              Text(
+                collectionsCountLabel(context, count).toUpperCase(),
+                style: TextStyle(
+                  fontSize: 9.r,
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.0,
+                ),
+              ),
+            ],
           ),
-          SizedBox(width: 8.r),
-          Text(
-            AppLocale.collections.getString(context).toUpperCase(),
-            style: TextStyle(
-              fontSize: 12.r,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 2.0,
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
-            ),
-          ),
-          const Spacer(),
-          Text(
-            collectionsCountLabel(context, count).toUpperCase(),
-            style: TextStyle(
-              fontSize: 9.r,
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.0,
+          SizedBox(height: 6.r),
+          Padding(
+            padding: EdgeInsets.only(left: 10.r),
+            child: Row(
+              children: [
+                Opacity(
+                  opacity: 0.8,
+                  child: Icon(
+                    Symbols.bookmarks_rounded,
+                    size: 16.r,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                  ),
+                ),
+                SizedBox(width: 8.r),
+                Text(
+                  AppLocale.collections.getString(context).toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 12.r,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 2.0,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -903,7 +927,6 @@ class _CollectionsFooter extends CoreFooter {
     required this.optionsAnchorKey,
     required this.onEnter,
     required this.onOptions,
-    required this.onViewMenu,
     required this.onBack,
   });
 
@@ -917,7 +940,6 @@ class _CollectionsFooter extends CoreFooter {
 
   final VoidCallback onEnter;
   final VoidCallback onOptions;
-  final VoidCallback onViewMenu;
   final VoidCallback onBack;
 
   @override
@@ -939,14 +961,6 @@ class _CollectionsFooter extends CoreFooter {
         iconPath: 'assets/images/gamepad/Xbox_B_button.png',
         label: AppLocale.hintBack.getString(context),
         onTap: onBack,
-        backgroundColor: theme.colorScheme.onSurface.withValues(alpha: 0.1),
-        textColor: theme.colorScheme.onSurface,
-      ),
-      SizedBox(width: 8.r),
-      GamepadControl(
-        iconPath: 'assets/images/gamepad/Xbox_X_button.png',
-        label: AppLocale.viewMode.getString(context),
-        onTap: onViewMenu,
         backgroundColor: theme.colorScheme.onSurface.withValues(alpha: 0.1),
         textColor: theme.colorScheme.onSurface,
       ),
