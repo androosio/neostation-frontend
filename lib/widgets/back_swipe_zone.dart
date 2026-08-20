@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
@@ -30,6 +31,14 @@ class BackSwipeZone extends StatefulWidget {
   /// faster than [_velocityThreshold] fires even on a short travel. Both
   /// inherited from the swipe-to-hide gesture the action rail used to carry,
   /// where velocity-only detection was found to feel stiff.
+  ///
+  /// Measured from touch-down, not from where the recognizer claimed the drag
+  /// — see [DragStartBehavior.down] below. Under the default behaviour the
+  /// first [kTouchSlop] (18) px of travel are spent winning the gesture arena
+  /// and never reach [_dx], so this threshold silently meant ~54 px of thumb
+  /// travel starting inside a [_zoneWidth] strip. That is a long drag on a
+  /// handheld, and a long drag is a late finger-lift, which is what the
+  /// gesture felt like waiting for.
   static const double _distanceThreshold = 36.0;
   static const double _velocityThreshold = 120.0;
 
@@ -53,6 +62,9 @@ class _BackSwipeZoneState extends State<BackSwipeZone> {
       width: BackSwipeZone._zoneWidth.r,
       child: GestureDetector(
         behavior: HitTestBehavior.translucent,
+        // Count the travel from where the finger landed, so the slop spent
+        // claiming the drag is not paid for a second time by the threshold.
+        dragStartBehavior: DragStartBehavior.down,
         onHorizontalDragStart: (_) => _dx = 0,
         onHorizontalDragUpdate: (d) => _dx += d.delta.dx,
         onHorizontalDragEnd: (d) {

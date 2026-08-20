@@ -26,7 +26,14 @@ void main() {
         );
   });
 
-  /// Mounts the zone over a full-screen placeholder, the way the app root does.
+  /// Mounts the zone over scrollable content, the way the app root does.
+  ///
+  /// The scrollable is not scenery. A drag recognizer that is the *only*
+  /// member of the gesture arena is declared the winner at touch-down and
+  /// never pays [kTouchSlop]; it only has to out-travel the slop when
+  /// something else is competing for the pointer. Every real screen under this
+  /// zone has its own recognizers, so a bare placeholder here would exercise a
+  /// gesture no user can perform.
   Future<void> pumpZone(WidgetTester tester) async {
     tester.view.devicePixelRatio = 1.0;
     tester.view.physicalSize = const Size(1920, 1080);
@@ -37,9 +44,14 @@ void main() {
         designSize: const Size(1920, 1080),
         builder: (context, _) => MaterialApp(
           home: Stack(
-            children: const [
-              SizedBox.expand(child: ColoredBox(color: Colors.black)),
-              BackSwipeZone(),
+            children: [
+              ListView(
+                children: List<Widget>.generate(
+                  40,
+                  (i) => SizedBox(height: 80, child: Text('row $i')),
+                ),
+              ),
+              const BackSwipeZone(),
             ],
           ),
         ),
@@ -122,6 +134,26 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(fired, isEmpty);
+  });
+
+  testWidgets('travel is measured from touch-down, not from the drag claim', (
+    tester,
+  ) async {
+    await pumpZone(tester);
+    final fired = activateLayerWithBack(tester);
+
+    // 40 px total, slower than the velocity threshold (80 px/s), so only the
+    // distance rule can fire it. Under the default DragStartBehavior.start the
+    // first kTouchSlop (18) px are eaten winning the arena, leaving 22 px —
+    // below the 36 px threshold, so this swipe used to do nothing.
+    await tester.timedDrag(
+      find.byType(BackSwipeZone),
+      const Offset(40, 0),
+      const Duration(milliseconds: 500),
+    );
+    await tester.pumpAndSettle();
+
+    expect(fired, hasLength(1));
   });
 
   testWidgets('a swipe left is not a back swipe', (tester) async {
