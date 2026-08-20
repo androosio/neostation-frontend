@@ -28,7 +28,7 @@ List<SystemInfo> buildSystemsList({
   final collections =
       collectionsProvider ??
       Provider.of<CollectionsProvider>(context, listen: false);
-  final totalCollections = collections.collections.length;
+  final collectionGames = collections.memberGameCount;
   const recentCount = 1;
   final hideRecent = configProvider.config.hideRecentCard;
   final recentDbGames = hideRecent
@@ -74,14 +74,14 @@ List<SystemInfo> buildSystemsList({
                 .replaceFirst('{count}', totalFavorites.toString()),
           );
         } else if (system.folderName == SystemFolderNames.collections) {
-          // The Collections card counts collections, not games — the games it
-          // leads to belong to their own systems and are already counted there.
-          return info.copyWith(
-            numOfRoms: totalCollections,
-            totalStorage: AppLocale.collectionsCount
-                .getString(context)
-                .replaceFirst('{count}', totalCollections.toString()),
-          );
+          // The count is of the games the collections hold, not of the
+          // collections themselves. The card sits in a row of system cards
+          // that all answer "how many games are in here", and it is the only
+          // one whose own contents are a level further down, so counting the
+          // containers would make it the odd one out. Distinct, so a game in
+          // two collections is counted once — see
+          // CollectionsProvider.memberGameCount.
+          return info.copyWith(numOfRoms: collectionGames);
         }
         return info;
       });

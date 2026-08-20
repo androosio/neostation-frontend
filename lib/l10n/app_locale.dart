@@ -742,8 +742,21 @@ mixin AppLocale {
   static const String recentBadge = 'recent_badge';
   static const String unknownGame = 'unknown_game';
   static const String unknownSystem = 'unknown_system';
+  // Count labels for a card or header ("12 Games", "1 Game"). Each noun has a
+  // singular and a plural template rather than a shared noun concatenated onto
+  // a number: the word order is not the same in every language (ru puts the
+  // number last, ko puts it mid-phrase), so the number has to be interpolated
+  // into a translated template, not glued to a translated word.
+  //
+  // The split is binary, so it is exact only for languages whose plural rule
+  // is one-vs-many. ru has a third form for 5+ ('Игр:') that these two keys
+  // cannot carry; the plural key holds it, so ru is right at 1 and for 5+ and
+  // reads slightly off at 2-4. That is still better than the always-plural it
+  // replaces. Use lib/utils/count_label.dart rather than these keys directly.
   static const String gamesCount = 'games_count';
+  static const String gameCount = 'game_count';
   static const String appsCount = 'apps_count';
+  static const String appCount = 'app_count';
   static const String errorSystemNotFound = 'error_system_not_found';
   static const String errorLaunchingGame = 'error_launching_game';
   static const String settingsNotAvailableRecent =
@@ -773,6 +786,7 @@ mixin AppLocale {
   static const String second = 'second';
   static const String unknown = 'unknown';
   static const String tracksCount = 'tracks_count';
+  static const String trackCount = 'track_count';
   static const String hours = 'hours';
   static const String minutes = 'minutes';
   static const String seconds = 'seconds';
@@ -833,6 +847,7 @@ mixin AppLocale {
   static const String newCollectionDefaultName = 'new_collection_default_name';
   static const String collections = 'collections';
   static const String collectionsCount = 'collections_count';
+  static const String collectionCount = 'collection_count';
 
   // ---------------------------------------------------------------------------
   // Collections browser screen

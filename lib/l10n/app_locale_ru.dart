@@ -603,6 +603,7 @@ const Map<String, dynamic> appLocaleRu = {
   AppLocale.newCollectionDefaultName: 'Коллекция {number}',
   AppLocale.collections: 'Коллекции',
   AppLocale.collectionsCount: 'Коллекций: {count}',
+  AppLocale.collectionCount: 'Коллекция: {count}',
 
   // Collections browser screen
   AppLocale.createCollection: 'Новая коллекция',
@@ -786,7 +787,9 @@ const Map<String, dynamic> appLocaleRu = {
   AppLocale.unknownGame: 'НЕИЗВЕСТНАЯ ИГРА',
   AppLocale.unknownSystem: 'НЕИЗВЕСТНАЯ СИСТЕМА',
   AppLocale.gamesCount: 'Игр: {count}',
+  AppLocale.gameCount: 'Игра: {count}',
   AppLocale.appsCount: 'Приложений: {count}',
+  AppLocale.appCount: 'Приложение: {count}',
   AppLocale.errorSystemNotFound: 'Ошибка: Система для этой игры не найдена.',
   AppLocale.errorLaunchingGame: 'Ошибка запуска игры: {error}',
   AppLocale.settingsNotAvailableRecent:
@@ -818,6 +821,7 @@ const Map<String, dynamic> appLocaleRu = {
   AppLocale.second: 'Секунда',
   AppLocale.unknown: 'Неизвестно',
   AppLocale.tracksCount: 'Треков: {count}',
+  AppLocale.trackCount: 'Трек: {count}',
   AppLocale.hours: 'Часов',
   AppLocale.minutes: 'Минут',
   AppLocale.seconds: 'Секунд',

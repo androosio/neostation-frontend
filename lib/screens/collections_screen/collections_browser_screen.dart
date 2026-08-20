@@ -18,6 +18,7 @@ import 'package:neostation/providers/file_provider.dart';
 import 'package:neostation/providers/sqlite_config_provider.dart';
 import 'package:neostation/models/my_systems.dart';
 import 'package:neostation/responsive.dart';
+import 'package:neostation/utils/count_label.dart';
 import 'package:neostation/services/collections/collections_service.dart';
 import 'package:neostation/services/logger_service.dart';
 import 'package:neostation/services/permission_service.dart';
@@ -642,12 +643,7 @@ class _CollectionsBrowserScreenState extends State<CollectionsBrowserScreen> {
                   AppLocale.createCollection.getString(context),
               countText: _selectedCollection == null
                   ? null
-                  : AppLocale.gamesCount
-                        .getString(context)
-                        .replaceFirst(
-                          '{count}',
-                          '${_selectedCollection!.gameCount}',
-                        ),
+                  : gamesCountLabel(context, _selectedCollection!.gameCount),
               showOptions: _selectedCollection != null,
               optionsAnchorKey: _optionsAnchorKey,
               onEnter: _activateSelection,
@@ -795,10 +791,7 @@ class _CollectionsBrowserScreenState extends State<CollectionsBrowserScreen> {
           ),
           const Spacer(),
           Text(
-            AppLocale.collectionsCount
-                .getString(context)
-                .replaceFirst('{count}', '$count')
-                .toUpperCase(),
+            collectionsCountLabel(context, count).toUpperCase(),
             style: TextStyle(
               fontSize: 9.r,
               color: theme.colorScheme.onSurface.withValues(alpha: 0.4),

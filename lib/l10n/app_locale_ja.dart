@@ -531,6 +531,7 @@ const Map<String, dynamic> appLocaleJa = {
   AppLocale.newCollectionDefaultName: 'コレクション {number}',
   AppLocale.collections: 'コレクション',
   AppLocale.collectionsCount: '{count} 件のコレクション',
+  AppLocale.collectionCount: '{count} 件のコレクション',
 
   // Collections browser screen
   AppLocale.createCollection: '新しいコレクション',
@@ -709,7 +710,9 @@ const Map<String, dynamic> appLocaleJa = {
   AppLocale.unknownGame: '不明なゲーム',
   AppLocale.unknownSystem: '不明なシステム',
   AppLocale.gamesCount: '{count}個のゲーム',
+  AppLocale.gameCount: '{count}個のゲーム',
   AppLocale.appsCount: '{count}個のアプリ',
+  AppLocale.appCount: '{count}個のアプリ',
   AppLocale.errorSystemNotFound: 'エラー: このゲームのシステムが見つかりません。',
   AppLocale.errorLaunchingGame: 'ゲームの起動中にエラーが発生しました: {error}',
   AppLocale.settingsNotAvailableRecent: 'ここでは最近プレイしたゲームの設定は利用できません。',
@@ -738,6 +741,7 @@ const Map<String, dynamic> appLocaleJa = {
   AppLocale.second: '秒',
   AppLocale.unknown: '不明',
   AppLocale.tracksCount: '{count}曲',
+  AppLocale.trackCount: '{count}曲',
   AppLocale.hours: '時間',
   AppLocale.minutes: '分',
   AppLocale.seconds: '秒',

@@ -593,6 +593,7 @@ const Map<String, dynamic> appLocaleId = {
   AppLocale.newCollectionDefaultName: 'Koleksi {number}',
   AppLocale.collections: 'Koleksi',
   AppLocale.collectionsCount: '{count} Koleksi',
+  AppLocale.collectionCount: '{count} Koleksi',
 
   // Collections browser screen
   AppLocale.createCollection: 'Koleksi baru',
@@ -778,7 +779,9 @@ const Map<String, dynamic> appLocaleId = {
   AppLocale.unknownGame: 'Game Tidak Dikenal',
   AppLocale.unknownSystem: 'Sistem Tidak Dikenal',
   AppLocale.gamesCount: '{count} game',
+  AppLocale.gameCount: '{count} game',
   AppLocale.appsCount: '{count} aplikasi',
+  AppLocale.appCount: '{count} aplikasi',
   AppLocale.errorSystemNotFound:
       'Kesalahan: Sistem tidak ditemukan untuk game ini.',
   AppLocale.errorLaunchingGame: 'Kesalahan saat menjalankan game: {error}',
@@ -814,6 +817,7 @@ const Map<String, dynamic> appLocaleId = {
   AppLocale.second: 'detik',
   AppLocale.unknown: 'tidak diketahui',
   AppLocale.tracksCount: '{count} lagu',
+  AppLocale.trackCount: '{count} lagu',
   AppLocale.hours: 'jam',
   AppLocale.minutes: 'menit',
   AppLocale.seconds: 'detik',

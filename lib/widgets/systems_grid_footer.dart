@@ -3,6 +3,7 @@ import 'package:flutter_localization/flutter_localization.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:neostation/l10n/app_locale.dart';
 import 'package:neostation/models/my_systems.dart';
+import 'package:neostation/utils/count_label.dart';
 import 'core_footer.dart';
 import 'footer_label_pill.dart';
 
@@ -33,14 +34,23 @@ class SystemsGridFooter extends CoreFooter {
           ? "${AppLocale.lastPlayed.getString(context)}: ${system.title}"
           : system.title ?? "",
       // Games are one-offs, so only real systems carry a count.
-      countText: system.isGame
-          ? null
-          : "${system.numOfRoms} ${system.folderName == 'android'
-                ? AppLocale.apps.getString(context)
-                : system.folderName == 'music'
-                ? AppLocale.tracks.getString(context)
-                : AppLocale.games.getString(context)}",
+      countText: system.isGame ? null : _countText(context),
     );
+  }
+
+  /// The card's count label, e.g. "12 Games", "1 App", "48 Tracks".
+  ///
+  /// The noun follows the folder; everything that is not the Android apps
+  /// grid or the music library holds games, the Collections card included —
+  /// its count is of the games its collections hold, not of the collections
+  /// (see `system_list_builder.dart`).
+  String _countText(BuildContext context) {
+    final count = system.numOfRoms ?? 0;
+    return switch (system.folderName) {
+      'android' => appsCountLabel(context, count),
+      'music' => tracksCountLabel(context, count),
+      _ => gamesCountLabel(context, count),
+    };
   }
 
   @override

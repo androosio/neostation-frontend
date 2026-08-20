@@ -522,6 +522,7 @@ const Map<String, dynamic> appLocaleZhHant = {
   AppLocale.newCollectionDefaultName: '合集 {number}',
   AppLocale.collections: '合集',
   AppLocale.collectionsCount: '{count} 個合集',
+  AppLocale.collectionCount: '{count} 個合集',
 
   // Collections browser screen
   AppLocale.createCollection: '新增合集',
@@ -694,7 +695,9 @@ const Map<String, dynamic> appLocaleZhHant = {
   AppLocale.unknownGame: '未知遊戲',
   AppLocale.unknownSystem: '未知系統',
   AppLocale.gamesCount: '{count} 個遊戲',
+  AppLocale.gameCount: '{count} 個遊戲',
   AppLocale.appsCount: '{count} 個應用程式',
+  AppLocale.appCount: '{count} 個應用程式',
   AppLocale.errorSystemNotFound: '錯誤：未發現該遊戲的系統。',
   AppLocale.errorLaunchingGame: '啟動遊戲發生錯誤：{error}',
   AppLocale.settingsNotAvailableRecent: '此處無法使用最近遊玩設定。',
@@ -723,6 +726,7 @@ const Map<String, dynamic> appLocaleZhHant = {
   AppLocale.second: '秒',
   AppLocale.unknown: '未知',
   AppLocale.tracksCount: '{count} 首曲目',
+  AppLocale.trackCount: '{count} 首曲目',
   AppLocale.hours: '小時',
   AppLocale.minutes: '分鐘',
   AppLocale.seconds: '秒',

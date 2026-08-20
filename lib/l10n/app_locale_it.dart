@@ -611,6 +611,7 @@ const Map<String, dynamic> appLocaleIt = {
   AppLocale.newCollectionDefaultName: 'Raccolta {number}',
   AppLocale.collections: 'Raccolte',
   AppLocale.collectionsCount: '{count} Raccolte',
+  AppLocale.collectionCount: '{count} Raccolta',
 
   // Collections browser screen
   AppLocale.createCollection: 'Nuova raccolta',
@@ -797,7 +798,9 @@ const Map<String, dynamic> appLocaleIt = {
   AppLocale.unknownGame: 'Gioco Sconosciuto',
   AppLocale.unknownSystem: 'Sistema Sconosciuto',
   AppLocale.gamesCount: '{count} giochi',
+  AppLocale.gameCount: '{count} gioco',
   AppLocale.appsCount: '{count} app',
+  AppLocale.appCount: '{count} app',
   AppLocale.errorSystemNotFound:
       'Errore : Sistema non trovato per questo gioco.',
   AppLocale.errorLaunchingGame: 'Errore durante l’avvio del gioco : {error}',
@@ -834,6 +837,7 @@ const Map<String, dynamic> appLocaleIt = {
   AppLocale.second: 'secondo',
   AppLocale.unknown: 'sconosciuto',
   AppLocale.tracksCount: '{count} brani',
+  AppLocale.trackCount: '{count} brano',
   AppLocale.hours: 'ore',
   AppLocale.minutes: 'minuti',
   AppLocale.seconds: 'secondi',

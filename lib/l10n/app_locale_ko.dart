@@ -537,6 +537,7 @@ const Map<String, dynamic> appLocaleKo = {
   AppLocale.newCollectionDefaultName: '컬렉션 {number}',
   AppLocale.collections: '컬렉션',
   AppLocale.collectionsCount: '컬렉션 {count}개',
+  AppLocale.collectionCount: '컬렉션 {count}개',
 
   // Collections browser screen
   AppLocale.createCollection: '새 컬렉션',
@@ -715,7 +716,9 @@ const Map<String, dynamic> appLocaleKo = {
   AppLocale.unknownGame: '알 수 없는 게임',
   AppLocale.unknownSystem: '알 수 없는 시스템',
   AppLocale.gamesCount: '{count} 게임',
+  AppLocale.gameCount: '{count} 게임',
   AppLocale.appsCount: '{count} 앱',
+  AppLocale.appCount: '{count} 앱',
   AppLocale.errorSystemNotFound: '오류: 이 게임에 대한 시스템을 찾을 수 없습니다.',
   AppLocale.errorLaunchingGame: '게임 실행 중 오류 발생: {error}',
   AppLocale.settingsNotAvailableRecent: '최근 게임 카드에서는 설정을 사용할 수 없습니다.',
@@ -744,6 +747,7 @@ const Map<String, dynamic> appLocaleKo = {
   AppLocale.second: '초',
   AppLocale.unknown: '알 수 없음',
   AppLocale.tracksCount: '{count} 트랙',
+  AppLocale.trackCount: '{count} 트랙',
   AppLocale.hours: '시간',
   AppLocale.minutes: '분',
   AppLocale.seconds: '초',

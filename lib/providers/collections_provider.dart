@@ -48,6 +48,15 @@ class CollectionsProvider extends ChangeNotifier {
   /// once per collection).
   int get totalGameCount => _collections.fold(0, (sum, c) => sum + c.gameCount);
 
+  /// Number of *distinct* games filed in at least one collection.
+  ///
+  /// Distinct rather than the sum of the per-collection counts, because a game
+  /// in three collections is still one game and a rollup that can exceed the
+  /// size of the library reads as a bug. [totalGameCount] is the sum, for a
+  /// caller that wants memberships. Free: [_memberRomPaths] is already loaded
+  /// for the games views' collection badge.
+  int get memberGameCount => _memberRomPaths.length;
+
   /// Cache-busting counter for collection artwork.
   int get imageVersion => _imageVersion;
 
