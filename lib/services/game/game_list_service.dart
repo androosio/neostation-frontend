@@ -144,7 +144,7 @@ class GameListService {
             )
             .toList();
 
-        return _mapAggregateGames(databaseGames);
+        return await _mapAggregateGames(databaseGames);
       }
 
       if (system.id == null) {

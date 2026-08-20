@@ -465,13 +465,14 @@ class _CollectionsBrowserScreenState extends State<CollectionsBrowserScreen> {
       );
     }
 
-    final result = await FilePicker.pickFiles(
+    final result = await FilePicker.pickFile(
       type: FileType.custom,
       allowedExtensions: CollectionsService.supportedImageExtensions,
       dialogTitle: dialogTitle,
-      lockParentWindow: true,
+      windowsOptions: const WindowsOptions(lockParentWindow: true),
+      linuxOptions: const LinuxOptions(lockParentWindow: true),
     );
-    return result?.files.single.path;
+    return result?.path;
   }
 
   /// Shows the name prompt, holding the busy flag so a bounced press cannot
