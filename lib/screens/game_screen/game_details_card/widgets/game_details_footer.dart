@@ -72,11 +72,15 @@ class GameDetailsFooter extends StatelessWidget {
         GameUtils.formatPlayTime(game.playTime ?? 0) != '0s';
     final bool showsAchievements = _showsAchievements(context);
 
-    // The clock's home is the achievements row; it only falls back to the
-    // status line when there is no such row to sit beside.
-    final bool showsInlinePlayTime = hasPlayTime && !showsAchievements;
+    // The clock has one home: the bottom row, right-aligned. It used to fall
+    // back onto the status line for games with no achievements pill, which
+    // meant it jumped a line up and back down as the user moved between a
+    // matched game and an unmatched one — the two states are next to each
+    // other in any list, so the jump was constant. The row now outlives the
+    // pill: no pill just means the clock has the row to itself.
+    final bool showsBottomRow = showsAchievements || hasPlayTime;
     final List<Widget> metadata = _buildMetadata(hasRating: hasRating);
-    final bool showsStatusLine = metadata.isNotEmpty || showsInlinePlayTime;
+    final bool showsStatusLine = metadata.isNotEmpty;
 
     // No fixed height any more: the achievements pill can be absent, and when
     // it is the footer has to give the artwork the 53.r back rather than hold
@@ -125,34 +129,10 @@ class GameDetailsFooter extends StatelessWidget {
                 // content, so the lines below simply move down.
                 if (showsStatusLine) ...[
                   SizedBox(
-                    // The clock is the tallest thing that can land on this
-                    // line, and it is only here when there is no achievements
-                    // row to hold it.
-                    height: showsInlinePlayTime
-                        ? _playTimeLineHeight
-                        : _statusLineHeight,
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        if (metadata.isNotEmpty)
-                          Expanded(
-                            child: ScrollingStatusLine(
-                              resetKey: game.romname,
-                              children: metadata,
-                            ),
-                          ),
-
-                        // Accumulated play time, but only as a fallback: when
-                        // there is no achievements row the clock comes back up
-                        // here rather than disappearing for every game
-                        // RetroAchievements has nothing to say about. It is
-                        // pinned outside the marquee — a number that scrolled
-                        // out of view would be worse than not showing it.
-                        if (showsInlinePlayTime) ...[
-                          if (metadata.isNotEmpty) SizedBox(width: 12.r),
-                          _InlinePlayTime(game: game),
-                        ],
-                      ],
+                    height: _statusLineHeight,
+                    child: ScrollingStatusLine(
+                      resetKey: game.romname,
+                      children: metadata,
                     ),
                   ),
                   SizedBox(height: 2.r),
@@ -190,8 +170,7 @@ class GameDetailsFooter extends StatelessWidget {
                 ),
 
                 // Actionable Section: the achievements pill, with the play-time
-                // clock beside it, and only when the pill has something to
-                // report.
+                // clock to the right of it.
                 //
                 // The rating and sync widgets that used to share this row were
                 // inert — they looked like controls and answered to nothing —
@@ -203,30 +182,40 @@ class GameDetailsFooter extends StatelessWidget {
                 // the pill no longer needs the full width, and playtime next to
                 // achievement progress reads as one "how far in am I" cluster.
                 //
-                // When the pill has nothing to say the row is omitted outright
-                // rather than reserved, and because the footer is sized by its
-                // content the two lines above simply settle into the space.
-                if (showsAchievements) ...[
+                // The row is kept at a fixed height and drawn for either
+                // occupant, so a played game with no achievements shows the
+                // clock in exactly the place a matched game does. Moving
+                // between the two is otherwise a jump: unmatched games sit
+                // right next to matched ones in every list.
+                if (showsBottomRow) ...[
                   SizedBox(height: 8.r),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Expanded(
-                        child: ExcludeFocus(
-                          child: LayoutBuilder(
-                            builder: (context, constraints) =>
-                                _buildCompactAchievementsIndicator(
-                                  context,
-                                  availableWidth: constraints.maxWidth,
-                                ),
-                          ),
+                  SizedBox(
+                    height: _bottomRowHeight,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        // Expanded either way: with a pill it is the pill's
+                        // slot, without one it is the empty space that holds
+                        // the clock out at the right edge.
+                        Expanded(
+                          child: showsAchievements
+                              ? ExcludeFocus(
+                                  child: LayoutBuilder(
+                                    builder: (context, constraints) =>
+                                        _buildCompactAchievementsIndicator(
+                                          context,
+                                          availableWidth: constraints.maxWidth,
+                                        ),
+                                  ),
+                                )
+                              : const SizedBox.shrink(),
                         ),
-                      ),
-                      if (hasPlayTime) ...[
-                        SizedBox(width: 12.r),
-                        _InlinePlayTime(game: game),
+                        if (hasPlayTime) ...[
+                          SizedBox(width: 12.r),
+                          _InlinePlayTime(game: game),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ],
               ],
@@ -608,10 +597,10 @@ List<Shadow> get _onArtShadows => [
 /// it, the 15.r rating star.
 double get _statusLineHeight => 15.r;
 
-/// Height of the same line on the games where the play-time clock falls back
-/// onto it. The 22.r clock glyph is taller than anything in the metadata strip,
-/// so the line grows rather than clipping it.
-double get _playTimeLineHeight => 22.r;
+/// Height of the bottom row, matching the achievements pill's own 45.r. Fixed
+/// rather than taken from whatever is in it, so the play-time clock sits at the
+/// same height whether or not the pill is beside it.
+double get _bottomRowHeight => 45.r;
 
 /// Height of the identity line, fixed for the same reason: the filename is
 /// empty for an unscraped game. Driven by the 16.0 sync icon that sits at the
@@ -734,10 +723,9 @@ class _FactSeparator extends StatelessWidget {
   }
 }
 
-/// Accumulated play time as a clock glyph and an HH:MM:SS reading, to the right
-/// of the achievements pill (or on the status line when there is no pill).
-/// Moved out of the action row as a pill for the same reason as
-/// [_InlineRating]: it reported, it did not act.
+/// Accumulated play time as a clock glyph and an HH:MM:SS reading, at the right
+/// end of the footer's bottom row. Moved out of the action row as a pill for
+/// the same reason as [_InlineRating]: it reported, it did not act.
 class _InlinePlayTime extends StatelessWidget {
   final GameModel game;
 
@@ -761,8 +749,8 @@ class _InlinePlayTime extends StatelessWidget {
         // Sized well past the 11.r it used to be: beside a 45.r pill, and the
         // only thing on that side of the row, the small reading looked like a
         // caption that had drifted there. It is now the largest text in the
-        // footer by some way, which is right — it is the one number the row is
-        // for, and it is reading it at a glance from arm's length that matters.
+        // footer by some way, which is right — reading it at a glance from
+        // arm's length is the point.
         Icon(
           Symbols.schedule_rounded,
           color: Colors.white,
