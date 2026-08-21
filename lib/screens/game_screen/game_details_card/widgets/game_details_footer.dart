@@ -77,7 +77,8 @@ class GameDetailsFooter extends StatelessWidget {
     // meant it jumped a line up and back down as the user moved between a
     // matched game and an unmatched one — the two states are next to each
     // other in any list, so the jump was constant. The row now outlives the
-    // pill: no pill just means the clock has the row to itself.
+    // pill: no pill just means the clock has the row to itself, in a row that
+    // shrinks to fit it.
     final bool showsBottomRow = showsAchievements || hasPlayTime;
     final List<Widget> metadata = _buildMetadata(hasRating: hasRating);
     final bool showsStatusLine = metadata.isNotEmpty;
@@ -182,15 +183,21 @@ class GameDetailsFooter extends StatelessWidget {
                 // the pill no longer needs the full width, and playtime next to
                 // achievement progress reads as one "how far in am I" cluster.
                 //
-                // The row is kept at a fixed height and drawn for either
-                // occupant, so a played game with no achievements shows the
-                // clock in exactly the place a matched game does. Moving
-                // between the two is otherwise a jump: unmatched games sit
-                // right next to matched ones in every list.
+                // The row is drawn for either occupant, so the clock is in the
+                // same corner whether or not the game is matched — moving
+                // between the two is otherwise a jump up onto the metadata
+                // line, and unmatched games sit right next to matched ones in
+                // every list.
+                //
+                // Its height is the pill's when the pill is there and the
+                // clock's when it is not, rather than the pill's reserved in
+                // both cases: an empty 45.r band under the filename is the
+                // footer holding artwork hostage for a widget that is not
+                // coming. The rest of the block drops into the space instead.
                 if (showsBottomRow) ...[
                   SizedBox(height: 8.r),
                   SizedBox(
-                    height: _bottomRowHeight,
+                    height: showsAchievements ? _bottomRowHeight : null,
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
@@ -597,9 +604,9 @@ List<Shadow> get _onArtShadows => [
 /// it, the 15.r rating star.
 double get _statusLineHeight => 15.r;
 
-/// Height of the bottom row, matching the achievements pill's own 45.r. Fixed
-/// rather than taken from whatever is in it, so the play-time clock sits at the
-/// same height whether or not the pill is beside it.
+/// Height of the bottom row when the achievements pill is in it, matching the
+/// pill's own 45.r. Without the pill the row takes the clock's height instead
+/// of reserving this, so the footer gives the space back to the artwork.
 double get _bottomRowHeight => 45.r;
 
 /// Height of the identity line, fixed for the same reason: the filename is
@@ -758,20 +765,93 @@ class _InlinePlayTime extends StatelessWidget {
           shadows: _onArtShadows,
         ),
         SizedBox(width: 6.r),
-        Text(
-          _formatClock(game.playTime ?? 0),
+        _MonospacedClock(
+          text: _formatClock(game.playTime ?? 0),
           style: TextStyle(
             color: Colors.white,
             fontSize: 20.r,
             fontWeight: FontWeight.w700,
             height: 1.15,
-            // Tabular figures so a ticking clock does not shuffle the line
-            // width on every redraw.
-            fontFeatures: const [FontFeature.tabularFigures()],
             shadows: _onArtShadows,
           ),
         ),
       ],
     );
   }
+}
+
+/// A clock reading whose glyphs do not move as the number changes.
+///
+/// The app's typeface (Anta) carries no `tnum` table, so
+/// [FontFeature.tabularFigures] — which this used to rely on — is silently a
+/// no-op and every digit is its own width. Measured on device, "00:00:40" ran
+/// 19 logical pixels wider than "00:01:20": right-aligned at the end of the
+/// footer, that walked the whole reading sideways whenever a digit changed,
+/// and a ticking clock did it once a second.
+///
+/// So the cells are made by hand: every digit gets the width of the widest
+/// digit in this style and is centred in it, which is what tabular figures
+/// would have done. The separators keep their own width — they never vary.
+class _MonospacedClock extends StatelessWidget {
+  final String text;
+  final TextStyle style;
+
+  const _MonospacedClock({required this.text, required this.style});
+
+  /// Cache of the per-style measurements, keyed by the two things that change
+  /// them. Without this, every selection change would re-lay-out eleven
+  /// throwaway [TextPainter]s.
+  static final Map<String, _ClockMetrics> _metricsCache = {};
+
+  static _ClockMetrics _metricsFor(TextStyle style, TextScaler scaler) {
+    final String key =
+        '${style.fontSize}/${style.fontWeight}/'
+        '${scaler.scale(100)}/${style.fontFamily}';
+    return _metricsCache.putIfAbsent(key, () {
+      double widthOf(String character) {
+        final TextPainter painter = TextPainter(
+          text: TextSpan(text: character, style: style),
+          textDirection: TextDirection.ltr,
+          textScaler: scaler,
+        )..layout();
+        final double width = painter.width;
+        painter.dispose();
+        return width;
+      }
+
+      double widest = 0;
+      for (int digit = 0; digit <= 9; digit++) {
+        final double width = widthOf('$digit');
+        if (width > widest) widest = width;
+      }
+      return _ClockMetrics(digit: widest, separator: widthOf(':'));
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final _ClockMetrics metrics = _metricsFor(
+      style,
+      MediaQuery.textScalerOf(context),
+    );
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final String character in text.split(''))
+          SizedBox(
+            width: character == ':' ? metrics.separator : metrics.digit,
+            child: Text(character, textAlign: TextAlign.center, style: style),
+          ),
+      ],
+    );
+  }
+}
+
+/// The cell widths a clock reading is laid out on.
+class _ClockMetrics {
+  final double digit;
+  final double separator;
+
+  const _ClockMetrics({required this.digit, required this.separator});
 }
