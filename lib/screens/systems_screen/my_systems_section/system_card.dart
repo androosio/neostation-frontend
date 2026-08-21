@@ -17,6 +17,7 @@ import '../../../utils/image_utils.dart';
 import '../../../widgets/cover_mosaic.dart';
 import '../../../widgets/system_logo_fallback.dart';
 import '../../../utils/game_utils.dart';
+import '../../../utils/count_label.dart';
 
 /// Replaces the card the systems grid/carousel would otherwise build for one
 /// entry.
@@ -44,6 +45,7 @@ class SystemCard extends StatefulWidget {
     super.key,
     required this.info,
     this.onTap,
+    this.onLongPress,
     this.isSelected = false,
     this.backgroundCacheWidth = 512,
   });
@@ -53,6 +55,12 @@ class SystemCard extends StatefulWidget {
 
   /// Interaction callback for pointer/controller selection.
   final VoidCallback? onTap;
+
+  /// Touch route to the card's context menu, i.e. what Y does on a pad.
+  ///
+  /// Null leaves the card without a long-press gesture at all rather than
+  /// giving it an inert one, so a host that has no menu costs nothing.
+  final VoidCallback? onLongPress;
 
   /// Whether this card currently has visual focus in the grid.
   final bool isSelected;
@@ -266,6 +274,9 @@ class _SystemCardState extends State<SystemCard> {
                 }
                 widget.onTap?.call();
               },
+              // No sound here: every host opens a menu from this callback and
+              // plays its own, so playing one too would double it.
+              onLongPress: widget.onLongPress,
               canRequestFocus: false,
               focusColor: Colors.transparent,
               hoverColor: Colors.transparent,
@@ -632,27 +643,73 @@ class _SystemCardState extends State<SystemCard> {
     );
   }
 
-  /// Renders a bottom footer with the system logo for non-game system cards.
+  /// Renders a bottom footer with the system logo and its count for non-game
+  /// system cards.
   ///
   /// The footer expands to fill the remaining space below the square artwork,
   /// and the logo is auto-sized to fit while keeping its aspect ratio.
+  ///
+  /// The count sits under the logo because the screen's own footer no longer
+  /// exists to carry it: the card is now the only thing that says how much is
+  /// inside, so it has to say it itself.
   Widget _buildSystemFooter(BuildContext context) {
     final assetLogoPath = _resolveSystemLogoPath();
 
     return Expanded(
       child: Container(
-        alignment: Alignment.center,
         padding: EdgeInsets.only(top: 1.r, bottom: 1.r, left: 2.r, right: 2.r),
-        child: FittedBox(
-          fit: BoxFit.contain,
-          child: _buildSystemLogo(
-            assetLogoPath,
-            height: 128.r,
-            color: Theme.of(context).colorScheme.onSurface,
-          ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Expanded(
+              child: FittedBox(
+                fit: BoxFit.contain,
+                child: _buildSystemLogo(
+                  assetLogoPath,
+                  height: 128.r,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+              ),
+            ),
+            _buildSystemCount(context),
+          ],
         ),
       ),
     );
+  }
+
+  /// The card's count line, e.g. "12 GAMES", "1 APP", "48 TRACKS".
+  ///
+  /// Styled to match the game card's TIME PLAYED line so the two card kinds
+  /// read as the same component with a different last row.
+  Widget _buildSystemCount(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(top: 2.r),
+      child: Text(
+        _countText(context).toUpperCase(),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+          fontSize: 10.r,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 1.0,
+        ),
+      ),
+    );
+  }
+
+  /// The noun follows the folder: everything that is not the Android apps grid
+  /// or the music library holds games, the Collections card included — its
+  /// count is of the games its collections hold, not of the collections (see
+  /// `system_list_builder.dart`).
+  String _countText(BuildContext context) {
+    final count = widget.info.numOfRoms ?? 0;
+    return switch (widget.info.folderName) {
+      'android' => appsCountLabel(context, count),
+      'music' => tracksCountLabel(context, count),
+      _ => gamesCountLabel(context, count),
+    };
   }
 
   /// Resolves the logo asset path for this system.

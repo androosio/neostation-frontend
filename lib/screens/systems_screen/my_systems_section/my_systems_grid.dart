@@ -34,7 +34,8 @@ import 'package:neostation/providers/theme_provider.dart';
 import '../../collections_screen/collections_browser_screen.dart';
 import '../../game_screen/android_apps/android_apps_grid.dart';
 import 'package:neostation/widgets/header_sort_dropdown.dart';
-import 'package:neostation/widgets/systems_grid_footer.dart';
+import 'package:neostation/widgets/context_menu/anchored_context_menu.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import 'package:neostation/services/logger_service.dart';
 import 'package:neostation/models/secondary_display_state.dart';
@@ -54,6 +55,11 @@ part 'my_systems_grid/pull_to_refresh.dart';
 /// [SystemCardGridView.navLayerId].
 const String kSystemsGridNavLayerId = 'my_systems_list';
 
+const String _menuSettings = 'settings';
+const String _menuViewMode = 'view_mode';
+const String _menuViewGrid = 'view_grid';
+const String _menuViewCarousel = 'view_carousel';
+
 /// Primary widget for the 'My Systems' view, supporting both Grid and Carousel layouts.
 ///
 /// Orchestrates the selection and navigation of gaming systems, including handling
@@ -68,6 +74,11 @@ class MySystems extends StatelessWidget {
 
   /// Notifier to hide the systems grid while a game launch dialog is active.
   static final gridLaunchNotifier = ValueNotifier<bool>(false);
+
+  /// Anchor for the card context menu: both layouts move this key onto
+  /// whichever card is selected, so the menu opens beside that card rather
+  /// than in the middle of the screen.
+  static final GlobalKey _cardAnchorKey = GlobalKey();
 
   /// Currently selected system index in the active layout (Grid or Carousel).
   final int selectedIndex;
@@ -102,29 +113,18 @@ class MySystems extends StatelessWidget {
                 ? allSystems[selectedIndex]
                 : allSystems[0];
 
-            systemsWidget = Column(
-              children: [
-                Expanded(
-                  child: Padding(
-                    padding: EdgeInsets.only(top: 42.r),
-                    child: MySystemsCarousel(
-                      selectedIndex: selectedIndex,
-                      onCardTapped: onCardTapped,
-                    ),
-                  ),
+            systemsWidget = Padding(
+              padding: EdgeInsets.only(top: 42.r),
+              child: MySystemsCarousel(
+                selectedIndex: selectedIndex,
+                onCardTapped: onCardTapped,
+                selectedItemKey: _cardAnchorKey,
+                onYPressed: () => _openSystemContextMenu(
+                  context,
+                  currentSystem,
+                  configProvider,
                 ),
-                SystemsGridFooter(
-                  system: currentSystem,
-                  onEnter: () {
-                    SfxService().playEnterSound();
-                    _navigateToSystem(context, currentSystem, configProvider);
-                  },
-                  onSettings: () {
-                    SfxService().playEnterSound();
-                    _openSystemSettings(context, currentSystem, configProvider);
-                  },
-                ),
-              ],
+              ),
             );
           } else {
             systemsWidget = _buildSystemsGrid(context, configProvider);
@@ -214,7 +214,13 @@ class MySystems extends StatelessWidget {
               recentCardSize: configProvider.config.recentCardSize,
               selectedIndex: selectedIndex,
               onCardTapped: onCardTapped,
+              selectedItemKey: _cardAnchorKey,
               systems: allSystems,
+              onYPressed: () => _openSystemContextMenu(
+                context,
+                currentSystem,
+                configProvider,
+              ),
               onEnterPressed: () {
                 final current = selectedIndex < allSystems.length
                     ? allSystems[selectedIndex]
@@ -230,20 +236,79 @@ class MySystems extends StatelessWidget {
             ),
           ),
         ),
-        // Sticky footer displaying active system metadata and secondary actions.
-        SystemsGridFooter(
-          system: currentSystem,
-          onEnter: () {
-            SfxService().playEnterSound();
-            _navigateToSystem(context, currentSystem, configProvider);
-          },
-          onSettings: () {
-            SfxService().playEnterSound();
-            _openSystemSettings(context, currentSystem, configProvider);
-          },
-        ),
       ],
     );
+  }
+
+  /// The card context menu, opened by Y or by a long press on the card.
+  ///
+  /// It exists because the screen's footer does not: the footer carried the
+  /// only touch route to a system's settings, so removing it to give the cards
+  /// the vertical space needed somewhere else for that action to live. Start
+  /// still opens the settings dialog directly, so the pad keeps its one-press
+  /// route and this is purely an addition.
+  ///
+  /// `Settings` is omitted for a recent-game card, which has no system to
+  /// configure — the same case the carousel already refuses with a notice.
+  Future<void> _openSystemContextMenu(
+    BuildContext context,
+    SystemInfo system,
+    SqliteConfigProvider configProvider,
+  ) async {
+    SfxService().playNavSound();
+
+    final isCarousel = configProvider.config.systemViewMode == 'carousel';
+
+    final items = <ContextMenuItem>[
+      if (!system.isGame)
+        ContextMenuItem(
+          id: _menuSettings,
+          label: AppLocale.settings.getString(context),
+          icon: Symbols.settings_rounded,
+        ),
+      ContextMenuItem(
+        id: _menuViewMode,
+        label: AppLocale.viewMode.getString(context),
+        icon: Symbols.grid_view_rounded,
+        separatorBefore: !system.isGame,
+        children: [
+          ContextMenuItem(
+            id: _menuViewGrid,
+            label: AppLocale.gridView.getString(context),
+            icon: Symbols.grid_view_rounded,
+            selected: !isCarousel,
+          ),
+          ContextMenuItem(
+            id: _menuViewCarousel,
+            label: AppLocale.carouselView.getString(context),
+            icon: Symbols.view_carousel_rounded,
+            selected: isCarousel,
+          ),
+        ],
+      ),
+    ];
+
+    final result = await showAnchoredContextMenu(
+      context: context,
+      items: items,
+      // Falls back to the screen centre when no card is mounted: the key
+      // resolves to null and the menu centres itself.
+      anchorKey: _cardAnchorKey.currentContext != null ? _cardAnchorKey : null,
+      alignment: ContextMenuAlignment.overAnchor,
+      layerId: 'system_context_menu',
+      submenuLayerId: 'system_context_submenu',
+    );
+
+    if (result == null || !context.mounted) return;
+
+    switch (result) {
+      case _menuSettings:
+        _openSystemSettings(context, system, configProvider);
+      case _menuViewGrid:
+        await configProvider.updateSystemViewMode('grid');
+      case _menuViewCarousel:
+        await configProvider.updateSystemViewMode('carousel');
+    }
   }
 
   /// Opens the emulator configuration dialog for a specific system.
@@ -722,6 +787,21 @@ class _SystemCardGridViewState extends State<SystemCardGridView> {
   /// (`State.setState` is `@protected`).
   void rebuild(VoidCallback fn) => setState(fn);
 
+  /// Touch route to the card menu: select the pressed card, then open the menu
+  /// a frame later.
+  ///
+  /// The wait is not cosmetic. The menu anchors to the *selected* card's key,
+  /// and the host only moves that key onto this card once the selection has
+  /// been rebuilt, so opening in the same frame anchors the menu to whichever
+  /// card was selected before the press.
+  void _openMenuFor(int index) {
+    widget.onCardTapped?.call(index);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      widget.onYPressed?.call();
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -1135,6 +1215,9 @@ class _SystemCardGridViewState extends State<SystemCardGridView> {
                   info: card,
                   isSelected: cardIsSelected,
                   onTap: handleTap,
+                  onLongPress: widget.onYPressed == null
+                      ? null
+                      : () => _openMenuFor(cardIdx),
                 );
 
             cardWidgets.add(

@@ -8,10 +8,11 @@ import 'footer_label_pill.dart';
 
 /// Footer for the RomM browser's platform and ROM views.
 ///
-/// Same shape and styling as [SystemsGridFooter] — focused item in a pill on
-/// the left, gamepad controls on the right — so the remote library reads like
-/// the local one. Only the controls differ: both views offer Y to sync the
-/// whole source and B to step back.
+/// The app's footer shape — focused item in a pill on the left, gamepad
+/// controls on the right — kept here after the systems screen dropped its own
+/// footer to give the cards that vertical space. RomM's grid cards are artwork
+/// only, so this is the one place the focused item is named. Both views offer
+/// Y to sync the whole source and B to step back.
 ///
 /// The ROM view's X layout toggle used to live on the vertical action rail
 /// alone. With the rail gone this footer is the only on-screen route to it, so

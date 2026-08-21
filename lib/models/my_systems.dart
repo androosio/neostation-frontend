@@ -21,7 +21,7 @@ class SystemInfo {
   ///
   /// **Nothing renders this.** Several places set it, including
   /// `system_list_builder`, but the card count the user sees is built from
-  /// [numOfRoms] by `SystemsGridFooter` (via `lib/utils/count_label.dart`).
+  /// [numOfRoms] by `SystemCard` itself (via `lib/utils/count_label.dart`).
   /// Setting it here does not change any label — a Collections card that
   /// counted the wrong thing was traced to exactly that assumption.
   final String? totalStorage;

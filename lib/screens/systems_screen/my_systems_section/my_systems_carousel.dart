@@ -1002,6 +1002,13 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
                             isSelected: isSelected,
                             backgroundCacheWidth: 1024,
                             onTap: handleTap,
+                            // The centred card only. An off-centre card is
+                            // painted outside the page slot the viewport
+                            // hit-tests it by, so the gesture would never
+                            // reach it anyway; swipe or tap to centre first.
+                            onLongPress: isSelected && widget.onYPressed != null
+                                ? widget.onYPressed
+                                : null,
                           );
 
                       // Sibling overlay rather than a wrapper: wrapping only
