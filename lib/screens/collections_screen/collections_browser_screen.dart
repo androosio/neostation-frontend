@@ -678,16 +678,36 @@ class _CollectionsBrowserScreenState extends State<CollectionsBrowserScreen> {
       },
       child: Scaffold(
         backgroundColor: theme.scaffoldBackgroundColor,
-        body: Column(
+        // The header floats over the cards rather than sitting above them. It
+        // is a pill in one corner and a count in the other, so stacking it in
+        // the column cost the cards the full height of a row that is empty
+        // across most of its width — and with the footer gone there is nothing
+        // below to balance it, so all of that dead space sat at the top.
+        body: Stack(
           children: [
-            _buildHeader(theme, collections.length),
-            if (!showSpinner && collections.isEmpty) _buildEmptyHint(theme),
-            Expanded(
-              child: showSpinner
-                  ? const Center(child: CircularProgressIndicator())
-                  : viewMode == 'carousel'
-                  ? _buildCarousel(items)
-                  : _buildGrid(items, cols),
+            Column(
+              children: [
+                // Only the empty-state hint has to clear the header: it is
+                // left-aligned text that would otherwise start underneath the
+                // View Mode pill. The cards deliberately run under it.
+                if (!showSpinner && collections.isEmpty) ...[
+                  SizedBox(height: _kHeaderReserve.r),
+                  _buildEmptyHint(theme),
+                ],
+                Expanded(
+                  child: showSpinner
+                      ? const Center(child: CircularProgressIndicator())
+                      : viewMode == 'carousel'
+                      ? _buildCarousel(items)
+                      : _buildGrid(items, cols),
+                ),
+              ],
+            ),
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: _buildHeader(theme, collections.length),
             ),
           ],
         ),
@@ -737,7 +757,8 @@ class _CollectionsBrowserScreenState extends State<CollectionsBrowserScreen> {
   /// The systems carousel, driven by collections.
   Widget _buildCarousel(List<SystemInfo> items) {
     return Padding(
-      padding: EdgeInsets.only(top: 8.r),
+      // No top padding: the header no longer occupies a row to be spaced from.
+      padding: EdgeInsets.zero,
       child: MySystemsCarousel(
         items: items,
         selectedIndex: _selectedIndex,
@@ -875,6 +896,10 @@ class _CollectionsBrowserScreenState extends State<CollectionsBrowserScreen> {
     );
   }
 }
+
+/// Vertical room the floating header needs when something must sit clear of
+/// it. Only the empty-state hint does; the cards run under it on purpose.
+const double _kHeaderReserve = 46;
 
 /// Card aspect ratio, matching the systems grid so the two look identical.
 const double _kCardAspectRatio = 0.80;
