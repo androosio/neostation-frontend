@@ -5,6 +5,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:video_player/video_player.dart';
 import 'dart:async';
 import '../../../models/system_model.dart';
+import '../../../utils/effective_system.dart';
 import '../../../models/game_model.dart';
 import '../../../providers/file_provider.dart';
 import '../../../providers/retro_achievements_provider.dart';
@@ -229,23 +230,30 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
     return !config.hideBottomScreen;
   }
 
-  /// Resolves the actual hardware system for the game.
-  /// Handles 'Global Library' (isAllMode) resolution from detected systems.
+  /// The hardware system the game belongs to.
+  ///
+  /// In an aggregate view [widget.system] is the synthesized placeholder for
+  /// the view itself ('all' / 'favorites' / `collection:<uuid>`), so anything
+  /// that needs real hardware — scraper ids, RetroAchievements, per-system
+  /// settings — has to resolve against the game instead.
+  ///
+  /// Delegates to [resolveEffectiveSystem] rather than matching on the folder
+  /// name here: the shared resolver prefers the game's `system_id`, falls back
+  /// to a system's alternative ES-DE folder names, and can never answer with
+  /// another placeholder.
   SystemModel get _effectiveSystem {
+    // Single-system views keep the list's system without reading the provider,
+    // exactly as before.
     if (!widget.isAllMode) return widget.system;
-
-    final systemFolderName = _game.systemFolderName;
-    if (systemFolderName == null) return widget.system;
-
     try {
-      final detectedSystems = context
-          .read<SqliteConfigProvider>()
-          .detectedSystems;
-      return detectedSystems.firstWhere(
-        (s) => s.folderName == systemFolderName,
-        orElse: () => widget.system,
+      return resolveEffectiveSystem(
+        listSystem: widget.system,
+        game: _game,
+        detectedSystems: context.read<SqliteConfigProvider>().detectedSystems,
       );
     } catch (e) {
+      // No provider in scope (or nothing detected yet): the placeholder is the
+      // only answer available.
       return widget.system;
     }
   }

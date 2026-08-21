@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import 'package:neostation/sync/sync_manager.dart';
 import 'package:neostation/models/game_model.dart';
 import 'package:neostation/models/system_model.dart';
+import 'package:neostation/utils/effective_system.dart';
 import 'package:neostation/utils/rom_tree.dart';
 import 'package:neostation/providers/file_provider.dart';
 import 'package:neostation/providers/sqlite_config_provider.dart';
@@ -578,18 +579,27 @@ class _GamesCarouselState extends State<GamesCarousel> {
   bool get _isAllMode =>
       SystemFolderNames.isAggregate(widget.system.folderName);
 
+  /// The hardware system [game] belongs to, which in an aggregate view is not
+  /// the list's own [widget.system] — that is a synthesized placeholder for the
+  /// view, and a collection's id has no `app_systems` row behind it at all.
+  ///
+  /// Delegates to [resolveEffectiveSystem] rather than matching on the folder
+  /// name here: the shared resolver prefers the game's `system_id`, falls back
+  /// to a system's alternative ES-DE folder names, and can never answer with
+  /// another placeholder.
   SystemModel _effectiveSystemFor(GameModel game) {
-    final systemFolderName = game.systemFolderName;
-    if (systemFolderName == null || !_isAllMode) return widget.system;
+    // Single-system views keep the list's system without reading the provider,
+    // exactly as before.
+    if (!_isAllMode) return widget.system;
     try {
-      final detectedSystems = context
-          .read<SqliteConfigProvider>()
-          .detectedSystems;
-      return detectedSystems.firstWhere(
-        (s) => s.folderName == systemFolderName,
-        orElse: () => widget.system,
+      return resolveEffectiveSystem(
+        listSystem: widget.system,
+        game: game,
+        detectedSystems: context.read<SqliteConfigProvider>().detectedSystems,
       );
     } catch (e) {
+      // No provider in scope (or nothing detected yet): the placeholder is the
+      // only answer available.
       return widget.system;
     }
   }

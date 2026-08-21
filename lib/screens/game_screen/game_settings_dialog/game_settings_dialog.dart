@@ -198,8 +198,9 @@ class _GameSettingsDialogState extends State<GameSettingsDialog> {
   /// collection's id has no `app_systems` row at all — so the tabs get the
   /// game's own system instead. Without this the Emulator tab enumerated
   /// emulators for the placeholder and came up empty in every aggregate view,
-  /// leaving the user unable to assign an emulator from one. Mirrors
-  /// `_effectiveSystem` on the game details card.
+  /// leaving the user unable to assign an emulator from one. Every aggregate
+  /// view shares one resolver now — the games grid, carousel and details card
+  /// all call [resolveEffectiveSystem] too.
   SystemModel get _effectiveSystem {
     if (!widget.isAllMode) return widget.system;
     try {
