@@ -72,27 +72,24 @@ class GameDetailsFooter extends StatelessWidget {
         GameUtils.formatPlayTime(game.playTime ?? 0) != '0s';
     final bool showsAchievements = _showsAchievements(context);
 
-    // The clock has one home: the bottom row, right-aligned. It used to fall
-    // back onto the status line for games with no achievements pill, which
-    // meant it jumped a line up and back down as the user moved between a
-    // matched game and an unmatched one — the two states are next to each
-    // other in any list, so the jump was constant. The row now outlives the
-    // pill: no pill just means the clock has the row to itself, in a row that
-    // shrinks to fit it.
-    final bool showsBottomRow = showsAchievements || hasPlayTime;
+    // The clock has one home: the far right of the footer's last row, at a
+    // fixed distance from the card's edge. It used to fall back onto the
+    // metadata line for games with no achievements pill, which meant it jumped
+    // a line up and back down as the selection moved between a matched game
+    // and an unmatched one — the two sit next to each other in every list, so
+    // the jump was constant. Now the *text* moves to meet it instead.
     final List<Widget> metadata = _buildMetadata(hasRating: hasRating);
-    final bool showsStatusLine = metadata.isNotEmpty;
 
-    // No fixed height any more: the achievements pill can be absent, and when
-    // it is the footer has to give the artwork the 53.r back rather than hold
-    // an empty reservation. A `Positioned` with left/right/bottom and no height
-    // takes its child's, so the block hugs its content and stays pinned to the
-    // bottom. The lines that are present keep their own fixed heights (see
-    // `_statusLineHeight` / `_identityLineHeight`) so *they* never resize —
-    // only which of them are there at all changes anything.
+    // No fixed height: the footer is as tall as whichever arrangement below it
+    // takes. A `Positioned` with left/right/bottom and no height takes its
+    // child's, so the block hugs its content and stays pinned to the bottom.
+    // Every line inside keeps its own fixed height (see `_statusLineHeight` /
+    // `_identityLineHeight` / `_bottomRowHeight`) so nothing resizes with the
+    // text it holds — only the arrangement changes.
     //
-    // The bottom padding is the slack the fixed-height box used to leave under
-    // the action row; without it the content would drop to the card's edge.
+    // The bottom padding is the slack the old fixed-height box used to leave
+    // under the last row; without it the content would drop to the card's
+    // edge.
     return Positioned(
       bottom: -0.5.r,
       left: -0.5.r,
@@ -101,135 +98,145 @@ class GameDetailsFooter extends StatelessWidget {
         child: RepaintBoundary(
           child: Container(
             padding: EdgeInsets.only(left: 12.r, right: 12.r, bottom: 11.r),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Status Section: the read-only facts about this game, on their
-                // own line above the filename — rating, player count,
-                // publisher, year, genre, in that order.
-                //
-                // They are here rather than in the action row at the bottom
-                // because that row is for controls — every pill in it should do
-                // something when pressed, and a score and a clock never did.
-                // As inline glyph+text they cost the artwork a line rather than
-                // a pill each, which is what lets the line carry five facts
-                // instead of the one it started with.
-                //
-                // The strip is a marquee (see [ScrollingStatusLine]): a long
-                // publisher on a narrow card would otherwise ellipsize the year
-                // away, and this line's whole point is that all of it is
-                // legible eventually. It only moves when it overflows.
-                //
-                // The line used to be laid out even when empty so the footer's
-                // geometry never moved. That reservation stopped being worth
-                // its height once the clock and the sync icon left for the rows
-                // below: an unscraped game has none of these facts, so the
-                // common case was a blank band of artwork above the filename.
-                // It collapses outright now — the footer is sized by its
-                // content, so the lines below simply move down.
-                if (showsStatusLine) ...[
-                  SizedBox(
-                    height: _statusLineHeight,
-                    child: ScrollingStatusLine(
-                      resetKey: game.romname,
-                      children: metadata,
-                    ),
-                  ),
-                  SizedBox(height: 2.r),
-                ],
-
-                // Identity Section: the ROM filename, alone on its line.
-                //
-                // There used to be a game title above this. It was a strict
-                // duplicate: the list sidebar sits beside this card and its
-                // selected row renders the same resolved display name, so the
-                // name was on screen twice, one of them painted straight onto
-                // the game's fanart where pale artwork made it hard to read.
-                // The filename is the one identity fact the sidebar does not
-                // carry (it is what the scraped name was matched *from*), so it
-                // is what stays.
-                //
-                // Consequence worth knowing: the filename is only populated for
-                // scraped games — `GameListService` sets the flag exclusively
-                // on the scraped branch, because a filename under a name
-                // derived from that same filename says nothing. For an
-                // unscraped game, or a user running `preferFileName`, this line
-                // carries no text at all and the sidebar row is the only place
-                // the name appears. That is deliberate; the blank line is still
-                // laid out so the action row below keeps a constant baseline
-                // either way.
-                //
-                // The cloud-sync icon rides at the end of this line: it is the
-                // one status glyph that is about the *file*, so it reads as a
-                // marker on the filename rather than as one more fact in the
-                // status cluster above. It is never what gives way when the
-                // name is too long — see `_buildIdentityLine`.
-                SizedBox(
-                  height: _identityLineHeight,
-                  child: _buildIdentityLine(context),
-                ),
-
-                // Actionable Section: the achievements pill, with the play-time
-                // clock to the right of it.
-                //
-                // The rating and sync widgets that used to share this row were
-                // inert — they looked like controls and answered to nothing —
-                // so they moved up to the lines above. PLAY went too: launching
-                // is A on the pad, and a double tap on the already-selected
-                // sidebar row for touch (`game_list_view.dart:348`), so the
-                // button was a third route to something both of those already
-                // do. The clock is inert as well, but it earns the space here:
-                // the pill no longer needs the full width, and playtime next to
-                // achievement progress reads as one "how far in am I" cluster.
-                //
-                // The row is drawn for either occupant, so the clock is in the
-                // same corner whether or not the game is matched — moving
-                // between the two is otherwise a jump up onto the metadata
-                // line, and unmatched games sit right next to matched ones in
-                // every list.
-                //
-                // Its height is the pill's when the pill is there and the
-                // clock's when it is not, rather than the pill's reserved in
-                // both cases: an empty 45.r band under the filename is the
-                // footer holding artwork hostage for a widget that is not
-                // coming. The rest of the block drops into the space instead.
-                if (showsBottomRow) ...[
-                  SizedBox(height: 8.r),
-                  SizedBox(
-                    height: showsAchievements ? _bottomRowHeight : null,
+            child: showsAchievements
+                // With a pill, the block stacks: text lines, then the pill row
+                // with the clock at its end.
+                ? Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildTextLines(context, metadata: metadata),
+                      SizedBox(height: 8.r),
+                      SizedBox(
+                        height: _bottomRowHeight,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              child: ExcludeFocus(
+                                child: LayoutBuilder(
+                                  builder: (context, constraints) =>
+                                      _buildCompactAchievementsIndicator(
+                                        context,
+                                        availableWidth: constraints.maxWidth,
+                                      ),
+                                ),
+                              ),
+                            ),
+                            if (hasPlayTime) ...[
+                              SizedBox(width: 12.r),
+                              _InlinePlayTime(game: game),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  )
+                // Without one, the text lines move *into* the pill's slot
+                // rather than sitting above an empty one. The row keeps the
+                // pill's height, so the clock is at exactly the distance from
+                // the card's edge that it is on a matched game — it is the
+                // text beside it that changes place, not the number.
+                : hasPlayTime
+                ? SizedBox(
+                    height: _bottomRowHeight,
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        // Expanded either way: with a pill it is the pill's
-                        // slot, without one it is the empty space that holds
-                        // the clock out at the right edge.
                         Expanded(
-                          child: showsAchievements
-                              ? ExcludeFocus(
-                                  child: LayoutBuilder(
-                                    builder: (context, constraints) =>
-                                        _buildCompactAchievementsIndicator(
-                                          context,
-                                          availableWidth: constraints.maxWidth,
-                                        ),
-                                  ),
-                                )
-                              : const SizedBox.shrink(),
+                          child: _buildTextLines(context, metadata: metadata),
                         ),
-                        if (hasPlayTime) ...[
-                          SizedBox(width: 12.r),
-                          _InlinePlayTime(game: game),
-                        ],
+                        SizedBox(width: 12.r),
+                        _InlinePlayTime(game: game),
                       ],
                     ),
-                  ),
-                ],
-              ],
-            ),
+                  )
+                // Nothing to put on that row at all: no pill, no clock. The
+                // text lines are the whole footer.
+                : _buildTextLines(context, metadata: metadata),
           ),
         ),
       ),
+    );
+  }
+
+  /// The two text lines of the footer: the metadata strip and the filename.
+  ///
+  /// They are a unit because they travel together. With an achievements pill
+  /// they sit above it; without one they move down into the row the pill would
+  /// have had, so the footer never shows a blank band where a widget is not
+  /// coming and the clock beside them does not have to move to compensate.
+  ///
+  /// Both lines are fixed-height, and the block is `MainAxisSize.min`, so it
+  /// takes 33.r either way — comfortably inside the 45.r row it drops into.
+  Widget _buildTextLines(
+    BuildContext context, {
+    required List<Widget> metadata,
+  }) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Status Section: the read-only facts about this game, on their own
+        // line above the filename — rating, player count, publisher, year,
+        // genre, in that order.
+        //
+        // They are here rather than in the action row at the bottom because
+        // that row is for controls — every pill in it should do something when
+        // pressed, and a score and a clock never did. As inline glyph+text they
+        // cost the artwork a line rather than a pill each, which is what lets
+        // the line carry five facts instead of the one it started with.
+        //
+        // The strip is a marquee (see [ScrollingStatusLine]): a long publisher
+        // on a narrow card would otherwise ellipsize the year away, and this
+        // line's whole point is that all of it is legible eventually. It only
+        // moves when it overflows.
+        //
+        // The line used to be laid out even when empty so the footer's geometry
+        // never moved. That reservation stopped being worth its height once the
+        // clock and the sync icon left for the rows below: an unscraped game
+        // has none of these facts, so the common case was a blank band of
+        // artwork above the filename.
+        if (metadata.isNotEmpty) ...[
+          SizedBox(
+            height: _statusLineHeight,
+            child: ScrollingStatusLine(
+              resetKey: game.romname,
+              children: metadata,
+            ),
+          ),
+          SizedBox(height: 2.r),
+        ],
+
+        // Identity Section: the ROM filename, alone on its line.
+        //
+        // There used to be a game title above this. It was a strict duplicate:
+        // the list sidebar sits beside this card and its selected row renders
+        // the same resolved display name, so the name was on screen twice, one
+        // of them painted straight onto the game's fanart where pale artwork
+        // made it hard to read. The filename is the one identity fact the
+        // sidebar does not carry (it is what the scraped name was matched
+        // *from*), so it is what stays.
+        //
+        // Consequence worth knowing: the filename is only populated for scraped
+        // games — `GameListService` sets the flag exclusively on the scraped
+        // branch, because a filename under a name derived from that same
+        // filename says nothing. For an unscraped game, or a user running
+        // `preferFileName`, this line carries no text at all and the sidebar
+        // row is the only place the name appears. That is deliberate; the blank
+        // line is still laid out so the row below keeps a constant baseline
+        // either way.
+        //
+        // The cloud-sync icon rides at the end of this line: it is the one
+        // status glyph that is about the *file*, so it reads as a marker on the
+        // filename rather than as one more fact in the status cluster above. It
+        // is never what gives way when the name is too long — see
+        // [_buildIdentityLine].
+        SizedBox(
+          height: _identityLineHeight,
+          child: _buildIdentityLine(context),
+        ),
+      ],
     );
   }
 
@@ -604,9 +611,9 @@ List<Shadow> get _onArtShadows => [
 /// it, the 15.r rating star.
 double get _statusLineHeight => 15.r;
 
-/// Height of the bottom row when the achievements pill is in it, matching the
-/// pill's own 45.r. Without the pill the row takes the clock's height instead
-/// of reserving this, so the footer gives the space back to the artwork.
+/// Height of the footer's last row, matching the achievements pill's own 45.r.
+/// The same whether the pill is in it or the two text lines have moved into its
+/// place, which is what keeps the play-time clock at one height.
 double get _bottomRowHeight => 45.r;
 
 /// Height of the identity line, fixed for the same reason: the filename is
@@ -755,13 +762,14 @@ class _InlinePlayTime extends StatelessWidget {
       children: [
         // Sized well past the 11.r it used to be: beside a 45.r pill, and the
         // only thing on that side of the row, the small reading looked like a
-        // caption that had drifted there. It is now the largest text in the
-        // footer by some way, which is right — reading it at a glance from
-        // arm's length is the point.
+        // caption that had drifted there. Still the largest text in the footer,
+        // since reading it at a glance from arm's length is the point, but
+        // pulled back from the 20.r it briefly ran at — at that size it started
+        // competing with the game's artwork rather than sitting on it.
         Icon(
           Symbols.schedule_rounded,
           color: Colors.white,
-          size: 22.r,
+          size: 20.r,
           shadows: _onArtShadows,
         ),
         SizedBox(width: 6.r),
@@ -769,7 +777,7 @@ class _InlinePlayTime extends StatelessWidget {
           text: _formatClock(game.playTime ?? 0),
           style: TextStyle(
             color: Colors.white,
-            fontSize: 20.r,
+            fontSize: 18.r,
             fontWeight: FontWeight.w700,
             height: 1.15,
             shadows: _onArtShadows,
