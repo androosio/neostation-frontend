@@ -34,6 +34,7 @@ import 'package:neostation/providers/theme_provider.dart';
 import '../../collections_screen/collections_browser_screen.dart';
 import '../../game_screen/android_apps/android_apps_grid.dart';
 import 'package:neostation/widgets/header_sort_dropdown.dart';
+import 'package:neostation/widgets/systems_grid_footer.dart';
 import 'package:neostation/widgets/context_menu/anchored_context_menu.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
@@ -119,6 +120,9 @@ class MySystems extends StatelessWidget {
                 selectedIndex: selectedIndex,
                 onCardTapped: onCardTapped,
                 selectedItemKey: _cardAnchorKey,
+                // No footer in this view, so the cards carry their own counts.
+                // They are large enough for it; the grid's are not.
+                showCardCounts: true,
                 onYPressed: () => _openSystemContextMenu(
                   context,
                   currentSystem,
@@ -236,6 +240,10 @@ class MySystems extends StatelessWidget {
             ),
           ),
         ),
+        // Count only, bottom left. A grid card's logo cannot spare the room a
+        // count row costs, so this view keeps the strip and the carousel does
+        // not — see [SystemsGridFooter].
+        SystemsGridFooter(system: currentSystem),
       ],
     );
   }

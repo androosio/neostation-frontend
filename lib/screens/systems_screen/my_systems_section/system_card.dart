@@ -48,6 +48,7 @@ class SystemCard extends StatefulWidget {
     this.onLongPress,
     this.isSelected = false,
     this.backgroundCacheWidth = 512,
+    this.showCount = false,
   });
 
   /// The system or game metadata resolved for this card.
@@ -64,6 +65,16 @@ class SystemCard extends StatefulWidget {
 
   /// Whether this card currently has visual focus in the grid.
   final bool isSelected;
+
+  /// Whether the card names its own count under the logo.
+  ///
+  /// Off by default because it only pays for itself on a large card. The strip
+  /// under the square artwork is what the logo scales into, and on a grid card
+  /// that strip is about half the carousel's — a count row there leaves the
+  /// system logo smaller than the count. The systems carousel turns it on; the
+  /// grid puts the count in its footer instead, and the collections browser
+  /// has a footer of its own that already carries it.
+  final bool showCount;
 
   /// Decode width for the card's background image. Defaults to 512 (grid
   /// cards); the carousel passes 1024 since its cards are much larger.
@@ -671,7 +682,7 @@ class _SystemCardState extends State<SystemCard> {
                 ),
               ),
             ),
-            _buildSystemCount(context),
+            if (widget.showCount) _buildSystemCount(context),
           ],
         ),
       ),

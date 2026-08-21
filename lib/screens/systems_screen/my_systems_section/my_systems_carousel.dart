@@ -67,6 +67,7 @@ class MySystemsCarousel extends StatefulWidget {
     this.enableThemeAssets = true,
     this.enableDynamicBackground = true,
     this.selectedItemKey,
+    this.showCardCounts = false,
   });
 
   /// The initially selected system index.
@@ -102,6 +103,12 @@ class MySystemsCarousel extends StatefulWidget {
   /// the menu off empty space beside the artwork. Only the centred card
   /// carries it, so the key is never attached twice.
   final GlobalKey? selectedItemKey;
+
+  /// Whether each card names its own count under the logo. The systems screen
+  /// turns this on — its carousel has no footer, so the card is the only thing
+  /// that can say it. The collections browser leaves it off and lets its own
+  /// footer carry the count.
+  final bool showCardCounts;
 
   /// Identifier this view registers its [GamepadNavigationManager] layer under.
   ///
@@ -1001,6 +1008,7 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
                             info: system,
                             isSelected: isSelected,
                             backgroundCacheWidth: 1024,
+                            showCount: widget.showCardCounts,
                             onTap: handleTap,
                             // The centred card only. An off-centre card is
                             // painted outside the page slot the viewport

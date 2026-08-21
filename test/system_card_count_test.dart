@@ -29,30 +29,37 @@ void main() {
     );
   });
 
-  Widget host(SystemInfo info, {VoidCallback? onLongPress}) =>
-      ChangeNotifierProvider(
-        create: (_) => NeoAssetsProvider(),
-        child: ScreenUtilInit(
-          designSize: const Size(1280, 720),
-          builder: (context, _) => MaterialApp(
-            // Without the delegates every `getString` resolves to
-            // "<KEY> NOT FOUND" and each expectation below fails on a string
-            // the app never renders.
-            localizationsDelegates:
-                FlutterLocalization.instance.localizationsDelegates,
-            supportedLocales: FlutterLocalization.instance.supportedLocales,
-            home: Scaffold(
-              body: Center(
-                child: SizedBox(
-                  width: 220,
-                  height: 260,
-                  child: SystemCard(info: info, onLongPress: onLongPress),
-                ),
+  Widget host(
+    SystemInfo info, {
+    VoidCallback? onLongPress,
+    bool showCount = true,
+  }) => ChangeNotifierProvider(
+    create: (_) => NeoAssetsProvider(),
+    child: ScreenUtilInit(
+      designSize: const Size(1280, 720),
+      builder: (context, _) => MaterialApp(
+        // Without the delegates every `getString` resolves to
+        // "<KEY> NOT FOUND" and each expectation below fails on a string
+        // the app never renders.
+        localizationsDelegates:
+            FlutterLocalization.instance.localizationsDelegates,
+        supportedLocales: FlutterLocalization.instance.supportedLocales,
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 220,
+              height: 260,
+              child: SystemCard(
+                info: info,
+                onLongPress: onLongPress,
+                showCount: showCount,
               ),
             ),
           ),
         ),
-      );
+      ),
+    ),
+  );
 
   SystemInfo system({
     required String folderName,
@@ -120,6 +127,17 @@ void main() {
       );
       await tester.pump();
       expect(find.text('0 GAMES'), findsOneWidget);
+    });
+
+    testWidgets('is off unless the host asks for it', (tester) async {
+      // The grid depends on this: its cards have no room for a count row, so
+      // the count lives in that view's footer instead. Only the systems
+      // carousel turns it on.
+      await tester.pumpWidget(
+        host(system(folderName: 'nes', count: 12), showCount: false),
+      );
+      await tester.pump();
+      expect(find.text('12 GAMES'), findsNothing);
     });
   });
 
