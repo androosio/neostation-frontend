@@ -24,6 +24,15 @@ class NeoSyncStatusIcon extends StatefulWidget {
   /// in a spacer of its own without leaving a hole when sync is unavailable.
   final EdgeInsetsGeometry? margin;
 
+  /// Whether to draw the rounded surface chip behind the glyph.
+  ///
+  /// True in the grid/carousel footer, where this icon is one pill among a row
+  /// of them and has to match. False on the details card, where it sits beside
+  /// the filename painted straight onto the game's fanart: there the chip read
+  /// as a button, so the glyph goes bare and carries a drop shadow instead —
+  /// same treatment as the text it sits next to.
+  final bool showBackground;
+
   const NeoSyncStatusIcon({
     super.key,
     required this.system,
@@ -31,7 +40,29 @@ class NeoSyncStatusIcon extends StatefulWidget {
     required this.syncProvider,
     this.size = 24.0,
     this.margin,
+    this.showBackground = true,
   });
+
+  /// Whether this icon will draw anything at all for the given game.
+  ///
+  /// The widget collapses to [SizedBox.shrink] in every "nothing to say" state,
+  /// which is invisible to a caller laying out around it. A caller that has to
+  /// reserve the icon's width up front — the details card measures its filename
+  /// against the space left over — asks here rather than re-deriving these
+  /// conditions and drifting out of step with them.
+  static bool willRender({
+    required SystemModel system,
+    required GameModel? game,
+    required ISyncProvider syncProvider,
+  }) {
+    if (!system.neosync.sync) return false;
+    if (system.folderName == 'android') return false;
+    if (!syncProvider.isAuthenticated) return false;
+    if (system.screenscraperId == null || system.screenscraperId == 0) {
+      return false;
+    }
+    return game != null;
+  }
 
   @override
   State<NeoSyncStatusIcon> createState() => _NeoSyncStatusIconState();
@@ -58,16 +89,13 @@ class _NeoSyncStatusIconState extends State<NeoSyncStatusIcon>
 
   @override
   Widget build(BuildContext context) {
-    if (!widget.system.neosync.sync) return const SizedBox.shrink();
-    if (widget.system.folderName == 'android') return const SizedBox.shrink();
-    if (!widget.syncProvider.isAuthenticated) return const SizedBox.shrink();
-    if (widget.system.screenscraperId == null ||
-        widget.system.screenscraperId == 0) {
+    if (!NeoSyncStatusIcon.willRender(
+      system: widget.system,
+      game: widget.game,
+      syncProvider: widget.syncProvider,
+    )) {
       return const SizedBox.shrink();
     }
-
-    final game = widget.game;
-    if (game == null) return const SizedBox.shrink();
 
     final status = _resolveStatus();
     if (status.isSyncing && !_rotationController.isAnimating) {
@@ -80,6 +108,36 @@ class _NeoSyncStatusIconState extends State<NeoSyncStatusIcon>
     final cornerRadius =
         theme.extension<CornerRadii>()?.radiusInternal ??
         BorderRadius.circular(8.r);
+
+    // Bare glyph: no chip, so `size` is the glyph itself rather than the box
+    // around it, and the shadow moves onto the icon to keep it legible where a
+    // pale patch of artwork runs underneath.
+    if (!widget.showBackground) {
+      return Padding(
+        padding: widget.margin ?? EdgeInsets.zero,
+        child: AnimatedBuilder(
+          animation: _rotationController,
+          builder: (context, child) => Transform.rotate(
+            angle: status.icon == Symbols.sync_rounded
+                ? _rotationController.value * 2 * 3.14159
+                : 0,
+            child: child,
+          ),
+          child: Icon(
+            status.icon,
+            color: status.color,
+            size: widget.size.r,
+            shadows: [
+              Shadow(
+                blurRadius: 1.r,
+                color: Colors.black,
+                offset: const Offset(2, 2),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return Padding(
       padding: widget.margin ?? EdgeInsets.zero,

@@ -16,6 +16,7 @@ import '../../../../themes/corner_radii.dart';
 import '../../../../utils/game_utils.dart';
 import '../../../../widgets/neo_sync_status_icon.dart';
 import '../../music/music_player.dart';
+import 'scrolling_status_line.dart';
 import 'package:neostation/utils/ra_coverage.dart';
 
 /// A sticky footer component for the game details card that provides actionable controls and status summaries.
@@ -71,13 +72,19 @@ class GameDetailsFooter extends StatelessWidget {
         GameUtils.formatPlayTime(game.playTime ?? 0) != '0s';
     final bool showsAchievements = _showsAchievements(context);
 
+    // The clock's home is the achievements row; it only falls back to the
+    // status line when there is no such row to sit beside.
+    final bool showsInlinePlayTime = hasPlayTime && !showsAchievements;
+    final List<Widget> metadata = _buildMetadata(hasRating: hasRating);
+    final bool showsStatusLine = metadata.isNotEmpty || showsInlinePlayTime;
+
     // No fixed height any more: the achievements pill can be absent, and when
     // it is the footer has to give the artwork the 53.r back rather than hold
     // an empty reservation. A `Positioned` with left/right/bottom and no height
     // takes its child's, so the block hugs its content and stays pinned to the
-    // bottom. The two text lines keep their own fixed heights (see
+    // bottom. The lines that are present keep their own fixed heights (see
     // `_statusLineHeight` / `_identityLineHeight`) so *they* never resize —
-    // only the presence of the row below them changes anything.
+    // only which of them are there at all changes anything.
     //
     // The bottom padding is the slack the fixed-height box used to leave under
     // the action row; without it the content would drop to the card's edge.
@@ -94,54 +101,62 @@ class GameDetailsFooter extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Status Section: the read-only facts about this game, on their
-                // own line above the filename.
+                // own line above the filename — rating, player count,
+                // publisher, year, genre, in that order.
                 //
                 // They are here rather than in the action row at the bottom
                 // because that row is for controls — every pill in it should do
                 // something when pressed, and a score and a clock never did.
                 // As inline glyph+text they cost the artwork a line rather than
-                // three 45.r pills.
+                // a pill each, which is what lets the line carry five facts
+                // instead of the one it started with.
                 //
-                // Fixed height so the line is laid out whether or not there is
-                // anything to put on it: an unrated, never-played game with
-                // nothing to say about sync must not shorten the footer and
-                // drag the action row up with it.
-                SizedBox(
-                  height: _statusLineHeight,
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      // Score, as a bare star and number rather than the pill it
-                      // used to be. Colour still runs error -> success across
-                      // the range, so a glance still reads good/bad.
-                      if (hasRating) _InlineRating(game: game),
+                // The strip is a marquee (see [ScrollingStatusLine]): a long
+                // publisher on a narrow card would otherwise ellipsize the year
+                // away, and this line's whole point is that all of it is
+                // legible eventually. It only moves when it overflows.
+                //
+                // The line used to be laid out even when empty so the footer's
+                // geometry never moved. That reservation stopped being worth
+                // its height once the clock and the sync icon left for the rows
+                // below: an unscraped game has none of these facts, so the
+                // common case was a blank band of artwork above the filename.
+                // It collapses outright now — the footer is sized by its
+                // content, so the lines below simply move down.
+                if (showsStatusLine) ...[
+                  SizedBox(
+                    // The clock is the tallest thing that can land on this
+                    // line, and it is only here when there is no achievements
+                    // row to hold it.
+                    height: showsInlinePlayTime
+                        ? _playTimeLineHeight
+                        : _statusLineHeight,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        if (metadata.isNotEmpty)
+                          Expanded(
+                            child: ScrollingStatusLine(
+                              resetKey: game.romname,
+                              children: metadata,
+                            ),
+                          ),
 
-                      // Accumulated play time, once there is any.
-                      if (hasPlayTime) ...[
-                        if (hasRating) SizedBox(width: 12.r),
-                        _InlinePlayTime(game: game),
+                        // Accumulated play time, but only as a fallback: when
+                        // there is no achievements row the clock comes back up
+                        // here rather than disappearing for every game
+                        // RetroAchievements has nothing to say about. It is
+                        // pinned outside the marquee — a number that scrolled
+                        // out of view would be worse than not showing it.
+                        if (showsInlinePlayTime) ...[
+                          if (metadata.isNotEmpty) SizedBox(width: 12.r),
+                          _InlinePlayTime(game: game),
+                        ],
                       ],
-
-                      // Cloud-sync state for this game, third in the same
-                      // cluster. Every "nothing to say" state of this widget
-                      // collapses to zero size, so its leading gap has to
-                      // travel with it rather than sit beside it — and it is
-                      // only a gap at all when something precedes it, or a
-                      // game with no rating and no play time would show the
-                      // icon indented from the left edge on its own.
-                      NeoSyncStatusIcon(
-                        system: system,
-                        game: game,
-                        syncProvider: syncProvider,
-                        size: 16.0,
-                        margin: hasRating || hasPlayTime
-                            ? EdgeInsets.only(left: 12.r)
-                            : EdgeInsets.zero,
-                      ),
-                    ],
+                    ),
                   ),
-                ),
-                SizedBox(height: 2.r),
+                  SizedBox(height: 2.r),
+                ],
 
                 // Identity Section: the ROM filename, alone on its line.
                 //
@@ -163,56 +178,55 @@ class GameDetailsFooter extends StatelessWidget {
                 // the name appears. That is deliberate; the blank line is still
                 // laid out so the action row below keeps a constant baseline
                 // either way.
+                //
+                // The cloud-sync icon rides at the end of this line: it is the
+                // one status glyph that is about the *file*, so it reads as a
+                // marker on the filename rather than as one more fact in the
+                // status cluster above. It is never what gives way when the
+                // name is too long — see `_buildIdentityLine`.
                 SizedBox(
                   height: _identityLineHeight,
-                  child: RepaintBoundary(
-                    child: Text(
-                      game.showRomFileNameSubtitle ? game.romname : '',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      strutStyle: StrutStyle(
-                        fontSize: 13.r,
-                        height: 1.15,
-                        forceStrutHeight: true,
-                      ),
-                      style: TextStyle(
-                        // Full white: the old 0.72 let pale fanart through the
-                        // letterforms, which is where this line lost
-                        // legibility first.
-                        color: Colors.white,
-                        fontSize: 13.r,
-                        fontWeight: FontWeight.w600,
-                        height: 1.15,
-                        shadows: _onArtShadows,
-                      ),
-                    ),
-                  ),
+                  child: _buildIdentityLine(context),
                 ),
 
-                // Actionable Section: the achievements pill, alone, and only
-                // when it has something to report.
+                // Actionable Section: the achievements pill, with the play-time
+                // clock beside it, and only when the pill has something to
+                // report.
                 //
-                // The rating, play-time and sync widgets that used to share
-                // this row were inert — they looked like controls and answered
-                // to nothing — so they moved up to the status line. PLAY went
-                // too: launching is A on the pad, and a double tap on the
-                // already-selected sidebar row for touch
-                // (`game_list_view.dart:348`), so the button was a third route
-                // to something both of those already do.
+                // The rating and sync widgets that used to share this row were
+                // inert — they looked like controls and answered to nothing —
+                // so they moved up to the lines above. PLAY went too: launching
+                // is A on the pad, and a double tap on the already-selected
+                // sidebar row for touch (`game_list_view.dart:348`), so the
+                // button was a third route to something both of those already
+                // do. The clock is inert as well, but it earns the space here:
+                // the pill no longer needs the full width, and playtime next to
+                // achievement progress reads as one "how far in am I" cluster.
                 //
                 // When the pill has nothing to say the row is omitted outright
                 // rather than reserved, and because the footer is sized by its
                 // content the two lines above simply settle into the space.
                 if (showsAchievements) ...[
                   SizedBox(height: 8.r),
-                  ExcludeFocus(
-                    child: LayoutBuilder(
-                      builder: (context, constraints) =>
-                          _buildCompactAchievementsIndicator(
-                            context,
-                            availableWidth: constraints.maxWidth,
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: ExcludeFocus(
+                          child: LayoutBuilder(
+                            builder: (context, constraints) =>
+                                _buildCompactAchievementsIndicator(
+                                  context,
+                                  availableWidth: constraints.maxWidth,
+                                ),
                           ),
-                    ),
+                        ),
+                      ),
+                      if (hasPlayTime) ...[
+                        SizedBox(width: 12.r),
+                        _InlinePlayTime(game: game),
+                      ],
+                    ],
                   ),
                 ],
               ],
@@ -221,6 +235,149 @@ class GameDetailsFooter extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  /// The filename line: the ROM's name, and the cloud-sync glyph after it.
+  ///
+  /// Two layouts, chosen by measuring the name against the space it has:
+  ///
+  /// * It fits — the name is laid out at its own width and the glyph sits just
+  ///   after it, reading as a marker on the name.
+  /// * It does not — the name becomes a marquee filling the line and the glyph
+  ///   is pushed hard against the right edge. The name is the only thing that
+  ///   gives way here; the glyph stays whole and visible, because a truncated
+  ///   filename still scrolls round to legible while a clipped status icon is
+  ///   simply gone.
+  ///
+  /// The measurement has to know whether the glyph is there to reserve room
+  /// for, and it collapses to nothing in most of its states — hence
+  /// [NeoSyncStatusIcon.willRender] rather than a guess.
+  Widget _buildIdentityLine(BuildContext context) {
+    final String label = game.showRomFileNameSubtitle ? game.romname : '';
+    final TextStyle style = TextStyle(
+      // Full white: the old 0.72 let pale fanart through the letterforms,
+      // which is where this line lost legibility first.
+      color: Colors.white,
+      fontSize: 13.r,
+      fontWeight: FontWeight.w600,
+      height: 1.15,
+      shadows: _onArtShadows,
+    );
+
+    final bool hasSyncIcon = NeoSyncStatusIcon.willRender(
+      system: system,
+      game: game,
+      syncProvider: syncProvider,
+    );
+
+    final Widget syncIcon = NeoSyncStatusIcon(
+      system: system,
+      game: game,
+      syncProvider: syncProvider,
+      size: 16.0,
+      // Bare glyph, not the chip the grid/carousel footer uses: this line is
+      // painted on artwork, and a filled surface behind the icon read as a
+      // button sitting in the middle of a text line.
+      showBackground: false,
+      // Every "nothing to say" state of this widget collapses to zero size, so
+      // its leading gap has to travel with it rather than sit beside it — and
+      // it is only a gap at all when there is a name for it to follow, or an
+      // unscraped game would show the icon indented from the left on its own.
+      margin: label.isEmpty ? EdgeInsets.zero : EdgeInsets.only(left: 8.r),
+    );
+
+    final Widget text = RepaintBoundary(
+      child: Text(
+        label,
+        maxLines: 1,
+        // No wrapping and no ellipsis: whichever branch below is taken, this
+        // text is laid out at its full width — either because it fits, or
+        // because the marquee is going to scroll past its end.
+        softWrap: false,
+        strutStyle: StrutStyle(
+          fontSize: 13.r,
+          height: 1.15,
+          forceStrutHeight: true,
+        ),
+        style: style,
+      ),
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final double reserved = hasSyncIcon ? 16.r + 8.r : 0;
+        final TextPainter painter = TextPainter(
+          text: TextSpan(text: label, style: style),
+          maxLines: 1,
+          textDirection: Directionality.of(context),
+          textScaler: MediaQuery.textScalerOf(context),
+        )..layout();
+        final bool overflows =
+            painter.width > (constraints.maxWidth - reserved);
+        painter.dispose();
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            if (overflows)
+              Expanded(
+                child: ScrollingStatusLine(
+                  resetKey: game.romname,
+                  children: [text],
+                ),
+              )
+            else
+              text,
+            syncIcon,
+          ],
+        );
+      },
+    );
+  }
+
+  /// The scraped facts for the status strip, separated and in reading order:
+  /// rating, players, publisher, year, genre.
+  ///
+  /// Empty fields drop out entirely rather than rendering a placeholder, so an
+  /// unscraped game returns an empty list and the whole line collapses. Nothing
+  /// here is localized because nothing here is a label: every segment is either
+  /// a glyph or the scraped value itself.
+  List<Widget> _buildMetadata({required bool hasRating}) {
+    final List<Widget> facts = [];
+
+    // Score, as a bare star and number rather than the pill it used to be.
+    // Colour still runs error -> success across the range, so a glance still
+    // reads good/bad.
+    if (hasRating) facts.add(_InlineRating(game: game));
+
+    // A bare player count is ambiguous ("2" — of what?), so it keeps its glyph.
+    // Publisher, year and genre are self-evident as plain words and would only
+    // be made busier by one.
+    if (game.players.isNotEmpty) {
+      facts.add(_InlineFact(icon: Symbols.people_rounded, text: game.players));
+    }
+    if (game.publisher.isNotEmpty) {
+      facts.add(_InlineFact(text: game.publisher));
+    }
+    if (game.year.isNotEmpty) {
+      // Scraped years arrive as full timestamps as often as bare years; the
+      // info tab pulls the four digits out the same way.
+      facts.add(
+        _InlineFact(text: RegExp(r'\d{4}').stringMatch(game.year) ?? game.year),
+      );
+    }
+    if (game.genre.isNotEmpty) {
+      facts.add(_InlineFact(text: game.genre));
+    }
+
+    // Interleave the separators rather than hanging one off each segment, so
+    // the strip never ends on a dangling bar.
+    final List<Widget> separated = [];
+    for (int i = 0; i < facts.length; i++) {
+      if (i > 0) separated.add(const _FactSeparator());
+      separated.add(facts[i]);
+    }
+    return separated;
   }
 
   /// How many achievements this game has, if anything knows.
@@ -264,11 +421,11 @@ class GameDetailsFooter extends StatelessWidget {
   }) {
     if (!_showsAchievements(context)) return const SizedBox.shrink();
 
-    // The badge fills its (Expanded) slot outright. It used to animate between
-    // 120.r and full width, yielding the space to its right whenever a
-    // play-time pill was there; that pill now lives on the identity line, so
-    // nothing can claim the gap between this badge and PLAY and there is no
-    // second width to ease to.
+    // The badge fills its (Expanded) slot outright: whatever the row leaves
+    // after the play-time clock beside it. It used to animate between 120.r and
+    // full width, yielding the space to its right whenever a play-time pill was
+    // there; the clock is inline text now and claims its width up front, so
+    // there is no second width to ease to.
     final int total = _achievementTotal;
     final int? awarded = currentGameInfo?.numAwardedToUser;
     final bool knowsProgress = awarded != null && currentGameInfo != null;
@@ -435,15 +592,20 @@ List<Shadow> get _onArtShadows => [
   Shadow(blurRadius: 1.r, color: Colors.black, offset: const Offset(2, 2)),
 ];
 
-/// Height of the status line (rating + play time + sync), fixed so the line is
-/// laid out even when the game has none of them and the footer's geometry never
-/// moves. Driven by the tallest thing on it, the 16.0 sync icon.
-double get _statusLineHeight => 16.r;
+/// Height of the metadata strip, fixed because the marquee inside it needs a
+/// bounded box to measure its overflow against. Driven by the tallest thing on
+/// it, the 15.r rating star.
+double get _statusLineHeight => 15.r;
+
+/// Height of the same line on the games where the play-time clock falls back
+/// onto it. The 22.r clock glyph is taller than anything in the metadata strip,
+/// so the line grows rather than clipping it.
+double get _playTimeLineHeight => 22.r;
 
 /// Height of the identity line, fixed for the same reason: the filename is
-/// empty for an unscraped game. Just the 13.r filename's forced strut now that
-/// the sync icon has joined the status line.
-double get _identityLineHeight => 15.r;
+/// empty for an unscraped game. Driven by the 16.0 sync icon that sits at the
+/// end of it, not by the 13.r filename's forced strut.
+double get _identityLineHeight => 16.r;
 
 /// Score as a bare star and number on the status line.
 ///
@@ -496,8 +658,74 @@ class _InlineRating extends StatelessWidget {
   }
 }
 
-/// Accumulated play time as a clock glyph and an HH:MM:SS reading on the
-/// status line. Moved out of the action row for the same reason as
+/// One scraped fact on the status strip: an optional glyph and its value.
+///
+/// Deliberately plainer than [_InlineRating] — no colour ramp, no emphasis. The
+/// strip is a credits line, and the eye should be able to skim past the parts
+/// it does not want.
+class _InlineFact extends StatelessWidget {
+  final IconData? icon;
+  final String text;
+
+  const _InlineFact({this.icon, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        if (icon != null) ...[
+          Icon(icon, color: Colors.white, size: 13.r, shadows: _onArtShadows),
+          SizedBox(width: 3.r),
+        ],
+        Text(
+          text,
+          maxLines: 1,
+          // No ellipsis: the marquee is what handles a strip too wide for the
+          // card, and a segment that truncated itself would never be readable
+          // no matter how far the line scrolled.
+          softWrap: false,
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 12.r,
+            fontWeight: FontWeight.w600,
+            height: 1.15,
+            shadows: _onArtShadows,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// The bar between two facts on the status strip.
+class _FactSeparator extends StatelessWidget {
+  const _FactSeparator();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 8.r),
+      child: Text(
+        '|',
+        style: TextStyle(
+          // Dimmer than the facts either side of it: it is punctuation, and at
+          // full white it counted as a third thing to read between every pair.
+          color: Colors.white.withValues(alpha: 0.45),
+          fontSize: 12.r,
+          fontWeight: FontWeight.w400,
+          height: 1.15,
+          shadows: _onArtShadows,
+        ),
+      ),
+    );
+  }
+}
+
+/// Accumulated play time as a clock glyph and an HH:MM:SS reading, to the right
+/// of the achievements pill (or on the status line when there is no pill).
+/// Moved out of the action row as a pill for the same reason as
 /// [_InlineRating]: it reported, it did not act.
 class _InlinePlayTime extends StatelessWidget {
   final GameModel game;
@@ -519,18 +747,23 @@ class _InlinePlayTime extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
+        // Sized well past the 11.r it used to be: beside a 45.r pill, and the
+        // only thing on that side of the row, the small reading looked like a
+        // caption that had drifted there. It is now the largest text in the
+        // footer by some way, which is right — it is the one number the row is
+        // for, and it is reading it at a glance from arm's length that matters.
         Icon(
           Symbols.schedule_rounded,
           color: Colors.white,
-          size: 13.r,
+          size: 22.r,
           shadows: _onArtShadows,
         ),
-        SizedBox(width: 3.r),
+        SizedBox(width: 6.r),
         Text(
           _formatClock(game.playTime ?? 0),
           style: TextStyle(
             color: Colors.white,
-            fontSize: 11.r,
+            fontSize: 20.r,
             fontWeight: FontWeight.w700,
             height: 1.15,
             // Tabular figures so a ticking clock does not shuffle the line
