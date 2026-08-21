@@ -28,7 +28,6 @@ import 'package:neostation/widgets/confirm_action_dialog.dart';
 import 'package:neostation/widgets/context_menu/anchored_context_menu.dart';
 import 'package:neostation/widgets/core_footer.dart';
 import 'package:neostation/widgets/custom_notification.dart';
-import 'package:neostation/widgets/footer_label_pill.dart';
 import 'package:neostation/widgets/header_sort_dropdown.dart';
 import 'package:neostation/widgets/tv_directory_picker.dart';
 
@@ -90,7 +89,6 @@ class _CollectionsBrowserScreenState extends State<CollectionsBrowserScreen> {
   /// the button that opens it. The cards belong to the systems widgets now, so
   /// there is no card-level anchor to hang a [GlobalKey] on — and the footer
   /// control is mounted exactly when the menu is reachable.
-  final GlobalKey _optionsAnchorKey = GlobalKey();
 
   /// Anchor for the per-collection menu: the selected card itself.
   ///
@@ -292,9 +290,9 @@ class _CollectionsBrowserScreenState extends State<CollectionsBrowserScreen> {
       // The card, not the Y button — see [_selectedCardAnchorKey]. Falls back
       // to the button when no card is mounted (the key resolves to null and
       // the menu centres itself).
-      anchorKey: _selectedCardAnchorKey.currentContext != null
-          ? _selectedCardAnchorKey
-          : _optionsAnchorKey,
+      // The card. With the footer gone there is no button to fall back to, so
+      // a null context leaves the menu to centre itself.
+      anchorKey: _selectedCardAnchorKey,
       alignment: ContextMenuAlignment.overAnchor,
       layerId: 'collection_context_menu',
       submenuLayerId: 'collection_context_submenu',
@@ -691,19 +689,6 @@ class _CollectionsBrowserScreenState extends State<CollectionsBrowserScreen> {
                   ? _buildCarousel(items)
                   : _buildGrid(items, cols),
             ),
-            _CollectionsFooter(
-              label:
-                  _selectedCollection?.name ??
-                  AppLocale.createCollection.getString(context),
-              countText: _selectedCollection == null
-                  ? null
-                  : gamesCountLabel(context, _selectedCollection!.gameCount),
-              showOptions: _selectedCollection != null,
-              optionsAnchorKey: _optionsAnchorKey,
-              onEnter: _activateSelection,
-              onOptions: _openContextMenu,
-              onBack: _goBack,
-            ),
           ],
         ),
       ),
@@ -756,6 +741,9 @@ class _CollectionsBrowserScreenState extends State<CollectionsBrowserScreen> {
       child: MySystemsCarousel(
         items: items,
         selectedIndex: _selectedIndex,
+        // The footer carried the selected collection's count; with it gone the
+        // cards say it themselves, as the systems carousel does.
+        showCardCounts: true,
         selectedItemKey: _selectedCardAnchorKey,
         onCardTapped: _onCardSelected,
         onActivate: (index) {
@@ -853,32 +841,6 @@ class _CollectionsBrowserScreenState extends State<CollectionsBrowserScreen> {
               ),
             ],
           ),
-          SizedBox(height: 6.r),
-          Padding(
-            padding: EdgeInsets.only(left: 10.r),
-            child: Row(
-              children: [
-                Opacity(
-                  opacity: 0.8,
-                  child: Icon(
-                    Symbols.bookmarks_rounded,
-                    size: 16.r,
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                  ),
-                ),
-                SizedBox(width: 8.r),
-                Text(
-                  AppLocale.collections.getString(context).toUpperCase(),
-                  style: TextStyle(
-                    fontSize: 12.r,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 2.0,
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
-                  ),
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     );
@@ -916,75 +878,3 @@ class _CollectionsBrowserScreenState extends State<CollectionsBrowserScreen> {
 
 /// Card aspect ratio, matching the systems grid so the two look identical.
 const double _kCardAspectRatio = 0.80;
-
-/// Footer strip: the focused collection on the left, the button legend on the
-/// right. Every action it offers is also on a gamepad button.
-class _CollectionsFooter extends CoreFooter {
-  const _CollectionsFooter({
-    required this.label,
-    required this.countText,
-    required this.showOptions,
-    required this.optionsAnchorKey,
-    required this.onEnter,
-    required this.onOptions,
-    required this.onBack,
-  });
-
-  final String label;
-  final String? countText;
-  final bool showOptions;
-
-  /// Attached to the Y control so the per-collection menu hangs off the button
-  /// that opens it.
-  final GlobalKey optionsAnchorKey;
-
-  final VoidCallback onEnter;
-  final VoidCallback onOptions;
-  final VoidCallback onBack;
-
-  @override
-  bool get centerControls => false;
-
-  @override
-  bool get showVersion => false;
-
-  @override
-  Widget? buildLeftContent(BuildContext context) =>
-      FooterLabelPill(label: label, countText: countText);
-
-  @override
-  List<Widget> buildControls(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return [
-      GamepadControl(
-        iconPath: 'assets/images/gamepad/Xbox_B_button.png',
-        label: AppLocale.hintBack.getString(context),
-        onTap: onBack,
-        backgroundColor: theme.colorScheme.onSurface.withValues(alpha: 0.1),
-        textColor: theme.colorScheme.onSurface,
-      ),
-      SizedBox(width: 8.r),
-      if (showOptions) ...[
-        KeyedSubtree(
-          key: optionsAnchorKey,
-          child: GamepadControl(
-            iconPath: 'assets/images/gamepad/Xbox_Y_button.png',
-            label: AppLocale.hintOptions.getString(context),
-            onTap: onOptions,
-            backgroundColor: theme.colorScheme.tertiaryFixed,
-            textColor: theme.colorScheme.onTertiaryFixed,
-          ),
-        ),
-        SizedBox(width: 8.r),
-      ],
-      GamepadControl(
-        iconPath: 'assets/images/gamepad/Xbox_A_button.png',
-        label: AppLocale.enter.getString(context),
-        onTap: onEnter,
-        backgroundColor: theme.colorScheme.tertiary,
-        textColor: theme.colorScheme.onTertiary,
-      ),
-    ];
-  }
-}
