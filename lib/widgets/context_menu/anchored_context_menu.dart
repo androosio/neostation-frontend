@@ -393,6 +393,16 @@ class _AnchoredContextMenuState extends State<AnchoredContextMenu> {
           ? widget.anchorRect.top - height - gap
           : widget.anchorRect.bottom - height;
     }
+    // An anchor taller than the room on either side of it puts both of the
+    // above out of bounds, and the clamp below would then park the panel
+    // against the top of the screen, attached to nothing — the systems
+    // carousel's centred card is nearly the full viewport, so it landed on the
+    // header. Centre it on the anchor instead: with the panel already sharing
+    // the anchor's left edge, that is the one remaining position that still
+    // reads as belonging to the card.
+    if (top < margin) {
+      top = widget.anchorRect.center.dy - height / 2;
+    }
     final double maxTop = (screen.height - height - margin).clamp(
       0.0,
       double.infinity,

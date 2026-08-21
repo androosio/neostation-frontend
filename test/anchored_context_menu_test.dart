@@ -257,6 +257,39 @@ void main() {
     expect(row.bottom, lessThanOrEqualTo(anchor.top));
   });
 
+  testWidgets('centres on an anchor too tall to sit above or below', (
+    tester,
+  ) async {
+    const size = Size(1280, 800);
+    useViewport(tester, size);
+    // The systems carousel's centred card: nearly the whole viewport, so there
+    // is no room under it and none above it either. Before this was handled the
+    // panel clamped to the top of the screen and landed on the header, visibly
+    // attached to nothing.
+    const anchor = Rect.fromLTWH(400, 20, 480, 760);
+
+    await tester.pumpWidget(
+      host(
+        const AnchoredContextMenu(
+          items: items,
+          anchorRect: anchor,
+          alignment: ContextMenuAlignment.overAnchor,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final panel = tester.getRect(find.text('Settings'));
+    // Sits inside the card rather than against the viewport edge...
+    expect(panel.top, greaterThan(anchor.top));
+    expect(panel.bottom, lessThan(anchor.bottom));
+    // ...and near enough its middle to read as belonging to it.
+    expect(
+      (panel.center.dy - anchor.center.dy).abs(),
+      lessThan(anchor.height / 4),
+    );
+  });
+
   testWidgets('a submenu opens to the right of the menu that spawned it', (
     tester,
   ) async {

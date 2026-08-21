@@ -684,7 +684,10 @@ class _SystemCardState extends State<SystemCard> {
   /// read as the same component with a different last row.
   Widget _buildSystemCount(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(top: 2.r),
+      // The bottom is deliberately larger than the top: the count is the last
+      // thing on the card now, so it needs room under it rather than sitting
+      // on the card's edge.
+      padding: EdgeInsets.only(top: 2.r, bottom: 6.r),
       child: Text(
         _countText(context).toUpperCase(),
         maxLines: 1,
