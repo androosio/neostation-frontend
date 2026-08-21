@@ -68,6 +68,7 @@ class MySystemsCarousel extends StatefulWidget {
     this.enableDynamicBackground = true,
     this.selectedItemKey,
     this.showCardCounts = false,
+    this.showChipFor,
   });
 
   /// The initially selected system index.
@@ -109,6 +110,20 @@ class MySystemsCarousel extends StatefulWidget {
   /// that can say it. The collections browser leaves it off and lets its own
   /// footer carry the count.
   final bool showCardCounts;
+
+  /// Whether an entry appears in the bottom indicator strip. Null shows them
+  /// all.
+  ///
+  /// An excluded entry keeps its place and its index — the strip's background
+  /// track, sliding cursor and scroll centring are all indexed by card
+  /// position, so dropping it from the list would put every later chip on the
+  /// wrong card. It is given zero width instead, which also makes the cursor
+  /// shrink away as the selection scrolls onto it rather than jumping.
+  ///
+  /// The collections browser uses this for the trailing "New collection" card:
+  /// it is an action, not a destination, so it does not belong in a strip of
+  /// places you can go.
+  final bool Function(SystemInfo info)? showChipFor;
 
   /// Identifier this view registers its [GamepadNavigationManager] layer under.
   ///
@@ -675,7 +690,9 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
     final textStyle = TextStyle(fontSize: 10.r, fontWeight: FontWeight.bold);
     final widths =
         _cachedWidths ??
-        allSystems.map((s) => _calculateItemWidth(s, textStyle)).toList();
+        allSystems
+            .map((s) => _hasChip(s) ? _calculateItemWidth(s, textStyle) : 0.0)
+            .toList();
     if (widths.isEmpty) return;
     final screenWidth = MediaQuery.of(context).size.width;
 
@@ -712,6 +729,8 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
 
   /// Dynamically computes width for the system label indicator based on font metrics.
   /// Results are cached by text + font key to avoid repeated TextPainter layout calls.
+  bool _hasChip(SystemInfo system) => widget.showChipFor?.call(system) ?? true;
+
   double _calculateItemWidth(SystemInfo system, TextStyle style) {
     final text = (system.shortName ?? system.title ?? "Unknown").toUpperCase();
     final cacheKey = '$text|${style.fontSize}|${style.fontWeight?.value}';
@@ -902,7 +921,9 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
     );
 
     final widths = allSystems
-        .map((s) => _calculateItemWidth(s, selectedTextStyle))
+        .map(
+          (s) => _hasChip(s) ? _calculateItemWidth(s, selectedTextStyle) : 0.0,
+        )
         .toList();
 
     // Cache for the hot scroll path (_scrollToPage) so it doesn't rebuild
@@ -1082,7 +1103,9 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
                       height: 32.r,
                       margin: EdgeInsets.only(right: 4.r),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surface,
+                        color: itemWidth == 0
+                            ? Colors.transparent
+                            : Theme.of(context).colorScheme.surface,
                         borderRadius:
                             Theme.of(
                               context,
@@ -1153,16 +1176,22 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
                             margin: EdgeInsets.only(right: 4.r),
                             alignment: Alignment.center,
                             color: Colors.transparent,
-                            child: Text(
-                              (system.shortName ??
-                                      system.title ??
-                                      AppLocale.unknown.getString(context))
-                                  .toUpperCase(),
-                              textAlign: TextAlign.center,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: isSelected ? selectedTextStyle : textStyle,
-                            ),
+                            child: !_hasChip(system)
+                                ? const SizedBox.shrink()
+                                : Text(
+                                    (system.shortName ??
+                                            system.title ??
+                                            AppLocale.unknown.getString(
+                                              context,
+                                            ))
+                                        .toUpperCase(),
+                                    textAlign: TextAlign.center,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: isSelected
+                                        ? selectedTextStyle
+                                        : textStyle,
+                                  ),
                           ),
                         );
                       }).toList(),

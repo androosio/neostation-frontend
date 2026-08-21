@@ -765,6 +765,9 @@ class _CollectionsBrowserScreenState extends State<CollectionsBrowserScreen> {
         // The footer carried the selected collection's count; with it gone the
         // cards say it themselves, as the systems carousel does.
         showCardCounts: true,
+        // "New collection" is an action, not a place, so it is left out of the
+        // strip of collections you can jump to.
+        showChipFor: (info) => info.folderName != kNewCollectionCardFolder,
         selectedItemKey: _selectedCardAnchorKey,
         onCardTapped: _onCardSelected,
         onActivate: (index) {
