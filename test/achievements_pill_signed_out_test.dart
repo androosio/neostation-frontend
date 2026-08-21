@@ -234,10 +234,9 @@ void main() {
     });
   });
 
-  group('the progress bar only animates while something is outstanding', () {
-    double? barValue(WidgetTester tester) => tester
-        .widget<LinearProgressIndicator>(find.byType(LinearProgressIndicator))
-        .value;
+  group('the progress bar never animates', () {
+    LinearProgressIndicator bar(WidgetTester tester) => tester
+        .widget<LinearProgressIndicator>(find.byType(LinearProgressIndicator));
 
     testWidgets('a settled "no achievements" sits still and empty', (
       tester,
@@ -246,13 +245,17 @@ void main() {
       // answer, not a wait: the lookup ran and came back empty.
       await pumpFooter(tester, connected: true, game: _game(systemRaId: '15'));
 
-      expect(barValue(tester), 0.0);
+      expect(bar(tester).value, 0.0);
       tester.takeException();
     });
 
-    testWidgets('a known total with no earned count keeps animating', (
+    testWidgets('a known total with no earned count sits still too', (
       tester,
     ) async {
+      // The total comes from the bundled snapshot and the earned count from
+      // the network, so this gap opens on every selection change. It used to
+      // run an indeterminate bar, which flashed orange across the pill each
+      // time the user moved between games.
       await pumpFooter(
         tester,
         connected: true,
@@ -261,9 +264,14 @@ void main() {
       );
 
       expect(
-        barValue(tester),
-        isNull,
-        reason: 'the earned half is still outstanding',
+        bar(tester).value,
+        0.0,
+        reason: 'the earned half is outstanding, but that is not an animation',
+      );
+      expect(
+        bar(tester).valueColor?.value,
+        isNot(Colors.orange),
+        reason: 'the score colour arrives with the score, not before it',
       );
       tester.takeException();
     });

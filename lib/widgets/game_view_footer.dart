@@ -431,16 +431,21 @@ class _CompactAchievementsIndicator extends StatelessWidget {
               ? AppLocale.noAchievements.getString(context)
               : AppLocale.raCoverageUnknown.getString(context));
 
-    // Indeterminate only while something is genuinely outstanding: a known
-    // total whose earned count has not arrived, or a lookup still running. A
-    // settled "no achievements" is an answer, so its bar sits empty and still
-    // rather than animating as though more were coming.
-    final progress = knowsProgress && total > 0
-        ? awarded / total
-        : (total > 0 || isLoading ? null : 0.0);
+    // Whether the earned count is still outstanding for a game that has
+    // achievements to earn. The bundled snapshot gives us the total instantly,
+    // so this gap is every single selection change.
+    final awaitingProgress = !knowsProgress && total > 0;
+
+    // Always determinate. This used to run an indeterminate bar through the
+    // gap above, which put an orange sweep across the pill on every game the
+    // user moved onto — a flash that said "working" about a lookup that
+    // resolves in a moment and that the text ("-/45") already reports.
+    final progress = knowsProgress && total > 0 ? awarded / total : 0.0;
 
     final theme = Theme.of(context);
-    final statusColor = noAchievements
+    // Orange is for a real, known score; an empty bar that is empty only
+    // because nobody has answered yet stays neutral.
+    final statusColor = noAchievements || awaitingProgress
         ? theme.colorScheme.onSurface
         : Colors.orange;
 

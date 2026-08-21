@@ -444,14 +444,25 @@ class GameDetailsFooter extends StatelessWidget {
               ? AppLocale.noAchievements.getString(context)
               : AppLocale.raCoverageUnknown.getString(context));
 
-    // Indeterminate only while something is genuinely outstanding; a settled
-    // "no achievements" gets an empty, still bar. See the compact pill.
-    final double? progress = knowsProgress && total > 0
-        ? awarded / total
-        : (total > 0 || isLoadingAchievements ? null : 0.0);
+    // Whether the earned count is still outstanding for a game that has
+    // achievements to earn. The bundled snapshot gives us the total instantly,
+    // so this gap is every single selection change: the pill knows "49
+    // achievements" before it knows "0 of them".
+    final bool awaitingProgress = !knowsProgress && total > 0;
+
+    // Always determinate. This used to run an indeterminate bar through the
+    // gap above, which meant an orange sweep across the pill on *every* game
+    // the user moved onto — a flash that said "working" about a lookup that
+    // resolves in a moment and that the text ("-/49") already reports. A still
+    // bar that fills in when the number lands is the same information without
+    // the strobe.
+    final double progress = knowsProgress && total > 0 ? awarded / total : 0.0;
 
     final theme = Theme.of(context);
-    final Color statusColor = noAchievements
+    // Orange is for a real, known score. An empty bar that is empty only
+    // because nobody has answered yet stays neutral, so the colour arriving is
+    // itself the signal that the number is real.
+    final Color statusColor = noAchievements || awaitingProgress
         ? theme.colorScheme.onSurface
         : Colors.orange;
 
