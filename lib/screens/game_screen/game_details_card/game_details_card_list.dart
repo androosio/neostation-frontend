@@ -749,6 +749,7 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
             ),
           if (_currentTab == DetailTab.box2d)
             GameDetailsBox2dTab(
+              bottomOffset: panelBottomOffset,
               system: _effectiveSystem,
               game: _game,
               fileProvider: widget.fileProvider,

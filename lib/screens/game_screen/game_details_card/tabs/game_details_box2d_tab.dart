@@ -16,12 +16,20 @@ class GameDetailsBox2dTab extends StatefulWidget {
   /// copy this widget already holds.
   final int imageVersion;
 
+  /// How far above the card's bottom edge the art stops, in the same unscaled
+  /// units as the other offsets. The card works it out from what the footer
+  /// under it will draw, so the box art grows into the room a missing
+  /// achievements pill leaves behind instead of being scaled down to clear
+  /// one that is not there.
+  final double bottomOffset;
+
   const GameDetailsBox2dTab({
     super.key,
     required this.system,
     required this.game,
     required this.fileProvider,
     this.imageVersion = 0,
+    this.bottomOffset = 110.0,
   });
 
   @override
@@ -105,7 +113,7 @@ class _GameDetailsBox2dTabState extends State<GameDetailsBox2dTab> {
       left: 12.r,
       right: 12.r,
       top: 55.r,
-      bottom: 110.r,
+      bottom: widget.bottomOffset.r,
       child: Center(
         child: Container(
           decoration: BoxDecoration(
