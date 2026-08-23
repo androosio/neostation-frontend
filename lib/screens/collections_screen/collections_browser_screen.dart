@@ -18,7 +18,6 @@ import 'package:neostation/providers/file_provider.dart';
 import 'package:neostation/providers/sqlite_config_provider.dart';
 import 'package:neostation/models/my_systems.dart';
 import 'package:neostation/responsive.dart';
-import 'package:neostation/utils/count_label.dart';
 import 'package:neostation/utils/collection_sort.dart';
 import 'package:neostation/services/collections/collections_service.dart';
 import 'package:neostation/services/logger_service.dart';
@@ -26,7 +25,6 @@ import 'package:neostation/services/permission_service.dart';
 import 'package:neostation/services/sfx_service.dart';
 import 'package:neostation/widgets/confirm_action_dialog.dart';
 import 'package:neostation/widgets/context_menu/anchored_context_menu.dart';
-import 'package:neostation/widgets/core_footer.dart';
 import 'package:neostation/widgets/custom_notification.dart';
 import 'package:neostation/widgets/header_sort_dropdown.dart';
 import 'package:neostation/widgets/tv_directory_picker.dart';
@@ -68,6 +66,7 @@ const String _menuRename = 'rename';
 const String _menuChangeImage = 'change_image';
 const String _menuRemoveImage = 'remove_image';
 const String _menuDelete = 'delete';
+const String _menuViewMode = 'view_mode';
 
 class _CollectionsBrowserScreenState extends State<CollectionsBrowserScreen> {
   static final _log = LoggerService.instance;
@@ -282,6 +281,18 @@ class _CollectionsBrowserScreenState extends State<CollectionsBrowserScreen> {
         icon: Symbols.delete_rounded,
         separatorBefore: true,
       ),
+      // View-level action, below the hairline that marks where the menu stops
+      // acting on this one collection — the same split the games views' menu
+      // uses. It is here because the header that used to carry the View Mode
+      // pill is gone, and X is a pad-only route: without this row a touch user
+      // could not change the view at all. Mirrors what the rail removal did to
+      // the games views, which moved the same control into the same menu.
+      ContextMenuItem(
+        id: _menuViewMode,
+        label: AppLocale.viewMode.getString(context),
+        icon: Symbols.grid_view_rounded,
+        separatorBefore: true,
+      ),
     ];
 
     final result = await showAnchoredContextMenu(
@@ -309,6 +320,8 @@ class _CollectionsBrowserScreenState extends State<CollectionsBrowserScreen> {
         await _removeImage(collection);
       case _menuDelete:
         await _deleteCollection(collection);
+      case _menuViewMode:
+        await _openViewMenu();
     }
   }
 
@@ -690,36 +703,21 @@ class _CollectionsBrowserScreenState extends State<CollectionsBrowserScreen> {
       },
       child: Scaffold(
         backgroundColor: theme.scaffoldBackgroundColor,
-        // The header floats over the cards rather than sitting above them. It
-        // is a pill in one corner and a count in the other, so stacking it in
-        // the column cost the cards the full height of a row that is empty
-        // across most of its width — and with the footer gone there is nothing
-        // below to balance it, so all of that dead space sat at the top.
-        body: Stack(
+        // No header at all. It floated over the cards so they kept the full
+        // height, which made it cheap to keep — but it only ever held the View
+        // Mode pill and the collection count, and the screen says both without
+        // it: the cards are self-evidently collections, and counting them is
+        // not worth a permanent line of chrome. The Stack went with it, since
+        // the header was the only thing over the cards.
+        body: Column(
           children: [
-            Column(
-              children: [
-                // Only the empty-state hint has to clear the header: it is
-                // left-aligned text that would otherwise start underneath the
-                // View Mode pill. The cards deliberately run under it.
-                if (!showSpinner && collections.isEmpty) ...[
-                  SizedBox(height: _kHeaderReserve.r),
-                  _buildEmptyHint(theme),
-                ],
-                Expanded(
-                  child: showSpinner
-                      ? const Center(child: CircularProgressIndicator())
-                      : viewMode == 'carousel'
-                      ? _buildCarousel(items)
-                      : _buildGrid(items, cols),
-                ),
-              ],
-            ),
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: _buildHeader(theme, collections.length),
+            if (!showSpinner && collections.isEmpty) _buildEmptyHint(theme),
+            Expanded(
+              child: showSpinner
+                  ? const Center(child: CircularProgressIndicator())
+                  : viewMode == 'carousel'
+                  ? _buildCarousel(items)
+                  : _buildGrid(items, cols),
             ),
           ],
         ),
@@ -845,48 +843,13 @@ class _CollectionsBrowserScreenState extends State<CollectionsBrowserScreen> {
     );
   }
 
-  Widget _buildHeader(ThemeData theme, int count) {
-    return Container(
-      padding: EdgeInsets.only(top: 10.r, left: 6.r, right: 16.r, bottom: 4.r),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // View Mode sits top-left, where the systems screen puts it, rather
-          // than in the footer: this screen is a grid of system-style cards and
-          // reads as one, so the control that changes how they are drawn
-          // belongs in the same corner. X still opens it on the pad; the
-          // footer's copy is gone, so there is only ever one of them.
-          Row(
-            children: [
-              GamepadControl(
-                label: AppLocale.viewMode.getString(context),
-                iconPath: 'assets/images/gamepad/Xbox_X_button.png',
-                onTap: _openViewMenu,
-                backgroundColor: theme.colorScheme.tertiaryFixed,
-                textColor: theme.colorScheme.onTertiaryFixed,
-              ),
-              const Spacer(),
-              Text(
-                collectionsCountLabel(context, count).toUpperCase(),
-                style: TextStyle(
-                  fontSize: 9.r,
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.0,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
   /// Shown above the grid when there is nothing but the create card, so the
   /// screen explains itself without ever hiding the one thing that is usable.
   Widget _buildEmptyHint(ThemeData theme) {
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16.r, vertical: 8.r),
+      // Top inset stands in for the header it used to sit below, so the hint
+      // is not flush against the screen edge.
+      padding: EdgeInsets.only(left: 16.r, right: 16.r, top: 16.r, bottom: 8.r),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -911,10 +874,6 @@ class _CollectionsBrowserScreenState extends State<CollectionsBrowserScreen> {
     );
   }
 }
-
-/// Vertical room the floating header needs when something must sit clear of
-/// it. Only the empty-state hint does; the cards run under it on purpose.
-const double _kHeaderReserve = 46;
 
 /// Card aspect ratio, matching the systems grid so the two look identical.
 const double _kCardAspectRatio = 0.80;
