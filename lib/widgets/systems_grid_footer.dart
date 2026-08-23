@@ -33,20 +33,7 @@ class SystemsGridFooter extends CoreFooter {
   @override
   Widget? buildLeftContent(BuildContext context) {
     if (system.isGame) return null;
-    return FooterLabelPill(label: _countText(context));
-  }
-
-  /// The noun follows the folder: everything that is not the Android apps grid
-  /// or the music library holds games, the Collections card included — its
-  /// count is of the games its collections hold, not of the collections (see
-  /// `system_list_builder.dart`).
-  String _countText(BuildContext context) {
-    final count = system.numOfRoms ?? 0;
-    return switch (system.folderName) {
-      'android' => appsCountLabel(context, count),
-      'music' => tracksCountLabel(context, count),
-      _ => gamesCountLabel(context, count),
-    };
+    return FooterLabelPill(label: systemCountLabel(context, system));
   }
 
   @override

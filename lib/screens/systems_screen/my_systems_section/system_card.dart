@@ -66,14 +66,18 @@ class SystemCard extends StatefulWidget {
   /// Whether this card currently has visual focus in the grid.
   final bool isSelected;
 
-  /// Whether the card names its own count under the logo.
+  /// Whether the card names its own count in a pill over its artwork.
   ///
-  /// Off by default because it only pays for itself on a large card. The strip
-  /// under the square artwork is what the logo scales into, and on a grid card
-  /// that strip is about half the carousel's — a count row there leaves the
-  /// system logo smaller than the count. The systems carousel turns it on; the
-  /// grid puts the count in its footer instead, and the collections browser
-  /// has a footer of its own that already carries it.
+  /// Off by default because it only pays for itself on a large card, where
+  /// the pill has artwork to sit on without crowding it. The systems carousel
+  /// turns it on; the grid puts the count in its footer instead, and the
+  /// collections browser has a footer of its own that already carries it.
+  ///
+  /// The pill floats over the artwork rather than taking a row under the
+  /// logo. That row is what the logo scales into: on the carousel the strip
+  /// is only ~60px tall, so a count row inside it left the logo smaller than
+  /// the word beneath it, and reserving the row's height on the card instead
+  /// only moved the cost onto the artwork. Floating it costs neither.
   final bool showCount;
 
   /// Decode width for the card's background image. Defaults to 512 (grid
@@ -321,7 +325,10 @@ class _SystemCardState extends State<SystemCard> {
                             aspectRatio: 1,
                             child: Stack(
                               key: _contentStackKey,
-                              children: [_buildSystemBackground()],
+                              children: [
+                                _buildSystemBackground(),
+                                if (widget.showCount) _buildCountPill(context),
+                              ],
                             ),
                           ),
                           _buildSystemFooter(context),
@@ -654,15 +661,12 @@ class _SystemCardState extends State<SystemCard> {
     );
   }
 
-  /// Renders a bottom footer with the system logo and its count for non-game
-  /// system cards.
+  /// Renders a bottom footer with the system logo for non-game system cards.
   ///
   /// The footer expands to fill the remaining space below the square artwork,
-  /// and the logo is auto-sized to fit while keeping its aspect ratio.
-  ///
-  /// The count sits under the logo because the screen's own footer no longer
-  /// exists to carry it: the card is now the only thing that says how much is
-  /// inside, so it has to say it itself.
+  /// and the logo is auto-sized to fit while keeping its aspect ratio — the
+  /// whole strip is the logo's, which is the point of floating the count over
+  /// the artwork instead (see [_buildCountPill]).
   Widget _buildSystemFooter(BuildContext context) {
     final assetLogoPath = _resolveSystemLogoPath();
 
@@ -682,48 +686,48 @@ class _SystemCardState extends State<SystemCard> {
                 ),
               ),
             ),
-            if (widget.showCount) _buildSystemCount(context),
           ],
         ),
       ),
     );
   }
 
-  /// The card's count line, e.g. "12 GAMES", "1 APP", "48 TRACKS".
+  /// The card's count, e.g. "12 GAMES", "1 APP", "48 TRACKS", as a pill
+  /// floating over the bottom left of the artwork.
   ///
-  /// Styled to match the game card's TIME PLAYED line so the two card kinds
-  /// read as the same component with a different last row.
-  Widget _buildSystemCount(BuildContext context) {
-    return Padding(
-      // The bottom is deliberately larger than the top: the count is the last
-      // thing on the card now, so it needs room under it rather than sitting
-      // on the card's edge.
-      padding: EdgeInsets.only(top: 2.r, bottom: 6.r),
-      child: Text(
-        _countText(context).toUpperCase(),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
-          fontSize: 10.r,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 1.0,
+  /// Bottom left rather than centred: the artwork's centre is where system art
+  /// usually puts its subject, and the card's own logo sits on the centre line
+  /// directly below, so a centred pill stacks two centred things. The fill is
+  /// opaque enough to stay legible over any background art.
+  Widget _buildCountPill(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Positioned(
+      left: 8.r,
+      bottom: 8.r,
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 10.r, vertical: 4.r),
+        decoration: BoxDecoration(
+          color: colorScheme.surface.withValues(alpha: 0.82),
+          borderRadius: BorderRadius.circular(100.r),
+          border: Border.all(
+            color: colorScheme.outline.withValues(alpha: 0.6),
+            width: 1.r,
+          ),
+        ),
+        child: Text(
+          systemCountLabel(context, widget.info).toUpperCase(),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: colorScheme.onSurface,
+            fontSize: 10.r,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.0,
+          ),
         ),
       ),
     );
-  }
-
-  /// The noun follows the folder: everything that is not the Android apps grid
-  /// or the music library holds games, the Collections card included — its
-  /// count is of the games its collections hold, not of the collections (see
-  /// `system_list_builder.dart`).
-  String _countText(BuildContext context) {
-    final count = widget.info.numOfRoms ?? 0;
-    return switch (widget.info.folderName) {
-      'android' => appsCountLabel(context, count),
-      'music' => tracksCountLabel(context, count),
-      _ => gamesCountLabel(context, count),
-    };
   }
 
   /// Resolves the logo asset path for this system.

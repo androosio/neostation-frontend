@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_localization/flutter_localization.dart';
 
 import '../l10n/app_locale.dart';
+import '../models/my_systems.dart';
 
 /// Localized "N Games" / "1 Game" labels for cards, footers and headers.
 ///
@@ -45,3 +46,23 @@ String collectionsCountLabel(BuildContext context, int count) => _label(
   AppLocale.collectionCount,
   AppLocale.collectionsCount,
 );
+
+/// The count line for one system card, footer or pill: "12 Games", "1 App",
+/// "48 Tracks".
+///
+/// The noun follows the folder: everything that is not the Android apps grid
+/// or the music library holds games, the Collections card included — its count
+/// is of the games its collections hold, not of the collections (see
+/// `system_list_builder.dart`).
+///
+/// Shared rather than repeated because three places say this same sentence
+/// about the same card — the grid's footer, the card itself, and the
+/// carousel's floating count — and they must not drift apart.
+String systemCountLabel(BuildContext context, SystemInfo system) {
+  final count = system.numOfRoms ?? 0;
+  return switch (system.folderName) {
+    'android' => appsCountLabel(context, count),
+    'music' => tracksCountLabel(context, count),
+    _ => gamesCountLabel(context, count),
+  };
+}

@@ -9,8 +9,8 @@ import 'package:neostation/screens/systems_screen/my_systems_section/system_card
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Covers the count the system card now carries under its logo, and the
-/// long-press that replaced the footer's Settings control.
+/// Covers the count the system card now carries in a pill over its artwork,
+/// and the long-press that replaced the footer's Settings control.
 ///
 /// Both moved for the same reason: the systems screen dropped its footer so
 /// the cards could have that vertical space. The count was the only thing in
@@ -127,6 +127,40 @@ void main() {
       );
       await tester.pump();
       expect(find.text('0 GAMES'), findsOneWidget);
+    });
+
+    testWidgets('the pill floats bottom left over the artwork', (tester) async {
+      await tester.pumpWidget(host(system(folderName: 'nes', count: 12)));
+      await tester.pump();
+
+      final artwork = tester.getRect(find.byType(AspectRatio).first);
+      final pill = tester.getRect(find.text('12 GAMES'));
+
+      expect(pill.bottom, lessThanOrEqualTo(artwork.bottom));
+      expect(pill.left, greaterThanOrEqualTo(artwork.left));
+      expect(pill.center.dx, lessThan(artwork.center.dx));
+    });
+
+    testWidgets('costs the logo nothing', (tester) async {
+      // The regression this guards: the count used to be a row under the
+      // logo, and the logo is a FittedBox scaling into whatever that strip
+      // has left. On the carousel the strip is only ~60px, so turning the
+      // count on shrank every system logo by about a third. Floating the
+      // pill over the artwork takes the count out of the layout entirely, so
+      // the same card renders the same logo either way.
+      Rect logoBand(WidgetTester tester) =>
+          tester.getRect(find.byType(FittedBox));
+
+      await tester.pumpWidget(
+        host(system(folderName: 'nes', count: 12), showCount: false),
+      );
+      await tester.pump();
+      final withoutCount = logoBand(tester);
+
+      await tester.pumpWidget(host(system(folderName: 'nes', count: 12)));
+      await tester.pump();
+
+      expect(logoBand(tester), withoutCount);
     });
 
     testWidgets('is off unless the host asks for it', (tester) async {

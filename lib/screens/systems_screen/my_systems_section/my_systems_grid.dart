@@ -34,6 +34,7 @@ import 'package:neostation/providers/theme_provider.dart';
 import '../../collections_screen/collections_browser_screen.dart';
 import '../../game_screen/android_apps/android_apps_grid.dart';
 import 'package:neostation/widgets/header_sort_dropdown.dart';
+import 'package:neostation/widgets/system_count_pill.dart';
 import 'package:neostation/widgets/systems_grid_footer.dart';
 import 'package:neostation/widgets/context_menu/anchored_context_menu.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -114,21 +115,32 @@ class MySystems extends StatelessWidget {
                 ? allSystems[selectedIndex]
                 : allSystems[0];
 
-            systemsWidget = Padding(
-              padding: EdgeInsets.only(top: 42.r),
-              child: MySystemsCarousel(
-                selectedIndex: selectedIndex,
-                onCardTapped: onCardTapped,
-                selectedItemKey: _cardAnchorKey,
-                // No footer in this view, so the cards carry their own counts.
-                // They are large enough for it; the grid's are not.
-                showCardCounts: true,
-                onYPressed: () => _openSystemContextMenu(
-                  context,
-                  currentSystem,
-                  configProvider,
+            // Nothing under the carousel takes a row of its own: no footer,
+            // no chip strip, and no count on the cards. The pages are
+            // height-bound — a page is as wide as it is tall, less the card's
+            // footer allowance — so a row of chrome costs the artwork width
+            // as well as height. The count floats over the view instead, in
+            // the band the grid's footer occupies, so it does not move when
+            // the view mode changes.
+            systemsWidget = Stack(
+              children: [
+                Padding(
+                  padding: EdgeInsets.only(top: 42.r),
+                  child: MySystemsCarousel(
+                    selectedIndex: selectedIndex,
+                    onCardTapped: onCardTapped,
+                    selectedItemKey: _cardAnchorKey,
+                    showCardCounts: false,
+                    showIndicatorStrip: false,
+                    onYPressed: () => _openSystemContextMenu(
+                      context,
+                      currentSystem,
+                      configProvider,
+                    ),
+                  ),
                 ),
-              ),
+                SystemCountPill.floating(currentSystem),
+              ],
             );
           } else {
             systemsWidget = _buildSystemsGrid(context, configProvider);
