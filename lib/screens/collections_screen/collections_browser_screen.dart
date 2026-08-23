@@ -562,14 +562,26 @@ class _CollectionsBrowserScreenState extends State<CollectionsBrowserScreen> {
   ///
   /// Returns empty until the resolution lands, so the card falls back to its
   /// tint for a frame rather than blocking the build on disk I/O.
+  ///
+  /// Resolved **even when the collection has its own artwork**, which looks
+  /// wasteful and is not. `SystemCard` paints chosen artwork through
+  /// `Image.file`, whose `errorBuilder` falls back to the mosaic — so the
+  /// mosaic is exactly what a card needs when its artwork file has gone
+  /// missing or will not decode. Short-circuiting here left that fallback with
+  /// nothing to draw, and the card painted a flat tint: a blank card, no
+  /// explanation, and "Remove artwork" the only way back, because clearing the
+  /// path is what let this method compute again. Observed on the Thor with a
+  /// collection whose file was gone from `media/collections/`.
+  ///
+  /// Costs one background resolve per collection, cached by
+  /// [_previewKey]. It cannot change a card that *has* working artwork:
+  /// `SystemCard` gives a custom background precedence over the mosaic, so a
+  /// non-empty list here is only ever reached down the error path.
   List<String> _previewFor(CollectionModel collection, String imageType) {
-    if (collection.imagePath != null && collection.imagePath!.isNotEmpty) {
-      return const [];
-    }
     final key = _previewKey(collection, imageType);
     final cached = _previewCache[key];
     if (cached != null) return cached;
-    if (collection.gameCount > 0) {
+    if (collectionWantsMosaic(collection)) {
       unawaited(_resolvePreview(collection, imageType, key));
     }
     return const [];

@@ -25,9 +25,13 @@ const String kCollectionFallbackColor = '#7C4DFF';
 /// artwork writes to the same path, so only a changing version busts the
 /// `ValueKey` the card keys its `Image.file` on.
 ///
-/// [mosaicPaths] are covers of the games the collection holds, drawn as the
-/// card background when the user has not chosen artwork — a collection has no
-/// theme background to fall back on, so without them the card is a flat tint.
+/// [mosaicPaths] are covers of the games the collection holds — a collection
+/// has no theme background to fall back on, so without them the card is a flat
+/// tint. Drawn when the user has chosen no artwork, and also when chosen
+/// artwork fails to load: `SystemCard` gives a custom background precedence,
+/// so passing them alongside one only furnishes its `errorBuilder`. Pass them
+/// unconditionally — a card whose artwork file has gone missing is otherwise
+/// blank with no way to tell why.
 SystemInfo collectionToSystemInfo(
   CollectionModel collection, {
   required int imageVersion,
@@ -45,6 +49,24 @@ SystemInfo collectionToSystemInfo(
     mosaicPaths: mosaicPaths,
   );
 }
+
+/// Whether [collection]'s cover mosaic is worth resolving.
+///
+/// Deliberately **not** conditional on the collection having artwork of its
+/// own. `SystemCard` paints chosen artwork through `Image.file` and falls back
+/// to the mosaic from its `errorBuilder`, so the mosaic is precisely what a
+/// card needs when its artwork file has gone missing or will not decode.
+/// Skipping the resolve for collections with an `imagePath` left that fallback
+/// with nothing to draw and the card painted a flat tint — a blank card with
+/// no way to tell why, recoverable only via "Remove artwork", which worked
+/// only because clearing the path started the resolve again. Observed on the
+/// Thor against a collection whose file was gone from `media/collections/`.
+///
+/// A card with *working* artwork is unaffected: `SystemCard` gives a custom
+/// background precedence over the mosaic, so the covers are only ever reached
+/// down the error path.
+bool collectionWantsMosaic(CollectionModel collection) =>
+    collection.gameCount > 0;
 
 /// Folder name of the synthetic trailing entry.
 ///

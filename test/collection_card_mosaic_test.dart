@@ -118,6 +118,40 @@ void main() {
     });
   });
 
+  group('collectionWantsMosaic', () {
+    // The regression this guards: the browser used to skip resolving covers
+    // whenever a collection had artwork, so when that artwork went missing
+    // SystemCard's errorBuilder had no mosaic to fall back to and painted a
+    // flat tint. Blank card, no explanation. Seen on the Thor.
+    test('a collection with artwork still wants its mosaic resolved', () {
+      const collection = CollectionModel(
+        id: 'abc',
+        name: 'Shmups',
+        gameCount: 4,
+        imagePath: '/media/collections/abc.png',
+      );
+      expect(
+        collectionWantsMosaic(collection),
+        isTrue,
+        reason: 'the mosaic is the fallback for artwork that will not load',
+      );
+    });
+
+    test('a collection without artwork wants one', () {
+      const collection = CollectionModel(
+        id: 'abc',
+        name: 'Shmups',
+        gameCount: 4,
+      );
+      expect(collectionWantsMosaic(collection), isTrue);
+    });
+
+    test('an empty collection has nothing to preview', () {
+      const collection = CollectionModel(id: 'abc', name: 'Shmups');
+      expect(collectionWantsMosaic(collection), isFalse);
+    });
+  });
+
   group('SystemCard', () {
     Widget card(SystemInfo info) => ChangeNotifierProvider(
       create: (_) => NeoAssetsProvider(),
