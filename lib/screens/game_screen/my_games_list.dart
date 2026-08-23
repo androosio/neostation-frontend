@@ -235,18 +235,18 @@ class _SystemGamesListState extends State<SystemGamesList> {
   VoidCallback? _refreshAchievementsCallback;
 
   // Overlay interaction delegates.
-  bool Function()? _isAchievementsOpen;
-  VoidCallback? _moveAchievementUp;
-  VoidCallback? _moveAchievementDown;
-  VoidCallback? _moveAchievementLeft;
-  VoidCallback? _moveAchievementRight;
+  bool Function()? _isDetailsPanelActive;
+  VoidCallback? _movePanelUp;
+  VoidCallback? _movePanelDown;
+  VoidCallback? _movePanelLeft;
+  VoidCallback? _movePanelRight;
   VoidCallback? _triggerOverlayAction;
   VoidCallback? _selectButtonAction; // Maps to Select (View) for mute/refresh.
   VoidCallback? _scrapeAction; // Maps to Select + A (scrape highlighted game).
   bool Function(bool isRight)?
   _tabNavigationAction; // Facilitates tab switching via D-pad left/right.
-  bool Function()? _enterAchievementsGrid; // A - step into the RA badges.
-  bool Function()? _exitAchievementsGrid; // B - step back out of them.
+  bool Function()? _activateDetailsPanel; // A - step into the details panel.
+  bool Function()? _dismissDetailsPanel; // B - step back out of it.
   bool Function()? _isPlayingGameBlocked; // Validation for launch readiness.
 
   // Secondary display hardware management (OEM support).
@@ -1741,8 +1741,8 @@ class _SystemGamesListState extends State<SystemGamesList> {
             _secondaryDisplayState?.value?.isSecondaryActive ?? false,
         onDeactivateNavigation: () => _gamepadNav.deactivate(),
         onReactivateNavigation: () => _gamepadNav.activate(),
-        onRegisterOverlayState: (isOverlayOpen, isAchievementsOpen) {
-          _isAchievementsOpen = isAchievementsOpen;
+        onRegisterOverlayState: (isOverlayOpen, isPanelActive) {
+          _isDetailsPanelActive = isPanelActive;
         },
         onRegisterNavigation:
             ({
@@ -1751,10 +1751,10 @@ class _SystemGamesListState extends State<SystemGamesList> {
               required moveLeft,
               required moveRight,
             }) {
-              _moveAchievementUp = moveUp;
-              _moveAchievementDown = moveDown;
-              _moveAchievementLeft = moveLeft;
-              _moveAchievementRight = moveRight;
+              _movePanelUp = moveUp;
+              _movePanelDown = moveDown;
+              _movePanelLeft = moveLeft;
+              _movePanelRight = moveRight;
             },
         onRegisterCloseOverlays: null,
         onRegisterTriggerAction: (triggerAction) {
@@ -1763,9 +1763,9 @@ class _SystemGamesListState extends State<SystemGamesList> {
         onRegisterTabNavigation: (tabNav) {
           _tabNavigationAction = tabNav;
         },
-        onRegisterAchievementsFocus: (enter, exit) {
-          _enterAchievementsGrid = enter;
-          _exitAchievementsGrid = exit;
+        onRegisterPanelFocus: (enter, exit) {
+          _activateDetailsPanel = enter;
+          _dismissDetailsPanel = exit;
         },
         onRegisterSelectButton: (action) {
           _selectButtonAction = action;

@@ -22,20 +22,20 @@ extension _GamepadNav on _SystemGamesListState {
     return false;
   }
 
-  /// Handles the A button: steps into the achievements badge grid when the
-  /// details card is showing it, and launches the highlighted game otherwise.
+  /// Handles the A button: steps into the details card's panel when the tab
+  /// under the cursor has one, and launches the highlighted game otherwise.
   ///
-  /// The grid is gated behind A so arriving on the achievements tab never
-  /// swallows the D-pad; [_handleBButton] is the matching way back out.
+  /// The panels are gated behind A so arriving on a tab never swallows the
+  /// D-pad; [_handleBButton] is the matching way back out.
   void _handleAButton() {
-    if (_enterAchievementsGrid?.call() ?? false) return;
+    if (_activateDetailsPanel?.call() ?? false) return;
     _selectCurrentGame();
   }
 
-  /// Handles the B button: leaves the achievements badge grid if it holds the
-  /// D-pad, and otherwise backs out of the screen as usual.
+  /// Handles the B button: leaves the details panel if it holds the D-pad,
+  /// and otherwise backs out of the screen as usual.
   void _handleBButton() {
-    if (_exitAchievementsGrid?.call() ?? false) return;
+    if (_dismissDetailsPanel?.call() ?? false) return;
     _goBack();
   }
 
@@ -73,8 +73,8 @@ extension _GamepadNav on _SystemGamesListState {
       onNavigateRight: _navigateRight, // Next details tab.
       onLetterJump: _letterJump, // Held D-pad up/down → alphabet skipping.
       accelerateRepeats: true, // Text-only rows keep up with a ramping repeat.
-      onSelectItem: _handleAButton, // Button A - RA grid gate, else launch.
-      onBack: _handleBButton, // Button B - leave the RA grid, else go back.
+      onSelectItem: _handleAButton, // Button A - panel gate, else launch.
+      onBack: _handleBButton, // Button B - leave the panel, else go back.
       onFavorite: _openGameContextMenu, // Button Y - game context menu.
       onXButton:
           _handleXButton, // Button X - View mode picker (music: shuffle).
@@ -101,8 +101,8 @@ extension _GamepadNav on _SystemGamesListState {
   void _navigateUp() {
     if (_games.isEmpty) return;
 
-    if (_isAchievementsOpen != null && _isAchievementsOpen!()) {
-      _moveAchievementUp?.call();
+    if (_isDetailsPanelActive != null && _isDetailsPanelActive!()) {
+      _movePanelUp?.call();
       return;
     }
 
@@ -116,8 +116,8 @@ extension _GamepadNav on _SystemGamesListState {
   void _navigateDown() {
     if (_games.isEmpty) return;
 
-    if (_isAchievementsOpen != null && _isAchievementsOpen!()) {
-      _moveAchievementDown?.call();
+    if (_isDetailsPanelActive != null && _isDetailsPanelActive!()) {
+      _movePanelDown?.call();
       return;
     }
 
@@ -131,7 +131,7 @@ extension _GamepadNav on _SystemGamesListState {
   /// selection still wraps at the ends of the list.
   bool _letterJump(bool forward) {
     if (_games.isEmpty) return false;
-    if (_isAchievementsOpen != null && _isAchievementsOpen!()) return false;
+    if (_isDetailsPanelActive != null && _isDetailsPanelActive!()) return false;
 
     final target = LetterJump.targetIndex(
       length: _games.length,
@@ -150,22 +150,22 @@ extension _GamepadNav on _SystemGamesListState {
     return true;
   }
 
-  /// Switches to the previous details tab, or moves within the achievements
-  /// overlay while it owns the input.
+  /// Switches to the previous details tab, or moves within the details panel
+  /// while it owns the input.
   bool _navigateLeft() {
-    if (_isAchievementsOpen != null && _isAchievementsOpen!()) {
-      _moveAchievementLeft?.call();
+    if (_isDetailsPanelActive != null && _isDetailsPanelActive!()) {
+      _movePanelLeft?.call();
       return true;
     }
 
     return _switchDetailsTab(false);
   }
 
-  /// Switches to the next details tab, or moves within the achievements
-  /// overlay while it owns the input.
+  /// Switches to the next details tab, or moves within the details panel
+  /// while it owns the input.
   bool _navigateRight() {
-    if (_isAchievementsOpen != null && _isAchievementsOpen!()) {
-      _moveAchievementRight?.call();
+    if (_isDetailsPanelActive != null && _isDetailsPanelActive!()) {
+      _movePanelRight?.call();
       return true;
     }
 

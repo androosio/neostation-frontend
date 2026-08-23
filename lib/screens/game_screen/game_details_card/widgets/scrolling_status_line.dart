@@ -4,15 +4,15 @@ import 'package:flutter/material.dart';
 /// A single-line horizontal marquee for the details card's footer — the
 /// metadata strip, and the ROM filename when it is wider than its line.
 ///
-/// Sibling of [ScrollingDescriptionText] and built on the same tick engine: a
-/// [Timer.periodic] driving a [ScrollController] directly, so the parent's
-/// frequent `setState` calls (the footer rebuilds on every sync tick and every
-/// achievements poll) cannot disturb the movement.
+/// Built on a [Timer.periodic] driving a [ScrollController] directly, so the
+/// parent's frequent `setState` calls (the footer rebuilds on every sync tick
+/// and every achievements poll) cannot disturb the movement.
 ///
-/// The difference is the axis and the contents. This one scrolls right to left
-/// through a row of *widgets* rather than a string, because the metadata strip
-/// mixes a coloured rating glyph in with plain text, and it only moves when the
-/// row is genuinely wider than its slot — anything that fits sits still.
+/// The details card used to scroll its description on the same engine. That
+/// one is gone: a description is read, not glanced at, so it holds still and
+/// takes a drag or the D-pad instead. A one-line strip that is wider than its
+/// slot has nowhere else to go, so this one stays — and it only moves when the
+/// row genuinely overflows; anything that fits sits still.
 class ScrollingStatusLine extends StatefulWidget {
   /// The strip's contents, already separated. Laid out in a `Row` that keeps
   /// its intrinsic width, which is what the overflow test compares against.

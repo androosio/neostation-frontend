@@ -113,10 +113,10 @@ class GameDetailsCardList extends StatefulWidget {
   /// Callback to register tab-based navigation handling (D-pad left/right).
   final Function(bool Function(bool))? onRegisterTabNavigation;
 
-  /// Callback to register the achievements grid's focus gate: `enter` (A) and
-  /// `exit` (B), each reporting whether it consumed the button.
+  /// Callback to register the tab panels' focus gate: `enter` (A) and `exit`
+  /// (B), each reporting whether it consumed the button.
   final Function(bool Function() enter, bool Function() exit)?
-  onRegisterAchievementsFocus;
+  onRegisterPanelFocus;
 
   /// Callback to register the Select button action.
   final Function(VoidCallback)? onRegisterSelectButton;
@@ -161,7 +161,7 @@ class GameDetailsCardList extends StatefulWidget {
     this.onRegisterSecondaryAction,
     this.onRegisterIsPlayingGameBlocked,
     this.onRegisterTabNavigation,
-    this.onRegisterAchievementsFocus,
+    this.onRegisterPanelFocus,
     this.onRegisterSelectButton,
     this.onRegisterScrapeAction,
     this.isSecondaryScreenActive = false,
@@ -226,6 +226,8 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
   SecondaryDisplayState? _secondaryState;
   int _lastScrapeTrigger = 0;
 
+  final GlobalKey<GameDetailsGameInfoTabState> _gameInfoTabKey =
+      GlobalKey<GameDetailsGameInfoTabState>();
   final GlobalKey<GameDetailsAchievementsTabState> _achievementsTabKey =
       GlobalKey<GameDetailsAchievementsTabState>();
 
@@ -363,41 +365,32 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
 
     widget.onRegisterOverlayState?.call(
       () => _currentTab != DetailTab.wheel,
-      // Being on the achievements tab is not enough to take the D-pad: the
-      // badge grid only owns it once the user has stepped into it with A.
-      () =>
-          _currentTab == DetailTab.achievements &&
-          (_achievementsTabKey.currentState?.isPanelActive ?? false),
+      // Being on a tab is not enough to take the D-pad: a panel only owns it
+      // once the user has stepped into it with A.
+      _isPanelActive,
     );
     widget.onRegisterCloseOverlays?.call(_closeAllOverlays);
     widget.onRegisterTabNavigation?.call(_handleTabNavigation);
-    widget.onRegisterAchievementsFocus?.call(
-      _enterAchievementsGrid,
-      _exitAchievementsGrid,
-    );
+    widget.onRegisterPanelFocus?.call(_activatePanel, _dismissPanel);
     widget.onRegisterSelectButton?.call(_handleSelectAction);
     widget.onRegisterScrapeAction?.call(_onScrapeGameCompact);
     widget.onRegisterNavigation?.call(
-      moveUp: () {
-        if (_currentTab == DetailTab.achievements) {
-          _achievementsTabKey.currentState?.moveUp();
-        }
-      },
-      moveDown: () {
-        if (_currentTab == DetailTab.achievements) {
-          _achievementsTabKey.currentState?.moveDown();
-        }
-      },
-      moveLeft: () {
-        if (_currentTab == DetailTab.achievements) {
-          _achievementsTabKey.currentState?.moveLeft();
-        }
-      },
-      moveRight: () {
-        if (_currentTab == DetailTab.achievements) {
-          _achievementsTabKey.currentState?.moveRight();
-        }
-      },
+      moveUp: () => _movePanel(
+        achievements: (state) => state.moveUp(),
+        gameInfo: (state) => state.moveUp(),
+      ),
+      moveDown: () => _movePanel(
+        achievements: (state) => state.moveDown(),
+        gameInfo: (state) => state.moveDown(),
+      ),
+      moveLeft: () => _movePanel(
+        achievements: (state) => state.moveLeft(),
+        gameInfo: (state) => state.moveLeft(),
+      ),
+      moveRight: () => _movePanel(
+        achievements: (state) => state.moveRight(),
+        gameInfo: (state) => state.moveRight(),
+      ),
     );
     widget.onRegisterTriggerAction?.call(_handleTriggerAction);
     widget.onRegisterSecondaryAction?.call(_handleSecondaryAction);
@@ -777,6 +770,7 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
           ),
           if (_currentTab == DetailTab.gameInfo)
             GameDetailsGameInfoTab(
+              key: _gameInfoTabKey,
               bottomOffset: panelBottomOffset,
               system: _effectiveSystem,
               game: _game,
@@ -901,23 +895,74 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
     return true; // Input consumed.
   }
 
-  /// Handles gamepad A for the achievements panel.
-  ///
-  /// The first press activates the panel; once inside, A runs whichever header
-  /// action holds the cursor. Anywhere else A stays the launch button.
-  bool _enterAchievementsGrid() {
-    if (!mounted || _currentTab != DetailTab.achievements) return false;
-
-    final state = _achievementsTabKey.currentState;
-    if (state == null) return false;
-    return state.isPanelActive ? state.activateFocused() : state.enterPanel();
+  /// Whether the current tab's panel is holding the D-pad.
+  bool _isPanelActive() {
+    if (!mounted) return false;
+    return switch (_currentTab) {
+      DetailTab.achievements =>
+        _achievementsTabKey.currentState?.isPanelActive ?? false,
+      DetailTab.gameInfo =>
+        _gameInfoTabKey.currentState?.isPanelActive ?? false,
+      _ => false,
+    };
   }
 
-  /// Steps back out of the achievements panel (gamepad B), so B only leaves
-  /// the screen once the panel no longer holds the D-pad.
-  bool _exitAchievementsGrid() {
-    if (!mounted || _currentTab != DetailTab.achievements) return false;
-    return _achievementsTabKey.currentState?.exitPanel() ?? false;
+  /// Sends a direction to whichever panel is holding the D-pad.
+  void _movePanel({
+    required void Function(GameDetailsAchievementsTabState) achievements,
+    required void Function(GameDetailsGameInfoTabState) gameInfo,
+  }) {
+    if (!mounted) return;
+    switch (_currentTab) {
+      case DetailTab.achievements:
+        final state = _achievementsTabKey.currentState;
+        if (state != null) achievements(state);
+      case DetailTab.gameInfo:
+        final state = _gameInfoTabKey.currentState;
+        if (state != null) gameInfo(state);
+      default:
+        break;
+    }
+  }
+
+  /// Handles gamepad A for the tab panels.
+  ///
+  /// The first press activates the panel under the cursor; inside the
+  /// achievements panel a second press runs whichever header action holds the
+  /// cursor. On a tab with no panel to enter, A stays the launch button.
+  bool _activatePanel() {
+    if (!mounted) return false;
+
+    switch (_currentTab) {
+      case DetailTab.achievements:
+        final state = _achievementsTabKey.currentState;
+        if (state == null) return false;
+        return state.isPanelActive
+            ? state.activateFocused()
+            : state.enterPanel();
+      case DetailTab.gameInfo:
+        final state = _gameInfoTabKey.currentState;
+        if (state == null) return false;
+        // Nothing to run inside this one: the language chips apply as the
+        // cursor reaches them. A stays consumed so it cannot launch the game
+        // from under a panel the user is reading.
+        return state.isPanelActive || state.enterPanel();
+      default:
+        return false;
+    }
+  }
+
+  /// Steps back out of the active panel (gamepad B), so B only leaves the
+  /// screen once no panel holds the D-pad.
+  bool _dismissPanel() {
+    if (!mounted) return false;
+
+    return switch (_currentTab) {
+      DetailTab.achievements =>
+        _achievementsTabKey.currentState?.exitPanel() ?? false,
+      DetailTab.gameInfo => _gameInfoTabKey.currentState?.exitPanel() ?? false,
+      _ => false,
+    };
   }
 
   /// Switches to [tab].
@@ -930,11 +975,9 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
 
     final wasScreenshotVideo = _currentTab == DetailTab.screenshotVideo;
 
-    // Walking off the achievements tab releases the grid, so returning to it
-    // starts at the gate rather than silently owning the D-pad again.
-    if (_currentTab == DetailTab.achievements) {
-      _achievementsTabKey.currentState?.exitPanel();
-    }
+    // Walking off a tab releases its panel, so returning to it starts at the
+    // gate rather than silently owning the D-pad again.
+    _dismissPanel();
 
     setState(() {
       _currentTab = tab;

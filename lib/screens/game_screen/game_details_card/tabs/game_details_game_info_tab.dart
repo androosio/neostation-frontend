@@ -3,6 +3,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_localization/flutter_localization.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:neostation/l10n/app_locale.dart';
+import 'package:neostation/services/sfx_service.dart';
 import '../../../../models/system_model.dart';
 import '../../../../models/game_model.dart';
 import '../../../../providers/file_provider.dart';
@@ -10,7 +11,7 @@ import '../../../../services/screenscraper_service.dart';
 import '../../../../themes/chrome_surface.dart';
 import '../../../../themes/corner_radii.dart';
 import '../../../../utils/game_utils.dart';
-import '../widgets/scrolling_description_text.dart';
+import '../widgets/header_action_button.dart';
 
 class GameDetailsGameInfoTab extends StatefulWidget {
   final SystemModel system;
@@ -40,10 +41,10 @@ class GameDetailsGameInfoTab extends StatefulWidget {
   });
 
   @override
-  State<GameDetailsGameInfoTab> createState() => _GameDetailsGameInfoTabState();
+  State<GameDetailsGameInfoTab> createState() => GameDetailsGameInfoTabState();
 }
 
-class _GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
+class GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
   static const List<String> _languageLabels = [
     'en',
     'es',
@@ -88,6 +89,143 @@ class _GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
   };
 
   String _selectedLanguage = 'en';
+
+  /// Drives the description pane: the D-pad scrolls it while the panel is
+  /// active, and a finger can drag it at any time.
+  final ScrollController _descriptionController = ScrollController();
+
+  /// Keeps the focused language chip inside its horizontal strip.
+  final Map<int, GlobalKey> _languageKeys = {};
+
+  /// Whether the panel owns the D-pad.
+  ///
+  /// Same gate as the achievements panel: arriving on this tab must not
+  /// swallow the D-pad, so left/right keep walking the tabs and up/down keep
+  /// moving the games list until A steps in. B steps back out.
+  bool _isPanelActive = false;
+
+  /// How far one D-pad press moves the description: about three lines, so a
+  /// press is a readable step rather than a jump.
+  double get _scrollStep => 56.r;
+
+  /// Whether the panel currently owns the D-pad.
+  bool get isPanelActive => _isPanelActive;
+
+  /// Whether the description is longer than its pane.
+  bool get _canScroll =>
+      _descriptionController.hasClients &&
+      _descriptionController.position.maxScrollExtent > 0;
+
+  /// Hands the D-pad to the panel. Returns whether the input was consumed.
+  ///
+  /// Refuses when there is nothing to drive — a description that fits and a
+  /// single language leave the D-pad better spent on the tabs and the list.
+  bool enterPanel() {
+    if (_isPanelActive) return true; // Already inside — A stays consumed.
+    if (!_canScroll && _availableLanguages().length < 2) return false;
+
+    setState(() => _isPanelActive = true);
+    return true;
+  }
+
+  /// Gives the D-pad back to the details card. Returns whether it was held.
+  bool exitPanel() {
+    if (!_isPanelActive) return false;
+
+    setState(() => _isPanelActive = false);
+    return true;
+  }
+
+  /// Gamepad navigation delegate: scrolls the description up one step.
+  void moveUp() => _scrollDescription(-_scrollStep);
+
+  /// Gamepad navigation delegate: scrolls the description down one step.
+  void moveDown() => _scrollDescription(_scrollStep);
+
+  /// Gamepad navigation delegate: previous description language.
+  void moveLeft() => _stepLanguage(-1);
+
+  /// Gamepad navigation delegate: next description language.
+  void moveRight() => _stepLanguage(1);
+
+  void _scrollDescription(double delta) {
+    if (!_isPanelActive || !_descriptionController.hasClients) return;
+
+    final position = _descriptionController.position;
+    final target = (position.pixels + delta).clamp(
+      0.0,
+      position.maxScrollExtent,
+    );
+    if ((target - position.pixels).abs() < 0.5) return;
+
+    _descriptionController.animateTo(
+      target,
+      duration: const Duration(milliseconds: 140),
+      curve: Curves.easeOut,
+    );
+  }
+
+  /// Walks the language strip by [delta], clamped to its ends.
+  ///
+  /// The chip is the selection, so a step applies the language outright rather
+  /// than parking a cursor on it that A would then have to confirm.
+  void _stepLanguage(int delta) {
+    if (!_isPanelActive) return;
+
+    final languages = _availableLanguages();
+    if (languages.length < 2) return;
+
+    final current = languages.indexOf(_selectedLanguage);
+    final next = ((current < 0 ? 0 : current) + delta).clamp(
+      0,
+      languages.length - 1,
+    );
+    if (next == current) return;
+
+    setState(() => _selectedLanguage = languages[next]);
+    // A new language is a new text: start it from the top.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (_descriptionController.hasClients) {
+        _descriptionController.jumpTo(0);
+      }
+      final key = _languageKeys[next];
+      if (key?.currentContext != null) {
+        Scrollable.ensureVisible(
+          key!.currentContext!,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+          alignment: 0.5,
+        );
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(GameDetailsGameInfoTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    // A new game is a new panel: drop the gate and start its text from the
+    // top, and fall back to English if it has nothing in the language the
+    // previous game was being read in.
+    if (oldWidget.game.romPath != widget.game.romPath) {
+      _isPanelActive = false;
+      if (!_availableLanguages().contains(_selectedLanguage)) {
+        _selectedLanguage = 'en';
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _descriptionController.hasClients) {
+          _descriptionController.jumpTo(0);
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _descriptionController.dispose();
+    super.dispose();
+  }
 
   List<String> _availableLanguages() {
     final descriptions = widget.game.descriptions;
@@ -159,6 +297,44 @@ class _GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
                         ),
                       ),
                       const Spacer(),
+                      // The gate's affordance, as on the achievements panel:
+                      // which button takes the D-pad into the description and
+                      // which gives it back. Only drawn when there is
+                      // something in here to drive.
+                      if (!showScrapeView &&
+                          (_canScroll || _availableLanguages().length > 1)) ...[
+                        HeaderActionButton(
+                          icon: Image.asset(
+                            _isPanelActive
+                                ? 'assets/images/gamepad/Xbox_B_button.png'
+                                : 'assets/images/gamepad/Xbox_A_button.png',
+                            width: 12.r,
+                            height: 12.r,
+                          ),
+                          label:
+                              (_isPanelActive
+                                      ? AppLocale.back.getString(context)
+                                      : AppLocale.navigate.getString(context))
+                                  .toUpperCase(),
+                          onTap: () {
+                            SfxService().playNavSound();
+                            if (_isPanelActive) {
+                              exitPanel();
+                            } else {
+                              enterPanel();
+                            }
+                          },
+                          backgroundColor: _isPanelActive
+                              ? Theme.of(context).colorScheme.secondary
+                              : Theme.of(
+                                  context,
+                                ).colorScheme.surfaceContainerHighest,
+                          foregroundColor: _isPanelActive
+                              ? Theme.of(context).colorScheme.onSecondary
+                              : Theme.of(context).colorScheme.onSurface,
+                        ),
+                        SizedBox(width: 8.r),
+                      ],
                       if (!showScrapeView &&
                           !widget.isScrapingGame &&
                           (widget.game.developer.isNotEmpty ||
@@ -278,23 +454,35 @@ class _GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
     );
   }
 
+  /// The description pane.
+  ///
+  /// It used to scroll itself on a timer, which meant the text was moving
+  /// under the reader and there was no way to hold it still or go back a
+  /// paragraph. It stays put now: a finger drags it, and the D-pad steps it
+  /// once the panel has been activated.
+  Widget _buildDescription(String text) {
+    return SingleChildScrollView(
+      controller: _descriptionController,
+      physics: const BouncingScrollPhysics(),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
+          fontSize: 11.r,
+          height: 1.6,
+        ),
+      ),
+    );
+  }
+
   Widget _buildScrapedView() {
     final availableLanguages = _availableLanguages();
 
     if (availableLanguages.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: EdgeInsets.all(12.r),
-          child: ScrollingDescriptionText(
-            text: GameUtils.cleanupDescription(widget.description),
-            style: TextStyle(
-              color: Theme.of(
-                context,
-              ).colorScheme.onSurface.withValues(alpha: 0.8),
-              fontSize: 11.r,
-              height: 1.6,
-            ),
-          ),
+      return Padding(
+        padding: EdgeInsets.all(12.r),
+        child: _buildDescription(
+          GameUtils.cleanupDescription(widget.description),
         ),
       );
     }
@@ -306,16 +494,9 @@ class _GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
         Expanded(
           child: Padding(
             padding: EdgeInsets.symmetric(horizontal: 12.r),
-            child: ScrollingDescriptionText(
-              text: GameUtils.cleanupDescription(
+            child: _buildDescription(
+              GameUtils.cleanupDescription(
                 activeDesc.isNotEmpty ? activeDesc : widget.description,
-              ),
-              style: TextStyle(
-                color: Theme.of(
-                  context,
-                ).colorScheme.onSurface.withValues(alpha: 0.8),
-                fontSize: 11.r,
-                height: 1.6,
               ),
             ),
           ),
@@ -333,6 +514,7 @@ class _GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
                 final lang = availableLanguages[index];
                 final isSelected = lang == _selectedLanguage;
                 return Material(
+                  key: _languageKeys.putIfAbsent(index, () => GlobalKey()),
                   color: isSelected
                       ? Theme.of(context).colorScheme.primary
                       : Theme.of(context).colorScheme.surfaceContainerHighest,
@@ -341,6 +523,8 @@ class _GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
                     onTap: () {
                       setState(() {
                         _selectedLanguage = lang;
+                        // A tap is the touch equivalent of the A gate.
+                        _isPanelActive = true;
                       });
                     },
                     borderRadius: BorderRadius.circular(6.r),
