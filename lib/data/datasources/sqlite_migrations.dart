@@ -577,14 +577,20 @@ class SqliteMigrations {
       case 144:
         await _migrateToVersion144(db);
         break;
-      // 145 is claimed by another branch that is not merged yet.
+      // 145 was reserved for the collections backfill, but main shipped 146
+      // and 147 above it before the branch merged, so that backfill would have
+      // been unreachable on any device at v147. It lives at 150 instead; 145
+      // stays empty.
       case 146:
         await _migrateToVersion146(db);
         break;
       case 147:
         await _migrateToVersion147(db);
         break;
-      // 148 is claimed by another branch that is not merged yet.
+      // 148 was this branch's slot for the collections backfill, but main
+      // shipped 149 above it before the branch merged, then 150 until main
+      // shipped 150-153, then 154 until #469 took that one too. The backfill
+      // lives at 155 now; 148, 150 and 154 stay this branch's empty slots.
       case 149:
         await _migrateToVersion149(db);
         break;
@@ -593,6 +599,9 @@ class SqliteMigrations {
         break;
       case 154:
         await _migrateToVersion154(db);
+        break;
+      case 155:
+        await _migrateToVersion155(db);
         break;
       default:
         _log.w('No migration defined for version $version');
@@ -6870,6 +6879,46 @@ class SqliteMigrations {
       _log.i('Migration v154 completed');
     } catch (e, stackTrace) {
       _log.e('Error in migration v154: $e');
+      _log.e('   StackTrace: $stackTrace');
+      rethrow;
+    }
+  }
+
+  /// Re-runs the collections migrations for devices that went past their slots
+  /// on main.
+  ///
+  /// Main reserved 139 and 140 for this branch but kept moving: by the time the
+  /// branch rebased, main shipped 141 and 144 (0.11.0 devices sit at v144),
+  /// then 146 and 147 (dev builds after #418). The upgrade loop only walks
+  /// `oldVersion + 1 ..= newVersion`, so on those devices cases 139 and 140 are
+  /// already behind the floor and never fire — no `user_collections` tables,
+  /// no `collection_sort_*` columns, and every whole-config save failing with
+  /// `no such column`.
+  ///
+  /// Reserving a slot stops two branches writing *different* things to the same
+  /// number; it does nothing about a device that is simply past the number. Only
+  /// a migration above the current floor reaches those devices, which is what
+  /// this is. It was first written as v145 (which main had reserved for it),
+  /// moved to 148 when main's 146/147 put the floor above 145, then to 150 when
+  /// main's 149 put the floor above 148, then to 154 -- main shipped 150, 151,
+  /// 152 and 153 while the branch was out -- and now to 155, because #469 landed
+  /// on main and took 154 itself. Each rebase has to re-check this: a reserved
+  /// slot below the current floor is still unreachable.
+  /// Delegates to [_migrateToVersion139] and [_migrateToVersion140] rather than
+  /// copying their statements, so the repair cannot drift from what it repairs.
+  /// Both are idempotent by construction (`CREATE TABLE/INDEX IF NOT EXISTS`,
+  /// per-column `PRAGMA table_info` guards), so a device that already ran them
+  /// (or ran the v145, v148 or v150 form of this on a dev build) re-runs this
+  /// as a no-op and keeps its rows.
+  static Future<void> _migrateToVersion155(Database db) async {
+    _log.i('Migration v155: Backfilling collections for post-v140 databases');
+    try {
+      await _migrateToVersion139(db);
+      await _migrateToVersion140(db);
+
+      _log.i('Migration v155 completed');
+    } catch (e, stackTrace) {
+      _log.e('Error in migration v155: $e');
       _log.e('   StackTrace: $stackTrace');
       rethrow;
     }

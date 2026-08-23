@@ -112,4 +112,78 @@ void main() {
       );
     });
   });
+
+  group('a device that upgraded on main past v140 (0.11.0, v144)', () {
+    // The case reserving 139/140 does not cover: main kept moving and shipped
+    // 141 and 144, then 146/147, then 149, then 150-153, so a 0.11.0 device is
+    // past both slots. The upgrade loop only walks oldVersion + 1 ..=
+    // newVersion, so 139 and 140 never fire there and only a migration above
+    // the floor can reach it -- which is why this repair has been renumbered
+    // on every rebase: 145, 148, 150, 154, now 155.
+    test(
+      'v155 creates the collections tables the skipped v139 would have',
+      () async {
+        expect(tableNames(), isNot(contains('user_collections')));
+
+        await SqliteMigrations.migrateToVersion(db, 155);
+
+        expect(tableNames(), contains('user_collections'));
+        expect(tableNames(), contains('user_collection_items'));
+      },
+    );
+
+    test('v155 adds the sort columns the skipped v140 would have', () async {
+      expect(configColumns(), isNot(contains('collection_sort_by')));
+
+      await SqliteMigrations.migrateToVersion(db, 155);
+
+      expect(configColumns(), contains('collection_sort_by'));
+      expect(configColumns(), contains('collection_sort_order'));
+    });
+
+    test('v155 leaves what main added untouched', () async {
+      db.execute("UPDATE user_config SET ra_seed_stamp = 'seed-abc'");
+
+      await SqliteMigrations.migrateToVersion(db, 155);
+
+      final row = db.select('SELECT * FROM user_config WHERE id = 1').first;
+      expect(row['ra_seed_stamp'], 'seed-abc');
+    });
+
+    test('v155 is a no-op on a device that did run 139/140', () async {
+      await SqliteMigrations.migrateToVersion(db, 139);
+      await SqliteMigrations.migrateToVersion(db, 140);
+      db.execute('''
+        INSERT INTO user_collections (id, name, sort_order)
+        VALUES ('keep-me', 'Kept', 0)
+      ''');
+      db.execute("UPDATE user_config SET collection_sort_by = 'game_count'");
+
+      await SqliteMigrations.migrateToVersion(db, 155);
+
+      final rows = db.select('SELECT id FROM user_collections');
+      expect(rows.length, 1, reason: 'existing collections must survive');
+      expect(rows.first['id'], 'keep-me');
+      final config = db.select('SELECT * FROM user_config WHERE id = 1').first;
+      expect(
+        config['collection_sort_by'],
+        'game_count',
+        reason: "the user's sort choice must not be reset",
+      );
+    });
+
+    test('running v155 twice is a no-op', () async {
+      await SqliteMigrations.migrateToVersion(db, 155);
+      db.execute('''
+        INSERT INTO user_collections (id, name, sort_order)
+        VALUES ('keep-me', 'Kept', 0)
+      ''');
+
+      await SqliteMigrations.migrateToVersion(db, 155);
+
+      final rows = db.select('SELECT id FROM user_collections');
+      expect(rows.length, 1);
+      expect(configColumns(), contains('collection_sort_by'));
+    });
+  });
 }
