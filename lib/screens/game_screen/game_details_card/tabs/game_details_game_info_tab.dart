@@ -12,6 +12,7 @@ import '../../../../themes/chrome_surface.dart';
 import '../../../../themes/corner_radii.dart';
 import '../../../../utils/game_utils.dart';
 import '../widgets/header_action_button.dart';
+import '../widgets/scrolling_status_line.dart';
 
 class GameDetailsGameInfoTab extends StatefulWidget {
   final SystemModel system;
@@ -247,6 +248,10 @@ class GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
         description == AppLocale.noDescription.getString(context) ||
         description.trim().isEmpty;
 
+    final List<Widget> headerFacts = showScrapeView || widget.isScrapingGame
+        ? const []
+        : _buildHeaderFacts();
+
     return Positioned(
       left: 12.r,
       right: 12.r,
@@ -289,8 +294,9 @@ class GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
                       ),
                       // No title: the selected tab in the card's header strip
                       // is already this icon, so naming the panel again only
-                      // costs the row room.
-                      const Spacer(),
+                      // costs the row room. Everything packs to the left into
+                      // the space it used to take.
+                      SizedBox(width: 8.r),
                       // The gate's affordance, as on the achievements panel:
                       // which button takes the D-pad into the description and
                       // which gives it back. Only drawn when there is
@@ -329,33 +335,21 @@ class GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
                         ),
                         SizedBox(width: 8.r),
                       ],
-                      if (!showScrapeView &&
-                          !widget.isScrapingGame &&
-                          (widget.game.developer.isNotEmpty ||
-                              widget.game.players.isNotEmpty ||
-                              widget.game.year.isNotEmpty))
-                        Row(
-                          children: [
-                            if (widget.game.developer.isNotEmpty)
-                              _InfoPill(
-                                icon: Symbols.business_rounded,
-                                text: widget.game.developer,
-                              ),
-                            if (widget.game.players.isNotEmpty)
-                              _InfoPill(
-                                icon: Symbols.people_rounded,
-                                text: widget.game.players,
-                              ),
-                            if (widget.game.year.isNotEmpty)
-                              _InfoPill(
-                                icon: Symbols.calendar_today_rounded,
-                                text:
-                                    RegExp(
-                                      r'\d{4}',
-                                    ).stringMatch(widget.game.year) ??
-                                    widget.game.year,
-                              ),
-                          ],
+                      // The facts take the rest of the row. A long publisher
+                      // name (or a system whose scrape fills every field) can
+                      // outrun it, so the strip marquees when it genuinely
+                      // overflows and sits still when it does not — the same
+                      // treatment the footer's metadata line gets, rather than
+                      // an overflow stripe or a truncated name.
+                      if (headerFacts.isNotEmpty)
+                        Expanded(
+                          child: SizedBox(
+                            height: _headerFactsHeight,
+                            child: ScrollingStatusLine(
+                              resetKey: widget.game.romname,
+                              children: headerFacts,
+                            ),
+                          ),
                         ),
                     ],
                   ),
@@ -446,6 +440,27 @@ class GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
         ],
       ),
     );
+  }
+
+  /// Height of the header's fact strip. Fixed, because the marquee inside it
+  /// needs a bounded box to measure its overflow against.
+  double get _headerFactsHeight => 16.r;
+
+  /// The developer / players / year pills, in the order they are read.
+  List<Widget> _buildHeaderFacts() {
+    return [
+      if (widget.game.developer.isNotEmpty)
+        _InfoPill(icon: Symbols.business_rounded, text: widget.game.developer),
+      if (widget.game.players.isNotEmpty)
+        _InfoPill(icon: Symbols.people_rounded, text: widget.game.players),
+      if (widget.game.year.isNotEmpty)
+        _InfoPill(
+          icon: Symbols.calendar_today_rounded,
+          text:
+              RegExp(r'\d{4}').stringMatch(widget.game.year) ??
+              widget.game.year,
+        ),
+    ];
   }
 
   /// The description pane.
