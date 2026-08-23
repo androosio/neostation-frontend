@@ -528,21 +528,24 @@ class GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
                       });
                     },
                     borderRadius: BorderRadius.circular(6.r),
+                    // The strip hands each chip a tight height, so a vertical
+                    // padding would seat the label at the top and leave the
+                    // rest of the pill empty under it. Centre it instead.
                     child: Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 8.r,
-                        vertical: 4.r,
-                      ),
-                      child: Text(
-                        _languageNames[lang] ?? lang.toUpperCase(),
-                        style: TextStyle(
-                          color: isSelected
-                              ? Theme.of(context).colorScheme.onPrimary
-                              : Theme.of(context).colorScheme.onSurface,
-                          fontSize: 9.r,
-                          fontWeight: isSelected
-                              ? FontWeight.bold
-                              : FontWeight.normal,
+                      padding: EdgeInsets.symmetric(horizontal: 8.r),
+                      child: Center(
+                        widthFactor: 1.0,
+                        child: Text(
+                          _languageNames[lang] ?? lang.toUpperCase(),
+                          style: TextStyle(
+                            color: isSelected
+                                ? Theme.of(context).colorScheme.onPrimary
+                                : Theme.of(context).colorScheme.onSurface,
+                            fontSize: 9.r,
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
                         ),
                       ),
                     ),
