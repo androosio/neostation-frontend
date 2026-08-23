@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:neostation/services/sfx_service.dart';
-import 'package:neostation/widgets/bumper_glyph.dart';
+import 'package:neostation/widgets/dpad_glyph.dart';
 
 import '../../../../themes/corner_radii.dart';
 
@@ -11,9 +11,10 @@ enum DetailTab { wheel, box2d, screenshotVideo, gameInfo, achievements }
 
 /// A navigation header component that manages tab switching and global card actions.
 ///
-/// Features hardware-mapped bumper iconography (LB/RB) for intuitive gamepad
-/// navigation and uses fluid animations for tab transitions. Dynamically adjusts
-/// its layout based on the availability of metadata and system features.
+/// Features hardware-mapped D-pad iconography (left/right) for intuitive
+/// gamepad navigation and uses fluid animations for tab transitions.
+/// Dynamically adjusts its layout based on the availability of metadata and
+/// system features.
 class GameDetailsTabsHeader extends StatelessWidget {
   final bool isScreenshotVideoHidden;
   final bool hasRetroAchievements;
@@ -65,9 +66,9 @@ class GameDetailsTabsHeader extends StatelessWidget {
           children: [
             const Spacer(),
 
-            // Bumper glyphs sit outside the pill so the pill reads as a single
+            // D-pad glyphs sit outside the pill so the pill reads as a single
             // switch and the hardware hints stay visually distinct from it.
-            const BumperGlyph(isLeft: true),
+            const DpadGlyph(isLeft: true),
             SizedBox(width: 6.r),
 
             // Tab Navigation Group: Hardware-mapped navigation controls.
@@ -137,7 +138,7 @@ class GameDetailsTabsHeader extends StatelessWidget {
             ),
 
             SizedBox(width: 6.r),
-            const BumperGlyph(isLeft: false),
+            const DpadGlyph(isLeft: false),
           ],
         ),
       ),

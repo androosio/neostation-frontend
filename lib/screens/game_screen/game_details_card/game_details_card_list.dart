@@ -110,8 +110,13 @@ class GameDetailsCardList extends StatefulWidget {
   /// Callback to register a predicate that blocks game launching (e.g., during settings).
   final Function(bool Function())? onRegisterIsPlayingGameBlocked;
 
-  /// Callback to register tab-based navigation handling (Gamepad L/R bumpers).
+  /// Callback to register tab-based navigation handling (D-pad left/right).
   final Function(bool Function(bool))? onRegisterTabNavigation;
+
+  /// Callback to register the achievements grid's focus gate: `enter` (A) and
+  /// `exit` (B), each reporting whether it consumed the button.
+  final Function(bool Function() enter, bool Function() exit)?
+  onRegisterAchievementsFocus;
 
   /// Callback to register the Select button action.
   final Function(VoidCallback)? onRegisterSelectButton;
@@ -156,6 +161,7 @@ class GameDetailsCardList extends StatefulWidget {
     this.onRegisterSecondaryAction,
     this.onRegisterIsPlayingGameBlocked,
     this.onRegisterTabNavigation,
+    this.onRegisterAchievementsFocus,
     this.onRegisterSelectButton,
     this.onRegisterScrapeAction,
     this.isSecondaryScreenActive = false,
@@ -357,10 +363,18 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
 
     widget.onRegisterOverlayState?.call(
       () => _currentTab != DetailTab.wheel,
-      () => _currentTab == DetailTab.achievements,
+      // Being on the achievements tab is not enough to take the D-pad: the
+      // badge grid only owns it once the user has stepped into it with A.
+      () =>
+          _currentTab == DetailTab.achievements &&
+          (_achievementsTabKey.currentState?.isPanelActive ?? false),
     );
     widget.onRegisterCloseOverlays?.call(_closeAllOverlays);
     widget.onRegisterTabNavigation?.call(_handleTabNavigation);
+    widget.onRegisterAchievementsFocus?.call(
+      _enterAchievementsGrid,
+      _exitAchievementsGrid,
+    );
     widget.onRegisterSelectButton?.call(_handleSelectAction);
     widget.onRegisterScrapeAction?.call(_onScrapeGameCompact);
     widget.onRegisterNavigation?.call(
@@ -485,14 +499,11 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
   }
 
   void _handleSelectAction() {
-    // Achievements owns Select for its refresh; everywhere else the preview
-    // video is what's playing, so Select mutes it (the general tab included —
-    // that's where the video is usually watched).
-    if (_currentTab == DetailTab.achievements) {
-      refreshAchievements();
-    } else {
-      _toggleVideoMute();
-    }
+    // Select mutes the preview video on every tab. Achievements used to take
+    // it over for its refresh, which is now a D-pad target in the panel's own
+    // header — a hidden second binding for a visible button just made Select
+    // mean two things depending on where you were.
+    _toggleVideoMute();
   }
 
   @override
@@ -808,12 +819,7 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
   /// Renders the background fanart with smooth cross-fades and scale animations.
 
   void _handleTriggerAction() {
-    if (_currentTab == DetailTab.achievements) {
-      if (_scrapeButtonFocusNode.hasFocus) {
-        refreshAchievements();
-      }
-      return;
-    }
+    if (_currentTab == DetailTab.achievements) return;
 
     if (_currentTab == DetailTab.gameInfo ||
         _currentTab == DetailTab.screenshotVideo) {
@@ -876,6 +882,25 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
     return true; // Input consumed.
   }
 
+  /// Handles gamepad A for the achievements panel.
+  ///
+  /// The first press activates the panel; once inside, A runs whichever header
+  /// action holds the cursor. Anywhere else A stays the launch button.
+  bool _enterAchievementsGrid() {
+    if (!mounted || _currentTab != DetailTab.achievements) return false;
+
+    final state = _achievementsTabKey.currentState;
+    if (state == null) return false;
+    return state.isPanelActive ? state.activateFocused() : state.enterPanel();
+  }
+
+  /// Steps back out of the achievements panel (gamepad B), so B only leaves
+  /// the screen once the panel no longer holds the D-pad.
+  bool _exitAchievementsGrid() {
+    if (!mounted || _currentTab != DetailTab.achievements) return false;
+    return _achievementsTabKey.currentState?.exitPanel() ?? false;
+  }
+
   /// Switches to [tab].
   ///
   /// [persist] records the tab as the user's preference so it carries across
@@ -885,6 +910,12 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
     if (_currentTab == tab) return;
 
     final wasScreenshotVideo = _currentTab == DetailTab.screenshotVideo;
+
+    // Walking off the achievements tab releases the grid, so returning to it
+    // starts at the gate rather than silently owning the D-pad again.
+    if (_currentTab == DetailTab.achievements) {
+      _achievementsTabKey.currentState?.exitPanel();
+    }
 
     setState(() {
       _currentTab = tab;

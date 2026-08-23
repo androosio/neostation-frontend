@@ -241,11 +241,12 @@ class _SystemGamesListState extends State<SystemGamesList> {
   VoidCallback? _moveAchievementLeft;
   VoidCallback? _moveAchievementRight;
   VoidCallback? _triggerOverlayAction;
-  VoidCallback? _secondaryOverlayAction; // Maps to RB (Scrape/Refresh).
   VoidCallback? _selectButtonAction; // Maps to Select (View) for mute/refresh.
   VoidCallback? _scrapeAction; // Maps to Select + A (scrape highlighted game).
   bool Function(bool isRight)?
-  _tabNavigationAction; // Facilitates tab switching via bumpers.
+  _tabNavigationAction; // Facilitates tab switching via D-pad left/right.
+  bool Function()? _enterAchievementsGrid; // A - step into the RA badges.
+  bool Function()? _exitAchievementsGrid; // B - step back out of them.
   bool Function()? _isPlayingGameBlocked; // Validation for launch readiness.
 
   // Secondary display hardware management (OEM support).
@@ -1759,11 +1760,12 @@ class _SystemGamesListState extends State<SystemGamesList> {
         onRegisterTriggerAction: (triggerAction) {
           _triggerOverlayAction = triggerAction;
         },
-        onRegisterSecondaryAction: (secondaryAction) {
-          _secondaryOverlayAction = secondaryAction;
-        },
         onRegisterTabNavigation: (tabNav) {
           _tabNavigationAction = tabNav;
+        },
+        onRegisterAchievementsFocus: (enter, exit) {
+          _enterAchievementsGrid = enter;
+          _exitAchievementsGrid = exit;
         },
         onRegisterSelectButton: (action) {
           _selectButtonAction = action;
