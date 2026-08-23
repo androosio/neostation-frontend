@@ -287,15 +287,9 @@ class GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
                         color: Theme.of(context).colorScheme.onSurface,
                         size: 13.r,
                       ),
-                      SizedBox(width: 6.r),
-                      Text(
-                        AppLocale.gameInfo.getString(context),
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurface,
-                          fontSize: 12.r,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                      // No title: the selected tab in the card's header strip
+                      // is already this icon, so naming the panel again only
+                      // costs the row room.
                       const Spacer(),
                       // The gate's affordance, as on the achievements panel:
                       // which button takes the D-pad into the description and
