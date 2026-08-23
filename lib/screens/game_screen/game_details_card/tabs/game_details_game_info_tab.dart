@@ -7,6 +7,7 @@ import '../../../../models/system_model.dart';
 import '../../../../models/game_model.dart';
 import '../../../../providers/file_provider.dart';
 import '../../../../services/screenscraper_service.dart';
+import '../../../../themes/chrome_surface.dart';
 import '../../../../themes/corner_radii.dart';
 import '../../../../utils/game_utils.dart';
 import '../widgets/scrolling_description_text.dart';
@@ -21,6 +22,12 @@ class GameDetailsGameInfoTab extends StatefulWidget {
   final bool isScrapingGame;
   final VoidCallback onScrapeGame;
 
+  /// How far above the card's bottom edge the panel stops, in the same
+  /// unscaled units as the other offsets. The card works it out from what the
+  /// footer under it will draw, so the panel takes back the room a missing
+  /// achievements pill leaves behind.
+  final double bottomOffset;
+
   const GameDetailsGameInfoTab({
     super.key,
     required this.system,
@@ -29,6 +36,7 @@ class GameDetailsGameInfoTab extends StatefulWidget {
     required this.description,
     required this.isScrapingGame,
     required this.onScrapeGame,
+    this.bottomOffset = 110.0,
   });
 
   @override
@@ -105,10 +113,10 @@ class _GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
       left: 12.r,
       right: 12.r,
       top: 55.r,
-      bottom: 110.r,
+      bottom: widget.bottomOffset.r,
       child: Container(
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.9),
+          color: ChromeSurface.fill(context),
           borderRadius:
               Theme.of(context).extension<CornerRadii>()?.radiusExternal ??
               BorderRadius.circular(14.r),

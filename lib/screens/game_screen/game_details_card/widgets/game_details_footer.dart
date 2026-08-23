@@ -97,7 +97,11 @@ class GameDetailsFooter extends StatelessWidget {
       child: ClipRRect(
         child: RepaintBoundary(
           child: Container(
-            padding: EdgeInsets.only(left: 12.r, right: 12.r, bottom: 11.r),
+            padding: EdgeInsets.only(
+              left: 12.r,
+              right: 12.r,
+              bottom: _bottomPadding.r,
+            ),
             child: showsAchievements
                 // With a pill, the block stacks: text lines, then the pill row
                 // with the clock at its end.
@@ -106,7 +110,7 @@ class GameDetailsFooter extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildTextLines(context, metadata: metadata),
-                      SizedBox(height: 8.r),
+                      SizedBox(height: _pillGap.r),
                       SizedBox(
                         height: _bottomRowHeight,
                         child: Row(
@@ -407,14 +411,35 @@ class GameDetailsFooter extends StatelessWidget {
   /// outstanding the pill stays (it says "Loading"); it is only a *settled*
   /// zero that hides it, which is the same condition the pill itself calls
   /// `noAchievements`.
-  bool _showsAchievements(BuildContext context) {
+  bool _showsAchievements(BuildContext context) => showsAchievementsFor(
+    context,
+    game: game,
+    hasRetroAchievements: hasRetroAchievements,
+    isLoadingAchievements: isLoadingAchievements,
+    currentGameInfo: currentGameInfo,
+  );
+
+  /// [_showsAchievements] for callers that only hold the inputs — the tab
+  /// panels above the footer, which need the same answer to know how much
+  /// room the footer will take.
+  static bool showsAchievementsFor(
+    BuildContext context, {
+    required GameModel game,
+    required bool hasRetroAchievements,
+    required bool isLoadingAchievements,
+    GameInfoAndUserProgress? currentGameInfo,
+  }) {
     if (!hasRetroAchievements) return false;
     if (!context.select<RetroAchievementsProvider, bool>(
       (ra) => ra.isConnected,
     )) {
       return false;
     }
-    return isLoadingAchievements || _achievementTotal > 0;
+    final int localTotal = game.raCoverage == RaCoverage.matched
+        ? (game.raNumAchievements ?? 0)
+        : 0;
+    final int total = currentGameInfo?.numAchievements ?? localTotal;
+    return isLoadingAchievements || total > 0;
   }
 
   /// Resolves the current RetroAchievements progress into a compact visual badge.
@@ -609,17 +634,68 @@ List<Shadow> get _onArtShadows => [
 /// Height of the metadata strip, fixed because the marquee inside it needs a
 /// bounded box to measure its overflow against. Driven by the tallest thing on
 /// it, the 15.r rating star.
-double get _statusLineHeight => 15.r;
+const double _statusLine = 15;
 
 /// Height of the footer's last row, matching the achievements pill's own 45.r.
 /// The same whether the pill is in it or the two text lines have moved into its
 /// place, which is what keeps the play-time clock at one height.
-double get _bottomRowHeight => 45.r;
+const double _bottomRow = 45;
 
 /// Height of the identity line, fixed for the same reason: the filename is
 /// empty for an unscraped game. Driven by the 16.0 sync icon that sits at the
 /// end of it, not by the 13.r filename's forced strut.
-double get _identityLineHeight => 16.r;
+const double _identityLine = 16;
+
+/// Gap between the text lines and the pill row below them.
+const double _pillGap = 8;
+
+/// Slack under the last row, so the content does not sit on the card's edge.
+const double _bottomPadding = 11;
+
+/// Gap the tab panels keep between themselves and the footer.
+const double _panelGap = 13;
+
+double get _statusLineHeight => _statusLine.r;
+double get _bottomRowHeight => _bottomRow.r;
+double get _identityLineHeight => _identityLine.r;
+
+/// How far above the card's bottom edge a tab panel should stop, given what
+/// the footer under it will draw.
+///
+/// The footer is the only thing between a panel and the card's edge, and its
+/// height is decided by [GameDetailsFooter.showsAchievementsFor]: with no
+/// pill the whole action row collapses and a panel that still reserved room
+/// for one would end above a band of bare artwork.
+///
+/// Unscaled, like the panels' own offsets — the caller applies `.r`.
+double gameDetailsPanelBottomOffset({
+  required bool showsAchievements,
+  required bool hasPlayTime,
+  required bool hasMetadata,
+}) {
+  final double textLines = (hasMetadata ? _statusLine + 2 : 0) + _identityLine;
+  final double content = showsAchievements
+      ? textLines + _pillGap + _bottomRow
+      // Without a pill the text lines move into its row, so the row's height
+      // is the whole block — unless there is no clock either, and the lines
+      // are all there is.
+      : (hasPlayTime ? _bottomRow : textLines);
+  return content + _bottomPadding + _panelGap;
+}
+
+/// Whether [game] carries any of the facts the footer's status line draws.
+///
+/// Mirrors the conditions in `_buildMetadata`; keep the two in step.
+bool gameDetailsFooterHasMetadata(GameModel game) =>
+    game.rating > 0 ||
+    game.players.isNotEmpty ||
+    game.publisher.isNotEmpty ||
+    game.year.isNotEmpty ||
+    game.genre.isNotEmpty;
+
+/// Whether [game] has a play-time clock on the footer's last row.
+bool gameDetailsFooterHasPlayTime(GameModel game) =>
+    GameUtils.formatPlayTime(game.playTime ?? 0) != '0s';
 
 /// Score as a bare star and number on the status line.
 ///

@@ -4,6 +4,7 @@ import 'package:flutter_localization/flutter_localization.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:neostation/l10n/app_locale.dart';
 import 'package:neostation/services/sfx_service.dart';
+import 'package:neostation/themes/chrome_surface.dart';
 import 'package:neostation/themes/corner_radii.dart';
 import '../../../../models/retro_achievements_game_info.dart';
 
@@ -290,9 +291,7 @@ class GameDetailsAchievementsTabState
           bottom: widget.bottomOffset.r,
           child: Container(
             decoration: BoxDecoration(
-              color: Theme.of(
-                context,
-              ).colorScheme.surface.withValues(alpha: 0.9),
+              color: ChromeSurface.fill(context),
               borderRadius: radii.radiusExternal,
               border: Border.all(
                 color: Theme.of(context).colorScheme.outline,
@@ -334,7 +333,7 @@ class GameDetailsAchievementsTabState
         bottom: widget.bottomOffset.r,
         child: Container(
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
+            color: ChromeSurface.fill(context),
             borderRadius: radii.radiusExternal,
             boxShadow: [
               BoxShadow(
@@ -398,7 +397,7 @@ class GameDetailsAchievementsTabState
       bottom: widget.bottomOffset.r,
       child: Container(
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.9),
+          color: ChromeSurface.fill(context),
           borderRadius: radii.radiusExternal,
           boxShadow: [
             BoxShadow(

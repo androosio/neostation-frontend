@@ -693,6 +693,23 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
       'screenshots',
       widget.fileProvider,
     );
+
+    // The tab panels stop where the footer starts. That is not a constant: a
+    // game with no achievements pill loses the footer's whole action row, and
+    // a panel still reserving room for one would end above a band of bare
+    // artwork.
+    final double panelBottomOffset = gameDetailsPanelBottomOffset(
+      showsAchievements: GameDetailsFooter.showsAchievementsFor(
+        context,
+        game: _game,
+        hasRetroAchievements: _hasRetroAchievements,
+        isLoadingAchievements: _isLoadingAchievements,
+        currentGameInfo: _currentGameInfo,
+      ),
+      hasPlayTime: gameDetailsFooterHasPlayTime(_game),
+      hasMetadata: gameDetailsFooterHasMetadata(_game),
+    );
+
     return Card(
       color: Colors.transparent,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(0.r)),
@@ -760,6 +777,7 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
           ),
           if (_currentTab == DetailTab.gameInfo)
             GameDetailsGameInfoTab(
+              bottomOffset: panelBottomOffset,
               system: _effectiveSystem,
               game: _game,
               fileProvider: widget.fileProvider,
@@ -774,6 +792,7 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
           if (_currentTab == DetailTab.achievements)
             GameDetailsAchievementsTab(
               key: _achievementsTabKey,
+              bottomOffset: panelBottomOffset,
               gameInfo: _currentGameInfo,
               isLoading: _isLoadingAchievements,
               onRefresh: refreshAchievements,
