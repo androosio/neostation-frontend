@@ -87,6 +87,10 @@ class GameListViewState extends State<GameListView>
   // Constants for pixel-perfect highlight positioning.
   static const double _itemHeightBase = 26.0;
 
+  /// Slack under the last row, so the list does not sit on the panel's edge.
+  /// Mirrors the value the details footer keeps under its RA pill.
+  static const double _bottomSlack = 11.0;
+
   // Read once per build rather than per row: the row builder runs for every
   // visible entry, and a provider lookup there would subscribe each one.
   bool _showAchievementsBadge = false;
@@ -478,6 +482,7 @@ class GameListViewState extends State<GameListView>
             ],
           ),
         ),
+        SizedBox(height: _bottomSlack.r),
       ],
     );
   }
