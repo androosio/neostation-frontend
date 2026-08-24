@@ -214,6 +214,35 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
 
   // View state: Current active tab and scrolling context.
   DetailTab _currentTab = DetailTab.wheel;
+
+  /// The other panel taking part in a transition: the tab being slid out
+  /// after a change, or the neighbour a finger is dragging in. Null whenever
+  /// the current tab is sitting still on its own.
+  DetailTab? _partnerTab;
+
+  /// Which side of the current panel [_partnerTab] sits on, so the two move as
+  /// one strip whichever way the transition runs.
+  bool _partnerOnRight = false;
+
+  /// Offset of the current panel as a fraction of the card's width; the
+  /// partner tracks it one width to whichever side it sits on.
+  ///
+  /// Kept in a notifier rather than in [State] so a drag repaints the two
+  /// panels without rebuilding them: a `setState` per pointer move would
+  /// rebuild the whole card, artwork and all.
+  final ValueNotifier<double> _panelShift = ValueNotifier<double>(0.0);
+
+  /// Shift the settle animation started from, eased back to zero over its run.
+  double _shiftFrom = 0.0;
+
+  late final AnimationController _tabSlideController;
+  late final Animation<double> _tabSlide;
+
+  // Touch swipe state: a horizontal drag across the panels walks the tabs the
+  // same way the D-pad does.
+  final GlobalKey _swipeAreaKey = GlobalKey();
+  bool _isSwiping = false;
+  double _swipeWidth = 0.0;
   final ScrollController _achievementsScrollController = ScrollController();
   int _imageVersion =
       0; // Cache-busting version for images after metadata refreshes.
@@ -318,6 +347,29 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
       vsync: this,
       duration: const Duration(milliseconds: 1000),
     );
+
+    // Drives the horizontal slide between tab panels: it always eases whatever
+    // shift the panels are holding back to zero, so the same run settles a
+    // D-pad change, a committed swipe and an abandoned one.
+    _tabSlideController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 220),
+    );
+    _tabSlide = CurvedAnimation(
+      parent: _tabSlideController,
+      curve: Curves.easeOutCubic,
+    );
+    _tabSlideController
+      ..addListener(() {
+        _panelShift.value = _shiftFrom * (1.0 - _tabSlide.value);
+      })
+      ..addStatusListener((status) {
+        // The partner panel is only mounted for the length of a transition.
+        if (status == AnimationStatus.completed && mounted) {
+          _panelShift.value = 0.0;
+          if (_partnerTab != null) setState(() => _partnerTab = null);
+        }
+      });
 
     _verifyCloudSyncStatus();
 
@@ -480,6 +532,10 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
     if ((_isGameInfoHidden && _currentTab == DetailTab.screenshotVideo) ||
         (!_hasRetroAchievements && _currentTab == DetailTab.achievements)) {
       _currentTab = DetailTab.wheel;
+      // A tab yanked away isn't a navigation the user made, so nothing slides:
+      // drop the half-finished run rather than animating out of a panel this
+      // game can no longer show.
+      _endTransition();
     }
 
     widget.onToggleInfo?.call(() {
@@ -505,6 +561,8 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
     _secondaryState?.removeListener(_onSecondaryStateChanged);
     _animationController.dispose();
     _syncIconController.dispose();
+    _tabSlideController.dispose();
+    _panelShift.dispose();
     _videoDelayTimer?.cancel();
     _muteButtonFocusNode.dispose();
     _achievementsButtonFocusNode.dispose();
@@ -739,60 +797,102 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
             currentGameInfo: _currentGameInfo,
           ),
 
-          if (_currentTab == DetailTab.wheel)
-            GameDetailsGeneralTab(
-              system: _effectiveSystem,
-              game: _game,
-              fileProvider: widget.fileProvider,
-              imageVersion: _artworkImageVersion,
-              androidAppIconFuture: _androidAppIconFuture,
-            ),
-          if (_currentTab == DetailTab.box2d)
-            GameDetailsBox2dTab(
-              bottomOffset: panelBottomOffset,
-              system: _effectiveSystem,
-              game: _game,
-              fileProvider: widget.fileProvider,
-              imageVersion: _artworkImageVersion,
-            ),
-          Visibility(
-            visible: _currentTab == DetailTab.screenshotVideo,
-            maintainState: true,
-            maintainSize: true,
-            maintainAnimation: true,
-            maintainInteractivity: true,
-            child: GameDetailsScreenshotVideoTab(
-              screenshotPath: screenshotPath,
-              isVideoDelayActive: _isVideoDelayActive,
-              videoController: widget.videoController,
-              imageVersion: _artworkImageVersion,
-              onToggleVideoMute: _toggleVideoMute,
+          // Panel layer: the tabs share one strip so a D-pad step or a
+          // horizontal swipe slides between them.
+          //
+          // The gesture detector is translucent and wraps the panels rather
+          // than covering them: it stays in the hit path for the drag while
+          // taps still reach the buttons inside the panels, and the header and
+          // footer under it keep receiving their own.
+          Positioned.fill(
+            child: GestureDetector(
+              key: _swipeAreaKey,
+              behavior: HitTestBehavior.translucent,
+              onHorizontalDragStart: _onSwipeStart,
+              onHorizontalDragUpdate: _onSwipeUpdate,
+              onHorizontalDragEnd: _onSwipeEnd,
+              onHorizontalDragCancel: _onSwipeCancel,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (_isPanelMounted(DetailTab.wheel))
+                    _slidingPanel(
+                      DetailTab.wheel,
+                      GameDetailsGeneralTab(
+                        system: _effectiveSystem,
+                        game: _game,
+                        fileProvider: widget.fileProvider,
+                        imageVersion: _artworkImageVersion,
+                        androidAppIconFuture: _androidAppIconFuture,
+                      ),
+                    ),
+                  if (_isPanelMounted(DetailTab.box2d))
+                    _slidingPanel(
+                      DetailTab.box2d,
+                      GameDetailsBox2dTab(
+                        bottomOffset: panelBottomOffset,
+                        system: _effectiveSystem,
+                        game: _game,
+                        fileProvider: widget.fileProvider,
+                        imageVersion: _artworkImageVersion,
+                      ),
+                    ),
+                  // The media tab stays mounted whatever the current tab
+                  // is (the video player would otherwise restart on every
+                  // visit), so it slides while it is either half of the
+                  // transition and hides again afterwards.
+                  _slidingPanel(
+                    DetailTab.screenshotVideo,
+                    Visibility(
+                      visible: _isPanelMounted(DetailTab.screenshotVideo),
+                      maintainState: true,
+                      maintainSize: true,
+                      maintainAnimation: true,
+                      maintainInteractivity: true,
+                      child: GameDetailsScreenshotVideoTab(
+                        screenshotPath: screenshotPath,
+                        isVideoDelayActive: _isVideoDelayActive,
+                        videoController: widget.videoController,
+                        imageVersion: _artworkImageVersion,
+                        onToggleVideoMute: _toggleVideoMute,
+                      ),
+                    ),
+                  ),
+                  if (_isPanelMounted(DetailTab.gameInfo))
+                    _slidingPanel(
+                      DetailTab.gameInfo,
+                      GameDetailsGameInfoTab(
+                        key: _gameInfoTabKey,
+                        bottomOffset: panelBottomOffset,
+                        system: _effectiveSystem,
+                        game: _game,
+                        fileProvider: widget.fileProvider,
+                        description:
+                            widget.localizedDescription ??
+                            (_game.getDescriptionForLanguage('en').isEmpty
+                                ? AppLocale.noDescription.getString(context)
+                                : _game.getDescriptionForLanguage('en')),
+                        isScrapingGame:
+                            _isScrapingGame || widget.isExternallyScraping,
+                        onScrapeGame: _onScrapeGameCompact,
+                      ),
+                    ),
+                  if (_isPanelMounted(DetailTab.achievements))
+                    _slidingPanel(
+                      DetailTab.achievements,
+                      GameDetailsAchievementsTab(
+                        key: _achievementsTabKey,
+                        bottomOffset: panelBottomOffset,
+                        gameInfo: _currentGameInfo,
+                        isLoading: _isLoadingAchievements,
+                        onRefresh: refreshAchievements,
+                        onFixMatch: _openMatchPicker,
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
-          if (_currentTab == DetailTab.gameInfo)
-            GameDetailsGameInfoTab(
-              key: _gameInfoTabKey,
-              bottomOffset: panelBottomOffset,
-              system: _effectiveSystem,
-              game: _game,
-              fileProvider: widget.fileProvider,
-              description:
-                  widget.localizedDescription ??
-                  (_game.getDescriptionForLanguage('en').isEmpty
-                      ? AppLocale.noDescription.getString(context)
-                      : _game.getDescriptionForLanguage('en')),
-              isScrapingGame: _isScrapingGame || widget.isExternallyScraping,
-              onScrapeGame: _onScrapeGameCompact,
-            ),
-          if (_currentTab == DetailTab.achievements)
-            GameDetailsAchievementsTab(
-              key: _achievementsTabKey,
-              bottomOffset: panelBottomOffset,
-              gameInfo: _currentGameInfo,
-              isLoading: _isLoadingAchievements,
-              onRefresh: refreshAchievements,
-              onFixMatch: _openMatchPicker,
-            ),
 
           // Scrape feedback for every tab. A scrape can start from any of them
           // (the Scrape button, Select + A, or the games list), so it is drawn
@@ -855,6 +955,157 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
     _startSingleGameScrape();
   }
 
+  /// Whether [tab]'s panel belongs in the tree right now: the tab itself, or
+  /// the partner sliding beside it.
+  bool _isPanelMounted(DetailTab tab) =>
+      tab == _currentTab || tab == _partnerTab;
+
+  /// Horizontal offset for [tab]'s panel, as a fraction of the card's width.
+  ///
+  /// The two panels behave as one strip: the current one carries the shift and
+  /// the partner sits exactly one width away on its own side.
+  double _panelSlideOffset(DetailTab tab) {
+    if (_partnerTab == null) return 0.0;
+    final double shift = _panelShift.value;
+    if (tab == _currentTab) return shift;
+    if (tab == _partnerTab) return shift + (_partnerOnRight ? 1.0 : -1.0);
+    return 0.0;
+  }
+
+  /// Wraps a tab panel so it slides in and out with the D-pad or a swipe.
+  ///
+  /// The panels are `Positioned` children of the card's stack, so the
+  /// translation has to sit on a `Positioned.fill` around a nested stack
+  /// rather than on the panel itself.
+  Widget _slidingPanel(DetailTab tab, Widget panel) {
+    return Positioned.fill(
+      // The card's stack only clips what overflows it in layout, and this is a
+      // paint-time translation, so without a clip of its own a travelling
+      // panel would paint straight over the games list.
+      child: ClipRect(
+        child: AnimatedBuilder(
+          animation: _panelShift,
+          builder: (context, child) => FractionalTranslation(
+            translation: Offset(_panelSlideOffset(tab), 0),
+            child: child,
+          ),
+          child: Stack(fit: StackFit.expand, children: [panel]),
+        ),
+      ),
+    );
+  }
+
+  /// Whether [tab] sits to the right of the current one in the header order.
+  bool _isTabToTheRight(DetailTab tab) {
+    final available = DetailTab.values.where(_isTabAvailable).toList();
+    return available.indexOf(tab) > available.indexOf(_currentTab);
+  }
+
+  /// The tab one step to the left or right of the current one, wrapping at the
+  /// ends exactly as the D-pad does. Null when there is nowhere to go.
+  DetailTab? _neighbourTab(bool isRight) {
+    final available = DetailTab.values.where(_isTabAvailable).toList();
+    if (available.length < 2) return null;
+    final int index = available.indexOf(_currentTab);
+    if (index == -1) return null;
+    int next = (index + (isRight ? 1 : -1)) % available.length;
+    if (next < 0) next += available.length;
+    return available[next];
+  }
+
+  /// Drops any transition in progress and puts the current panel back at rest.
+  void _endTransition() {
+    _tabSlideController.stop();
+    _isSwiping = false;
+    _shiftFrom = 0.0;
+    _panelShift.value = 0.0;
+    _partnerTab = null;
+  }
+
+  /// Eases whatever shift the panels are holding back to zero.
+  void _settlePanels() {
+    _shiftFrom = _panelShift.value;
+    _tabSlideController.forward(from: 0.0);
+  }
+
+  /// Starts a horizontal swipe across the tab panels.
+  void _onSwipeStart(DragStartDetails details) {
+    final box = _swipeAreaKey.currentContext?.findRenderObject() as RenderBox?;
+    _swipeWidth = box?.size.width ?? 0.0;
+    if (_swipeWidth <= 0) return;
+
+    // Grabbing mid-transition takes over from it rather than fighting it: the
+    // committed tab is already the current one, so it simply snaps into place.
+    final bool hadPartner = _partnerTab != null;
+    _endTransition();
+    if (hadPartner) setState(() {});
+    _isSwiping = true;
+  }
+
+  /// Tracks the finger, mounting whichever neighbour is being pulled in.
+  void _onSwipeUpdate(DragUpdateDetails details) {
+    if (!_isSwiping || _swipeWidth <= 0) return;
+
+    final double shift = (_panelShift.value + details.delta.dx / _swipeWidth)
+        .clamp(-1.0, 1.0);
+
+    // Dragging the panels left reveals the next tab, and the direction can
+    // flip mid-drag if the user changes their mind.
+    final bool revealsRight = shift < 0;
+    final DetailTab? neighbour = _neighbourTab(revealsRight);
+    if (neighbour == null) {
+      _panelShift.value = 0.0;
+      return;
+    }
+
+    if (neighbour != _partnerTab || revealsRight != _partnerOnRight) {
+      setState(() {
+        _partnerTab = neighbour;
+        _partnerOnRight = revealsRight;
+      });
+    }
+    _panelShift.value = shift;
+  }
+
+  /// Settles the swipe, either onto the neighbour or back where it started.
+  void _onSwipeEnd(DragEndDetails details) {
+    if (!_isSwiping) return;
+    _isSwiping = false;
+
+    final DetailTab? neighbour = _partnerTab;
+    final double shift = _panelShift.value;
+    final double velocity = details.velocity.pixelsPerSecond.dx;
+
+    // A flick commits on its direction however short it was; a slow drag has
+    // to have carried the panel a quarter of the way across.
+    final bool commit =
+        neighbour != null &&
+        (velocity.abs() > 400
+            ? (velocity < 0) == _partnerOnRight
+            : shift.abs() > 0.25);
+
+    if (!commit) {
+      _settlePanels();
+      return;
+    }
+
+    SfxService().playNavSound();
+    // Hand the live offset over re-expressed around the incoming panel, so it
+    // carries on from where the finger left it instead of jumping to the edge.
+    _setTab(
+      neighbour,
+      slideRight: _partnerOnRight,
+      fromShift: shift + (_partnerOnRight ? 1.0 : -1.0),
+    );
+  }
+
+  /// Puts the panels back when the gesture is taken away mid-drag.
+  void _onSwipeCancel() {
+    if (!_isSwiping) return;
+    _isSwiping = false;
+    _settlePanels();
+  }
+
   /// Whether [tab] can be shown for the current game and display setup.
   bool _isTabAvailable(DetailTab tab) {
     if (tab == DetailTab.screenshotVideo && _isGameInfoHidden) return false;
@@ -892,7 +1143,9 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
         (currentIndexInAvailable + (isRight ? 1 : -1)) % availableTabs.length;
     if (nextIndex < 0) nextIndex = availableTabs.length - 1;
 
-    _setTab(availableTabs[nextIndex]);
+    // The direction comes from the button rather than the indexes so a wrap
+    // from the last tab to the first still slides the way the D-pad went.
+    _setTab(availableTabs[nextIndex], slideRight: isRight);
     return true; // Input consumed.
   }
 
@@ -971,7 +1224,18 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
   /// [persist] records the tab as the user's preference so it carries across
   /// games, systems and restarts; it is disabled for tabs the app forces on the
   /// user (a scrape jumping to the media tab, or restoring the stored tab).
-  void _setTab(DetailTab tab, {bool persist = true}) {
+  ///
+  /// [slideRight] forces the direction the panels travel; without it the
+  /// header order decides, which is what a tap on a tab icon wants.
+  ///
+  /// [fromShift] hands a swipe's live offset over so the settle continues from
+  /// the finger rather than restarting at the edge of the card.
+  void _setTab(
+    DetailTab tab, {
+    bool persist = true,
+    bool? slideRight,
+    double? fromShift,
+  }) {
     if (_currentTab == tab) return;
 
     final wasScreenshotVideo = _currentTab == DetailTab.screenshotVideo;
@@ -981,6 +1245,15 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
     _dismissPanel();
 
     setState(() {
+      final bool goingRight = slideRight ?? _isTabToTheRight(tab);
+      _isSwiping = false;
+      // Moving right, the incoming panel starts at the right edge with the one
+      // it replaces sitting to its left, and the other way around going left.
+      _partnerTab = _currentTab;
+      _partnerOnRight = !goingRight;
+      _shiftFrom = fromShift ?? (goingRight ? 1.0 : -1.0);
+      _panelShift.value = _shiftFrom;
+      _tabSlideController.forward(from: 0.0);
       _currentTab = tab;
 
       final config = context.read<SqliteConfigProvider>();
