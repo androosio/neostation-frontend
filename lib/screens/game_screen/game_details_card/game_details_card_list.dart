@@ -236,7 +236,19 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
   double _shiftFrom = 0.0;
 
   late final AnimationController _tabSlideController;
-  late final Animation<double> _tabSlide;
+  late final CurvedAnimation _tabSlide;
+
+  /// How a step the user did not drag moves: eased at both ends, since the
+  /// panel starts and finishes at rest. A decelerate-only curve leaves from a
+  /// standing start at full speed, which is what read as severe.
+  static const Duration _stepDuration = Duration(milliseconds: 240);
+  static const Curve _stepCurve = Curves.easeInOutCubic;
+
+  /// How a released drag settles. The panel is already travelling with the
+  /// finger, so it only slows down: easing back in would read as a stall at
+  /// the moment of release.
+  static const Duration _settleDuration = Duration(milliseconds: 220);
+  static const Curve _settleCurve = Curves.easeOutCubic;
 
   // Touch swipe state: a horizontal drag across the panels walks the tabs the
   // same way the D-pad does.
@@ -329,7 +341,8 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
         // Reset primary UI 'Game Info' overlay to ensure clean state transitions.
         context.read<SqliteConfigProvider>().updateShowGameInfo(false);
       } else {
-        _setTab(restoredTab, persist: false);
+        // The card is opening on this tab, not moving to it.
+        _setTab(restoredTab, persist: false, animate: false);
       }
     });
 
@@ -353,12 +366,9 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
     // D-pad change, a committed swipe and an abandoned one.
     _tabSlideController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 220),
+      duration: _stepDuration,
     );
-    _tabSlide = CurvedAnimation(
-      parent: _tabSlideController,
-      curve: Curves.easeOutCubic,
-    );
+    _tabSlide = CurvedAnimation(parent: _tabSlideController, curve: _stepCurve);
     _tabSlideController
       ..addListener(() {
         _panelShift.value = _shiftFrom * (1.0 - _tabSlide.value);
@@ -561,6 +571,7 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
     _secondaryState?.removeListener(_onSecondaryStateChanged);
     _animationController.dispose();
     _syncIconController.dispose();
+    _tabSlide.dispose();
     _tabSlideController.dispose();
     _panelShift.dispose();
     _videoDelayTimer?.cancel();
@@ -1010,9 +1021,19 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
   }
 
   /// Eases whatever shift the panels are holding back to zero.
+  ///
+  /// [fromDrag] picks the feel: a panel released mid-drag carries its speed
+  /// into the settle, while a step from rest eases in as well as out.
+  void _runSlide({required bool fromDrag}) {
+    _tabSlide.curve = fromDrag ? _settleCurve : _stepCurve;
+    _tabSlideController.duration = fromDrag ? _settleDuration : _stepDuration;
+    _tabSlideController.forward(from: 0.0);
+  }
+
+  /// Eases whatever shift the panels are holding back to zero.
   void _settlePanels() {
     _shiftFrom = _panelShift.value;
-    _tabSlideController.forward(from: 0.0);
+    _runSlide(fromDrag: true);
   }
 
   /// Starts a horizontal swipe across the tab panels.
@@ -1217,11 +1238,18 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
   ///
   /// [fromShift] hands a swipe's live offset over so the settle continues from
   /// the finger rather than restarting at the edge of the card.
+  ///
+  /// [animate] is for tab changes the user did not make. Restoring the
+  /// remembered tab as a card is built, or resetting to the wheel behind a
+  /// dismissed overlay, is a card arriving on a tab rather than travelling to
+  /// one: sliding there means every system entered on anything but the wheel
+  /// opens with a swipe out of nowhere.
   void _setTab(
     DetailTab tab, {
     bool persist = true,
     bool? slideRight,
     double? fromShift,
+    bool animate = true,
   }) {
     if (_currentTab == tab) return;
 
@@ -1232,15 +1260,19 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
     _dismissPanel();
 
     setState(() {
-      final bool goingRight = slideRight ?? _isTabToTheRight(tab);
-      _isSwiping = false;
-      // Moving right, the incoming panel starts at the right edge with the one
-      // it replaces sitting to its left, and the other way around going left.
-      _partnerTab = _currentTab;
-      _partnerOnRight = !goingRight;
-      _shiftFrom = fromShift ?? (goingRight ? 1.0 : -1.0);
-      _panelShift.value = _shiftFrom;
-      _tabSlideController.forward(from: 0.0);
+      if (animate) {
+        final bool goingRight = slideRight ?? _isTabToTheRight(tab);
+        _isSwiping = false;
+        // Moving right, the incoming panel starts at the right edge with the
+        // one it replaces sitting to its left, and the other way going left.
+        _partnerTab = _currentTab;
+        _partnerOnRight = !goingRight;
+        _shiftFrom = fromShift ?? (goingRight ? 1.0 : -1.0);
+        _panelShift.value = _shiftFrom;
+        _runSlide(fromDrag: fromShift != null);
+      } else {
+        _endTransition();
+      }
       _currentTab = tab;
 
       final config = context.read<SqliteConfigProvider>();
@@ -1268,8 +1300,9 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
   }
 
   void _closeAllOverlays() {
-    // Dismissing an overlay isn't a tab choice, so it leaves the preference be.
-    _setTab(DetailTab.wheel, persist: false);
+    // Dismissing an overlay isn't a tab choice, so it leaves the preference be
+    // and cuts straight back rather than sliding.
+    _setTab(DetailTab.wheel, persist: false, animate: false);
   }
 
   /// Orchestrates a metadata acquisition process via ScreenScraperService.
