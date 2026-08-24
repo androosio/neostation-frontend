@@ -1297,10 +1297,6 @@ class _SystemGamesListState extends State<SystemGamesList> {
   /// info/preview panel (right). The selected game's fanart is rendered behind
   /// the entire viewport so it peeks through both panels.
   Widget _buildGamesList() {
-    final availableHeight =
-        MediaQuery.of(context).size.height -
-        MediaQuery.of(context).padding.top -
-        MediaQuery.of(context).padding.bottom;
     final isMusic = widget.system.folderName == 'music';
 
     return Stack(
@@ -1327,16 +1323,19 @@ class _SystemGamesListState extends State<SystemGamesList> {
             ),
           ),
 
-        // Main content row: list panel + details panel.
+        // Main content row: list panel + details panel. Both stretch to the
+        // row's own height rather than measuring the screen: the sidebar adds
+        // 12.r of margin above and below, so a screen-derived height made the
+        // block 24.r taller than its box and it overflowed on any device whose
+        // system insets were smaller than that.
         Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // Sidebar: Interactive list of games or music tracks.
             AnimatedContainer(
               duration: const Duration(milliseconds: 250),
               curve: Curves.easeOutCubic,
               width: 200.r,
-              height: availableHeight,
               margin: EdgeInsets.only(left: 12.r, top: 12.r, bottom: 12.r),
               decoration: BoxDecoration(
                 // A horizontal wash rather than a flat fill: the panel stays
@@ -1369,20 +1368,11 @@ class _SystemGamesListState extends State<SystemGamesList> {
                       context,
                     ).extension<CornerRadii>()?.radiusInternal ??
                     BorderRadius.circular(9.r),
-                child: SizedBox(
-                  width: 200.r,
-                  height: availableHeight,
-                  child: _buildGamesListPanel(),
-                ),
+                child: _buildGamesListPanel(),
               ),
             ),
             // Main Viewport: Rich metadata, video previews, and launch controls.
-            Expanded(
-              child: SizedBox(
-                height: availableHeight,
-                child: _buildGameDetailsPanel(),
-              ),
-            ),
+            Expanded(child: _buildGameDetailsPanel()),
           ],
         ),
       ],
