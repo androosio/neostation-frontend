@@ -144,7 +144,7 @@ extension _ContextMenu on _SystemGamesListState {
       if (!mounted) return;
       AppNotification.showNotification(
         context,
-        AppLocale.errorUpdatingFavorite.getString(context),
+        AppLocale.errorUpdatingCollection.getString(context),
         type: NotificationType.error,
       );
       return;
@@ -201,7 +201,7 @@ extension _ContextMenu on _SystemGamesListState {
       if (!mounted) return;
       AppNotification.showNotification(
         context,
-        AppLocale.errorUpdatingFavorite.getString(context),
+        AppLocale.errorUpdatingCollection.getString(context),
         type: NotificationType.error,
       );
     }

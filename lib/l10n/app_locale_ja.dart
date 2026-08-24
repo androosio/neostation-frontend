@@ -547,6 +547,8 @@ const Map<String, dynamic> appLocaleJa = {
   AppLocale.noCollections: 'コレクションがまだありません',
   AppLocale.noCollectionsSubtitle: 'すべてのシステムのゲームをまとめるコレクションを作成しましょう。',
   AppLocale.errorSavingCollection: 'コレクションを保存できませんでした',
+  AppLocale.errorUpdatingCollection: 'コレクションを更新できませんでした',
+  AppLocale.inACollection: 'コレクションに含まれています',
 
   AppLocale.error: 'エラー',
   AppLocale.loading: '読み込み中...',

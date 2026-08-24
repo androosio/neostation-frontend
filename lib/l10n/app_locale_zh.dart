@@ -538,6 +538,8 @@ const Map<String, dynamic> appLocaleZh = {
   AppLocale.noCollections: '还没有合集',
   AppLocale.noCollectionsSubtitle: '创建一个合集，把任意系统的游戏归到一起。',
   AppLocale.errorSavingCollection: '无法保存合集',
+  AppLocale.errorUpdatingCollection: '无法更新合集',
+  AppLocale.inACollection: '已加入合集',
 
   AppLocale.error: '错误',
   AppLocale.loading: '正在加载...',

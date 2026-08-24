@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localization/flutter_localization.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:neostation/l10n/app_locale.dart';
 
 /// Marks a game that is filed in at least one collection.
 ///
@@ -34,15 +36,16 @@ class CollectionBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final label = AppLocale.inACollection.getString(context);
     if (compact) {
       return Semantics(
-        label: 'In a collection',
+        label: label,
         child: Icon(Symbols.bookmark_rounded, size: 11.r, color: color),
       );
     }
 
     return Semantics(
-      label: 'In a collection',
+      label: label,
       child: Container(
         width: size,
         height: size,

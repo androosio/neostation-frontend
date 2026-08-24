@@ -629,6 +629,8 @@ const Map<String, dynamic> appLocaleIt = {
   AppLocale.noCollectionsSubtitle:
       'Creane una per raggruppare giochi da qualsiasi sistema.',
   AppLocale.errorSavingCollection: 'Impossibile salvare la raccolta',
+  AppLocale.errorUpdatingCollection: 'Impossibile aggiornare la raccolta',
+  AppLocale.inACollection: 'In una raccolta',
 
   AppLocale.error: 'Errore',
   AppLocale.loading: 'Caricamento...',

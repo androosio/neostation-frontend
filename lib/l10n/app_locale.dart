@@ -867,6 +867,8 @@ mixin AppLocale {
   static const String noCollections = 'no_collections';
   static const String noCollectionsSubtitle = 'no_collections_subtitle';
   static const String errorSavingCollection = 'error_saving_collection';
+  static const String errorUpdatingCollection = 'error_updating_collection';
+  static const String inACollection = 'in_a_collection';
 
   // ---------------------------------------------------------------------------
   // Misc

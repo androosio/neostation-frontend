@@ -611,6 +611,8 @@ const Map<String, dynamic> appLocaleId = {
   AppLocale.noCollectionsSubtitle:
       'Buat satu untuk mengelompokkan game dari sistem mana pun.',
   AppLocale.errorSavingCollection: 'Koleksi tidak dapat disimpan',
+  AppLocale.errorUpdatingCollection: 'Koleksi tidak dapat diperbarui',
+  AppLocale.inACollection: 'Dalam koleksi',
 
   AppLocale.error: 'Kesalahan',
   AppLocale.loading: 'Memuat...',

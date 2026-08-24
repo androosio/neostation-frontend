@@ -621,6 +621,8 @@ const Map<String, dynamic> appLocaleRu = {
   AppLocale.noCollectionsSubtitle:
       'Создайте коллекцию, чтобы объединить игры с любых систем.',
   AppLocale.errorSavingCollection: 'Не удалось сохранить коллекцию',
+  AppLocale.errorUpdatingCollection: 'Не удалось обновить коллекцию',
+  AppLocale.inACollection: 'В коллекции',
 
   AppLocale.error: 'Ошибка',
   AppLocale.loading: 'Загрузка...',

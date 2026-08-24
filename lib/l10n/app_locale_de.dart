@@ -634,6 +634,9 @@ const Map<String, dynamic> appLocaleDe = {
       'Erstelle eine, um Spiele aus allen Systemen zu gruppieren.',
   AppLocale.errorSavingCollection:
       'Die Sammlung konnte nicht gespeichert werden',
+  AppLocale.errorUpdatingCollection:
+      'Die Sammlung konnte nicht aktualisiert werden',
+  AppLocale.inACollection: 'In einer Sammlung',
 
   AppLocale.error: 'Fehler',
   AppLocale.loading: 'Wird geladen...',

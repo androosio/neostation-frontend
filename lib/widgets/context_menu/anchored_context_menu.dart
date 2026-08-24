@@ -223,6 +223,10 @@ class _AnchoredContextMenuState extends State<AnchoredContextMenu> {
     );
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Dismissed within its first frame (a second B, a tap outside during the
+      // fade-in): dispose has already popped the layer, and pushing it now
+      // would leave a dead layer on top of the stack eating every button.
+      if (!mounted) return;
       _gamepadNav.initialize();
       GamepadNavigationManager.pushLayer(
         widget.layerId,

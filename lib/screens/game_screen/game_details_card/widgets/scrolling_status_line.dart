@@ -62,9 +62,12 @@ class _ScrollingStatusLineState extends State<ScrollingStatusLine> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback(
-      (_) => _scheduleStart(_startDelayMs),
-    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // The card can drop this line before its first frame (a fast selection
+      // change); a timer armed after dispose would outlive the widget.
+      if (!mounted) return;
+      _scheduleStart(_startDelayMs);
+    });
   }
 
   @override
@@ -92,7 +95,11 @@ class _ScrollingStatusLineState extends State<ScrollingStatusLine> {
   }
 
   void _onTick(Timer timer) {
-    if (!mounted || !_scrollController.hasClients) return;
+    if (!mounted) {
+      timer.cancel();
+      return;
+    }
+    if (!_scrollController.hasClients) return;
 
     final maxScroll = _scrollController.position.maxScrollExtent;
     if (maxScroll <= 0) {

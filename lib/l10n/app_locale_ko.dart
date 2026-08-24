@@ -553,6 +553,8 @@ const Map<String, dynamic> appLocaleKo = {
   AppLocale.noCollections: '아직 컬렉션이 없습니다',
   AppLocale.noCollectionsSubtitle: '모든 시스템의 게임을 모을 컬렉션을 만들어 보세요.',
   AppLocale.errorSavingCollection: '컬렉션을 저장하지 못했습니다',
+  AppLocale.errorUpdatingCollection: '컬렉션을 업데이트하지 못했습니다',
+  AppLocale.inACollection: '컬렉션에 포함됨',
 
   AppLocale.error: '오류',
   AppLocale.loading: '불러오는 중...',
