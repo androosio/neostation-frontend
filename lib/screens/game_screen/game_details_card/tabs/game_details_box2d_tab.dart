@@ -112,7 +112,7 @@ class _GameDetailsBox2dTabState extends State<GameDetailsBox2dTab> {
     return Positioned(
       left: 12.r,
       right: 12.r,
-      top: 55.r,
+      top: 12.r,
       bottom: widget.bottomOffset.r,
       child: Center(
         child: Container(

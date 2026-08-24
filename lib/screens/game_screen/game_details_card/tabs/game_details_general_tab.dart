@@ -43,7 +43,7 @@ class GameDetailsGeneralTab extends StatelessWidget {
     return Positioned.fill(
       left: 10.r,
       right: 10.r,
-      top: 44.r,
+      top: 10.r,
       bottom: 88.r,
       child: Stack(
         fit: StackFit.expand,

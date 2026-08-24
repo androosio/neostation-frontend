@@ -29,7 +29,7 @@ import 'package:neostation/services/logger_service.dart';
 import 'package:neostation/widgets/custom_notification.dart';
 import '../../../models/secondary_display_state.dart';
 import 'widgets/game_details_footer.dart';
-import 'widgets/game_details_tabs_header.dart';
+import 'detail_tab.dart';
 import 'widgets/scraping_progress_panel.dart';
 import 'tabs/game_details_general_tab.dart';
 import 'tabs/game_details_box2d_tab.dart';
@@ -768,19 +768,6 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // Header Layer: Tab navigation and system status.
-          Positioned(
-            left: 0.r,
-            right: 0.r,
-            top: 0.r,
-            child: GameDetailsTabsHeader(
-              isScreenshotVideoHidden: _isGameInfoHidden,
-              hasRetroAchievements: _hasRetroAchievements,
-              currentTab: _currentTab,
-              onTabChanged: (tab) => _setTab(tab),
-            ),
-          ),
-
           // Footer Layer: Action bar and synchronization status.
           GameDetailsFooter(
             system: _effectiveSystem,

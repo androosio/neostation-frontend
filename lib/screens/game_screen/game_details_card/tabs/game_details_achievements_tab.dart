@@ -33,7 +33,7 @@ class GameDetailsAchievementsTab extends StatefulWidget {
     this.gameInfo,
     required this.isLoading,
     required this.onRefresh,
-    this.topOffset = 55.0,
+    this.topOffset = 12.0,
     this.bottomOffset = 110.0,
     this.leftOffset = 12.0,
     this.rightOffset = 12.0,
