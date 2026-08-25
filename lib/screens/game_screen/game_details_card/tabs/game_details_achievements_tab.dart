@@ -16,6 +16,11 @@ import '../../../../models/retro_achievements_game_info.dart';
 class GameDetailsAchievementsTab extends StatefulWidget {
   final GameInfoAndUserProgress? gameInfo;
   final bool isLoading;
+
+  /// How many achievements the bundled snapshot lists for this game, or `null`
+  /// when it is not matched. Known without any lookup, which is what lets the
+  /// header be right while [gameInfo] is still outstanding.
+  final int? snapshotAchievementTotal;
   final VoidCallback onRefresh;
   final double topOffset;
   final double bottomOffset;
@@ -32,6 +37,7 @@ class GameDetailsAchievementsTab extends StatefulWidget {
     super.key,
     this.gameInfo,
     required this.isLoading,
+    this.snapshotAchievementTotal,
     required this.onRefresh,
     this.topOffset = 12.0,
     this.bottomOffset = 110.0,
@@ -285,6 +291,15 @@ class GameDetailsAchievementsTabState
     // Scenario 1: Metadata is being fetched.
     if (widget.gameInfo == null) {
       if (widget.isLoading) {
+        // Same shell, same header, same grid geometry as a resolved set: only
+        // the numbers and the badges are outstanding. Replacing the panel with
+        // a centred spinner and a "loading" line meant its whole shape changed
+        // and changed back around a fetch, which read as a flash rather than
+        // as progress. The count comes from the bundled snapshot, so for a
+        // matched game the header is right from the first frame and only the
+        // earned figure is a dash.
+        final int? snapshotTotal = widget.snapshotAchievementTotal;
+
         return Positioned(
           left: widget.leftOffset.r,
           right: widget.rightOffset.r,
@@ -294,10 +309,6 @@ class GameDetailsAchievementsTabState
             decoration: BoxDecoration(
               color: ChromeSurface.fill(context),
               borderRadius: radii.radiusExternal,
-              border: Border.all(
-                color: Theme.of(context).colorScheme.outline,
-                width: 1.r,
-              ),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.25),
@@ -306,21 +317,107 @@ class GameDetailsAchievementsTabState
                 ),
               ],
             ),
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const CircularProgressIndicator(),
-                  SizedBox(height: 16.r),
-                  Text(
-                    AppLocale.loadingAchievements.getString(context),
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurface,
-                      fontSize: 12.r,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: EdgeInsets.fromLTRB(8.r, 8.r, 8.r, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Symbols.emoji_events_rounded,
+                            color: Colors.orange,
+                            size: 13.r,
+                          ),
+                          SizedBox(width: 8.r),
+                          // A dash rather than a zero for the figure nobody
+                          // has answered yet — the same reading the footer
+                          // pill gives the same gap.
+                          if (snapshotTotal != null && snapshotTotal > 0)
+                            Text(
+                              '\u2013 / $snapshotTotal  \u00b7  \u2013%',
+                              style: TextStyle(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurface.withValues(alpha: 0.75),
+                                fontSize: 11.r,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          const Spacer(),
+                          // Holds open exactly the height the settled header's
+                          // action chips will take. A chip is taller than the
+                          // count text beside it, so a header built without one
+                          // is shorter than the header that replaces it, and
+                          // the divider and the whole badge grid stepped down
+                          // at the moment the set landed. Reserving it with the
+                          // real widget rather than a measured constant is what
+                          // keeps the two headers the same height if the chip's
+                          // padding ever changes.
+                          Visibility(
+                            visible: false,
+                            maintainSize: true,
+                            maintainAnimation: true,
+                            maintainState: true,
+                            child: HeaderActionButton(
+                              // The settled legend carries a button glyph, and
+                              // the glyph is what sets the chip's height. Match
+                              // its box rather than load the image: nothing
+                              // here is ever painted.
+                              icon: SizedBox(width: 12.r, height: 12.r),
+                              label: AppLocale.navigate
+                                  .getString(context)
+                                  .toUpperCase(),
+                              onTap: () {},
+                              backgroundColor: Colors.transparent,
+                              foregroundColor: Colors.transparent,
+                            ),
+                          ),
+                        ],
+                      ),
+                      // The one moving element, and it sits exactly where the
+                      // divider does once the set lands, so nothing shifts
+                      // when it goes.
+                      SizedBox(
+                        height: 10.r,
+                        child: Center(
+                          child: LinearProgressIndicator(
+                            minHeight: 1.r,
+                            backgroundColor: Theme.of(
+                              context,
+                            ).colorScheme.onSurface.withValues(alpha: 0.1),
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurface.withValues(alpha: 0.35),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8.r),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // The left pane holds the focused badge's text, and
+                        // there is no focused badge yet.
+                        const Expanded(flex: 4, child: SizedBox.shrink()),
+                        SizedBox(width: 12.r),
+                        Expanded(
+                          flex: 6,
+                          child: _AchievementsSkeleton(count: snapshotTotal),
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              ),
+                ),
+                SizedBox(height: 8.r),
+              ],
             ),
           ),
         );
@@ -682,6 +779,50 @@ class _SelectedAchievementInfo extends StatelessWidget {
 }
 
 /// Navigable grid of trophy badges loaded dynamically from RetroAchievements infrastructure.
+/// Placeholder badges shown while a set is being fetched.
+///
+/// Mirrors [_AchievementsGrid]'s geometry exactly, so the real badges land in
+/// the tiles the placeholders were already occupying instead of arriving into
+/// an empty pane. Static rather than shimmering: the header's progress line is
+/// already saying that something is happening, and a second animation for the
+/// same fact is the noise this panel was rebuilt to lose.
+class _AchievementsSkeleton extends StatelessWidget {
+  /// How many tiles to draw. Falls back to a plausible grid when the snapshot
+  /// has no count, and is capped because the pane scrolls anyway — the tiles
+  /// past the fold would never be seen.
+  final int? count;
+
+  const _AchievementsSkeleton({required this.count});
+
+  static const int _fallbackCount = 24;
+  static const int _maxCount = 36;
+
+  @override
+  Widget build(BuildContext context) {
+    final radii = Theme.of(context).extension<CornerRadii>() ?? CornerRadii.m();
+    final int tiles = (count ?? _fallbackCount).clamp(1, _maxCount);
+
+    return GridView.builder(
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 6,
+        crossAxisSpacing: 4.r,
+        mainAxisSpacing: 4.r,
+        childAspectRatio: 1.0,
+      ),
+      itemCount: tiles,
+      itemBuilder: (context, index) => DecoratedBox(
+        decoration: BoxDecoration(
+          color: Theme.of(
+            context,
+          ).colorScheme.onSurface.withValues(alpha: 0.06),
+          borderRadius: radii.radiusInternal,
+        ),
+      ),
+    );
+  }
+}
+
 class _AchievementsGrid extends StatelessWidget {
   final List<Achievement> achievements;
   final int selectedIndex;

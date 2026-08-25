@@ -284,7 +284,6 @@ const Map<String, dynamic> appLocaleKo = {
   AppLocale.cloudSaveSubtitle: 'NeoSync에 저장',
   AppLocale.scrapingUnavailableAndroid: 'Android 앱은 게임 정보 가져오기를 지원하지 않습니다.',
   AppLocale.achievements: '업적',
-  AppLocale.loadingAchievements: '업적 로드 중...',
 
   AppLocale.neoSync: 'NeoSync',
   AppLocale.neoSyncLogin: 'NeoSync 로그인',

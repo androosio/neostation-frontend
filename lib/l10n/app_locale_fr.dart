@@ -345,7 +345,6 @@ const Map<String, dynamic> appLocaleFr = {
   AppLocale.cloudSaveSubtitle: 'Depuis NeoSync',
   AppLocale.scrapingUnavailableAndroid: 'Scraping indisponible sur Android.',
   AppLocale.achievements: 'Succès',
-  AppLocale.loadingAchievements: 'Chargement des succès...',
 
   AppLocale.neoSync: 'NeoSync',
   AppLocale.neoSyncLogin: 'Connexion NeoSync',

@@ -338,7 +338,6 @@ const Map<String, dynamic> appLocaleIt = {
   AppLocale.cloudSaveSubtitle: 'Da NeoSync',
   AppLocale.scrapingUnavailableAndroid: 'Scraping non disponibile su Android.',
   AppLocale.achievements: 'Obiettivi',
-  AppLocale.loadingAchievements: 'Caricamento obiettivi...',
 
   AppLocale.neoSync: 'NeoSync',
   AppLocale.neoSyncLogin: 'Accesso NeoSync',

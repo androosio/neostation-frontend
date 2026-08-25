@@ -352,7 +352,6 @@ mixin AppLocale {
   static const String scrapingUnavailableAndroid =
       'scraping_unavailable_android';
   static const String achievements = 'achievements';
-  static const String loadingAchievements = 'loading_achievements';
 
   // ---------------------------------------------------------------------------
   // NeoSync

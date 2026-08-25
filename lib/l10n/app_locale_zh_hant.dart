@@ -277,7 +277,6 @@ const Map<String, dynamic> appLocaleZhHant = {
   AppLocale.cloudSaveSubtitle: '來自 NeoSync',
   AppLocale.scrapingUnavailableAndroid: 'Android 應用程式無法抓取。',
   AppLocale.achievements: '成就',
-  AppLocale.loadingAchievements: '正在載入成就...',
 
   AppLocale.neoSync: 'NeoSync',
   AppLocale.neoSyncLogin: 'NeoSync 登入',

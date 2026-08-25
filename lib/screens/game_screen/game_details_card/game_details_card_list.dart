@@ -17,6 +17,7 @@ import 'package:neostation/services/sfx_service.dart';
 import 'dialogs/ra_match_picker_dialog.dart';
 import '../../../services/retro_achievements_helper.dart';
 import '../../../utils/artwork_cache.dart';
+import '../../../utils/ra_coverage.dart';
 import '../../../utils/gamepad_nav.dart';
 import 'package:flutter/foundation.dart';
 
@@ -186,6 +187,17 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
   // RetroAchievements Integration state.
   GameInfoAndUserProgress? _currentGameInfo;
   bool _isLoadingAchievements = false;
+
+  /// Whether the *chrome* for an outstanding lookup may be on screen, which is
+  /// deliberately not the same question as [_isLoadingAchievements].
+  bool _showAchievementsLoading = false;
+  Timer? _achievementsLoadingTimer;
+
+  /// How long a lookup has to stay outstanding before it is worth reporting.
+  ///
+  /// Long enough that a cache hit never paints, short enough that a real
+  /// network round trip still says something is happening.
+  static const Duration _achievementsLoadingDelay = Duration(milliseconds: 250);
 
   /// Whether the shown match was chosen by hand, which decides whether the
   /// picker offers a way back to automatic matching.
@@ -496,15 +508,27 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
         oldWidget.game.name != widget.game.name ||
         oldWidget.game.showRomFileNameSubtitle !=
             widget.game.showRomFileNameSubtitle) {
+      // A game this screen has already identified and fetched can be answered
+      // out of memory in the same frame the selection changed. That is worth a
+      // branch of its own: the alternative is entering the loading state and
+      // leaving it again a frame later, which is exactly what put a spinner and
+      // a "Loading achievements" line on screen for a single frame every time
+      // the cursor stepped between two games that both have sets.
+      final cachedGameInfo = RetroAchievementsHelper.cachedGameInfo(
+        game: widget.game,
+        provider: widget.retroAchievementsProvider,
+      );
+
       setState(() {
         _game = widget.game;
         _cloudSyncEnabled = _game.cloudSyncEnabled ?? true;
-        _currentGameInfo = null;
+        _currentGameInfo = cachedGameInfo;
         // Nothing has been asked about this game yet — and during a fast scroll
         // the lookup below is deferred entirely, so the answer may be a while
         // coming. Saying "not loading" here let the footer read a null
         // gameInfo as "no achievements" for every game the cursor passed over.
-        _isLoadingAchievements = true;
+        _isLoadingAchievements = cachedGameInfo == null;
+        if (cachedGameInfo != null) _disarmAchievementsLoadingChrome();
 
         if (_effectiveSystem.folderName == 'android') {
           _androidAppIconFuture = AndroidService.getAppIcon(
@@ -513,8 +537,12 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
         }
       });
 
-      if (!widget.isNavigatingFast) {
-        _loadAchievementsForGame(forceRefresh: false);
+      if (cachedGameInfo == null) {
+        _armAchievementsLoadingChrome();
+
+        if (!widget.isNavigatingFast) {
+          _loadAchievementsForGame(forceRefresh: false);
+        }
       }
       _loadMatchSource();
       _verifyCloudSyncStatus();
@@ -523,8 +551,12 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
         _loadVideoConfig();
       }
     } else if (oldWidget.isNavigatingFast && !widget.isNavigatingFast) {
-      // Transition from rapid scroll: resume heavy resource hydration.
-      _loadAchievementsForGame(forceRefresh: false);
+      // Transition from rapid scroll: resume heavy resource hydration. Skip the
+      // lookup for a game already answered from cache — re-running it would put
+      // the screen back into a loading state it has no reason to be in.
+      if (_currentGameInfo == null) {
+        _loadAchievementsForGame(forceRefresh: false);
+      }
       _verifyCloudSyncStatus();
     }
 
@@ -575,6 +607,7 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
     _tabSlideController.dispose();
     _panelShift.dispose();
     _videoDelayTimer?.cancel();
+    _achievementsLoadingTimer?.cancel();
     _muteButtonFocusNode.dispose();
     _achievementsButtonFocusNode.dispose();
     _favoriteButtonFocusNode.dispose();
@@ -650,8 +683,61 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
     // The match moved, so anything cached against the old game id is wrong.
     RetroAchievementsHelper.evictBadgeCache(_currentGameInfo);
     widget.retroAchievementsProvider.gameInfoCache.clear();
+    RetroAchievementsHelper.forgetResolvedIds();
     await _loadMatchSource();
     if (mounted) refreshAchievements();
+  }
+
+  /// Whether the bundled snapshot already knows this game has achievements.
+  ///
+  /// It is answered from rows the database holds, so it is true before any
+  /// lookup starts — which is what lets the settled "none" state be told apart
+  /// from a "none" that only means nobody has answered yet.
+  bool get _localSnapshotHasAchievements =>
+      _game.raCoverage == RaCoverage.matched &&
+      (_game.raNumAchievements ?? 0) > 0;
+
+  /// The loading flag the footer and the tabs act on.
+  ///
+  /// [_isLoadingAchievements] flips true on every selection change and, for a
+  /// game the lookup answers from cache, back to false a frame later. Wiring
+  /// that straight into the chrome strobed the bottom of the screen: the
+  /// achievements pill went up over the metadata row and the tab swapped "no
+  /// achievements found" for a spinner, both for a single frame, on every
+  /// game the cursor passed over.
+  ///
+  /// So the chrome only follows the flag once the lookup has stayed
+  /// outstanding for [_achievementsLoadingDelay]. The exception is a game the
+  /// snapshot already reports achievements for: there the settled state is not
+  /// "none", so waiting in silence would show the wrong answer rather than no
+  /// answer, and the spinner goes up at once.
+  bool get _showsAchievementsLoading =>
+      _showAchievementsLoading ||
+      (_isLoadingAchievements && _localSnapshotHasAchievements);
+
+  /// Starts the clock on the loading chrome. The lookup is already running;
+  /// this only decides when it is allowed to say so.
+  void _armAchievementsLoadingChrome() {
+    _achievementsLoadingTimer?.cancel();
+    _achievementsLoadingTimer = null;
+
+    // Already reporting a slow lookup: a new selection does not get to take
+    // the spinner back down and put it up again.
+    if (_showAchievementsLoading) return;
+
+    _achievementsLoadingTimer = Timer(_achievementsLoadingDelay, () {
+      _achievementsLoadingTimer = null;
+      if (!mounted || !_isLoadingAchievements) return;
+      setState(() => _showAchievementsLoading = true);
+    });
+  }
+
+  /// Takes the loading chrome down and cancels any pending arming. Call from
+  /// inside the `setState` that settles the lookup.
+  void _disarmAchievementsLoadingChrome() {
+    _achievementsLoadingTimer?.cancel();
+    _achievementsLoadingTimer = null;
+    _showAchievementsLoading = false;
   }
 
   Future<void> _loadAchievementsForGame({bool forceRefresh = false}) async {
@@ -664,6 +750,7 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
     setState(() {
       _isLoadingAchievements = true;
     });
+    _armAchievementsLoadingChrome();
 
     try {
       final gameInfo = await RetroAchievementsHelper.loadGameInfo(
@@ -684,6 +771,7 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
         setState(() {
           _currentGameInfo = gameInfo;
           _isLoadingAchievements = false;
+          _disarmAchievementsLoadingChrome();
         });
       }
     } catch (e) {
@@ -692,6 +780,7 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
         setState(() {
           _currentGameInfo = null;
           _isLoadingAchievements = false;
+          _disarmAchievementsLoadingChrome();
         });
       }
     }
@@ -765,7 +854,7 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
         context,
         game: _game,
         hasRetroAchievements: _hasRetroAchievements,
-        isLoadingAchievements: _isLoadingAchievements,
+        isLoadingAchievements: _showsAchievementsLoading,
         currentGameInfo: _currentGameInfo,
       ),
       hasPlayTime: gameDetailsFooterHasPlayTime(_game),
@@ -791,7 +880,7 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
             syncIconController: _syncIconController,
             onShowAchievements: () => _setTab(DetailTab.achievements),
             hasRetroAchievements: _hasRetroAchievements,
-            isLoadingAchievements: _isLoadingAchievements,
+            isLoadingAchievements: _showsAchievementsLoading,
             currentGameInfo: _currentGameInfo,
           ),
 
@@ -882,7 +971,10 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
                         key: _achievementsTabKey,
                         bottomOffset: panelBottomOffset,
                         gameInfo: _currentGameInfo,
-                        isLoading: _isLoadingAchievements,
+                        isLoading: _showsAchievementsLoading,
+                        snapshotAchievementTotal: _localSnapshotHasAchievements
+                            ? _game.raNumAchievements
+                            : null,
                         onRefresh: refreshAchievements,
                         onFixMatch: _openMatchPicker,
                       ),

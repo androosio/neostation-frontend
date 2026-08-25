@@ -334,7 +334,6 @@ const Map<String, dynamic> appLocaleRu = {
   AppLocale.scrapingUnavailableAndroid:
       'Получение данных недоступно для приложений Android.',
   AppLocale.achievements: 'Достижения',
-  AppLocale.loadingAchievements: 'Загрузка достижений...',
 
   AppLocale.neoSync: 'NeoSync',
   AppLocale.neoSyncLogin: 'Вход в NeoSync',

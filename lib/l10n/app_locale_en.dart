@@ -327,7 +327,6 @@ const Map<String, dynamic> appLocaleEn = {
   AppLocale.scrapingUnavailableAndroid:
       'Scraping unavailable for Android apps.',
   AppLocale.achievements: 'Achievements',
-  AppLocale.loadingAchievements: 'Loading achievements...',
 
   AppLocale.neoSync: 'NeoSync',
   AppLocale.neoSyncLogin: 'NeoSync Login',
