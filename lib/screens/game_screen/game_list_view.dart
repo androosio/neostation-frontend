@@ -169,12 +169,18 @@ class GameListViewState extends State<GameListView>
     }
 
     if (oldWidget.selectedIndex != widget.selectedIndex) {
-      // Dynamic duration adjustment based on navigation speed (isNavigatingFast).
-      final animationDuration = widget.isNavigatingFast
-          ? const Duration(milliseconds: 120)
-          : const Duration(milliseconds: 250);
-
-      final scrollDuration = widget.isNavigatingFast
+      // The highlight and the scroll must share one clock. The bar is
+      // positioned in viewport space as (selection * itemHeight) - scrollOffset,
+      // so mid-list -- where centering scrolls the selected row back to the
+      // middle -- the two terms cancel and a synchronised bar does not move at
+      // all. Give them different durations and they stop cancelling: the bar
+      // detaches from its row, slides towards the next one and is dragged back
+      // as the scroll catches up. Measured on the Thor at 250/360, that was
+      // 22 px of a 78 px row for ~100 ms per move, and 40-76 px sustained for
+      // over a second while the D-pad was held. Both values are one duration
+      // now, the shorter of the two while isNavigatingFast; if the feel needs
+      // changing, change it for both.
+      final moveDuration = widget.isNavigatingFast
           ? const Duration(milliseconds: 180)
           : const Duration(milliseconds: 360);
 
@@ -183,18 +189,35 @@ class GameListViewState extends State<GameListView>
       final double begin = _selectionAnimation.value;
       final double end = widget.selectedIndex.toDouble();
 
-      _selectionController.duration = animationDuration;
+      _selectionController.duration = moveDuration;
       _selectionAnimation = Tween<double>(
         begin: begin,
         end: end,
       ).animate(CurvedAnimation(parent: _selectionController, curve: curve));
 
-      _selectionController.forward(from: 0);
+      // Rewound now but started a frame later, because the scroll cannot start
+      // any earlier than that: scrollToIndex defers its animateTo so the target
+      // offset is computed against a laid-out viewport. Running forward() here
+      // in the build phase would give the highlight a one-frame head start, and
+      // a head start is exactly what this pair must not have.
+      //
+      // The rewind cannot wait for the callback with it. The controller is
+      // still sitting at 1.0 from the move before, so a tween built here and
+      // left unrewound reads as its own end value: the bar would teleport a
+      // full row onto the new index for the one frame before the callback runs,
+      // while the rows had not moved at all. That was measured on the Thor --
+      // one frame at exactly +78px on an otherwise perfectly still bar.
+      _selectionController.value = 0;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _selectionController.forward();
+        }
+      });
 
       _centeredScrollController.updateSelectedIndex(widget.selectedIndex);
       _centeredScrollController.scrollToIndex(
         widget.selectedIndex,
-        duration: scrollDuration,
+        duration: moveDuration,
         curve: curve,
       );
     }
