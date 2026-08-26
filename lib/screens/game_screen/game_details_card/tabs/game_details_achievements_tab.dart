@@ -10,6 +10,19 @@ import 'package:neostation/themes/chrome_surface.dart';
 import 'package:neostation/themes/corner_radii.dart';
 import '../../../../models/retro_achievements_game_info.dart';
 
+/// How far the panel's content sits from its own edge, horizontally.
+///
+/// Wider than the 8.r it keeps vertically, and deliberately so. The card is
+/// laid out against a 640x480 design and `.r` scales off the shorter axis, so
+/// on the 16:9 panels the app actually runs on an inset that reads as generous
+/// top-to-bottom is tight left-to-right. It cost this panel more than most:
+/// every other edge in here is text or a chip, which carries its own optical
+/// bearing, while the badge grid is a block of hard-edged artwork that filled
+/// its column exactly and left the outermost tiles butting into the accent
+/// edge. Matching the 12.r the panel itself is inset from the card gives the
+/// grid the same air the text already had.
+const double _contentInsetH = 12.0;
+
 /// An overlay component that renders RetroAchievements progress, stats, and a navigable grid.
 ///
 /// Handles heuristic sorting (unlocked first), percentage calculation, and
@@ -310,6 +323,18 @@ class GameDetailsAchievementsTabState
             decoration: BoxDecoration(
               color: ChromeSurface.fill(context),
               borderRadius: radii.radiusExternal,
+              // Invisible, but it holds the same inset the settled panel's
+              // gate edge takes. A border is part of a box, so a loading
+              // shell built without one is 2.r wider on the inside than the
+              // panel that replaces it, and every line of content stepped in
+              // by that much on the frame the set landed — the one shift this
+              // shell exists to avoid.
+              border: PanelGateHighlight.border(
+                context,
+                isDrivable: false,
+                isActive: false,
+                restingColor: Colors.transparent,
+              ),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.25),
@@ -322,7 +347,12 @@ class GameDetailsAchievementsTabState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Padding(
-                  padding: EdgeInsets.fromLTRB(8.r, 8.r, 8.r, 0),
+                  padding: EdgeInsets.fromLTRB(
+                    _contentInsetH.r,
+                    8.r,
+                    _contentInsetH.r,
+                    0,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -402,7 +432,7 @@ class GameDetailsAchievementsTabState
                 ),
                 Expanded(
                   child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 8.r),
+                    padding: EdgeInsets.symmetric(horizontal: _contentInsetH.r),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -534,7 +564,12 @@ class GameDetailsAchievementsTabState
             children: [
               // Header: Contains progress stats and the manual refresh action.
               Padding(
-                padding: EdgeInsets.fromLTRB(8.r, 8.r, 8.r, 0),
+                padding: EdgeInsets.fromLTRB(
+                  _contentInsetH.r,
+                  8.r,
+                  _contentInsetH.r,
+                  0,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -622,7 +657,7 @@ class GameDetailsAchievementsTabState
               // Content: Dual-pane layout (Metadata on left, Grid on right).
               Expanded(
                 child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 8.r),
+                  padding: EdgeInsets.symmetric(horizontal: _contentInsetH.r),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
