@@ -339,6 +339,14 @@ class NativeCarouselState extends State<NativeCarousel> {
               onPointerUp: (_) => _pointerDown = false,
               onPointerCancel: (_) => _pointerDown = false,
               child: PageView.builder(
+                // A new page pitch is a new scroll geometry. Swapping the
+                // controller alone reuses the scroll position, which goes on
+                // mapping pages to pixels at the old pitch: the centred card
+                // sits off-centre, and every later jump lands on the stale
+                // mapping, so the error rides along with the selection instead
+                // of washing out. Keying on the fraction retires the position
+                // with it, and the replacement is seeded at the current page.
+                key: ValueKey<double>(vpFraction),
                 controller: _pageController,
                 clipBehavior: Clip.none,
                 padEnds: true,
