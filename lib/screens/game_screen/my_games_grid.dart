@@ -233,18 +233,18 @@ class _GamesGridState extends State<GamesGrid> {
 
   /// The footer floats over the grid rather than sitting in a band of its own,
   /// so the rows have to reserve its height at the bottom of the scroll or the
-  /// last one can never be scrolled clear of it. The overlay's height is not a
-  /// constant we can write down — it is a title line, a status strip and the
-  /// fade above them, all in `.r` units — so it is measured off the laid-out
-  /// widget and fed back into the padding *and* into [_centerTargetFor], which
-  /// has to agree with the sliver exactly (see the doc there).
-  final GlobalKey _footerOverlayKey = GlobalKey();
-  double _footerOverlayHeight = 80;
+  /// last one can never be scrolled clear of it. Its height is not a constant
+  /// we can write down — a title line and a status strip, both in `.r` units —
+  /// so it is measured off the laid-out widget and fed back into the padding
+  /// *and* into [_centerTargetFor], which has to agree with the sliver exactly
+  /// (see the doc there).
+  final GlobalKey _footerKey = GlobalKey();
+  double _footerHeight = 80;
   bool _footerMeasureScheduled = false;
 
-  /// Bottom padding of the scroll: the overlay, plus the gap a card gets above
+  /// Bottom padding of the scroll: the footer, plus the gap a card gets above
   /// it. The single value both the sliver and the scroll model read.
-  double get _bottomPad => _footerOverlayHeight + 12.r;
+  double get _bottomPad => _footerHeight + 12.r;
 
   // Visible index tracking for lazy dimension loading
   final Set<int> _loadedDims = {};
@@ -787,15 +787,15 @@ class _GamesGridState extends State<GamesGrid> {
   ///
   /// The viewport now runs the full height of the view, *under* the floating
   /// footer, so its centre is not the centre of the space the user can see.
-  /// Centring on it would park the selected card behind the footer's fade.
-  /// Centre on the free area above the overlay instead — the same place the
-  /// card sat when the footer took a band of its own.
+  /// Centring on it would park the selected card behind the footer. Centre on
+  /// the free area above it instead — the same place the card sat when the
+  /// footer took a band of its own.
   double _centerTargetFor(_CardRect rect, double viewportH) {
     final maxScroll = (12 + _contentHeight + _bottomPad - viewportH).clamp(
       0.0,
       double.infinity,
     );
-    final visibleH = (viewportH - _footerOverlayHeight).clamp(0.0, viewportH);
+    final visibleH = (viewportH - _footerHeight).clamp(0.0, viewportH);
     return (12 + rect.top + rect.height / 2 - visibleH / 2).clamp(
       0.0,
       maxScroll,
@@ -808,12 +808,11 @@ class _GamesGridState extends State<GamesGrid> {
   /// it settles on the first frame and stays quiet through every nav frame
   /// after it.
   void _measureFooterOverlay() {
-    final box =
-        _footerOverlayKey.currentContext?.findRenderObject() as RenderBox?;
+    final box = _footerKey.currentContext?.findRenderObject() as RenderBox?;
     if (box == null || !box.hasSize) return;
     final height = box.size.height;
-    if ((height - _footerOverlayHeight).abs() < 0.5) return;
-    setState(() => _footerOverlayHeight = height);
+    if ((height - _footerHeight).abs() < 0.5) return;
+    setState(() => _footerHeight = height);
   }
 
   /// Smoothly scrolls so the selected card sits at the vertical centre of the
@@ -1135,7 +1134,7 @@ class _GamesGridState extends State<GamesGrid> {
 
     _buildSettledChrome();
 
-    // The overlay's height feeds the scroll padding, so it has to be read back
+    // The footer's height feeds the scroll padding, so it has to be read back
     // off the laid-out widget. At most one callback is in flight at a time.
     if (!_footerMeasureScheduled) {
       _footerMeasureScheduled = true;
@@ -1343,59 +1342,14 @@ class _GamesGridState extends State<GamesGrid> {
         // Footer pill is driven by the debounced settled selection and
         // memoized (see _buildSettledChrome) so it is not rebuilt on every
         // fast-nav frame. It floats over the grid rather than taking a band of
-        // its own, so the rows scroll up and dissolve under it.
+        // its own, and carries no scrim of its own: the rows pass behind it.
         Positioned(
           left: 0,
           right: 0,
           bottom: 0,
-          child: _buildFloatingFooter(context),
+          child: KeyedSubtree(key: _footerKey, child: _chromeFooter!),
         ),
       ],
-    );
-  }
-
-  /// The footer, and the fade that carries it over the grid.
-  ///
-  /// The scrim is here rather than in [GameViewFooter] because it is a property
-  /// of *this* layout: the carousel's footer still sits in a band on the
-  /// scaffold and has nothing to fade over. Two segments rather than one
-  /// gradient with hand-computed stops — a tail above the footer that takes the
-  /// cards from opaque down to the band's own wash, then the band itself, which
-  /// stops just short of solid so the artwork under the text is present without
-  /// competing with it.
-  Widget _buildFloatingFooter(BuildContext context) {
-    final bg = Theme.of(context).scaffoldBackgroundColor;
-
-    return KeyedSubtree(
-      key: _footerOverlayKey,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            height: 40.r,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [bg.withValues(alpha: 0.0), bg.withValues(alpha: 0.80)],
-              ),
-            ),
-          ),
-          DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  bg.withValues(alpha: 0.80),
-                  bg.withValues(alpha: 0.96),
-                ],
-              ),
-            ),
-            child: _chromeFooter!,
-          ),
-        ],
-      ),
     );
   }
 
