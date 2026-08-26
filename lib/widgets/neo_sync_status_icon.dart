@@ -33,6 +33,15 @@ class NeoSyncStatusIcon extends StatefulWidget {
   /// same treatment as the text it sits next to.
   final bool showBackground;
 
+  /// Whether the bare glyph carries the drop shadow that lifts it off artwork.
+  ///
+  /// Only meaningful when [showBackground] is false. True on the details card,
+  /// which paints straight onto the game's fanart. False in the grid and
+  /// carousel footer, which sits on the flat scaffold surface — there the
+  /// shadow has nothing to lift the glyph off and reads as grime, the same
+  /// reason that footer drops the shadows from its text.
+  final bool showGlyphShadow;
+
   const NeoSyncStatusIcon({
     super.key,
     required this.system,
@@ -41,6 +50,7 @@ class NeoSyncStatusIcon extends StatefulWidget {
     this.size = 24.0,
     this.margin,
     this.showBackground = true,
+    this.showGlyphShadow = true,
   });
 
   /// Whether this icon will draw anything at all for the given game.
@@ -127,13 +137,15 @@ class _NeoSyncStatusIconState extends State<NeoSyncStatusIcon>
             status.icon,
             color: status.color,
             size: widget.size.r,
-            shadows: [
-              Shadow(
-                blurRadius: 1.r,
-                color: Colors.black,
-                offset: const Offset(2, 2),
-              ),
-            ],
+            shadows: widget.showGlyphShadow
+                ? [
+                    Shadow(
+                      blurRadius: 1.r,
+                      color: Colors.black,
+                      offset: const Offset(2, 2),
+                    ),
+                  ]
+                : null,
           ),
         ),
       );

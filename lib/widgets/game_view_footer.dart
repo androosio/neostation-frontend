@@ -16,14 +16,26 @@ import 'package:neostation/utils/game_utils.dart';
 import 'package:neostation/sync/i_sync_provider.dart';
 import 'package:neostation/widgets/marquee_text.dart';
 import 'package:neostation/widgets/neo_sync_status_icon.dart';
+import 'package:neostation/widgets/monospaced_clock.dart';
 import 'package:neostation/themes/chrome_surface.dart';
 import '../../themes/corner_radii.dart';
 
 /// A reusable footer used by the game grid and carousel views.
 ///
-/// Mirrors the layout of the details list footer: the game name and optional ROM
-/// subtitle are anchored to the left, while the rating, RetroAchievements
-/// summary, and Play button are grouped on the right.
+/// Mirrors the layout of the details list footer: the game's name and the strip
+/// of read-only facts under it are anchored to the left, while the controls —
+/// the mute hint, the RetroAchievements pill and PLAY — are grouped on the
+/// right.
+///
+/// **D15 — the action row is controls only.** That row used to hold five things
+/// and exactly two of them answered to a press: the achievements pill and PLAY.
+/// The rating, the play-time clock and the cloud-sync glyph were pure readouts
+/// wearing the same pill chrome as the buttons beside them, which is what made
+/// the footer read as cluttered — three controls that were not controls. They
+/// have moved onto the status strip under the game's name, as glyph-plus-text
+/// rather than as pills, exactly as they did on the details card's footer.
+/// The two footers had disagreed about what a pill in an action row means since
+/// that card was rebuilt.
 class GameViewFooter extends StatelessWidget {
   final GameModel game;
   final VoidCallback onPlay;
@@ -84,56 +96,20 @@ class GameViewFooter extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Identity section: title and optional ROM subtitle.
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                MarqueeText(
-                  text: GameUtils.formatGameName(game.name),
-                  isActive: true,
-                  style: TextStyle(
-                    color: scheme.onSurface,
-                    fontSize: 18.r,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                // Always reserve the ROM-filename subtitle's line height so the
-                // identity column stays a constant height. Unscraped games have
-                // no subtitle; without this reservation the shorter column
-                // re-centers the rating/RA pill + PLAY row upward. The empty
-                // string still lays out a full line box via the forced strut.
-                Text(
-                  game.showRomFileNameSubtitle ? game.romname : '',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  strutStyle: StrutStyle(
-                    fontSize: 12.r,
-                    forceStrutHeight: true,
-                  ),
-                  style: TextStyle(
-                    color: scheme.onSurface.withValues(alpha: 0.72),
-                    fontSize: 12.r,
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          // Identity: the name, and the status strip under it.
+          Expanded(child: _buildIdentityBlock(context, scheme)),
 
           SizedBox(width: 12.r),
 
-          // Action/status section: rating, RetroAchievements, play.
+          // Action section. Everything in here answers to a press — see D15 on
+          // the class above. Adding a readout to this row is the regression
+          // that decision exists to prevent; the status strip is where a new
+          // fact about the game belongs.
           ExcludeFocus(
             child: Row(
               children: [
                 if (onToggleMute != null && hasVideo) ...[
                   _MuteHintPill(onToggleMute: onToggleMute!),
-                  SizedBox(width: 6.r),
-                ],
-                if (game.rating > 0) ...[
-                  _SteamStyleRating(game: game),
                   SizedBox(width: 6.r),
                 ],
                 // Signed out, no achievement data is ever loaded, so the pill
@@ -152,30 +128,111 @@ class GameViewFooter extends StatelessWidget {
                   ),
                   SizedBox(width: 6.r),
                 ],
-                // Accumulated play time as its own pill to the left of PLAY
-                // (only once the game has been played), mirroring the details
-                // card footer.
-                if (GameUtils.formatPlayTime(game.playTime ?? 0) != '0s') ...[
-                  _PlayTimePill(game: game),
-                  SizedBox(width: 6.r),
-                ],
-                // Cloud-sync state for this game. Every "nothing to say" state
-                // collapses to zero size, hence the margin on the widget rather
-                // than a spacer beside it.
-                if (!isFolder && system != null && syncProvider != null)
-                  NeoSyncStatusIcon(
-                    system: system!,
-                    game: game,
-                    syncProvider: syncProvider!,
-                    size: 22.0,
-                    margin: EdgeInsets.only(right: 6.r),
-                  ),
                 _buildPlayButton(context),
               ],
             ),
           ),
         ],
       ),
+    );
+  }
+
+  /// The game's name, and under it the strip of things that only report.
+  ///
+  /// The strip carries the rating, the accumulated play time, the ROM filename
+  /// and the cloud-sync glyph, separated by bars in the details footer's own
+  /// punctuation. Facts come before the filename because the facts are
+  /// fixed-width and the filename is not: when the name is too long for the
+  /// space, the name is what gives way, never a fact that would then be
+  /// invisible for that game entirely.
+  ///
+  /// The strip is one fixed-height line whether or not anything is on it. This
+  /// footer's height feeds back into the view above it — the grid and carousel
+  /// take the rest of the column — so a strip that collapsed for an unscraped,
+  /// never-played game would resize the whole view as the selection moved onto
+  /// one. That is why the ROM subtitle was already a reserved line box before
+  /// this, and the reservation moves onto the strip with it.
+  ///
+  /// It is one line rather than the details footer's two because that footer is
+  /// bottom-anchored on a card and this one is a band the view has to pay for
+  /// in height.
+  Widget _buildIdentityBlock(BuildContext context, ColorScheme scheme) {
+    // Only populated for scraped games: `GameListService` sets the flag on the
+    // scraped branch alone, since a filename printed under a name derived from
+    // that same filename says nothing.
+    final String label = game.showRomFileNameSubtitle ? game.romname : '';
+
+    final List<Widget> facts = [
+      if (game.rating > 0) _InlineRating(game: game),
+      if (GameUtils.formatPlayTime(game.playTime ?? 0) != '0s')
+        _InlinePlayTime(game: game),
+      if (label.isNotEmpty)
+        Flexible(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: scheme.onSurface.withValues(alpha: 0.72),
+              fontSize: 12.r,
+              fontWeight: FontWeight.w400,
+              height: 1.15,
+            ),
+          ),
+        ),
+    ];
+
+    // Interleave the separators rather than hanging one off each segment, so
+    // the strip never ends on a dangling bar.
+    final List<Widget> strip = [];
+    for (int i = 0; i < facts.length; i++) {
+      if (i > 0) strip.add(const _FactSeparator());
+      strip.add(facts[i]);
+    }
+
+    // The sync glyph rides at the end of the strip rather than taking a
+    // segment of its own: it is a marker on the file, not another fact to
+    // read, which is the same place the details footer puts it. Every "nothing
+    // to say" state collapses to zero size, hence the margin on the widget
+    // rather than a spacer beside it.
+    if (!isFolder && system != null && syncProvider != null) {
+      strip.add(
+        NeoSyncStatusIcon(
+          system: system!,
+          game: game,
+          syncProvider: syncProvider!,
+          // Bare glyph at the details footer's size, not the 22.0 chip it wore
+          // in the action row: a filled surface behind it is what made it read
+          // as a button sitting among buttons.
+          size: 16.0,
+          showBackground: false,
+          showGlyphShadow: false,
+          margin: strip.isEmpty ? EdgeInsets.zero : EdgeInsets.only(left: 8.r),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        MarqueeText(
+          text: GameUtils.formatGameName(game.name),
+          isActive: true,
+          style: TextStyle(
+            color: scheme.onSurface,
+            fontSize: 18.r,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        SizedBox(
+          height: _stripHeight,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: strip,
+          ),
+        ),
+      ],
     );
   }
 
@@ -285,60 +342,34 @@ BoxDecoration _pillDecoration(BuildContext context) {
   );
 }
 
-/// A Steam-inspired rating badge that interpolates color based on the score intensity.
-/// Compact pill showing accumulated play time as a clock (HH:MM:SS), sized to
-/// match the rating / achievements pills in this footer.
-class _PlayTimePill extends StatelessWidget {
+/// Height of the status strip under the game's name.
+///
+/// Fixed so the footer is the same height for every game — see
+/// [GameViewFooter._buildIdentityBlock]. Driven by the tallest thing that can
+/// sit on it, the 16.0 cloud-sync glyph, with a little slack above it.
+double get _stripHeight => 18.r;
+
+/// Score as a bare star and number on the status strip.
+///
+/// This was a 32.r pill on chrome in the action row. It moved because that row
+/// is for controls and a rating is not one: it showed a number and answered to
+/// nothing (D15). The colour ramp survives the move — error at the bottom of
+/// the range, success at the top — since that is what makes the number
+/// readable at a glance.
+///
+/// The pill used to reserve the width of the widest possible score so it never
+/// resized between a "1" and a "10". Inline that reservation buys nothing: the
+/// strip is left-anchored and elastic, so the only thing a narrower number
+/// moves is the filename beside it, and moving between two games changes that
+/// text anyway.
+class _InlineRating extends StatelessWidget {
   final GameModel game;
 
-  const _PlayTimePill({required this.game});
-
-  String _formatClock(int seconds) {
-    final h = seconds ~/ 3600;
-    final m = (seconds % 3600) ~/ 60;
-    final s = seconds % 60;
-    String pad(int v) => v.toString().padLeft(2, '0');
-    return '${pad(h)}:${pad(m)}:${pad(s)}';
-  }
+  const _InlineRating({required this.game});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 32.r,
-      padding: EdgeInsets.symmetric(horizontal: 8.r, vertical: 4.r),
-      decoration: _pillDecoration(context),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Icon(
-            Symbols.schedule_rounded,
-            color: Theme.of(context).colorScheme.onSurface,
-            size: 15.r,
-          ),
-          SizedBox(width: 4.r),
-          Text(
-            _formatClock(game.playTime ?? 0),
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurface,
-              fontSize: 12.r,
-              fontWeight: FontWeight.w800,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SteamStyleRating extends StatelessWidget {
-  final GameModel game;
-
-  const _SteamStyleRating({required this.game});
-
-  @override
-  Widget build(BuildContext context) {
+    // Normalizes a 0-20 score to a 0.0-10.0 scale for color interpolation.
     final ratingValue = (game.rating / 2).clamp(0.0, 10.0);
     final colorRatio = (ratingValue - 1) / 9;
     final customColors = AppThemes.getCustomColors(context);
@@ -348,40 +379,89 @@ class _SteamStyleRating extends StatelessWidget {
       colorRatio,
     )!;
 
-    return Container(
-      height: 32.r,
-      padding: EdgeInsets.symmetric(horizontal: 8.r, vertical: 4.r),
-      decoration: _pillDecoration(context),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Icon(Symbols.star_rounded, color: ratingColor, size: 15.r),
-          SizedBox(width: 4.r),
-          // Reserve width for the widest possible value ("10") so the pill
-          // stays a static size regardless of the current score (e.g. "1"
-          // no longer renders narrower than "10"). Scale/font-independent.
-          Stack(
-            alignment: Alignment.centerLeft,
-            children: [
-              Opacity(
-                opacity: 0,
-                child: Text(
-                  '10',
-                  style: TextStyle(fontSize: 13.r, fontWeight: FontWeight.w900),
-                ),
-              ),
-              Text(
-                ratingValue.toStringAsFixed(0),
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurface,
-                  fontSize: 13.r,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ],
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Icon(Symbols.star_rounded, color: ratingColor, size: 15.r, fill: 1),
+        SizedBox(width: 3.r),
+        Text(
+          ratingValue.toStringAsFixed(0),
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurface,
+            fontSize: 12.r,
+            fontWeight: FontWeight.w800,
+            height: 1.15,
           ),
-        ],
+        ),
+      ],
+    );
+  }
+}
+
+/// Accumulated play time as a clock glyph and an HH:MM:SS reading on the status
+/// strip. Left the action row as a pill for the same reason as [_InlineRating]:
+/// it reported, it did not act.
+///
+/// It is deliberately not the details footer's 20.r/18.r size. There the clock
+/// is alone at the end of a row, on artwork, and is the one number that row
+/// exists for; here it is one segment of a strip under an 18.r title, and at
+/// that size it would out-shout the game's own name.
+class _InlinePlayTime extends StatelessWidget {
+  final GameModel game;
+
+  const _InlinePlayTime({required this.game});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Icon(Symbols.schedule_rounded, color: scheme.onSurface, size: 15.r),
+        SizedBox(width: 5.r),
+        // Hand-laid cells rather than `FontFeature.tabularFigures()`, which the
+        // pill this replaced asked for and never got: Anta carries no `tnum`
+        // table, so that feature is silently a no-op and every digit is its own
+        // width.
+        MonospacedClock(
+          text: MonospacedClock.format(game.playTime ?? 0),
+          style: TextStyle(
+            color: scheme.onSurface,
+            fontSize: 12.r,
+            fontWeight: FontWeight.w700,
+            height: 1.15,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// The bar between two segments of the status strip. Same punctuation, and the
+/// same reasoning, as the details footer's metadata line.
+class _FactSeparator extends StatelessWidget {
+  const _FactSeparator();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 8.r),
+      child: Text(
+        '|',
+        style: TextStyle(
+          // Dimmer than the segments either side of it: it is punctuation, and
+          // at full strength it counted as a third thing to read between every
+          // pair.
+          color: Theme.of(
+            context,
+          ).colorScheme.onSurface.withValues(alpha: 0.45),
+          fontSize: 12.r,
+          fontWeight: FontWeight.w400,
+          height: 1.15,
+        ),
       ),
     );
   }
