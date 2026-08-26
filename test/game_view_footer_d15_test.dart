@@ -13,9 +13,9 @@ import 'package:neostation/themes/chrome_surface.dart';
 import 'package:neostation/widgets/game_view_footer.dart';
 import 'package:neostation/widgets/monospaced_clock.dart';
 
-/// D15 — the grid/carousel footer's action row is controls only, and the
-/// readouts that used to sit in it live on the status strip under the game's
-/// name instead.
+/// D15 — the grid/carousel footer's action row is controls (plus the clock that
+/// inherited PLAY's slot), and the readouts that used to sit in it live on the
+/// status strip under the game's name instead.
 ///
 /// Two separable claims, and the second one is the one that bites: the strip is
 /// conditional (a game may have no score and may never have been played) but
@@ -77,10 +77,7 @@ void main() {
               // actually wants, rather than being stretched to the body's.
               body: Align(
                 alignment: Alignment.topLeft,
-                child: SizedBox(
-                  width: 1280,
-                  child: GameViewFooter(game: game, onPlay: () {}),
-                ),
+                child: SizedBox(width: 1280, child: GameViewFooter(game: game)),
               ),
             ),
           ),
@@ -90,17 +87,12 @@ void main() {
     await tester.pump();
   }
 
-  testWidgets('the rating and the clock are not in the action row', (
-    tester,
-  ) async {
+  testWidgets('the rating is not in the action row', (tester) async {
     await pumpFooter(tester, _game(rating: 16.0, playTime: 3671));
 
-    // Both readouts render...
+    // The score renders, but not inside the action cluster, which the footer
+    // wraps in an ExcludeFocus.
     expect(find.byIcon(Symbols.star_rounded), findsOneWidget);
-    expect(find.byType(MonospacedClock), findsOneWidget);
-
-    // ...but neither is inside the action cluster, which the footer wraps in
-    // an ExcludeFocus because everything in it is pressable.
     final actionRow = find.byType(ExcludeFocus);
     expect(actionRow, findsOneWidget);
     expect(
@@ -110,11 +102,6 @@ void main() {
       ),
       findsNothing,
       reason: 'a score answers to nothing; it does not belong among controls',
-    );
-    expect(
-      find.descendant(of: actionRow, matching: find.byType(MonospacedClock)),
-      findsNothing,
-      reason: 'the play-time clock reports, it does not act',
     );
   });
 
@@ -127,6 +114,41 @@ void main() {
     expect(find.text('0'), findsNWidgets(2));
     expect(find.text('1'), findsNWidgets(4));
     expect(find.text(':'), findsNWidgets(2));
+  });
+
+  testWidgets('PLAY is gone and the clock holds its slot', (tester) async {
+    await pumpFooter(tester, _game(rating: 16.0, playTime: 3671));
+
+    expect(
+      find.text(
+        AppLocale.playButton.getString(
+          tester.element(find.byType(GameViewFooter)),
+        ),
+      ),
+      findsNothing,
+      reason: 'a selected card launches on a second tap; the button was spare',
+    );
+
+    // Exactly one clock, and it is on the action row rather than a second copy
+    // of one on the strip.
+    expect(find.byType(MonospacedClock), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(ExcludeFocus),
+        matching: find.byType(MonospacedClock),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('a never-played game shows no clock at all', (tester) async {
+    await pumpFooter(tester, _game(rating: 16.0));
+
+    expect(
+      find.byType(MonospacedClock),
+      findsNothing,
+      reason: 'the slot stays empty rather than reading 0s',
+    );
   });
 
   testWidgets('the footer is the same height with and without the readouts', (

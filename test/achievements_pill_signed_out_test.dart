@@ -90,7 +90,6 @@ void main() {
                 width: 1280,
                 child: GameViewFooter(
                   game: game ?? _game(),
-                  onPlay: () {},
                   hasRetroAchievements: true,
                   isLoadingAchievements: isLoading,
                   onShowAchievements: () {},

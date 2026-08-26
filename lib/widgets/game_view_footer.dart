@@ -23,9 +23,8 @@ import '../../themes/corner_radii.dart';
 /// A reusable footer used by the game grid and carousel views.
 ///
 /// Mirrors the layout of the details list footer: the game's name and the strip
-/// of read-only facts under it are anchored to the left, while the controls —
-/// the mute hint, the RetroAchievements pill and PLAY — are grouped on the
-/// right.
+/// of read-only facts under it are anchored to the left, while the mute hint,
+/// the RetroAchievements pill and the play-time clock are grouped on the right.
 ///
 /// **D15 — the action row is controls only.** That row used to hold five things
 /// and exactly two of them answered to a press: the achievements pill and PLAY.
@@ -36,9 +35,15 @@ import '../../themes/corner_radii.dart';
 /// rather than as pills, exactly as they did on the details card's footer.
 /// The two footers had disagreed about what a pill in an action row means since
 /// that card was rebuilt.
+///
+/// **PLAY is gone from this footer.** A card that is already selected launches
+/// on a second tap, and A does it on a gamepad, so the button was an affordance
+/// for something both input methods could already do. The play-time clock took
+/// its place at the end of the row, with the achievements pill to its left —
+/// the same arrangement, in the same order, as the details card's bottom row —
+/// and it leaves the status strip so it is never read twice.
 class GameViewFooter extends StatelessWidget {
   final GameModel game;
-  final VoidCallback onPlay;
   final bool hasRetroAchievements;
   final bool isLoadingAchievements;
   final GameInfoAndUserProgress? currentGameInfo;
@@ -55,8 +60,8 @@ class GameViewFooter extends StatelessWidget {
   /// control that does nothing for this game.
   final bool hasVideo;
 
-  /// Whether the selection is a subfolder rather than a game: A descends into
-  /// it, so the confirm button reads OPEN instead of PLAY.
+  /// Whether the selection is a subfolder rather than a game. A folder has no
+  /// play time and no achievements, so the action row holds nothing for one.
   final bool isFolder;
 
   /// The game's *own* system and the active sync provider, for the cloud-sync
@@ -68,7 +73,6 @@ class GameViewFooter extends StatelessWidget {
   const GameViewFooter({
     super.key,
     required this.game,
-    required this.onPlay,
     this.hasRetroAchievements = false,
     this.isLoadingAchievements = false,
     this.currentGameInfo,
@@ -101,41 +105,51 @@ class GameViewFooter extends StatelessWidget {
 
           SizedBox(width: 12.r),
 
-          // Action section. Everything in here answers to a press — see D15 on
-          // the class above. Adding a readout to this row is the regression
-          // that decision exists to prevent; the status strip is where a new
-          // fact about the game belongs.
-          ExcludeFocus(
-            child: Row(
-              children: [
-                if (onToggleMute != null && hasVideo) ...[
-                  _MuteHintPill(onToggleMute: onToggleMute!),
-                  SizedBox(width: 6.r),
-                ],
-                // Signed out, no achievement data is ever loaded, so the pill
-                // would render its "none" state for every game in the library
-                // and read as "this game has no achievements" rather than
-                // "nobody asked RetroAchievements". Say nothing instead.
-                if (hasRetroAchievements &&
-                    context.select<RetroAchievementsProvider, bool>(
-                      (ra) => ra.isConnected,
-                    )) ...[
-                  _CompactAchievementsIndicator(
-                    game: game,
-                    isLoading: isLoadingAchievements,
-                    gameInfo: currentGameInfo,
-                    onTap: onShowAchievements,
-                  ),
-                  SizedBox(width: 6.r),
-                ],
-                _buildPlayButton(context),
-              ],
-            ),
-          ),
+          // Action section — see D15 on the class above. The play-time clock
+          // is the one readout on it, and only because it inherited PLAY's
+          // slot; any *new* fact about the game belongs on the status strip.
+          ExcludeFocus(child: Row(children: _buildActions(context))),
         ],
       ),
     );
   }
+
+  /// The right-hand end of the footer, spaced apart.
+  ///
+  /// Built as a list rather than inline so a hidden item leaves no spacer
+  /// behind it: on a never-played game the achievements pill is the last thing
+  /// on the row, and a trailing gap would push it off the right margin.
+  List<Widget> _buildActions(BuildContext context) {
+    final actions = <Widget>[
+      if (onToggleMute != null && hasVideo)
+        _MuteHintPill(onToggleMute: onToggleMute!),
+      // Signed out, no achievement data is ever loaded, so the pill would
+      // render its "none" state for every game in the library and read as
+      // "this game has no achievements" rather than "nobody asked
+      // RetroAchievements". Say nothing instead.
+      if (hasRetroAchievements &&
+          context.select<RetroAchievementsProvider, bool>(
+            (ra) => ra.isConnected,
+          ))
+        _CompactAchievementsIndicator(
+          game: game,
+          isLoading: isLoadingAchievements,
+          gameInfo: currentGameInfo,
+          onTap: onShowAchievements,
+        ),
+      if (_hasPlayTime) _InlinePlayTime(game: game),
+    ];
+
+    for (int i = actions.length - 1; i > 0; i--) {
+      actions.insert(i, SizedBox(width: 6.r));
+    }
+    return actions;
+  }
+
+  /// Whether the game has been played for long enough to have a reading. The
+  /// clock is hidden rather than showing `0s`.
+  bool get _hasPlayTime =>
+      !isFolder && GameUtils.formatPlayTime(game.playTime ?? 0) != '0s';
 
   /// The game's name, and under it the strip of things that only report.
   ///
@@ -164,8 +178,6 @@ class GameViewFooter extends StatelessWidget {
 
     final List<Widget> facts = [
       if (game.rating > 0) _InlineRating(game: game),
-      if (GameUtils.formatPlayTime(game.playTime ?? 0) != '0s')
-        _InlinePlayTime(game: game),
       if (label.isNotEmpty)
         Flexible(
           child: Text(
@@ -235,81 +247,6 @@ class GameViewFooter extends StatelessWidget {
       ],
     );
   }
-
-  Widget _buildPlayButton(BuildContext context) {
-    return Builder(
-      builder: (context) {
-        final radii =
-            Theme.of(context).extension<CornerRadii>() ?? CornerRadii.m();
-        final isFocused = Focus.of(context).hasFocus;
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          height: 32.r,
-          decoration: BoxDecoration(
-            color: isFocused
-                ? const Color(0xFF36F184)
-                : const Color(0xFF2ECC71),
-            borderRadius: radii.radiusExternal,
-            border: Border.all(color: const Color(0xFF36F184), width: 1.r),
-            boxShadow: [
-              BoxShadow(
-                color: Theme.of(
-                  context,
-                ).colorScheme.shadow.withValues(alpha: 0.1),
-                blurRadius: 4.r,
-                offset: Offset(2.0.r, 2.0.r),
-              ),
-            ],
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              canRequestFocus: false,
-              focusColor: Colors.transparent,
-              hoverColor: Colors.transparent,
-              highlightColor: Colors.transparent,
-              splashColor: Colors.white.withValues(alpha: 0.1),
-              borderRadius: radii.radiusExternal,
-              onTap: () {
-                SfxService().playEnterSound();
-                onPlay();
-              },
-              child: Padding(
-                padding: EdgeInsets.only(left: 8.r, right: 10.r),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Image.asset(
-                      'assets/images/gamepad/Xbox_A_button.png',
-                      width: 20.r,
-                      height: 20.r,
-                      color: Theme.of(context).colorScheme.onPrimary,
-                    ),
-                    SizedBox(width: 5.r),
-                    Text(
-                      isFolder
-                          // Same word the systems view uses for descending into
-                          // a container; upper-cased to match PLAY beside it.
-                          ? AppLocale.enter.getString(context).toUpperCase()
-                          : AppLocale.playButton.getString(context),
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.onPrimary,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 11.r,
-                        letterSpacing: 1.5,
-                        height: 1.0,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
 }
 
 /// The one surface every status pill in this footer draws itself on.
@@ -324,7 +261,7 @@ class GameViewFooter extends StatelessWidget {
 /// raised neighbours.
 ///
 /// Border, radius and elevation now live here alongside the token so they
-/// cannot drift again; 0.1 matches the PLAY button next to them.
+/// cannot drift again; 0.1 is the elevation the row settled on.
 BoxDecoration _pillDecoration(BuildContext context) {
   final theme = Theme.of(context);
   final radii = theme.extension<CornerRadii>() ?? CornerRadii.m();
@@ -399,9 +336,11 @@ class _InlineRating extends StatelessWidget {
   }
 }
 
-/// Accumulated play time as a clock glyph and an HH:MM:SS reading on the status
-/// strip. Left the action row as a pill for the same reason as [_InlineRating]:
-/// it reported, it did not act.
+/// Accumulated play time as a clock glyph and an HH:MM:SS reading. Left the
+/// action row *as a pill* for the same reason as [_InlineRating]: it reported,
+/// it did not act. It sits at the end of that row again now that PLAY is gone,
+/// but as this bare glyph-plus-text, never as chrome that would read as a
+/// button.
 ///
 /// It is deliberately not the details footer's 20.r/18.r size. There the clock
 /// is alone at the end of a row, on artwork, and is the one number that row
