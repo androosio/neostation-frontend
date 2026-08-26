@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:neostation/models/my_systems.dart';
-import 'package:neostation/utils/count_label.dart';
 import 'core_footer.dart';
-import 'footer_label_pill.dart';
+import 'system_count_pill.dart';
 
 /// The systems **grid**'s footer: the focused card's count, bottom left.
 ///
@@ -16,10 +15,15 @@ import 'footer_label_pill.dart';
 /// Only the count. The system name is the card's own label repeated, and Enter
 /// duplicated both A on a pad and a tap on the selected card, so neither came
 /// back with it; Settings is on the card's Y / long-press menu.
+///
+/// The pill itself is [SystemCountPill], the same widget the carousel floats
+/// over its view — it is deliberately placed to land in the same spot, so the
+/// label must not differ between the two views either.
 class SystemsGridFooter extends CoreFooter {
-  /// The focused card. A recent-game card has no count, so the footer is empty
-  /// for it rather than inventing one — the row keeps its height either way,
-  /// so the grid above does not resize as the selection moves.
+  /// The focused card. A recent-game card is one game, so it carries its
+  /// name here rather than an invented count — see [SystemCountPill]. The row
+  /// keeps its height whatever the pill decides to draw, so the grid above does
+  /// not resize as the selection moves.
   final SystemInfo system;
 
   const SystemsGridFooter({super.key, required this.system});
@@ -31,10 +35,8 @@ class SystemsGridFooter extends CoreFooter {
   bool get showVersion => false;
 
   @override
-  Widget? buildLeftContent(BuildContext context) {
-    if (system.isGame) return null;
-    return FooterLabelPill(label: systemCountLabel(context, system));
-  }
+  Widget? buildLeftContent(BuildContext context) =>
+      SystemCountPill.bounded(system);
 
   @override
   List<Widget> buildControls(BuildContext context) => const [];
