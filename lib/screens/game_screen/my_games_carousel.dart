@@ -1382,6 +1382,11 @@ class _GamesCarouselState extends State<GamesCarousel> {
                   key: _carouselKey,
                   itemCount: widget.games.length,
                   initialIndex: _currentIndex.clamp(0, widget.games.length - 1),
+                  // The list has no readable end — a press at the last card
+                  // that does nothing reads as a dropped input, not as a
+                  // boundary. Stepping past either end continues from the
+                  // other.
+                  wrap: true,
                   itemBuilder: (context, index) {
                     final isCentred = index == _currentIndex;
                     if (index < widget.folderCount) {
