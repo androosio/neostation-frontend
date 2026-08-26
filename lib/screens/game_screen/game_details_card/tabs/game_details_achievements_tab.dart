@@ -5,6 +5,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:neostation/l10n/app_locale.dart';
 import 'package:neostation/services/sfx_service.dart';
 import 'package:neostation/screens/game_screen/game_details_card/widgets/header_action_button.dart';
+import 'package:neostation/screens/game_screen/game_details_card/widgets/panel_gate_highlight.dart';
 import 'package:neostation/themes/chrome_surface.dart';
 import 'package:neostation/themes/corner_radii.dart';
 import '../../../../models/retro_achievements_game_info.dart';
@@ -363,12 +364,13 @@ class GameDetailsAchievementsTabState
                             maintainAnimation: true,
                             maintainState: true,
                             child: HeaderActionButton(
-                              // The settled legend carries a button glyph, and
-                              // the glyph is what sets the chip's height. Match
-                              // its box rather than load the image: nothing
-                              // here is ever painted.
-                              icon: SizedBox(width: 12.r, height: 12.r),
-                              label: AppLocale.navigate
+                              // Label-only, like every chip the settled header
+                              // draws now that the gate chip and its button
+                              // glyph are gone: the glyph used to be what set
+                              // the row's height, so reserving one here would
+                              // hold the loading header open taller than the
+                              // header that replaces it.
+                              label: AppLocale.refresh
                                   .getString(context)
                                   .toUpperCase(),
                               onTap: () {},
@@ -493,187 +495,173 @@ class GameDetailsAchievementsTabState
       right: widget.rightOffset.r,
       top: widget.topOffset.r,
       bottom: widget.bottomOffset.r,
-      child: Container(
-        decoration: BoxDecoration(
-          color: ChromeSurface.fill(context),
-          borderRadius: radii.radiusExternal,
-          boxShadow: [
-            BoxShadow(
-              color: Theme.of(
-                context,
-              ).colorScheme.shadow.withValues(alpha: 0.25),
-              blurRadius: 2.r,
-              offset: Offset(2.0.r, 2.0.r),
+      // The panel is its own affordance now: its edge lights up while there
+      // is a set in here to walk, and a tap anywhere on it is the touch
+      // equivalent of the A gate. B is still the way back out.
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: () {
+          if (_isPanelActive || achievements.isEmpty) return;
+          SfxService().playNavSound();
+          enterPanel();
+        },
+        child: AnimatedContainer(
+          duration: PanelGateHighlight.duration,
+          curve: Curves.easeOut,
+          decoration: BoxDecoration(
+            color: ChromeSurface.fill(context),
+            borderRadius: radii.radiusExternal,
+            border: PanelGateHighlight.border(
+              context,
+              isDrivable: achievements.isNotEmpty,
+              isActive: _isPanelActive,
+              restingColor: Colors.transparent,
             ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header: Contains progress stats and the manual refresh action.
-            Padding(
-              padding: EdgeInsets.fromLTRB(8.r, 8.r, 8.r, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // One line, three zones: identity, progress, actions. The
-                  // count is flexible so a long title can never crash into it
-                  // (the header used to be two fixed Rows in a spaceBetween,
-                  // which is why the title butted up against the count chip),
-                  // and it is plain muted text rather than a filled pill: the
-                  // card's own footer already carries the progress bar, so a
-                  // second high-contrast block of the same numbers was the
-                  // loudest thing in the panel.
-                  Row(
-                    children: [
-                      Icon(
-                        Symbols.emoji_events_rounded,
-                        color: Colors.orange,
-                        size: 13.r,
-                      ),
-                      SizedBox(width: 8.r),
-                      // No title: the selected tab in the card's header strip
-                      // is already the trophy, so naming the panel again only
-                      // costs the actions room they need.
-                      Text(
-                        '$unlocked / $total  ·  $percentage%',
-                        style: TextStyle(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.onSurface.withValues(alpha: 0.75),
-                          fontSize: 11.r,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const Spacer(),
-                      Row(
-                        children: [
-                          // The gate's affordance: which button takes the
-                          // D-pad into the panel, and which gives it back.
-                          // A legend, not a target — the D-pad walks the
-                          // actions to its right, never this.
-                          if (achievements.isNotEmpty) ...[
-                            HeaderActionButton(
-                              icon: Image.asset(
-                                _isPanelActive
-                                    ? 'assets/images/gamepad/Xbox_B_button.png'
-                                    : 'assets/images/gamepad/Xbox_A_button.png',
-                                width: 12.r,
-                                height: 12.r,
-                              ),
-                              label:
-                                  (_isPanelActive
-                                          ? AppLocale.back.getString(context)
-                                          : AppLocale.navigate.getString(
-                                              context,
-                                            ))
-                                      .toUpperCase(),
-                              onTap: () {
-                                SfxService().playNavSound();
-                                if (_isPanelActive) {
-                                  exitPanel();
-                                } else {
-                                  enterPanel();
-                                }
-                              },
-                              backgroundColor: _isPanelActive
-                                  ? Theme.of(context).colorScheme.secondary
-                                  : Theme.of(
-                                      context,
-                                    ).colorScheme.surfaceContainerHighest,
-                              foregroundColor: _isPanelActive
-                                  ? Theme.of(context).colorScheme.onSecondary
-                                  : Theme.of(context).colorScheme.onSurface,
-                            ),
-                            SizedBox(width: 6.r),
-                          ],
-                          // Label-only chips: they are D-pad targets now, so a
-                          // button glyph on them would advertise a shortcut
-                          // that no longer exists.
-                          for (final (index, action) in headerActions.indexed)
-                            Padding(
-                              padding: EdgeInsets.only(
-                                left: index == 0 ? 0 : 6.r,
-                              ),
-                              child: HeaderActionButton(
-                                label: action.label
-                                    .getString(context)
-                                    .toUpperCase(),
-                                onTap: () {
-                                  setState(() => _headerFocusIndex = index);
-                                  action.onTap();
-                                },
-                                isFocused:
-                                    _isPanelActive &&
-                                    _headerFocusIndex == index,
-                                backgroundColor: Theme.of(
-                                  context,
-                                ).colorScheme.surfaceContainerHighest,
-                                foregroundColor: Theme.of(
-                                  context,
-                                ).colorScheme.onSurface,
-                              ),
-                            ),
-                          if (widget.headerAction != null) ...[
-                            SizedBox(width: 6.r),
-                            widget.headerAction!,
-                          ],
-                        ],
-                      ),
-                    ],
-                  ),
-                  Divider(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.onSurface.withValues(alpha: 0.1),
-                    height: 10.r,
-                  ),
-                ],
+            boxShadow: PanelGateHighlight.shadows(
+              context,
+              isActive: _isPanelActive,
+              resting: BoxShadow(
+                color: Theme.of(
+                  context,
+                ).colorScheme.shadow.withValues(alpha: 0.25),
+                blurRadius: 2.r,
+                offset: Offset(2.0.r, 2.0.r),
               ),
             ),
-
-            // Content: Dual-pane layout (Metadata on left, Grid on right).
-            Expanded(
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 8.r),
-                child: Row(
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header: Contains progress stats and the manual refresh action.
+              Padding(
+                padding: EdgeInsets.fromLTRB(8.r, 8.r, 8.r, 0),
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      flex: 4,
-                      child: _SelectedAchievementInfo(
-                        achievements: achievements,
-                        selectedIndex: _selectedAchievementIndex,
-                      ),
+                    // One line, three zones: identity, progress, actions. The
+                    // count is flexible so a long title can never crash into it
+                    // (the header used to be two fixed Rows in a spaceBetween,
+                    // which is why the title butted up against the count chip),
+                    // and it is plain muted text rather than a filled pill: the
+                    // card's own footer already carries the progress bar, so a
+                    // second high-contrast block of the same numbers was the
+                    // loudest thing in the panel.
+                    Row(
+                      children: [
+                        Icon(
+                          Symbols.emoji_events_rounded,
+                          color: Colors.orange,
+                          size: 13.r,
+                        ),
+                        SizedBox(width: 8.r),
+                        // No title: the selected tab in the card's header strip
+                        // is already the trophy, so naming the panel again only
+                        // costs the actions room they need.
+                        Text(
+                          '$unlocked / $total  ·  $percentage%',
+                          style: TextStyle(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurface.withValues(alpha: 0.75),
+                            fontSize: 11.r,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const Spacer(),
+                        Row(
+                          children: [
+                            // No gate chip: the panel's own edge says whether
+                            // there is a set in here to walk and whether it
+                            // currently holds the D-pad, which leaves this row to
+                            // the actions the D-pad actually walks.
+                            // Label-only chips: they are D-pad targets now, so a
+                            // button glyph on them would advertise a shortcut
+                            // that no longer exists.
+                            for (final (index, action) in headerActions.indexed)
+                              Padding(
+                                padding: EdgeInsets.only(
+                                  left: index == 0 ? 0 : 6.r,
+                                ),
+                                child: HeaderActionButton(
+                                  label: action.label
+                                      .getString(context)
+                                      .toUpperCase(),
+                                  onTap: () {
+                                    setState(() => _headerFocusIndex = index);
+                                    action.onTap();
+                                  },
+                                  isFocused:
+                                      _isPanelActive &&
+                                      _headerFocusIndex == index,
+                                  backgroundColor: Theme.of(
+                                    context,
+                                  ).colorScheme.surfaceContainerHighest,
+                                  foregroundColor: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface,
+                                ),
+                              ),
+                            if (widget.headerAction != null) ...[
+                              SizedBox(width: 6.r),
+                              widget.headerAction!,
+                            ],
+                          ],
+                        ),
+                      ],
                     ),
-                    SizedBox(width: 12.r),
-                    Expanded(
-                      flex: 6,
-                      child: _AchievementsGrid(
-                        achievements: achievements,
-                        selectedIndex: _selectedAchievementIndex,
-                        // The badges are only live while the header cursor
-                        // is parked.
-                        isFocused: _isPanelActive && _headerFocusIndex < 0,
-                        scrollController: _scrollController,
-                        getKey: _getAchievementKey,
-                        onSelect: (index) {
-                          SfxService().playNavSound();
-                          setState(() {
-                            _selectedAchievementIndex = index;
-                            // A tap is the touch equivalent of the A gate.
-                            _isPanelActive = true;
-                            _headerFocusIndex = -1;
-                          });
-                        },
-                      ),
+                    Divider(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.1),
+                      height: 10.r,
                     ),
                   ],
                 ),
               ),
-            ),
-            SizedBox(height: 8.r),
-          ],
+
+              // Content: Dual-pane layout (Metadata on left, Grid on right).
+              Expanded(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8.r),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        flex: 4,
+                        child: _SelectedAchievementInfo(
+                          achievements: achievements,
+                          selectedIndex: _selectedAchievementIndex,
+                        ),
+                      ),
+                      SizedBox(width: 12.r),
+                      Expanded(
+                        flex: 6,
+                        child: _AchievementsGrid(
+                          achievements: achievements,
+                          selectedIndex: _selectedAchievementIndex,
+                          // The badges are only live while the header cursor
+                          // is parked.
+                          isFocused: _isPanelActive && _headerFocusIndex < 0,
+                          scrollController: _scrollController,
+                          getKey: _getAchievementKey,
+                          onSelect: (index) {
+                            SfxService().playNavSound();
+                            setState(() {
+                              _selectedAchievementIndex = index;
+                              // A tap is the touch equivalent of the A gate.
+                              _isPanelActive = true;
+                              _headerFocusIndex = -1;
+                            });
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              SizedBox(height: 8.r),
+            ],
+          ),
         ),
       ),
     );

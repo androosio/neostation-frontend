@@ -11,7 +11,7 @@ import '../../../../services/screenscraper_service.dart';
 import '../../../../themes/chrome_surface.dart';
 import '../../../../themes/corner_radii.dart';
 import '../../../../utils/game_utils.dart';
-import '../widgets/header_action_button.dart';
+import '../widgets/panel_gate_highlight.dart';
 import '../widgets/scrolling_status_line.dart';
 
 class GameDetailsGameInfoTab extends StatefulWidget {
@@ -112,7 +112,7 @@ class GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
   /// Whether the panel currently owns the D-pad.
   bool get isPanelActive => _isPanelActive;
 
-  /// Whether the header's gate chip is currently drawn.
+  /// Whether the panel's edge is currently lit as enterable.
   ///
   /// It cannot be answered during a build: [_canScroll] reads a scroll metric
   /// that does not exist until the description has been laid out, so the
@@ -122,9 +122,9 @@ class GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
 
   /// Re-reads whether there is anything in here to drive, one frame late.
   ///
-  /// Without this the header kept its first-frame answer until something else
+  /// Without this the panel kept its first-frame answer until something else
   /// rebuilt the card — and the next thing that does is the tab slide
-  /// finishing, so the chip appeared exactly as the panel came to rest.
+  /// finishing, so the highlight arrived exactly as the panel came to rest.
   void _refreshDrivability() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -288,139 +288,111 @@ class GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
       right: 12.r,
       top: 12.r,
       bottom: widget.bottomOffset.r,
-      child: Container(
-        decoration: BoxDecoration(
-          color: ChromeSurface.fill(context),
-          borderRadius:
-              Theme.of(context).extension<CornerRadii>()?.radiusExternal ??
-              BorderRadius.circular(14.r),
-          border: Border.all(
-            color: Theme.of(context).colorScheme.outline,
-            width: 1.r,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Theme.of(
-                context,
-              ).colorScheme.shadow.withValues(alpha: 0.25),
-              blurRadius: 2.r,
-              offset: Offset(2.0.r, 2.0.r),
+      // The panel is its own affordance now: its edge lights up while there
+      // is something in here to drive, and a tap anywhere on it is the touch
+      // equivalent of the A gate. B is still the way back out.
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: () {
+          if (_isPanelActive || !_isDrivable) return;
+          SfxService().playNavSound();
+          enterPanel();
+        },
+        child: AnimatedContainer(
+          duration: PanelGateHighlight.duration,
+          curve: Curves.easeOut,
+          decoration: BoxDecoration(
+            color: ChromeSurface.fill(context),
+            borderRadius:
+                Theme.of(context).extension<CornerRadii>()?.radiusExternal ??
+                BorderRadius.circular(14.r),
+            border: PanelGateHighlight.border(
+              context,
+              isDrivable: _isDrivable,
+              isActive: _isPanelActive,
+              restingColor: Theme.of(context).colorScheme.outline,
             ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: EdgeInsets.fromLTRB(8.r, 8.r, 8.r, 0.r),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        Symbols.description_rounded,
-                        color: Theme.of(context).colorScheme.onSurface,
-                        size: 13.r,
-                      ),
-                      // No title: the selected tab in the card's header strip
-                      // is already this icon, so naming the panel again only
-                      // costs the row room. Everything packs to the left into
-                      // the space it used to take.
-                      SizedBox(width: 8.r),
-                      // The gate's affordance, as on the achievements panel:
-                      // which button takes the D-pad into the description and
-                      // which gives it back. Only shown when there is something
-                      // in here to drive, but its room is held either way: the
-                      // answer arrives a frame after the panel does, so a row
-                      // that packed around it would re-pack itself on the frame
-                      // the tab slide settles on. Reserving the slot also lines
-                      // the facts strip up at the same x on every game rather
-                      // than moving it whenever one happens to carry a second
-                      // description language.
-                      if (!showScrapeView) ...[
-                        Visibility(
-                          visible: _isDrivable,
-                          maintainSize: true,
-                          maintainAnimation: true,
-                          maintainState: true,
-                          child: HeaderActionButton(
-                            icon: Image.asset(
-                              _isPanelActive
-                                  ? 'assets/images/gamepad/Xbox_B_button.png'
-                                  : 'assets/images/gamepad/Xbox_A_button.png',
-                              width: 12.r,
-                              height: 12.r,
-                            ),
-                            label:
-                                (_isPanelActive
-                                        ? AppLocale.back.getString(context)
-                                        : AppLocale.navigate.getString(context))
-                                    .toUpperCase(),
-                            onTap: () {
-                              SfxService().playNavSound();
-                              if (_isPanelActive) {
-                                exitPanel();
-                              } else {
-                                enterPanel();
-                              }
-                            },
-                            backgroundColor: _isPanelActive
-                                ? Theme.of(context).colorScheme.secondary
-                                : Theme.of(
-                                    context,
-                                  ).colorScheme.surfaceContainerHighest,
-                            foregroundColor: _isPanelActive
-                                ? Theme.of(context).colorScheme.onSecondary
-                                : Theme.of(context).colorScheme.onSurface,
-                          ),
-                        ),
-                        SizedBox(width: 8.r),
-                      ],
-                      // The facts take the rest of the row. A long publisher
-                      // name (or a system whose scrape fills every field) can
-                      // outrun it, so the strip marquees when it genuinely
-                      // overflows and sits still when it does not — the same
-                      // treatment the footer's metadata line gets, rather than
-                      // an overflow stripe or a truncated name.
-                      if (headerFacts.isNotEmpty)
-                        Expanded(
-                          child: SizedBox(
-                            height: _headerFactsHeight,
-                            child: ScrollingStatusLine(
-                              resetKey: widget.game.romname,
-                              children: headerFacts,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  Divider(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.onSurface.withValues(alpha: 0.1),
-                    height: 10.r,
-                  ),
-                ],
+            boxShadow: PanelGateHighlight.shadows(
+              context,
+              isActive: _isPanelActive,
+              resting: BoxShadow(
+                color: Theme.of(
+                  context,
+                ).colorScheme.shadow.withValues(alpha: 0.25),
+                blurRadius: 2.r,
+                offset: Offset(2.0.r, 2.0.r),
               ),
             ),
-
-            Expanded(
-              child: Padding(
-                padding: EdgeInsets.all(8.r),
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    // While scraping, the card lays ScrapingProgressPanel over
-                    // this whole region — every tab gets the same feedback, so
-                    // this tab no longer draws its own copy.
-                    return showScrapeView
-                        ? _buildNonScrapedView()
-                        : _buildScrapedView();
-                  },
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: EdgeInsets.fromLTRB(8.r, 8.r, 8.r, 0.r),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Symbols.info_rounded,
+                          color: Theme.of(context).colorScheme.onSurface,
+                          size: 13.r,
+                        ),
+                        // No title: the selected tab in the card's header strip
+                        // is already this icon, so naming the panel again only
+                        // costs the row room. Everything packs to the left into
+                        // the space it used to take.
+                        SizedBox(width: 8.r),
+                        // No gate chip: the panel's own edge carries that now, so
+                        // the row neither spends a slot on it nor re-packs itself
+                        // on the frame the drivability answer lands. The facts
+                        // strip starts at the same x on every game.
+                        // The facts take the rest of the row. A long publisher
+                        // name (or a system whose scrape fills every field) can
+                        // outrun it, so the strip marquees when it genuinely
+                        // overflows and sits still when it does not — the same
+                        // treatment the footer's metadata line gets, rather than
+                        // an overflow stripe or a truncated name.
+                        if (headerFacts.isNotEmpty)
+                          Expanded(
+                            child: SizedBox(
+                              height: _headerFactsHeight,
+                              child: ScrollingStatusLine(
+                                resetKey: widget.game.romname,
+                                children: headerFacts,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    Divider(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.1),
+                      height: 10.r,
+                    ),
+                  ],
                 ),
               ),
-            ),
-          ],
+
+              Expanded(
+                child: Padding(
+                  padding: EdgeInsets.all(8.r),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      // While scraping, the card lays ScrapingProgressPanel over
+                      // this whole region — every tab gets the same feedback, so
+                      // this tab no longer draws its own copy.
+                      return showScrapeView
+                          ? _buildNonScrapedView()
+                          : _buildScrapedView();
+                    },
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
