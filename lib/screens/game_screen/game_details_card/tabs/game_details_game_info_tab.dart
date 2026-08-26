@@ -112,6 +112,33 @@ class GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
   /// Whether the panel currently owns the D-pad.
   bool get isPanelActive => _isPanelActive;
 
+  /// Whether the header's gate chip is currently drawn.
+  ///
+  /// It cannot be answered during a build: [_canScroll] reads a scroll metric
+  /// that does not exist until the description has been laid out, so the
+  /// panel's own first frame always says "nothing to drive". Held in state and
+  /// refreshed once the frame is up, rather than read live in [build].
+  bool _isDrivable = false;
+
+  /// Re-reads whether there is anything in here to drive, one frame late.
+  ///
+  /// Without this the header kept its first-frame answer until something else
+  /// rebuilt the card — and the next thing that does is the tab slide
+  /// finishing, so the chip appeared exactly as the panel came to rest.
+  void _refreshDrivability() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final drivable = _canScroll || _availableLanguages().length > 1;
+      if (drivable != _isDrivable) setState(() => _isDrivable = drivable);
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshDrivability();
+  }
+
   /// Whether the description is longer than its pane.
   bool get _canScroll =>
       _descriptionController.hasClients &&
@@ -206,6 +233,10 @@ class GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
   void didUpdateWidget(GameDetailsGameInfoTab oldWidget) {
     super.didUpdateWidget(oldWidget);
 
+    // A new game, or a scrape landing on this one, is a new description: what
+    // there is to drive has to be measured again.
+    _refreshDrivability();
+
     // A new game is a new panel: drop the gate and start its text from the
     // top, and fall back to English if it has nothing in the language the
     // previous game was being read in.
@@ -299,39 +330,50 @@ class GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
                       SizedBox(width: 8.r),
                       // The gate's affordance, as on the achievements panel:
                       // which button takes the D-pad into the description and
-                      // which gives it back. Only drawn when there is
-                      // something in here to drive.
-                      if (!showScrapeView &&
-                          (_canScroll || _availableLanguages().length > 1)) ...[
-                        HeaderActionButton(
-                          icon: Image.asset(
-                            _isPanelActive
-                                ? 'assets/images/gamepad/Xbox_B_button.png'
-                                : 'assets/images/gamepad/Xbox_A_button.png',
-                            width: 12.r,
-                            height: 12.r,
+                      // which gives it back. Only shown when there is something
+                      // in here to drive, but its room is held either way: the
+                      // answer arrives a frame after the panel does, so a row
+                      // that packed around it would re-pack itself on the frame
+                      // the tab slide settles on. Reserving the slot also lines
+                      // the facts strip up at the same x on every game rather
+                      // than moving it whenever one happens to carry a second
+                      // description language.
+                      if (!showScrapeView) ...[
+                        Visibility(
+                          visible: _isDrivable,
+                          maintainSize: true,
+                          maintainAnimation: true,
+                          maintainState: true,
+                          child: HeaderActionButton(
+                            icon: Image.asset(
+                              _isPanelActive
+                                  ? 'assets/images/gamepad/Xbox_B_button.png'
+                                  : 'assets/images/gamepad/Xbox_A_button.png',
+                              width: 12.r,
+                              height: 12.r,
+                            ),
+                            label:
+                                (_isPanelActive
+                                        ? AppLocale.back.getString(context)
+                                        : AppLocale.navigate.getString(context))
+                                    .toUpperCase(),
+                            onTap: () {
+                              SfxService().playNavSound();
+                              if (_isPanelActive) {
+                                exitPanel();
+                              } else {
+                                enterPanel();
+                              }
+                            },
+                            backgroundColor: _isPanelActive
+                                ? Theme.of(context).colorScheme.secondary
+                                : Theme.of(
+                                    context,
+                                  ).colorScheme.surfaceContainerHighest,
+                            foregroundColor: _isPanelActive
+                                ? Theme.of(context).colorScheme.onSecondary
+                                : Theme.of(context).colorScheme.onSurface,
                           ),
-                          label:
-                              (_isPanelActive
-                                      ? AppLocale.back.getString(context)
-                                      : AppLocale.navigate.getString(context))
-                                  .toUpperCase(),
-                          onTap: () {
-                            SfxService().playNavSound();
-                            if (_isPanelActive) {
-                              exitPanel();
-                            } else {
-                              enterPanel();
-                            }
-                          },
-                          backgroundColor: _isPanelActive
-                              ? Theme.of(context).colorScheme.secondary
-                              : Theme.of(
-                                  context,
-                                ).colorScheme.surfaceContainerHighest,
-                          foregroundColor: _isPanelActive
-                              ? Theme.of(context).colorScheme.onSecondary
-                              : Theme.of(context).colorScheme.onSurface,
                         ),
                         SizedBox(width: 8.r),
                       ],
