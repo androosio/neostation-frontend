@@ -1255,6 +1255,10 @@ class _SystemGamesListState extends State<SystemGamesList> {
       onFolderActivated: _descendToFolderIndex,
       folderCoverResolver: (relPath, {required max, required imageType}) =>
           _folderCoverFiles(relPath, max: max, imageType: imageType),
+      // Hides the footer's mute pill: with a second screen attached the
+      // preview is over there and so is its own mute control.
+      isSecondaryScreenActive:
+          _secondaryDisplayState?.value?.isSecondaryActive ?? false,
     );
   }
 
