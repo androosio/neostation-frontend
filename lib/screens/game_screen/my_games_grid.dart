@@ -86,6 +86,15 @@ class GamesGrid extends StatefulWidget {
   /// it. Null when no anchor is needed.
   final GlobalKey? selectedItemKey;
 
+  /// Whether a secondary display is attached and running.
+  ///
+  /// The preview video plays over there rather than in this view, and that
+  /// screen carries its own mute control — so the footer's mute pill would be
+  /// a second affordance for the same toggle, next to a video that is not on
+  /// this screen. The Select button keeps the binding either way; it is only
+  /// the pill that goes.
+  final bool isSecondaryScreenActive;
+
   const GamesGrid({
     super.key,
     required this.system,
@@ -108,6 +117,7 @@ class GamesGrid extends StatefulWidget {
     this.artworkVersion = 0,
     this.onYButton,
     this.selectedItemKey,
+    this.isSecondaryScreenActive = false,
   });
 
   @override
@@ -1322,9 +1332,13 @@ class _GamesGridState extends State<GamesGrid> {
     // out and once on the way back, so the memoization survives the burst.
     final settled = _selectedIndex == _settledIndex;
     final loadingRa = _isLoadingAchievements || !settled;
+    // The secondary-display state is in the signature because it decides
+    // whether the mute pill is in the footer at all, and it can flip while
+    // this view is open — a lid opening is exactly that.
     final sig =
         '$_settledIndex|${settledGame.romname}|${settledGame.isFavorite}'
-        '|$hasRa|$loadingRa|${identityHashCode(_currentGameInfo)}';
+        '|$hasRa|$loadingRa|${identityHashCode(_currentGameInfo)}'
+        '|${widget.isSecondaryScreenActive}';
     if (sig == _chromeSig && _chromeFooter != null) {
       return;
     }
@@ -1336,7 +1350,7 @@ class _GamesGridState extends State<GamesGrid> {
       isLoadingAchievements: loadingRa,
       currentGameInfo: settled ? _currentGameInfo : null,
       onShowAchievements: _showAchievementsDialog,
-      onToggleMute: _toggleVideoMute,
+      onToggleMute: widget.isSecondaryScreenActive ? null : _toggleVideoMute,
       hasVideo: !isFolder && _hasVideoFor(settledGame),
       isFolder: isFolder,
       // The game's own system, so the cloud-sync icon reflects the game rather
