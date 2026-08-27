@@ -9,19 +9,21 @@ import 'package:neostation/l10n/app_locale.dart';
 import 'package:neostation/models/game_model.dart';
 import 'package:neostation/providers/retro_achievements_provider.dart';
 import 'package:neostation/themes/chrome_surface.dart';
+import 'package:neostation/themes/tokyo_night_theme.dart';
 import 'package:neostation/widgets/game_view_footer.dart';
 import 'package:neostation/widgets/marquee_text.dart';
 
-/// The grid's footer floats over its scrolling rows with no scrim, so box art
-/// passes directly behind the game's name and the strip under it. The text
-/// therefore has to carry its own background separation.
+/// The grid's footer floats over its scrolling rows, so box art passes directly
+/// behind the game's name and the strip under it. The text carries a halo so it
+/// survives that.
 ///
-/// The claim under test is not "there are shadows" but *which* shadows. The
-/// details-card footer this one mirrors uses a fixed black drop shadow, which
-/// works only because that footer always paints onto dark fanart; copied here
-/// it renders as ghost text in the light theme, which is why this footer
-/// dropped shadows entirely in the first place. The halo has to come from the
-/// scheme so it is always the opposite of the fill in front of it.
+/// The claim under test is not "there are shadows" but *which* shadows, because
+/// every way of getting this wrong still produces shadows. The details-card
+/// footer this one mirrors uses a fixed black drop shadow, which works only
+/// because that footer always paints onto dark fanart; copied here it is ghost
+/// text in the light theme. And `colorScheme.surface` is not the colour behind
+/// this footer either — the grid sits on `scaffoldBackgroundColor`, a different
+/// colour in every bundled theme.
 class _FakeRaProvider extends RetroAchievementsProvider {
   @override
   bool get isConnected => false;
@@ -53,19 +55,11 @@ void main() {
     );
   });
 
-  Future<ColorScheme> pumpFooter(
-    WidgetTester tester,
-    Brightness brightness,
-  ) async {
+  Future<ThemeData> pumpFooter(WidgetTester tester, ThemeData theme) async {
     tester.view.physicalSize = const Size(1280, 720);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-
-    final theme = ThemeData(
-      brightness: brightness,
-      extensions: [ChromeSurface.standard()],
-    );
 
     await tester.pumpWidget(
       ChangeNotifierProvider<RetroAchievementsProvider>.value(
@@ -91,8 +85,11 @@ void main() {
       ),
     );
     await tester.pump();
-    return theme.colorScheme;
+    return theme;
   }
+
+  ThemeData plain(Brightness brightness) =>
+      ThemeData(brightness: brightness, extensions: [ChromeSurface.standard()]);
 
   /// The game's name, which is the thing the report was actually about.
   TextStyle nameStyle(WidgetTester tester) =>
@@ -102,7 +99,7 @@ void main() {
     final label = brightness == Brightness.dark ? 'dark' : 'light';
 
     testWidgets('the name carries a halo in the $label theme', (tester) async {
-      final scheme = await pumpFooter(tester, brightness);
+      final theme = await pumpFooter(tester, plain(brightness));
       final shadows = nameStyle(tester).shadows;
 
       expect(
@@ -113,28 +110,64 @@ void main() {
             'name is read against whatever box art is passing behind it',
       );
       expect(
-        shadows!.every((s) => s.color == scheme.surface),
+        shadows!.every((s) => s.color == theme.scaffoldBackgroundColor),
         isTrue,
         reason:
-            'the halo is the surface the text sits on, so it is always '
+            'the halo is the background the footer floats on, so it is always '
             'the opposite of the onSurface fill in front of it',
       );
-      // Zero offset: this separates the glyph from its background on every
-      // side, rather than casting it in one direction like a drop shadow.
-      expect(shadows.every((s) => s.offset == Offset.zero), isTrue);
     });
   }
 
-  testWidgets('the light theme does not inherit the details card\'s black '
-      'drop shadow', (tester) async {
-    await pumpFooter(tester, Brightness.light);
+  testWidgets('the light theme does not inherit the black drop shadow', (
+    tester,
+  ) async {
+    await pumpFooter(tester, plain(Brightness.light));
 
-    // The regression this guards: a black shadow behind near-black text on a
-    // light background is invisible, and it was invisible in exactly the way
-    // that made this footer drop its shadows to begin with.
+    // A black shadow behind near-black text on a light background is
+    // invisible, and it was invisible in exactly the way that made this footer
+    // drop its shadows to begin with.
     expect(
       nameStyle(tester).shadows!.any((s) => s.color == Colors.black),
       isFalse,
     );
+  });
+
+  testWidgets('the halo tracks the scaffold background, not the surface', (
+    tester,
+  ) async {
+    // A bundled theme, chosen because it is one of the many where those two
+    // colours genuinely differ: surface is 0xFF24283B, the scaffold the grid
+    // actually sits on is 0xFF1A1B26. Painting the halo in `surface` was
+    // therefore both too light to separate the text from bright box art and
+    // faintly visible as a plate against the flat background it was meant to
+    // vanish into.
+    final theme = await pumpFooter(tester, tokyoNightTheme);
+    expect(
+      theme.scaffoldBackgroundColor,
+      isNot(theme.colorScheme.surface),
+      reason: 'the fixture proves nothing if the two agree in this theme',
+    );
+
+    final shadows = nameStyle(tester).shadows!;
+    expect(
+      shadows.every((s) => s.color == theme.scaffoldBackgroundColor),
+      isTrue,
+    );
+    expect(shadows.any((s) => s.color == theme.colorScheme.surface), isFalse);
+  });
+
+  testWidgets('the halo separates the glyph on every side', (tester) async {
+    await pumpFooter(tester, tokyoNightTheme);
+    final shadows = nameStyle(tester).shadows!;
+
+    // A ring of offsets rather than a single drop shadow: text over box art has
+    // no reliable light direction, so any edge left un-ringed is an edge read
+    // straight against the artwork.
+    final ring = shadows.where((s) => s.offset != Offset.zero);
+    expect(ring.map((s) => s.offset.dx.sign).toSet(), {-1.0, 1.0});
+    expect(ring.map((s) => s.offset.dy.sign).toSet(), {-1.0, 1.0});
+    // Plus wide passes under the ring, reaching further out than it can.
+    expect(shadows.where((s) => s.offset == Offset.zero), isNotEmpty);
   });
 }

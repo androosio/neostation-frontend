@@ -1342,14 +1342,70 @@ class _GamesGridState extends State<GamesGrid> {
         // Footer pill is driven by the debounced settled selection and
         // memoized (see _buildSettledChrome) so it is not rebuilt on every
         // fast-nav frame. It floats over the grid rather than taking a band of
-        // its own, and carries no scrim of its own: the rows pass behind it.
+        // its own, so the rows pass behind it and it carries its own scrim to
+        // stay readable when they do.
         Positioned(
           left: 0,
           right: 0,
           bottom: 0,
-          child: KeyedSubtree(key: _footerKey, child: _chromeFooter!),
+          child: _buildFloatingFooter(context),
         ),
       ],
+    );
+  }
+
+  /// The footer, and the scrim that carries it over the grid.
+  ///
+  /// The scrim lives here rather than in [GameViewFooter] because it is a
+  /// property of *this* layout. The carousel shares that widget but not this
+  /// problem: its cards stop where its footer starts, so nothing ever passes
+  /// behind its text and a scrim there would be a band drawn over nothing.
+  /// Only the grid scrolls its rows underneath.
+  ///
+  /// Two segments rather than one gradient with hand-computed stops: a tail
+  /// above the footer that takes the cards from untouched down to the band's
+  /// wash, then the band itself, which finishes opaque under the text. The
+  /// colour is [ThemeData.scaffoldBackgroundColor] and deliberately not black —
+  /// black is right only for the dark themes, and lands as a dark slab under
+  /// dark text in the light ones. In the OLED theme that background *is* black,
+  /// so the darkest themes get the strongest scrim for free.
+  ///
+  /// [_footerKey] goes on the outside of the column, so the measured height is
+  /// the tail plus the band. That is what keeps the fade honest: the height
+  /// feeds both the sliver's bottom padding and [_centerTargetFor], which have
+  /// to agree exactly or a far jump lands short, and centring targets the free
+  /// area above the whole gradient rather than parking the selected card
+  /// halfway into the fade.
+  Widget _buildFloatingFooter(BuildContext context) {
+    final bg = Theme.of(context).scaffoldBackgroundColor;
+
+    return KeyedSubtree(
+      key: _footerKey,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            height: 40.r,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [bg.withValues(alpha: 0.0), bg.withValues(alpha: 0.85)],
+              ),
+            ),
+          ),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [bg.withValues(alpha: 0.85), bg],
+              ),
+            ),
+            child: _chromeFooter!,
+          ),
+        ],
+      ),
     );
   }
 

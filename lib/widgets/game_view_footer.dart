@@ -190,7 +190,7 @@ class GameViewFooter extends StatelessWidget {
               fontSize: 12.r,
               fontWeight: FontWeight.w400,
               height: 1.15,
-              shadows: _haloShadows(scheme),
+              shadows: _haloShadows(context),
             ),
           ),
         ),
@@ -224,7 +224,7 @@ class GameViewFooter extends StatelessWidget {
           // Same strip, same background problem: the bare glyph needs the halo
           // for the same reason the text beside it does. Not `showGlyphShadow`,
           // which is the details card's fixed black drop shadow.
-          glyphShadows: _haloShadows(scheme),
+          glyphShadows: _haloShadows(context),
           margin: strip.isEmpty ? EdgeInsets.zero : EdgeInsets.only(left: 8.r),
         ),
       );
@@ -241,7 +241,7 @@ class GameViewFooter extends StatelessWidget {
             color: scheme.onSurface,
             fontSize: 18.r,
             fontWeight: FontWeight.bold,
-            shadows: _haloShadows(scheme),
+            shadows: _haloShadows(context),
           ),
         ),
         SizedBox(
@@ -287,24 +287,47 @@ BoxDecoration _pillDecoration(BuildContext context) {
 }
 
 /// A halo painted behind the footer's bare text and glyphs, in the colour of
-/// the surface they sit on.
+/// the background they float on.
 ///
 /// The grid's footer carries no scrim, so whatever is scrolling behind it is
 /// the background its text has to survive: flat scaffold in one row, bright box
 /// art in the next. A fixed dark shadow only works over the second, and only in
-/// the dark theme. This takes its colour from the scheme, so it is always the
-/// opposite of the `onSurface` fill in front of it -- dark behind light text,
-/// light behind dark text -- which is what makes one treatment cover both
-/// themes and both backgrounds. Where the footer really is over flat surface
-/// the halo matches it exactly and so costs nothing visually.
+/// the dark theme. Taking the colour from the theme instead makes one treatment
+/// cover both themes and both backgrounds.
 ///
-/// Two stacked zero-offset blurs rather than one: the tight pass does the
-/// separating and the wide one keeps its edge from reading as an outline drawn
-/// around the glyph.
-List<Shadow> _haloShadows(ColorScheme scheme) => [
-  Shadow(color: scheme.surface, blurRadius: 3.r),
-  Shadow(color: scheme.surface, blurRadius: 6.r),
-];
+/// **It is `scaffoldBackgroundColor`, not `colorScheme.surface`.** Those are
+/// two different colours in every bundled theme -- Tokyo Night alone puts 14
+/// points of lightness between them -- and the grid sits on the first one
+/// (`my_games_list.dart` passes it to its `Scaffold`). Painting the halo in
+/// `surface` therefore missed twice over: too light to separate the text from
+/// bright box art in a dark theme, and visible as a faint plate against the
+/// flat background where it was supposed to disappear.
+///
+/// Matching the real background exactly is also what licenses the weight of
+/// this stack. More passes of the background colour can only ever converge on
+/// the background colour, so over flat scaffold this is invisible however hard
+/// it is pushed; the strength is spent entirely on the frames where art is
+/// actually behind the glyph.
+///
+/// The ring is what does the separating -- four diagonal offsets, blurred just
+/// enough to close the gaps between them, so no edge of a glyph is left reading
+/// directly against art. The two wide passes sit under it and settle the busier
+/// texture further out, which is what a ring alone cannot do.
+List<Shadow> _haloShadows(BuildContext context) {
+  final background = Theme.of(context).scaffoldBackgroundColor;
+  final d = 1.r;
+  return [
+    for (final offset in [
+      Offset(-d, -d),
+      Offset(d, -d),
+      Offset(-d, d),
+      Offset(d, d),
+    ])
+      Shadow(color: background, offset: offset, blurRadius: 2.r),
+    Shadow(color: background, blurRadius: 5.r),
+    Shadow(color: background, blurRadius: 10.r),
+  ];
+}
 
 /// Height of the status strip under the game's name.
 ///
@@ -353,7 +376,7 @@ class _InlineRating extends StatelessWidget {
           color: ratingColor,
           size: 15.r,
           fill: 1,
-          shadows: _haloShadows(scheme),
+          shadows: _haloShadows(context),
         ),
         SizedBox(width: 3.r),
         Text(
@@ -363,7 +386,7 @@ class _InlineRating extends StatelessWidget {
             fontSize: 12.r,
             fontWeight: FontWeight.w800,
             height: 1.15,
-            shadows: _haloShadows(scheme),
+            shadows: _haloShadows(context),
           ),
         ),
       ],
@@ -398,7 +421,7 @@ class _InlinePlayTime extends StatelessWidget {
           Symbols.schedule_rounded,
           color: scheme.onSurface,
           size: 15.r,
-          shadows: _haloShadows(scheme),
+          shadows: _haloShadows(context),
         ),
         SizedBox(width: 5.r),
         // Hand-laid cells rather than `FontFeature.tabularFigures()`, which the
@@ -412,7 +435,7 @@ class _InlinePlayTime extends StatelessWidget {
             fontSize: 12.r,
             fontWeight: FontWeight.w700,
             height: 1.15,
-            shadows: _haloShadows(scheme),
+            shadows: _haloShadows(context),
           ),
         ),
       ],
@@ -441,7 +464,7 @@ class _FactSeparator extends StatelessWidget {
           fontSize: 12.r,
           fontWeight: FontWeight.w400,
           height: 1.15,
-          shadows: _haloShadows(scheme),
+          shadows: _haloShadows(context),
         ),
       ),
     );
