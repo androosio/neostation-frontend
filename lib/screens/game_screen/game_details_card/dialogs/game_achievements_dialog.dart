@@ -18,8 +18,12 @@ import 'ra_match_picker_dialog.dart';
 
 /// A full-screen dialog that displays RetroAchievements progress for a single game.
 ///
-/// Loads its own metadata, supports pull-to-refresh style updates via the embedded
-/// achievements tab, and closes on touch back-button or gamepad B.
+/// Loads its own metadata, supports pull-to-refresh style updates via the
+/// embedded achievements tab, and closes on touch back-button or gamepad B.
+///
+/// The embedded panel is driven by the D-pad the moment its set has loaded: the
+/// dialog holds nothing else, so it hands the panel the D-pad rather than
+/// waiting for the A gate the details card needs.
 class GameAchievementsDialog extends StatefulWidget {
   final GameModel game;
   final SystemModel system;
@@ -41,6 +45,14 @@ class _GameAchievementsDialogState extends State<GameAchievementsDialog> {
   bool _isLoading = false;
   GamepadNavigation? _gamepadNav;
   bool _isManualMatch = false;
+
+  /// The achievements panel this dialog wraps, so the D-pad can drive it.
+  ///
+  /// The panel owns its own cursor and exposes it through its state; without
+  /// this key the dialog had no way to reach it, which is why A and the D-pad
+  /// did nothing in here while touch walked the badges fine.
+  final GlobalKey<GameDetailsAchievementsTabState> _tabKey =
+      GlobalKey<GameDetailsAchievementsTabState>();
 
   @override
   void initState() {
@@ -93,6 +105,14 @@ class _GameAchievementsDialogState extends State<GameAchievementsDialog> {
 
   void _initializeGamepad() {
     _gamepadNav = GamepadNavigation(
+      onNavigateUp: () => _tabKey.currentState?.moveUp(),
+      onNavigateDown: () => _tabKey.currentState?.moveDown(),
+      onNavigateLeft: () => _tabKey.currentState?.moveLeft(),
+      onNavigateRight: () => _tabKey.currentState?.moveRight(),
+      onSelectItem: _activatePanel,
+      // B leaves the dialog outright rather than stepping out of the panel
+      // first: the panel is the whole dialog, so an inactive panel here is a
+      // dead end and the header chip promises B is the way back.
       onBack: () {
         if (mounted) Navigator.of(context).pop();
       },
@@ -103,6 +123,32 @@ class _GameAchievementsDialogState extends State<GameAchievementsDialog> {
       onActivate: () => _gamepadNav?.activate(),
       onDeactivate: () => _gamepadNav?.deactivate(),
     );
+  }
+
+  /// Gamepad A: takes the D-pad if the panel is not holding it yet, otherwise
+  /// runs whichever header action (REFRESH / FIX MATCH) has the cursor.
+  void _activatePanel() {
+    final state = _tabKey.currentState;
+    if (state == null) return;
+    if (state.isPanelActive) {
+      state.activateFocused();
+      return;
+    }
+    if (state.enterPanel()) SfxService().playNavSound();
+  }
+
+  /// Hands the D-pad to the panel once its content has settled.
+  ///
+  /// This dialog is nothing but the panel, so making the user press A first
+  /// would only add a step. It runs after the frame because loading a set
+  /// changes the panel's game id, and that reset drops the panel's D-pad claim.
+  /// A stays the gate for the case where the panel refuses (no badges and no
+  /// header action to land on).
+  void _enterPanelWhenReady() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _tabKey.currentState?.enterPanel();
+    });
   }
 
   Future<void> _loadAchievements({bool forceRefresh = false}) async {
@@ -136,6 +182,8 @@ class _GameAchievementsDialogState extends State<GameAchievementsDialog> {
         });
       }
     }
+
+    if (mounted) _enterPanelWhenReady();
   }
 
   @override
@@ -178,6 +226,7 @@ class _GameAchievementsDialogState extends State<GameAchievementsDialog> {
               // Achievements content: the tab widget is designed for a Stack
               // with fixed offsets, so we place it directly in this Stack.
               GameDetailsAchievementsTab(
+                key: _tabKey,
                 gameInfo: _gameInfo,
                 isLoading: _isLoading,
                 topOffset: 0,
