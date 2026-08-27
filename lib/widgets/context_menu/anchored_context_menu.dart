@@ -198,8 +198,18 @@ class _AnchoredContextMenuState extends State<AnchoredContextMenu> {
   late int _selectedIndex;
   bool _submenuOpen = false;
 
-  /// One key per row, used to anchor that row's submenu next to it.
+  /// One key per row, used to anchor that row's submenu next to it, and to
+  /// scroll that row back into view when the cursor walks onto it.
   late final List<GlobalKey> _itemKeys;
+
+  /// Drives the panel's scroll when the list is taller than the viewport.
+  ///
+  /// The rows are a [Column] inside a [SingleChildScrollView] rather than a
+  /// [ListView] on purpose: every row must stay laid out even while scrolled
+  /// out of sight, because [_resolveAnchorRect] reads a row's global rect off
+  /// its key to place that row's submenu. A lazily-built list would hand back a
+  /// null context for exactly the off-screen row whose submenu is being opened.
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -233,6 +243,12 @@ class _AnchoredContextMenuState extends State<AnchoredContextMenu> {
         onActivate: () => _gamepadNav.activate(),
         onDeactivate: () => _gamepadNav.deactivate(),
       );
+      // The cursor can open deep in the list -- reopening the menu restores
+      // the row it was left on -- and on a capped panel that row may start off
+      // screen. Nothing has moved yet, so there is no travel direction to read:
+      // treat it as downward, which exposes the row's trailing edge.
+      _revealSelected(1);
+
       final autoOpen = widget.openSubmenuAtIndex;
       if (autoOpen != null &&
           autoOpen >= 0 &&
@@ -247,7 +263,32 @@ class _AnchoredContextMenuState extends State<AnchoredContextMenu> {
   void dispose() {
     GamepadNavigationManager.popLayer(widget.layerId);
     _gamepadNav.dispose();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  /// Scrolls the focused row back into view after the cursor moves onto it.
+  ///
+  /// [delta] is the direction the cursor travelled, which is what picks the
+  /// alignment policy: scrolling the minimum needed to expose the row's
+  /// trailing edge going down, its leading edge going up. That keeps a menu
+  /// walk steady instead of recentring the list under the cursor on every
+  /// press, and it lands the wrap-around correctly at both ends -- the row the
+  /// cursor wraps to can only be exposed by scrolling to that extreme.
+  void _revealSelected(int delta) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+      final rowContext = _itemKeys[_selectedIndex].currentContext;
+      if (rowContext == null) return;
+      Scrollable.ensureVisible(
+        rowContext,
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOut,
+        alignmentPolicy: delta > 0
+            ? ScrollPositionAlignmentPolicy.keepVisibleAtEnd
+            : ScrollPositionAlignmentPolicy.keepVisibleAtStart,
+      );
+    });
   }
 
   void _move(int delta) {
@@ -256,6 +297,7 @@ class _AnchoredContextMenuState extends State<AnchoredContextMenu> {
       _selectedIndex =
           (_selectedIndex + delta + widget.items.length) % widget.items.length;
     });
+    _revealSelected(delta);
     SfxService().playNavSound();
   }
 
@@ -330,8 +372,14 @@ class _AnchoredContextMenuState extends State<AnchoredContextMenu> {
     }
   }
 
-  /// Height the panel will occupy once laid out. Computed from the row metrics
-  /// rather than measured, because the viewport clamp has to run before layout.
+  /// Height the panel would occupy if nothing constrained it. Computed from the
+  /// row metrics rather than measured, because the viewport clamp has to run
+  /// before layout.
+  ///
+  /// This is a want, not a promise: a long enough list exceeds the screen, and
+  /// [build] caps it. Keep the two apart -- placing the panel by this figure
+  /// while it renders at the capped one is what put the rows off the bottom of
+  /// the screen in the first place.
   double get _panelHeight {
     double height = _kVerticalPadding.r * 2;
     for (final item in widget.items) {
@@ -346,8 +394,23 @@ class _AnchoredContextMenuState extends State<AnchoredContextMenu> {
     final theme = Theme.of(context);
     final Size screen = MediaQuery.of(context).size;
     final double width = widget.width ?? 200.r;
-    final double height = _panelHeight;
     final double margin = _kViewportMargin.r;
+
+    // A menu with more rows than the screen has room for is capped to the
+    // viewport and scrolls the remainder. Without this the placement maths
+    // below still ran on the full height: every flip overflowed too, the final
+    // clamp collapsed to a no-op (`maxTop` floors at zero once the panel is
+    // taller than the screen), and the panel was pinned to the top with its
+    // tail simply painted past the bottom edge -- unreachable rather than
+    // merely awkward. A user with enough collections could not see, let alone
+    // pick, the ones at the end of `Add to`.
+    final double maxHeight = (screen.height - margin * 2).clamp(
+      0.0,
+      double.infinity,
+    );
+    final bool scrolls = _panelHeight > maxHeight;
+    final double height = scrolls ? maxHeight : _panelHeight;
+
     final double gap = _kAnchorGap.r;
 
     // A row with children opens its submenu to the right, because right is the
@@ -438,10 +501,33 @@ class _AnchoredContextMenuState extends State<AnchoredContextMenu> {
                   ),
                 ],
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: _buildRows(theme),
+              // Bounded by the same figure the placement maths used, less the
+              // padding the Container adds around it, so the panel occupies
+              // exactly the `height` it was positioned for.
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: (height - _kVerticalPadding.r * 2).clamp(
+                    0.0,
+                    double.infinity,
+                  ),
+                ),
+                child: Scrollbar(
+                  controller: _scrollController,
+                  // Shown only when there is something to scroll: always-on, a
+                  // full-length thumb on a short menu reads as a border.
+                  thumbVisibility: scrolls,
+                  child: SingleChildScrollView(
+                    controller: _scrollController,
+                    physics: scrolls
+                        ? const ClampingScrollPhysics()
+                        : const NeverScrollableScrollPhysics(),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: _buildRows(theme),
+                    ),
+                  ),
+                ),
               ),
             ),
           ),

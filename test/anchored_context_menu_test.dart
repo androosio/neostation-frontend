@@ -341,4 +341,129 @@ void main() {
     expect(submenu.left, greaterThan(parent.left));
     expect(submenu.right, lessThanOrEqualTo(size.width));
   });
+
+  /// A user with a lot of collections: `Add to` holds one row per collection,
+  /// so the list outgrows the screen long before anything else in the menu
+  /// does. It used to be positioned by its full height, which made every
+  /// fallback in the placement maths overflow at once and pinned the panel to
+  /// the top with its tail painted past the bottom edge -- the last rows could
+  /// not be seen or picked at all.
+  List<ContextMenuItem> manyItems(int count) => [
+    for (int i = 0; i < count; i++)
+      ContextMenuItem(id: 'c$i', label: 'Collection $i'),
+  ];
+
+  ScrollPosition menuScrollPosition(WidgetTester tester) => tester
+      .state<ScrollableState>(
+        find.descendant(
+          of: find.byType(SingleChildScrollView),
+          matching: find.byType(Scrollable),
+        ),
+      )
+      .position;
+
+  testWidgets('a menu taller than the screen is capped to the viewport', (
+    tester,
+  ) async {
+    const size = Size(1280, 800);
+    useViewport(tester, size);
+    final ctx = await pumpHost(tester);
+    // ignore: unawaited_futures
+    showAnchoredContextMenu(context: ctx, items: manyItems(60));
+    await tester.pumpAndSettle();
+
+    final panel = tester.getRect(find.byType(SingleChildScrollView));
+    expect(panel.top, greaterThanOrEqualTo(0.0));
+    expect(
+      panel.bottom,
+      lessThanOrEqualTo(size.height),
+      reason:
+          'the panel ran off the bottom of the screen, taking its last '
+          'rows with it',
+    );
+  });
+
+  testWidgets('an oversized menu scrolls, and its last row can be reached', (
+    tester,
+  ) async {
+    const size = Size(1280, 800);
+    useViewport(tester, size);
+    final ctx = await pumpHost(tester);
+    // ignore: unawaited_futures
+    showAnchoredContextMenu(context: ctx, items: manyItems(60));
+    await tester.pumpAndSettle();
+
+    final position = menuScrollPosition(tester);
+    expect(
+      position.maxScrollExtent,
+      greaterThan(0.0),
+      reason: 'the rows that do not fit have to be scrollable to',
+    );
+
+    // The rows are a Column, so the last one is in the tree either way --
+    // finding it proves nothing. Its geometry does: off the panel to begin
+    // with, inside it once scrolled.
+    final panel = tester.getRect(find.byType(SingleChildScrollView));
+    expect(
+      tester.getRect(find.text('Collection 59')).top,
+      greaterThan(panel.bottom),
+    );
+
+    position.jumpTo(position.maxScrollExtent);
+    await tester.pumpAndSettle();
+
+    final lastRow = tester.getRect(find.text('Collection 59'));
+    expect(lastRow.bottom, lessThanOrEqualTo(panel.bottom + 0.5));
+    expect(lastRow.top, greaterThanOrEqualTo(panel.top - 0.5));
+  });
+
+  testWidgets('a menu opened deep in the list starts scrolled to the cursor', (
+    tester,
+  ) async {
+    useViewport(tester, const Size(1280, 800));
+    await tester.pumpWidget(
+      host(
+        AnchoredContextMenu(
+          items: manyItems(60),
+          anchorRect: const Rect.fromLTWH(100, 100, 120, 120),
+          // Reopening the menu restores the row it was left on, so the cursor
+          // can start well past the first screenful. The same reveal runs when
+          // the D-pad walks it there; that path cannot be driven from a widget
+          // test, because GamepadNavigation throttles directional keys on a
+          // 128ms *real* clock that fake time does not move.
+          initialIndex: 55,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final position = menuScrollPosition(tester);
+    expect(
+      position.pixels,
+      greaterThan(0.0),
+      reason: 'the focused row is off the bottom of an unscrolled panel',
+    );
+
+    final panel = tester.getRect(find.byType(SingleChildScrollView));
+    final focused = tester.getRect(find.text('Collection 55'));
+    expect(focused.bottom, lessThanOrEqualTo(panel.bottom + 0.5));
+    expect(focused.top, greaterThanOrEqualTo(panel.top - 0.5));
+  });
+
+  testWidgets('a menu that fits does not scroll', (tester) async {
+    useViewport(tester, const Size(1280, 800));
+    final ctx = await pumpHost(tester);
+    // ignore: unawaited_futures
+    showAnchoredContextMenu(context: ctx, items: items);
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .widget<SingleChildScrollView>(find.byType(SingleChildScrollView))
+          .physics,
+      isA<NeverScrollableScrollPhysics>(),
+      reason: 'a short menu that could be dragged would wobble under the touch',
+    );
+    expect(menuScrollPosition(tester).maxScrollExtent, 0.0);
+  });
 }
