@@ -834,10 +834,15 @@ class _InlinePlayTime extends StatelessWidget {
         // since reading it at a glance from arm's length is the point, but
         // pulled back from the 20.r it briefly ran at — at that size it started
         // competing with the game's artwork rather than sitting on it.
+        // `fill: 0` against the app-wide `IconThemeData(fill: 1.0)` in
+        // `main.dart`, for the same reason as the grid footer's clock: filled,
+        // this glyph is a solid disc with the hands knocked out of it, and a
+        // white disc on fanart reads as a badge rather than a clock.
         Icon(
           Symbols.schedule_rounded,
           color: Colors.white,
           size: 20.r,
+          fill: 0,
           shadows: _onArtShadows,
         ),
         SizedBox(width: 6.r),

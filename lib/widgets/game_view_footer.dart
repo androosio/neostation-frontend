@@ -86,14 +86,14 @@ class GameViewFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // This footer floats: it is pinned to the bottom of the grid's stack with
-    // no scrim, so the rows scroll underneath it and box art passes directly
-    // behind the name and the status strip. It therefore needs the same
-    // lift-off-the-background treatment as the details footer it mirrors --
-    // but not that footer's fixed white-on-black, which renders as
-    // near-invisible ghost text in the light theme (white fill on a light
-    // background, readable only via its own outline). Fill and halo both come
-    // from the scheme instead; see [_haloShadows].
+    // Plain scheme colours, no shadows: in both hosts the text already has a
+    // background of its own to read against. The grid floats over its rows,
+    // but the scrim under this footer finishes opaque in the band the text
+    // sits in, so nothing scrolls through behind a glyph; the carousel's cards
+    // stop where the footer starts, so nothing ever passed behind it there.
+    // The halo that briefly covered the gap between those two facts was
+    // painted in the background's own colour, which is what the scrim now
+    // paints the band -- it could only ever converge on what is already there.
     final scheme = Theme.of(context).colorScheme;
 
     return Container(
@@ -190,7 +190,6 @@ class GameViewFooter extends StatelessWidget {
               fontSize: 12.r,
               fontWeight: FontWeight.w400,
               height: 1.15,
-              shadows: _haloShadows(context),
             ),
           ),
         ),
@@ -221,10 +220,6 @@ class GameViewFooter extends StatelessWidget {
           size: 16.0,
           showBackground: false,
           showGlyphShadow: false,
-          // Same strip, same background problem: the bare glyph needs the halo
-          // for the same reason the text beside it does. Not `showGlyphShadow`,
-          // which is the details card's fixed black drop shadow.
-          glyphShadows: _haloShadows(context),
           margin: strip.isEmpty ? EdgeInsets.zero : EdgeInsets.only(left: 8.r),
         ),
       );
@@ -241,7 +236,6 @@ class GameViewFooter extends StatelessWidget {
             color: scheme.onSurface,
             fontSize: 18.r,
             fontWeight: FontWeight.bold,
-            shadows: _haloShadows(context),
           ),
         ),
         SizedBox(
@@ -286,48 +280,14 @@ BoxDecoration _pillDecoration(BuildContext context) {
   );
 }
 
-/// A halo painted behind the footer's bare text and glyphs, in the colour of
-/// the background they float on.
+/// Height shared by every pill on the action row.
 ///
-/// The grid's footer carries no scrim, so whatever is scrolling behind it is
-/// the background its text has to survive: flat scaffold in one row, bright box
-/// art in the next. A fixed dark shadow only works over the second, and only in
-/// the dark theme. Taking the colour from the theme instead makes one treatment
-/// cover both themes and both backgrounds.
-///
-/// **It is `scaffoldBackgroundColor`, not `colorScheme.surface`.** Those are
-/// two different colours in every bundled theme -- Tokyo Night alone puts 14
-/// points of lightness between them -- and the grid sits on the first one
-/// (`my_games_list.dart` passes it to its `Scaffold`). Painting the halo in
-/// `surface` therefore missed twice over: too light to separate the text from
-/// bright box art in a dark theme, and visible as a faint plate against the
-/// flat background where it was supposed to disappear.
-///
-/// Matching the real background exactly is also what licenses the weight of
-/// this stack. More passes of the background colour can only ever converge on
-/// the background colour, so over flat scaffold this is invisible however hard
-/// it is pushed; the strength is spent entirely on the frames where art is
-/// actually behind the glyph.
-///
-/// The ring is what does the separating -- four diagonal offsets, blurred just
-/// enough to close the gaps between them, so no edge of a glyph is left reading
-/// directly against art. The two wide passes sit under it and settle the busier
-/// texture further out, which is what a ring alone cannot do.
-List<Shadow> _haloShadows(BuildContext context) {
-  final background = Theme.of(context).scaffoldBackgroundColor;
-  final d = 1.r;
-  return [
-    for (final offset in [
-      Offset(-d, -d),
-      Offset(d, -d),
-      Offset(-d, d),
-      Offset(d, d),
-    ])
-      Shadow(color: background, offset: offset, blurRadius: 2.r),
-    Shadow(color: background, blurRadius: 5.r),
-    Shadow(color: background, blurRadius: 10.r),
-  ];
-}
+/// One value rather than a literal per pill: the two sit side by side, so a
+/// bump to one that missed the other reads as a misaligned row rather than as
+/// a bigger pill. Raised from the 32.r they were both built at — at that size
+/// the readouts sat well under the 18.r name they share the footer with, and
+/// the achievements pill's 8.r count was the smallest text on the screen.
+double get _pillHeight => 40.r;
 
 /// Height of the status strip under the game's name.
 ///
@@ -371,13 +331,7 @@ class _InlineRating extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Icon(
-          Symbols.star_rounded,
-          color: ratingColor,
-          size: 15.r,
-          fill: 1,
-          shadows: _haloShadows(context),
-        ),
+        Icon(Symbols.star_rounded, color: ratingColor, size: 15.r, fill: 1),
         SizedBox(width: 3.r),
         Text(
           ratingValue.toStringAsFixed(0),
@@ -386,7 +340,6 @@ class _InlineRating extends StatelessWidget {
             fontSize: 12.r,
             fontWeight: FontWeight.w800,
             height: 1.15,
-            shadows: _haloShadows(context),
           ),
         ),
       ],
@@ -400,10 +353,11 @@ class _InlineRating extends StatelessWidget {
 /// but as this bare glyph-plus-text, never as chrome that would read as a
 /// button.
 ///
-/// It is deliberately not the details footer's 20.r/18.r size. There the clock
-/// is alone at the end of a row, on artwork, and is the one number that row
-/// exists for; here it is one segment of a strip under an 18.r title, and at
-/// that size it would out-shout the game's own name.
+/// Sized between the 15.r/12.r it launched at and the details footer's
+/// 20.r/18.r. The small end was set against a strip of readouts it no longer
+/// shares the row with, and next to the enlarged achievements pill it read as
+/// a caption; the details card's size is still too much here, where the clock
+/// sits under the game's own 18.r name rather than alone on artwork.
 class _InlinePlayTime extends StatelessWidget {
   final GameModel game;
 
@@ -417,13 +371,18 @@ class _InlinePlayTime extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
+        // `fill: 0` against the app-wide `IconThemeData(fill: 1.0)` in
+        // `main.dart`: filled, this glyph is a solid disc with the hands
+        // knocked out of it, and at 15.r on a dark band that reads as a white
+        // dot rather than a clock. Filled is right for the star beside it,
+        // which is a mark; this one is a diagram.
         Icon(
           Symbols.schedule_rounded,
           color: scheme.onSurface,
-          size: 15.r,
-          shadows: _haloShadows(context),
+          size: 19.r,
+          fill: 0,
         ),
-        SizedBox(width: 5.r),
+        SizedBox(width: 6.r),
         // Hand-laid cells rather than `FontFeature.tabularFigures()`, which the
         // pill this replaced asked for and never got: Anta carries no `tnum`
         // table, so that feature is silently a no-op and every digit is its own
@@ -432,10 +391,9 @@ class _InlinePlayTime extends StatelessWidget {
           text: MonospacedClock.format(game.playTime ?? 0),
           style: TextStyle(
             color: scheme.onSurface,
-            fontSize: 12.r,
+            fontSize: 15.r,
             fontWeight: FontWeight.w700,
             height: 1.15,
-            shadows: _haloShadows(context),
           ),
         ),
       ],
@@ -464,7 +422,6 @@ class _FactSeparator extends StatelessWidget {
           fontSize: 12.r,
           fontWeight: FontWeight.w400,
           height: 1.15,
-          shadows: _haloShadows(context),
         ),
       ),
     );
@@ -554,22 +511,22 @@ class _CompactAchievementsIndicator extends StatelessWidget {
         // inner radius, so it doesn't square off against the rounded corners.
         borderRadius: radii.radiusExternal,
         child: Container(
-          width: 101.r,
-          height: 32.r,
+          width: 126.r,
+          height: _pillHeight,
           decoration: _pillDecoration(context),
           child: Padding(
             // Match the rating pill's 8.r horizontal inset so the trophy icon
             // doesn't hug the pill's left border (the pill's width above is
-            // widened to 101.r to absorb the padding + the 6.r icon→text gap
-            // without squeezing the 56.r text/progress column).
-            padding: EdgeInsets.symmetric(horizontal: 8.r, vertical: 3.r),
+            // widened to 126.r to absorb the padding + the 6.r icon→text gap
+            // without squeezing the 70.r text/progress column).
+            padding: EdgeInsets.symmetric(horizontal: 8.r, vertical: 4.r),
             child: Row(
               children: [
                 ClipRRect(
                   borderRadius: radii.radiusInternal,
                   child: Container(
-                    width: 22.r,
-                    height: 22.r,
+                    width: 28.r,
+                    height: 28.r,
                     color: theme.colorScheme.surface,
                     child: gameIconUrl != null
                         ? Image.network(
@@ -578,13 +535,13 @@ class _CompactAchievementsIndicator extends StatelessWidget {
                             errorBuilder: (_, _, _) => Icon(
                               Symbols.emoji_events_rounded,
                               color: statusColor,
-                              size: 12.r,
+                              size: 15.r,
                             ),
                           )
                         : Icon(
                             Symbols.emoji_events_rounded,
                             color: statusColor,
-                            size: 12.r,
+                            size: 15.r,
                           ),
                   ),
                 ),
@@ -594,12 +551,12 @@ class _CompactAchievementsIndicator extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     SizedBox(
-                      width: 56.r,
+                      width: 70.r,
                       child: Text(
                         progressText.toUpperCase(),
                         style: TextStyle(
                           color: theme.colorScheme.onSurface,
-                          fontSize: 8.r,
+                          fontSize: 10.r,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 0.5,
                         ),
@@ -608,16 +565,16 @@ class _CompactAchievementsIndicator extends StatelessWidget {
                       ),
                     ),
                     SizedBox(height: 2.r),
-                    // Bar is deliberately narrower than the 56.r text row so it
+                    // Bar is deliberately narrower than the 70.r text row so it
                     // doesn't run to the pill's right edge — leaves a right
                     // margin under the progress count.
                     SizedBox(
-                      width: 46.r,
+                      width: 58.r,
                       child: ClipRRect(
                         borderRadius: radii.radiusInternal,
                         child: LinearProgressIndicator(
                           value: progress,
-                          minHeight: 3.5.r,
+                          minHeight: 4.5.r,
                           backgroundColor: theme.colorScheme.onSurface
                               .withValues(alpha: 0.1),
                           valueColor: AlwaysStoppedAnimation<Color>(
@@ -665,7 +622,7 @@ class _MuteHintPill extends StatelessWidget {
             canRequestFocus: false,
             borderRadius: radii.radiusExternal,
             child: Container(
-              height: 32.r,
+              height: _pillHeight,
               padding: EdgeInsets.symmetric(horizontal: 8.r, vertical: 4.r),
               decoration: _pillDecoration(context),
               child: Row(
@@ -674,8 +631,8 @@ class _MuteHintPill extends StatelessWidget {
                 children: [
                   Image.asset(
                     'assets/images/gamepad/Xbox_View_button.png',
-                    width: 15.r,
-                    height: 15.r,
+                    width: 19.r,
+                    height: 19.r,
                     color: scheme.onSurface,
                   ),
                   SizedBox(width: 4.r),
@@ -683,7 +640,7 @@ class _MuteHintPill extends StatelessWidget {
                     isMuted
                         ? Symbols.volume_off_rounded
                         : Symbols.volume_up_rounded,
-                    size: 15.r,
+                    size: 19.r,
                     color: scheme.onSurface,
                   ),
                 ],
