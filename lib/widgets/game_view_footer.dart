@@ -86,13 +86,14 @@ class GameViewFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Unlike the details-card footer this one mirrors, the grid and carousel
-    // footers sit on the flat scaffold surface, not on top of the game's
-    // artwork. The white-on-black-shadow treatment inherited from that footer
-    // therefore renders as near-invisible ghost text in the light theme
-    // (white fill on a light background, readable only via its own outline).
-    // Take the colours from the scheme and drop the shadows: there is no busy
-    // background here for them to lift the text off.
+    // This footer floats: it is pinned to the bottom of the grid's stack with
+    // no scrim, so the rows scroll underneath it and box art passes directly
+    // behind the name and the status strip. It therefore needs the same
+    // lift-off-the-background treatment as the details footer it mirrors --
+    // but not that footer's fixed white-on-black, which renders as
+    // near-invisible ghost text in the light theme (white fill on a light
+    // background, readable only via its own outline). Fill and halo both come
+    // from the scheme instead; see [_haloShadows].
     final scheme = Theme.of(context).colorScheme;
 
     return Container(
@@ -189,6 +190,7 @@ class GameViewFooter extends StatelessWidget {
               fontSize: 12.r,
               fontWeight: FontWeight.w400,
               height: 1.15,
+              shadows: _haloShadows(scheme),
             ),
           ),
         ),
@@ -219,6 +221,10 @@ class GameViewFooter extends StatelessWidget {
           size: 16.0,
           showBackground: false,
           showGlyphShadow: false,
+          // Same strip, same background problem: the bare glyph needs the halo
+          // for the same reason the text beside it does. Not `showGlyphShadow`,
+          // which is the details card's fixed black drop shadow.
+          glyphShadows: _haloShadows(scheme),
           margin: strip.isEmpty ? EdgeInsets.zero : EdgeInsets.only(left: 8.r),
         ),
       );
@@ -235,6 +241,7 @@ class GameViewFooter extends StatelessWidget {
             color: scheme.onSurface,
             fontSize: 18.r,
             fontWeight: FontWeight.bold,
+            shadows: _haloShadows(scheme),
           ),
         ),
         SizedBox(
@@ -279,6 +286,26 @@ BoxDecoration _pillDecoration(BuildContext context) {
   );
 }
 
+/// A halo painted behind the footer's bare text and glyphs, in the colour of
+/// the surface they sit on.
+///
+/// The grid's footer carries no scrim, so whatever is scrolling behind it is
+/// the background its text has to survive: flat scaffold in one row, bright box
+/// art in the next. A fixed dark shadow only works over the second, and only in
+/// the dark theme. This takes its colour from the scheme, so it is always the
+/// opposite of the `onSurface` fill in front of it -- dark behind light text,
+/// light behind dark text -- which is what makes one treatment cover both
+/// themes and both backgrounds. Where the footer really is over flat surface
+/// the halo matches it exactly and so costs nothing visually.
+///
+/// Two stacked zero-offset blurs rather than one: the tight pass does the
+/// separating and the wide one keeps its edge from reading as an outline drawn
+/// around the glyph.
+List<Shadow> _haloShadows(ColorScheme scheme) => [
+  Shadow(color: scheme.surface, blurRadius: 3.r),
+  Shadow(color: scheme.surface, blurRadius: 6.r),
+];
+
 /// Height of the status strip under the game's name.
 ///
 /// Fixed so the footer is the same height for every game — see
@@ -309,6 +336,7 @@ class _InlineRating extends StatelessWidget {
     // Normalizes a 0-20 score to a 0.0-10.0 scale for color interpolation.
     final ratingValue = (game.rating / 2).clamp(0.0, 10.0);
     final colorRatio = (ratingValue - 1) / 9;
+    final scheme = Theme.of(context).colorScheme;
     final customColors = AppThemes.getCustomColors(context);
     final ratingColor = Color.lerp(
       customColors.errorColor,
@@ -320,15 +348,22 @@ class _InlineRating extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Icon(Symbols.star_rounded, color: ratingColor, size: 15.r, fill: 1),
+        Icon(
+          Symbols.star_rounded,
+          color: ratingColor,
+          size: 15.r,
+          fill: 1,
+          shadows: _haloShadows(scheme),
+        ),
         SizedBox(width: 3.r),
         Text(
           ratingValue.toStringAsFixed(0),
           style: TextStyle(
-            color: Theme.of(context).colorScheme.onSurface,
+            color: scheme.onSurface,
             fontSize: 12.r,
             fontWeight: FontWeight.w800,
             height: 1.15,
+            shadows: _haloShadows(scheme),
           ),
         ),
       ],
@@ -359,7 +394,12 @@ class _InlinePlayTime extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Icon(Symbols.schedule_rounded, color: scheme.onSurface, size: 15.r),
+        Icon(
+          Symbols.schedule_rounded,
+          color: scheme.onSurface,
+          size: 15.r,
+          shadows: _haloShadows(scheme),
+        ),
         SizedBox(width: 5.r),
         // Hand-laid cells rather than `FontFeature.tabularFigures()`, which the
         // pill this replaced asked for and never got: Anta carries no `tnum`
@@ -372,6 +412,7 @@ class _InlinePlayTime extends StatelessWidget {
             fontSize: 12.r,
             fontWeight: FontWeight.w700,
             height: 1.15,
+            shadows: _haloShadows(scheme),
           ),
         ),
       ],
@@ -386,6 +427,8 @@ class _FactSeparator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 8.r),
       child: Text(
@@ -394,12 +437,11 @@ class _FactSeparator extends StatelessWidget {
           // Dimmer than the segments either side of it: it is punctuation, and
           // at full strength it counted as a third thing to read between every
           // pair.
-          color: Theme.of(
-            context,
-          ).colorScheme.onSurface.withValues(alpha: 0.45),
+          color: scheme.onSurface.withValues(alpha: 0.45),
           fontSize: 12.r,
           fontWeight: FontWeight.w400,
           height: 1.15,
+          shadows: _haloShadows(scheme),
         ),
       ),
     );

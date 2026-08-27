@@ -42,6 +42,14 @@ class NeoSyncStatusIcon extends StatefulWidget {
   /// reason that footer drops the shadows from its text.
   final bool showGlyphShadow;
 
+  /// Shadows for the bare glyph, overriding [showGlyphShadow] when given.
+  ///
+  /// The grid and carousel footer floats over its scrolling rows, so its glyph
+  /// needs lifting off the background after all -- but with that footer's
+  /// scheme-derived halo, not the fixed black drop shadow above, which only
+  /// works on the details card's fanart and only in the dark theme.
+  final List<Shadow>? glyphShadows;
+
   const NeoSyncStatusIcon({
     super.key,
     required this.system,
@@ -51,6 +59,7 @@ class NeoSyncStatusIcon extends StatefulWidget {
     this.margin,
     this.showBackground = true,
     this.showGlyphShadow = true,
+    this.glyphShadows,
   });
 
   /// Whether this icon will draw anything at all for the given game.
@@ -137,15 +146,17 @@ class _NeoSyncStatusIconState extends State<NeoSyncStatusIcon>
             status.icon,
             color: status.color,
             size: widget.size.r,
-            shadows: widget.showGlyphShadow
-                ? [
-                    Shadow(
-                      blurRadius: 1.r,
-                      color: Colors.black,
-                      offset: const Offset(2, 2),
-                    ),
-                  ]
-                : null,
+            shadows:
+                widget.glyphShadows ??
+                (widget.showGlyphShadow
+                    ? [
+                        Shadow(
+                          blurRadius: 1.r,
+                          color: Colors.black,
+                          offset: const Offset(2, 2),
+                        ),
+                      ]
+                    : null),
           ),
         ),
       );
