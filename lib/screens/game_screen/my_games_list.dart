@@ -1740,8 +1740,10 @@ class _SystemGamesListState extends State<SystemGamesList> {
         child: MusicPlayer(
           systemColor: widget.system.colorAsColor,
           onFavoriteToggled: () {
-            // Re-sort the collection when favorite status is toggled via touch in MusicPlayer.
-            _reorderGamesListKeepingVisualPosition();
+            // Touch toggle inside MusicPlayer: the service already wrote the
+            // DB, so only the loaded list needs the new flag. The track keeps
+            // its place until the library is reloaded.
+            _applyFavoriteToLoadedList();
           },
           onBack: _goBack,
         ),
@@ -1816,22 +1818,10 @@ class _SystemGamesListState extends State<SystemGamesList> {
   }
 
   /// Called when the card's touch favorite button is pressed.
-  /// The DB toggle already happened in the card; mirror it into _games then resort.
+  /// The DB toggle already happened in the card; mirror it into _games. The
+  /// game keeps its position until the list is reloaded.
   void _handleFavoriteToggledFromCard() {
-    if (_selectedGame == null) return;
-    setState(() {
-      final gameIndex = _games.indexWhere(
-        (g) => g.romname == _selectedGame!.romname,
-      );
-      if (gameIndex != -1) {
-        final currentFavorite = _games[gameIndex].isFavorite ?? false;
-        _games[gameIndex] = _games[gameIndex].copyWith(
-          isFavorite: !currentFavorite,
-        );
-        _selectedGame = _games[gameIndex];
-      }
-    });
-    _reorderGamesListKeepingVisualPosition();
+    _applyFavoriteToLoadedList();
   }
 
   /// Called after a game is hidden. Hiding only takes the game out of the

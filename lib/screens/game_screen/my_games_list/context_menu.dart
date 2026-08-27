@@ -25,9 +25,9 @@ extension _ContextMenu on _SystemGamesListState {
 
   /// Opens the context menu for the selected game.
   ///
-  /// Music keeps Y = favourite (the music library has its own toggle branch and
-  /// reorder behaviour), and folder rows have no memberships at all, so both
-  /// bail out before the menu is built — mirroring [_toggleFavorite]'s guards.
+  /// Music keeps Y = favourite (the music library has its own toggle branch),
+  /// and folder rows have no memberships at all, so both bail out before the
+  /// menu is built — mirroring [_toggleFavorite]'s guards.
   Future<void> _openGameContextMenu() async {
     final game = _selectedGame;
     if (game == null) return;
@@ -93,19 +93,18 @@ extension _ContextMenu on _SystemGamesListState {
   /// Applies a favourite change chosen in the menu and reports it.
   ///
   /// [_toggleFavorite] already owns the full follow-up (refreshDetectedSystems
-  /// so the Favourites system card appears/disappears, the local
-  /// `copyWith(isFavorite:)` and the visual-position-preserving re-sort), so
-  /// the menu adds the toast and — exactly like
+  /// so the Favourites system card appears/disappears, and the local
+  /// `copyWith(isFavorite:)`), so the menu adds the toast and — exactly like
   /// [_setCollectionMembershipFromMenu] — the reload that lets an unfavourited
   /// game leave the Favourites view it was removed from.
   Future<void> _setFavoriteFromMenu(bool adding, String label) async {
     await _toggleFavorite();
     if (!mounted) return;
 
-    // Viewing Favourites and the game just left it: the re-sort above only
-    // reorders what is already loaded, so without this the row stays visible
-    // until the list is rebuilt. (In this view every game is a favourite, so
-    // only removal can happen here.)
+    // Viewing Favourites and the game just left it: the toggle above only
+    // updates the flag on the row already loaded, so without this the row
+    // stays visible until the list is rebuilt. (In this view every game is a
+    // favourite, so only removal can happen here.)
     if (!adding && widget.system.folderName == SystemFolderNames.favorites) {
       await _loadGames();
       if (!mounted) return;

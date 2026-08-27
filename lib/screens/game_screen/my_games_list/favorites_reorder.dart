@@ -1,15 +1,18 @@
 part of '../my_games_list.dart';
 
-/// Favorite toggling and list re-sorting for the system games list.
+/// Favorite toggling and list re-ordering for the system games list.
 ///
-/// Keeps favorites-first / alphabetical ordering in sync after a favorite
-/// toggle or a re-scrape, preserving the user's visual focus position. All
-/// state lives on the host [State]; this extension only moves the methods out
-/// of the monolith — behaviour is unchanged. The `setState` calls route through
-/// the host [rebuild] bridge (`State.setState` is `@protected` and can't be
-/// invoked from an extension).
+/// A favourite toggle updates the flag in place and leaves the row where it
+/// is; favourites-first ordering is applied when the list is loaded. A
+/// re-scrape does re-sort, because a renamed game's alphabetical rank really
+/// did change — and that one follows the game rather than the index.
+///
+/// All state lives on the host [State]; this extension only holds the methods
+/// that read and write it. The `setState` calls route through the host
+/// [rebuild] bridge (`State.setState` is `@protected` and can't be invoked
+/// from an extension).
 extension _FavoritesReorder on _SystemGamesListState {
-  /// Toggles the 'favorite' status for the selected game and re-sorts the list.
+  /// Toggles the 'favorite' status for the selected game.
   Future<void> _toggleFavorite() async {
     if (_selectedGame == null) return;
     if (_isFolderEntry(_selectedGame)) return;
@@ -21,20 +24,7 @@ extension _FavoritesReorder on _SystemGamesListState {
         if (!mounted) return;
         await configProvider.refreshDetectedSystems();
 
-        rebuild(() {
-          final gameIndex = _games.indexWhere(
-            (g) => g.romname == _selectedGame!.romname,
-          );
-          if (gameIndex != -1) {
-            final currentFavorite = _games[gameIndex].isFavorite ?? false;
-            _games[gameIndex] = _games[gameIndex].copyWith(
-              isFavorite: !currentFavorite,
-            );
-            _selectedGame = _games[gameIndex];
-          }
-        });
-
-        _reorderGamesListKeepingVisualPosition();
+        _applyFavoriteToLoadedList();
       } catch (e) {
         _SystemGamesListState._log.e('Error toggling music favorite: $e');
       }
@@ -48,20 +38,7 @@ extension _FavoritesReorder on _SystemGamesListState {
       if (!mounted) return;
       await configProvider.refreshDetectedSystems();
 
-      rebuild(() {
-        final gameIndex = _games.indexWhere(
-          (game) => game.romname == _selectedGame!.romname,
-        );
-        if (gameIndex != -1) {
-          final currentFavorite = _games[gameIndex].isFavorite ?? false;
-          _games[gameIndex] = _games[gameIndex].copyWith(
-            isFavorite: !currentFavorite,
-          );
-          _selectedGame = _games[gameIndex];
-        }
-      });
-
-      _reorderGamesListKeepingVisualPosition();
+      _applyFavoriteToLoadedList();
     } catch (error) {
       if (!mounted) return;
       _SystemGamesListState._log.e('Error toggling favorite: $error');
@@ -74,59 +51,36 @@ extension _FavoritesReorder on _SystemGamesListState {
     }
   }
 
-  /// Re-sorts the game collection (Favorites first, then Alphabetical) while
-  /// preserving the user's current scroll/focus index for a seamless experience.
-  void _reorderGamesListKeepingVisualPosition() {
-    if (_selectedGame == null) return;
+  /// Mirrors a favourite change into the list already on screen, without
+  /// re-sorting it.
+  ///
+  /// Favourites-first is the *load* order (the query behind
+  /// [GameService.loadGamesForSystem] sorts `is_favorite DESC` before the
+  /// name), so a newly favourited game does take its place at the front the
+  /// next time the system is opened. Re-sorting here instead made the row leap
+  /// to the top the instant the button was pressed, and because the cursor
+  /// stayed on the *index* rather than the game, the selection was left on
+  /// whatever game slid into the vacated slot.
+  ///
+  /// Publishes a new list rather than writing into the current one: the grid
+  /// and carousel key their cached artwork cards off the list identity, which
+  /// the re-sort this replaces used to change as a side effect.
+  void _applyFavoriteToLoadedList() {
+    final selected = _selectedGame;
+    if (selected == null) return;
 
-    // In subfolder view the level (folders-first, favorites-pinned) is rebuilt
-    // wholesale rather than re-sorted in place, to preserve folder ordering.
-    if (_subfolderViewEnabled) {
-      final oldIndex = _selectedGameIndex;
-      rebuild(() {
-        _games = _buildDisplayList();
-        _gameIndexMap = {for (int i = 0; i < _games.length; i++) _games[i]: i};
-        if (oldIndex >= 0 && oldIndex < _games.length) {
-          _selectedGameIndex = oldIndex;
-          _selectedGame = _games[oldIndex];
-        } else if (_games.isNotEmpty) {
-          _selectedGameIndex = 0;
-          _selectedGame = _games.first;
-        }
-      });
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _scrollToSelectedItem();
-      });
-      return;
-    }
+    final index = _games.indexWhere((game) => game.romname == selected.romname);
+    if (index == -1) return;
 
-    final oldIndex = _selectedGameIndex;
+    final updated = _games[index].copyWith(
+      isFavorite: !(_games[index].isFavorite ?? false),
+    );
 
     rebuild(() {
-      final sortedGames = List<GameModel>.from(_games);
-
-      sortedGames.sort((a, b) {
-        if (a.isFavorite == true && b.isFavorite != true) return -1;
-        if (a.isFavorite != true && b.isFavorite == true) return 1;
-        return a.name.compareTo(b.name);
-      });
-
-      _games = sortedGames;
+      _games = replaceGameInList(_games, updated);
       _gameIndexMap = {for (int i = 0; i < _games.length; i++) _games[i]: i};
-
-      if (oldIndex >= 0 && oldIndex < _games.length) {
-        _selectedGameIndex = oldIndex;
-        _selectedGame = _games[oldIndex];
-      } else if (_games.isNotEmpty) {
-        _selectedGameIndex = 0;
-        _selectedGame = _games.first;
-      }
-    });
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        _scrollToSelectedItem();
-      }
+      _selectedGameIndex = index;
+      _selectedGame = updated;
     });
   }
 

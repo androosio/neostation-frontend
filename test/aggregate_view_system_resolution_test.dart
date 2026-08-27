@@ -17,8 +17,8 @@ import 'database_test_helper.dart';
 ///    `app_systems` row at all. That is what left the game settings dialog's
 ///    Emulator tab empty in every aggregate view;
 ///  * a game that stops belonging to the view has to leave the list, which
-///    means the list must be reloaded — the in-place favourites re-sort only
-///    reorders what is already loaded.
+///    means the list must be reloaded — the favourite toggle only updates the
+///    flag on the row already loaded.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -222,10 +222,10 @@ void main() {
           games.firstWhere((g) => g.romname == 'Contra.zip'),
         );
 
-        // The in-place re-sort the favourite toggle runs only reorders the games
-        // already held in memory, so the un-favourited row stayed visible until
-        // something rebuilt the list. Reloading is what actually drops it — the
-        // same remedy the collection membership path already applies.
+        // The favourite toggle only flips the flag on the rows already held
+        // in memory, so the un-favourited row stayed visible until something
+        // rebuilt the list. Reloading is what actually drops it — the same
+        // remedy the collection membership path already applies.
         games = await GameService.loadGamesForSystem(favourites);
         expect(games.map((g) => g.romname), ['Mario.zip']);
       },
