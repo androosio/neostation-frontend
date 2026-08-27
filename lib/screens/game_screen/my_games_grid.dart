@@ -9,6 +9,7 @@ import 'package:neostation/sync/sync_manager.dart';
 import 'package:neostation/models/game_model.dart';
 import 'package:neostation/utils/rom_tree.dart';
 import 'package:neostation/models/system_model.dart';
+import 'package:neostation/utils/eased_scrim.dart';
 import 'package:neostation/utils/effective_system.dart';
 import 'package:neostation/providers/file_provider.dart';
 import 'package:neostation/providers/sqlite_config_provider.dart';
@@ -1370,6 +1371,9 @@ class _GamesGridState extends State<GamesGrid> {
   /// dark text in the light ones. In the OLED theme that background *is* black,
   /// so the darkest themes get the strongest scrim for free.
   ///
+  /// Both segments ease rather than run straight (see [easedScrim]): a
+  /// straight ramp drew a hard line across the grid at the top of the tail.
+  ///
   /// [_footerKey] goes on the outside of the column, so the measured height is
   /// the tail plus the band. That is what keeps the fade honest: the height
   /// feeds both the sliver's bottom padding and [_centerTargetFor], which have
@@ -1387,20 +1391,12 @@ class _GamesGridState extends State<GamesGrid> {
           Container(
             height: 40.r,
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [bg.withValues(alpha: 0.0), bg.withValues(alpha: 0.85)],
-              ),
+              gradient: easedScrim(bg, 0.0, _scrimWash),
             ),
           ),
           DecoratedBox(
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [bg.withValues(alpha: 0.85), bg],
-              ),
+              gradient: easedScrim(bg, _scrimWash, 1.0),
             ),
             child: _chromeFooter!,
           ),
@@ -1408,6 +1404,9 @@ class _GamesGridState extends State<GamesGrid> {
       ),
     );
   }
+
+  /// How far the tail has darkened the grid by the time it reaches the band.
+  static const double _scrimWash = 0.85;
 
   /// (Re)builds the footer pill only when the settled selection or its
   /// achievement/favorite state changes. During a fast-nav burst the signature
