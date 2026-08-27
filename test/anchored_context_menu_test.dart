@@ -466,4 +466,53 @@ void main() {
     );
     expect(menuScrollPosition(tester).maxScrollExtent, 0.0);
   });
+
+  group('reveal policy', () {
+    // The rule that decides which way the panel scrolls to expose the focused
+    // row. Tested directly because the path that drives it cannot be: the
+    // D-pad reaches this through GamepadNavigation, which throttles directional
+    // keys on a 128ms *real* clock that a widget test's fake time never moves.
+
+    test('a step down the list exposes the row trailing edge', () {
+      expect(
+        contextMenuRevealPolicy(from: 3, to: 4),
+        ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+      );
+    });
+
+    test('a step up the list exposes the row leading edge', () {
+      expect(
+        contextMenuRevealPolicy(from: 4, to: 3),
+        ScrollPositionAlignmentPolicy.keepVisibleAtStart,
+      );
+    });
+
+    test('wrapping off the end scrolls back to the top, not onward', () {
+      // Pressing down on the last row lands on the first. Read as "the user
+      // pressed down" this asks keepVisibleAtEnd to reveal row 0 from the
+      // bottom of the list -- and that policy refuses to scroll backwards, so
+      // the panel would sit still with the cursor on a row off the top of it.
+      // That was the reported bug.
+      expect(
+        contextMenuRevealPolicy(from: 59, to: 0),
+        ScrollPositionAlignmentPolicy.keepVisibleAtStart,
+      );
+    });
+
+    test('wrapping off the start scrolls to the bottom, not onward', () {
+      expect(
+        contextMenuRevealPolicy(from: 0, to: 59),
+        ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+      );
+    });
+
+    test('opening the menu walks forwards into the list', () {
+      // The panel starts at the top, so the sentinel `from` has to sit before
+      // every real row or a menu restored onto row 0 would scroll the wrong way.
+      expect(
+        contextMenuRevealPolicy(from: -1, to: 0),
+        ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+      );
+    });
+  });
 }

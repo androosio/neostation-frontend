@@ -152,6 +152,33 @@ Rect _resolveAnchorRect(GlobalKey? anchorKey, BuildContext context) {
   );
 }
 
+/// Which way to scroll the panel so the row at [to] comes into view, given the
+/// row at [from] that the cursor just left.
+///
+/// The rule is about the two *indices*, deliberately not about which key was
+/// pressed, and the difference is the whole point. Reading the key direction
+/// gets a plain step right and the wrap wrong, because the menu's cursor wraps:
+/// pressing down on the last row moves to the first, which is a step *up* the
+/// list even though the user pressed down. That is not a cosmetic mismatch --
+/// [ScrollPositionAlignmentPolicy.keepVisibleAtEnd] refuses to scroll
+/// backwards, so asking it to reveal row 0 from the bottom of the list leaves
+/// the panel exactly where it was, with the cursor on a row nobody can see.
+/// Its counterpart refuses to scroll forwards and strands the other wrap the
+/// same way.
+///
+/// Comparing the indices describes where the cursor actually went, so the wrap
+/// needs no special case: it is simply a very long step in the other direction.
+/// Either way the panel moves the minimum needed to expose the row's leading or
+/// trailing edge, which is what keeps a walk down the list steady instead of
+/// recentring under the cursor on every press.
+@visibleForTesting
+ScrollPositionAlignmentPolicy contextMenuRevealPolicy({
+  required int from,
+  required int to,
+}) => to < from
+    ? ScrollPositionAlignmentPolicy.keepVisibleAtStart
+    : ScrollPositionAlignmentPolicy.keepVisibleAtEnd;
+
 /// The menu panel itself. Public so a caller can host it directly (e.g. in a
 /// test), but the normal entry point is [showAnchoredContextMenu].
 class AnchoredContextMenu extends StatefulWidget {
@@ -218,10 +245,14 @@ class _AnchoredContextMenuState extends State<AnchoredContextMenu> {
     _selectedIndex = widget.initialIndex.clamp(0, widget.items.length - 1);
 
     _gamepadNav = GamepadNavigation(
-      // Short fixed lists: a held direction would just spin the cursor round.
-      allowRepeat: false,
-      onNavigateUp: () => _move(-1),
-      onNavigateDown: () => _move(1),
+      // `Add to` holds one row per collection, so this list is as long as the
+      // user has made it and pressing once per row is not a walk anyone should
+      // have to do. Held directions stop at the ends rather than spinning the
+      // cursor round -- see [_move], which is also where the wrap that a single
+      // press still performs lives.
+      allowRepeat: true,
+      onNavigateUp: (bool repeat) => _move(-1, repeat: repeat),
+      onNavigateDown: (bool repeat) => _move(1, repeat: repeat),
       onNavigateRight: _openSubmenuIfAny,
       // Root menu: left is inert (see [AnchoredContextMenu.isSubmenu]).
       onNavigateLeft: widget.isSubmenu ? _close : null,
@@ -245,9 +276,9 @@ class _AnchoredContextMenuState extends State<AnchoredContextMenu> {
       );
       // The cursor can open deep in the list -- reopening the menu restores
       // the row it was left on -- and on a capped panel that row may start off
-      // screen. Nothing has moved yet, so there is no travel direction to read:
-      // treat it as downward, which exposes the row's trailing edge.
-      _revealSelected(1);
+      // screen. The panel starts at the top, so every such row is reached by
+      // scrolling forwards: -1 is the index before the first.
+      _revealSelected(-1);
 
       final autoOpen = widget.openSubmenuAtIndex;
       if (autoOpen != null &&
@@ -269,36 +300,50 @@ class _AnchoredContextMenuState extends State<AnchoredContextMenu> {
 
   /// Scrolls the focused row back into view after the cursor moves onto it.
   ///
-  /// [delta] is the direction the cursor travelled, which is what picks the
-  /// alignment policy: scrolling the minimum needed to expose the row's
-  /// trailing edge going down, its leading edge going up. That keeps a menu
-  /// walk steady instead of recentring the list under the cursor on every
-  /// press, and it lands the wrap-around correctly at both ends -- the row the
-  /// cursor wraps to can only be exposed by scrolling to that extreme.
-  void _revealSelected(int delta) {
+  /// [previousIndex] is the row the cursor came from; the one it is on now is
+  /// [_selectedIndex]. See [contextMenuRevealPolicy] for why the pair is what
+  /// decides the alignment, rather than which key was pressed.
+  void _revealSelected(int previousIndex, {bool animate = true}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_scrollController.hasClients) return;
       final rowContext = _itemKeys[_selectedIndex].currentContext;
       if (rowContext == null) return;
       Scrollable.ensureVisible(
         rowContext,
-        duration: const Duration(milliseconds: 120),
+        duration: animate ? const Duration(milliseconds: 120) : Duration.zero,
         curve: Curves.easeOut,
-        alignmentPolicy: delta > 0
-            ? ScrollPositionAlignmentPolicy.keepVisibleAtEnd
-            : ScrollPositionAlignmentPolicy.keepVisibleAtStart,
+        alignmentPolicy: contextMenuRevealPolicy(
+          from: previousIndex,
+          to: _selectedIndex,
+        ),
       );
     });
   }
 
-  void _move(int delta) {
-    if (widget.items.isEmpty) return;
+  /// Moves the cursor by [delta], returning whether it went anywhere.
+  ///
+  /// The return value is what [GamepadNavigation] reads to decide whether to
+  /// keep an auto-repeat running, which is the whole reason a held direction
+  /// and a single press differ here: a single press at either end wraps round,
+  /// as it always has, but a *held* one stops there. Wrapping under a held
+  /// button would send the cursor round the list forever, and on a long list of
+  /// collections the user would have no idea which lap they were on.
+  bool _move(int delta, {bool repeat = false}) {
+    if (widget.items.isEmpty) return false;
+    final int previousIndex = _selectedIndex;
+    final int next = previousIndex + delta;
+    final bool wraps = next < 0 || next >= widget.items.length;
+    if (wraps && repeat) return false;
+
     setState(() {
-      _selectedIndex =
-          (_selectedIndex + delta + widget.items.length) % widget.items.length;
+      _selectedIndex = (next + widget.items.length) % widget.items.length;
     });
-    _revealSelected(delta);
+    // Repeats ramp to one step every 35ms, far inside the reveal's animation,
+    // so an animated scroll would fall behind the cursor and never catch up
+    // while the button was held. Under a repeat the panel jumps instead.
+    _revealSelected(previousIndex, animate: !repeat);
     SfxService().playNavSound();
+    return true;
   }
 
   void _close() {
