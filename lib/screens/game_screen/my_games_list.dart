@@ -670,16 +670,34 @@ class _SystemGamesListState extends State<SystemGamesList> {
     // → bundled asset, themed background when present) so themed systems don't
     // flash the default logo here before the grid re-asserts its state on pop.
     final configProvider = context.read<SqliteConfigProvider>();
-    final folder = widget.system.primaryFolderName;
 
-    final String? customLogo = widget.system.customLogoPath?.isNotEmpty == true
-        ? widget.system.customLogoPath
+    // A collection's synthesized system (`collection:<uuid>`) owns no artwork:
+    // there is no `collection:<uuid>.webp` logo and no theme background under
+    // that name, so restoring *it* here left the second screen on the default
+    // NeoStation logo over a bare background after backing out of a collection.
+    // Back from a collection always lands on a view of collections (the
+    // browser, or the systems grid's Collections card), so restore the parent
+    // `collections` system's branding — exactly what the second screen showed
+    // before the collection was opened. The browser itself pushes nothing
+    // (`enableSecondaryDisplay: false`), so nothing re-asserts it after us.
+    final bool isCollection = SystemFolderNames.isCollection(
+      widget.system.folderName,
+    );
+    final SystemModel? branding = isCollection
+        ? _detectedSystem(configProvider, SystemFolderNames.collections)
+        : widget.system;
+    final folder = isCollection
+        ? SystemFolderNames.collections
+        : widget.system.primaryFolderName;
+
+    final String? customLogo = branding?.customLogoPath?.isNotEmpty == true
+        ? branding!.customLogoPath
         : null;
     final systemLogo = customLogo ?? 'assets/images/logos/$folder.webp';
     final bool isLogoAsset = customLogo == null;
 
     final neoAssets = context.read<NeoAssetsProvider>();
-    final String? customBg = widget.system.customBackgroundPath;
+    final String? customBg = branding?.customBackgroundPath;
     final bool hasCustomBg = customBg != null && customBg.isNotEmpty;
     final String? themeBg = hasCustomBg
         ? null
@@ -691,7 +709,8 @@ class _SystemGamesListState extends State<SystemGamesList> {
 
     // ignore: unawaited_futures
     _secondaryDisplayState?.updateState(
-      systemName: widget.system.realName,
+      systemName:
+          branding?.realName ?? AppLocale.collections.getString(context),
       isGameSelected: false,
       isVideoMuted: !configProvider.config.videoSound,
       backgroundColor: Theme.of(context).scaffoldBackgroundColor.toARGB32(),
@@ -701,8 +720,8 @@ class _SystemGamesListState extends State<SystemGamesList> {
       clearSystemBackground: systemBackground == null,
       isBackgroundAsset: false,
       useShader: systemBackground == null,
-      shaderColor1: widget.system.color1AsColor?.toARGB32(),
-      shaderColor2: widget.system.color2AsColor?.toARGB32(),
+      shaderColor1: branding?.color1AsColor?.toARGB32(),
+      shaderColor2: branding?.color2AsColor?.toARGB32(),
       useFluidShader: false,
       isOled: isOled,
       clearFanart: true,
@@ -736,6 +755,19 @@ class _SystemGamesListState extends State<SystemGamesList> {
         });
       }
     });
+  }
+
+  /// The detected system whose folder is [folderName], or null when this
+  /// install has no row for it (a systems bundle that predates the virtual
+  /// system, before the next sync).
+  SystemModel? _detectedSystem(
+    SqliteConfigProvider configProvider,
+    String folderName,
+  ) {
+    for (final system in configProvider.detectedSystems) {
+      if (system.folderName == folderName) return system;
+    }
+    return null;
   }
 
   /// Selects a game via interaction (touch or click) and triggers resource resolution.
