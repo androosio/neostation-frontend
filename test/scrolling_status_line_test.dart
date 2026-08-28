@@ -11,6 +11,7 @@ void main() {
     required double slotWidth,
     required double contentWidth,
     String resetKey = 'a',
+    double shadowRoom = 0,
   }) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -21,6 +22,7 @@ void main() {
               height: 20,
               child: ScrollingStatusLine(
                 resetKey: resetKey,
+                shadowRoom: shadowRoom,
                 children: [SizedBox(width: contentWidth, height: 20)],
               ),
             ),
@@ -99,5 +101,79 @@ void main() {
 
     // Clean up the timer the new strip scheduled.
     await track(tester, 60);
+  });
+
+  /// The clip, which is a separate contract from the movement above and the
+  /// one a screenshot can see least of all.
+  ///
+  /// `SingleChildScrollView` clips only once its content overflows, and then to
+  /// its viewport rect in *both* axes. The details footer's lines are fixed at
+  /// 15.r and 16.r with about a pixel of slack, so a shadowed line that fits
+  /// keeps its whole shadow and the same line scrolling loses the bottom of it
+  /// — the shadow changes at the instant the marquee starts. `shadowRoom` is
+  /// what makes both states paint the same.
+  group('shadowRoom', () {
+    /// The strip's own slack clip, picked out by its clipper: the viewport
+    /// inside it renders a plain `ClipRect` of its own, so type alone would
+    /// match either one.
+    CustomClipper<Rect>? slackClipper(WidgetTester tester) {
+      final Iterable<ClipRect> ours = tester
+          .widgetList<ClipRect>(
+            find.descendant(
+              of: find.byType(ScrollingStatusLine),
+              matching: find.byType(ClipRect),
+            ),
+          )
+          .where((clip) => clip.clipper != null);
+      return ours.isEmpty ? null : ours.single.clipper;
+    }
+
+    Clip viewportClip(WidgetTester tester) => tester
+        .widget<SingleChildScrollView>(find.byType(SingleChildScrollView))
+        .clipBehavior;
+
+    testWidgets('clips to its own box when no room is asked for', (
+      tester,
+    ) async {
+      await pumpStrip(tester, slotWidth: 100, contentWidth: 400);
+
+      expect(viewportClip(tester), Clip.hardEdge);
+      expect(slackClipper(tester), isNull);
+
+      await track(tester, 60);
+    });
+
+    testWidgets('hands the clip over and opens it vertically when it is', (
+      tester,
+    ) async {
+      await pumpStrip(tester, slotWidth: 100, contentWidth: 400, shadowRoom: 6);
+
+      // The viewport must stop clipping, or its box is still what cuts the
+      // shadow off no matter what is wrapped around it.
+      expect(viewportClip(tester), Clip.none);
+
+      final CustomClipper<Rect> clipper = slackClipper(tester)!;
+
+      // Horizontal edges exactly on the line's width — that clip is the one
+      // hiding the off-screen end of the strip and has to stay put. Vertical
+      // edges opened by the room asked for.
+      expect(
+        clipper.getClip(const Size(100, 20)),
+        const Rect.fromLTRB(0, -6, 100, 26),
+      );
+
+      await track(tester, 60);
+    });
+
+    testWidgets('still scrolls with the clip handed over', (tester) async {
+      // The slack clip sits between the strip and its viewport, so it is worth
+      // one check that it did not break the movement the tests above pin.
+      await pumpStrip(tester, slotWidth: 100, contentWidth: 400, shadowRoom: 6);
+
+      final List<double> offsets = await track(tester, 200);
+      expect(offsets.any((o) => o > 0), isTrue);
+
+      await track(tester, 60);
+    });
   });
 }
