@@ -207,6 +207,7 @@ class GameDetailsFooter extends StatelessWidget {
             height: _statusLineHeight,
             child: ScrollingStatusLine(
               resetKey: game.romname,
+              shadowRoom: _onArtShadowRoom,
               children: metadata,
             ),
           ),
@@ -294,21 +295,30 @@ class GameDetailsFooter extends StatelessWidget {
       margin: label.isEmpty ? EdgeInsets.zero : EdgeInsets.only(left: 8.r),
     );
 
-    final Widget text = RepaintBoundary(
-      child: Text(
-        label,
-        maxLines: 1,
-        // No wrapping and no ellipsis: whichever branch below is taken, this
-        // text is laid out at its full width — either because it fits, or
-        // because the marquee is going to scroll past its end.
-        softWrap: false,
-        strutStyle: StrutStyle(
-          fontSize: 13.r,
-          height: 1.15,
-          forceStrutHeight: true,
-        ),
-        style: style,
+    // No `RepaintBoundary` around this, deliberately. One looks free here —
+    // the footer rebuilds on every sync tick and every achievements poll, and
+    // a boundary would keep those off this line — but the marquee below moves
+    // this exact widget every 50ms, and a retained layer is *repositioned*
+    // rather than repainted. The damage the engine works out for that move is
+    // the layer's paint bounds, which for a `Text` is its line box and not the
+    // drop shadow hanging past it: the shadow's pixels are then neither
+    // cleared where they were nor drawn where they now belong, so the name
+    // scrolls out from under its own shadow and leaves it standing. It only
+    // shows up where a frame is a partial repaint, which is why it comes in
+    // from devices and not from a desktop build.
+    final Widget text = Text(
+      label,
+      maxLines: 1,
+      // No wrapping and no ellipsis: whichever branch below is taken, this
+      // text is laid out at its full width — either because it fits, or
+      // because the marquee is going to scroll past its end.
+      softWrap: false,
+      strutStyle: StrutStyle(
+        fontSize: 13.r,
+        height: 1.15,
+        forceStrutHeight: true,
       ),
+      style: style,
     );
 
     return LayoutBuilder(
@@ -331,6 +341,7 @@ class GameDetailsFooter extends StatelessWidget {
               Expanded(
                 child: ScrollingStatusLine(
                   resetKey: game.romname,
+                  shadowRoom: _onArtShadowRoom,
                   children: [text],
                 ),
               )
@@ -631,6 +642,14 @@ class GameDetailsFooter extends StatelessWidget {
 List<Shadow> get _onArtShadows => [
   Shadow(blurRadius: 1.r, color: Colors.black, offset: const Offset(2, 2)),
 ];
+
+/// How far [_onArtShadows] reaches past the glyphs it sits under: the 2px
+/// offset, plus the blur's own spread either side of that.
+///
+/// The two marquee'd lines need it as slack in their clip. Without it a line
+/// keeps its whole shadow while it fits and loses the bottom of it the moment
+/// it is long enough to scroll — see [ScrollingStatusLine.shadowRoom].
+double get _onArtShadowRoom => 6.r;
 
 /// Height of the metadata strip, fixed because the marquee inside it needs a
 /// bounded box to measure its overflow against. Driven by the tallest thing on

@@ -23,10 +23,26 @@ class ScrollingStatusLine extends StatefulWidget {
   /// mid-scroll at the old one's offset.
   final String resetKey;
 
+  /// Vertical slack to leave in the clip for anything the children paint
+  /// outside their own line box — a drop shadow, in practice.
+  ///
+  /// [SingleChildScrollView] only clips once its content overflows, and when
+  /// it does it clips to the viewport rect in *both* axes. So a shadowed line
+  /// that fits keeps its whole shadow and the same line scrolling loses the
+  /// part hanging below the glyphs, which reads as the shadow coming adrift
+  /// the moment the marquee starts. The horizontal clip is what hides the
+  /// off-screen end of the strip and has to stay; this opens the vertical one
+  /// so both states paint the line the same way.
+  ///
+  /// Zero (the default) keeps the plain viewport clip, for strips whose
+  /// children stay inside their box.
+  final double shadowRoom;
+
   const ScrollingStatusLine({
     super.key,
     required this.children,
     required this.resetKey,
+    this.shadowRoom = 0,
   });
 
   @override
@@ -144,9 +160,15 @@ class _ScrollingStatusLineState extends State<ScrollingStatusLine> {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
+    final bool needsSlack = widget.shadowRoom > 0;
+
+    final Widget viewport = SingleChildScrollView(
       controller: _scrollController,
       scrollDirection: Axis.horizontal,
+      // With slack asked for, the clip below is the one doing the hiding and
+      // the viewport must not also clip to its own box — that box is exactly
+      // what cuts the shadow off.
+      clipBehavior: needsSlack ? Clip.none : Clip.hardEdge,
       // Touch dragging is off: the strip is a readout, and a stray swipe on it
       // would fight the marquee's own offset.
       physics: const NeverScrollableScrollPhysics(),
@@ -156,5 +178,28 @@ class _ScrollingStatusLineState extends State<ScrollingStatusLine> {
         children: widget.children,
       ),
     );
+
+    if (!needsSlack) return viewport;
+
+    return ClipRect(
+      clipper: _VerticalSlackClipper(widget.shadowRoom),
+      child: viewport,
+    );
   }
+}
+
+/// Clips the strip to its own width, but lets [slack] through above and below
+/// it so a drop shadow under the text survives the marquee's clip.
+class _VerticalSlackClipper extends CustomClipper<Rect> {
+  final double slack;
+
+  const _VerticalSlackClipper(this.slack);
+
+  @override
+  Rect getClip(Size size) =>
+      Rect.fromLTRB(0, -slack, size.width, size.height + slack);
+
+  @override
+  bool shouldReclip(_VerticalSlackClipper oldClipper) =>
+      oldClipper.slack != slack;
 }
