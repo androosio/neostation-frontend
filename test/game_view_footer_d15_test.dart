@@ -13,15 +13,19 @@ import 'package:neostation/themes/chrome_surface.dart';
 import 'package:neostation/widgets/game_view_footer.dart';
 import 'package:neostation/widgets/monospaced_clock.dart';
 
-/// D15 — the grid/carousel footer's action row is controls (plus the clock that
-/// inherited PLAY's slot), and the readouts that used to sit in it live on the
-/// status strip under the game's name instead.
+/// D15 — what the grid/carousel footer's action row is actually a rule about.
 ///
-/// Two separable claims, and the second one is the one that bites: the strip is
-/// conditional (a game may have no score and may never have been played) but
-/// this footer's height is *paid for by the view above it* — the grid and the
-/// carousel take whatever column space is left. A strip that collapsed for an
-/// unscraped game would resize the whole grid as the selection moved onto one.
+/// The first reading was "controls only", and it exiled the score to the status
+/// strip along with the sync glyph. That went too far: the score came back to
+/// the row, and the clock had never left it. The rule that survives is about
+/// *chrome* — a pill reads as pressable, so only the things that answer to a
+/// press wear one, and the two readouts bracketing them are bare.
+///
+/// The other claim here is the one that bites: the strip is conditional (a game
+/// may have no score and may never have been played) but this footer's height
+/// is *paid for by the view above it* — the grid and the carousel take whatever
+/// column space is left. A strip that collapsed for an unscraped game would
+/// resize the whole grid as the selection moved onto one.
 class _FakeRaProvider extends RetroAchievementsProvider {
   @override
   bool get isConnected => false;
@@ -87,21 +91,38 @@ void main() {
     await tester.pump();
   }
 
-  testWidgets('the rating is not in the action row', (tester) async {
+  testWidgets('the readouts bracket the row, and neither wears a pill', (
+    tester,
+  ) async {
     await pumpFooter(tester, _game(rating: 16.0, playTime: 3671));
 
-    // The score renders, but not inside the action cluster, which the footer
-    // wraps in an ExcludeFocus.
-    expect(find.byIcon(Symbols.star_rounded), findsOneWidget);
+    // Both are in the action cluster, which the footer wraps in an ExcludeFocus.
     final actionRow = find.byType(ExcludeFocus);
     expect(actionRow, findsOneWidget);
+    for (final readout in [
+      find.byIcon(Symbols.star_rounded),
+      find.byType(MonospacedClock),
+    ]) {
+      expect(find.descendant(of: actionRow, matching: readout), findsOneWidget);
+    }
+
+    // Score first, clock last — a control that appears between them cannot
+    // push either off its end of the row.
+    final star = tester.getRect(find.byIcon(Symbols.star_rounded));
+    final clock = tester.getRect(find.byType(MonospacedClock));
+    expect(star.right, lessThan(clock.left));
+
+    // And neither is inside anything with a surface. This is the whole of D15
+    // that survived: chrome means pressable, so a readout has none.
     expect(
-      find.descendant(
-        of: actionRow,
-        matching: find.byIcon(Symbols.star_rounded),
+      find.ancestor(
+        of: find.byIcon(Symbols.star_rounded),
+        matching: find.byWidgetPredicate(
+          (w) => w is Container && w.decoration != null,
+        ),
       ),
       findsNothing,
-      reason: 'a score answers to nothing; it does not belong among controls',
+      reason: 'a score answers to nothing, so it must not look like a button',
     );
   });
 

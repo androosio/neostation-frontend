@@ -859,6 +859,7 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
         currentGameInfo: _currentGameInfo,
       ),
       hasPlayTime: gameDetailsFooterHasPlayTime(_game),
+      hasRating: gameDetailsFooterHasRating(_game),
       hasMetadata: gameDetailsFooterHasMetadata(_game),
     );
 

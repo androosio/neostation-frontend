@@ -73,13 +73,18 @@ class GameDetailsFooter extends StatelessWidget {
         GameUtils.formatPlayTime(game.playTime ?? 0) != '0s';
     final bool showsAchievements = _showsAchievements(context);
 
-    // The clock has one home: the far right of the footer's last row, at a
-    // fixed distance from the card's edge. It used to fall back onto the
-    // metadata line for games with no achievements pill, which meant it jumped
-    // a line up and back down as the selection moved between a matched game
-    // and an unmatched one — the two sit next to each other in every list, so
-    // the jump was constant. Now the *text* moves to meet it instead.
-    final List<Widget> metadata = _buildMetadata(hasRating: hasRating);
+    // The last row is the two readouts and whatever sits between them: the
+    // score pinned at its left edge, the clock at its right, and either the
+    // achievements pill or the text lines in the middle.
+    //
+    // Both readouts have one home, at a fixed distance from the card's edge.
+    // The clock used to fall back onto the metadata line for games with no
+    // achievements pill, which meant it jumped a line up and back down as the
+    // selection moved between a matched game and an unmatched one — the two
+    // sit next to each other in every list, so the jump was constant. Now the
+    // *text* moves to meet it instead, and the score is anchored the same way
+    // for the same reason.
+    final List<Widget> metadata = _buildMetadata();
 
     // No fixed height: the footer is as tall as whichever arrangement below it
     // takes. A `Positioned` with left/right/bottom and no height takes its
@@ -117,6 +122,10 @@ class GameDetailsFooter extends StatelessWidget {
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
+                            if (hasRating) ...[
+                              _InlineRating(game: game),
+                              SizedBox(width: 12.r),
+                            ],
                             Expanded(
                               child: ExcludeFocus(
                                 child: LayoutBuilder(
@@ -142,22 +151,28 @@ class GameDetailsFooter extends StatelessWidget {
                 // pill's height, so the clock is at exactly the distance from
                 // the card's edge that it is on a matched game — it is the
                 // text beside it that changes place, not the number.
-                : hasPlayTime
+                : hasPlayTime || hasRating
                 ? SizedBox(
                     height: _bottomRowHeight,
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
+                        if (hasRating) ...[
+                          _InlineRating(game: game),
+                          SizedBox(width: 12.r),
+                        ],
                         Expanded(
                           child: _buildTextLines(context, metadata: metadata),
                         ),
-                        SizedBox(width: 12.r),
-                        _InlinePlayTime(game: game),
+                        if (hasPlayTime) ...[
+                          SizedBox(width: 12.r),
+                          _InlinePlayTime(game: game),
+                        ],
                       ],
                     ),
                   )
-                // Nothing to put on that row at all: no pill, no clock. The
-                // text lines are the whole footer.
+                // Nothing to put on that row at all: no pill, no score, no
+                // clock. The text lines are the whole footer.
                 : _buildTextLines(context, metadata: metadata),
           ),
         ),
@@ -173,7 +188,8 @@ class GameDetailsFooter extends StatelessWidget {
   /// coming and the clock beside them does not have to move to compensate.
   ///
   /// Both lines are fixed-height, and the block is `MainAxisSize.min`, so it
-  /// takes 33.r either way — comfortably inside the 45.r row it drops into.
+  /// takes 33.r either way — comfortably inside the 45.r row it drops into,
+  /// where it sits between the score and the clock.
   Widget _buildTextLines(
     BuildContext context, {
     required List<Widget> metadata,
@@ -355,19 +371,18 @@ class GameDetailsFooter extends StatelessWidget {
   }
 
   /// The scraped facts for the status strip, separated and in reading order:
-  /// rating, players, publisher, year, genre.
+  /// players, publisher, year, genre.
+  ///
+  /// The rating is *not* among them — it is drawn beside this strip rather
+  /// than inside it (see [_buildTextLines]), so it neither scrolls with the
+  /// marquee nor shares the strip's deliberately flat weight.
   ///
   /// Empty fields drop out entirely rather than rendering a placeholder, so an
   /// unscraped game returns an empty list and the whole line collapses. Nothing
   /// here is localized because nothing here is a label: every segment is either
   /// a glyph or the scraped value itself.
-  List<Widget> _buildMetadata({required bool hasRating}) {
+  List<Widget> _buildMetadata() {
     final List<Widget> facts = [];
-
-    // Score, as a bare star and number rather than the pill it used to be.
-    // Colour still runs error -> success across the range, so a glance still
-    // reads good/bad.
-    if (hasRating) facts.add(_InlineRating(game: game));
 
     // A bare player count is ambiguous ("2" — of what?), so it keeps its glyph.
     // Publisher, year and genre are self-evident as plain words and would only
@@ -653,7 +668,10 @@ double get _onArtShadowRoom => 6.r;
 
 /// Height of the metadata strip, fixed because the marquee inside it needs a
 /// bounded box to measure its overflow against. Driven by the tallest thing on
-/// it, the 15.r rating star.
+/// it, the 13.r player-count glyph, with slack for the shadow under it.
+///
+/// It was briefly 22, to hold an enlarged rating star. The score sits on the
+/// bottom row now, so the strip is back to being sized by its own contents.
 const double _statusLine = 15;
 
 /// Height of the footer's last row, matching the achievements pill's own 45.r.
@@ -691,23 +709,25 @@ double get _identityLineHeight => _identityLine.r;
 double gameDetailsPanelBottomOffset({
   required bool showsAchievements,
   required bool hasPlayTime,
+  required bool hasRating,
   required bool hasMetadata,
 }) {
   final double textLines = (hasMetadata ? _statusLine + 2 : 0) + _identityLine;
   final double content = showsAchievements
       ? textLines + _pillGap + _bottomRow
       // Without a pill the text lines move into its row, so the row's height
-      // is the whole block — unless there is no clock either, and the lines
-      // are all there is.
-      : (hasPlayTime ? _bottomRow : textLines);
+      // is the whole block — unless there is nothing else on that row either
+      // (no score, no clock), and the lines are all there is.
+      : (hasPlayTime || hasRating ? _bottomRow : textLines);
   return content + _bottomPadding + _panelGap;
 }
 
-/// Whether [game] carries any of the facts the footer's status line draws.
+/// Whether [game] carries any of the facts the footer's status strip draws.
 ///
-/// Mirrors the conditions in `_buildMetadata`; keep the two in step.
+/// Mirrors the conditions in `_buildMetadata`; keep the two in step. The score
+/// is deliberately not among them — it is on the bottom row, not the strip,
+/// and [gameDetailsFooterHasRating] is what answers for it.
 bool gameDetailsFooterHasMetadata(GameModel game) =>
-    game.rating > 0 ||
     game.players.isNotEmpty ||
     game.publisher.isNotEmpty ||
     game.year.isNotEmpty ||
@@ -717,13 +737,30 @@ bool gameDetailsFooterHasMetadata(GameModel game) =>
 bool gameDetailsFooterHasPlayTime(GameModel game) =>
     GameUtils.formatPlayTime(game.playTime ?? 0) != '0s';
 
-/// Score as a bare star and number on the status line.
+/// Whether [game] has a score on the footer's last row.
 ///
-/// This was a 45.r pill on chrome in the action row below. It moved because
-/// that row is for controls and a rating is not one: it showed a number and
-/// answered to nothing. The colour ramp survives the move — error at the
-/// bottom of the range, success at the top — since that is what makes the
-/// number readable at a glance.
+/// A readout at the left end of that row, exactly as the clock is one at the
+/// right end — so like the clock, it can hold the row open on a game that has
+/// no achievements pill.
+bool gameDetailsFooterHasRating(GameModel game) => game.rating > 0;
+
+/// Score as a star and number at the left end of the footer's bottom row,
+/// facing the play-time clock at the other end with the achievements pill
+/// between them.
+///
+/// It has been in three places, and the middle one is the mistake worth not
+/// repeating. It started as a 45.r pill on chrome *in* that row, which D15
+/// took out because the row is for controls and a score answers to nothing.
+/// It then spent a while as one more segment of the metadata marquee, at the
+/// strip's own size — which cost it the emphasis along with the chrome, and
+/// let it scroll out of sight behind a long publisher.
+///
+/// Back on the row, but as a readout rather than as chrome: bare glyph and
+/// number at 22/18, no fill, no border, nothing that reads as pressable. That
+/// is the same treatment the clock beside it gets, and the same reason — the
+/// row's *controls* wear pills, and these two do not. The colour ramp — error
+/// at the bottom of the range, success at the top — is what makes the number
+/// readable without reading it.
 class _InlineRating extends StatelessWidget {
   final GameModel game;
 
@@ -748,16 +785,16 @@ class _InlineRating extends StatelessWidget {
         Icon(
           Symbols.star_rounded,
           color: ratingColor,
-          size: 15.r,
+          size: 22.r,
           fill: 1,
           shadows: _onArtShadows,
         ),
-        SizedBox(width: 3.r),
+        SizedBox(width: 4.r),
         Text(
           ratingValue.toStringAsFixed(0),
           style: TextStyle(
             color: Colors.white,
-            fontSize: 12.r,
+            fontSize: 18.r,
             fontWeight: FontWeight.w800,
             height: 1.15,
             shadows: _onArtShadows,

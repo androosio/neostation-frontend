@@ -23,18 +23,29 @@ import '../../themes/corner_radii.dart';
 /// A reusable footer used by the game grid and carousel views.
 ///
 /// Mirrors the layout of the details list footer: the game's name and the strip
-/// of read-only facts under it are anchored to the left, while the mute hint,
-/// the RetroAchievements pill and the play-time clock are grouped on the right.
+/// of read-only facts under it are anchored to the left, while the score, the
+/// mute hint, the RetroAchievements pill and the play-time clock are grouped on
+/// the right.
 ///
-/// **D15 — the action row is controls only.** That row used to hold five things
-/// and exactly two of them answered to a press: the achievements pill and PLAY.
-/// The rating, the play-time clock and the cloud-sync glyph were pure readouts
+/// **D15 — pills are for things that answer to a press.** That row used to hold
+/// five things and exactly two of them did: the achievements pill and PLAY. The
+/// rating, the play-time clock and the cloud-sync glyph were pure readouts
 /// wearing the same pill chrome as the buttons beside them, which is what made
-/// the footer read as cluttered — three controls that were not controls. They
-/// have moved onto the status strip under the game's name, as glyph-plus-text
-/// rather than as pills, exactly as they did on the details card's footer.
-/// The two footers had disagreed about what a pill in an action row means since
-/// that card was rebuilt.
+/// the footer read as cluttered — three controls that were not controls.
+///
+/// The first cut of that fix moved all three *out of the row*, onto the status
+/// strip under the game's name. Two of them stayed out: the cloud-sync glyph
+/// is a marker on the file and belongs beside the filename, and the clock came
+/// back only because it inherited PLAY's slot. **The score's exile was the one
+/// that cost more than it bought** — on the strip it was set at the strip's own
+/// size, which made the number people scan a list for the smallest thing in the
+/// footer.
+///
+/// So the rule is chrome, not position: the score and the clock sit in the row
+/// again as bare glyph-plus-text at either end of it, with the pills between
+/// them, and neither reads as pressable because neither has a surface. The
+/// details card's bottom row is the same arrangement, and the two footers have
+/// to agree — they disagreed about exactly this once already.
 ///
 /// **PLAY is gone from this footer.** A card that is already selected launches
 /// on a second tap, and A does it on a gamepad, so the button was an affordance
@@ -120,8 +131,16 @@ class GameViewFooter extends StatelessWidget {
   /// Built as a list rather than inline so a hidden item leaves no spacer
   /// behind it: on a never-played game the achievements pill is the last thing
   /// on the row, and a trailing gap would push it off the right margin.
+  ///
+  /// The two readouts bracket the controls — score first, clock last, pills
+  /// between — which is the same arrangement the details card's bottom row
+  /// has. Neither wears a pill, so the row still reads as "the things that do
+  /// something are the ones with chrome", which is what D15 was actually
+  /// about; it is only the *row* the score was kept out of, and that turned
+  /// out to cost more than it bought (see [_InlineRating]).
   List<Widget> _buildActions(BuildContext context) {
     final actions = <Widget>[
+      if (game.rating > 0) _InlineRating(game: game),
       if (onToggleMute != null && hasVideo)
         _MuteHintPill(onToggleMute: onToggleMute!),
       // Signed out, no achievement data is ever loaded, so the pill would
@@ -154,12 +173,11 @@ class GameViewFooter extends StatelessWidget {
 
   /// The game's name, and under it the strip of things that only report.
   ///
-  /// The strip carries the rating, the accumulated play time, the ROM filename
-  /// and the cloud-sync glyph, separated by bars in the details footer's own
-  /// punctuation. Facts come before the filename because the facts are
-  /// fixed-width and the filename is not: when the name is too long for the
-  /// space, the name is what gives way, never a fact that would then be
-  /// invisible for that game entirely.
+  /// The strip carries the ROM filename and the cloud-sync glyph, separated by
+  /// bars in the details footer's own punctuation. The rating used to lead it
+  /// and no longer does: it is at the head of the action cluster now (see
+  /// [_buildActions]), which is what took it out of competition with the
+  /// filename for the same line.
   ///
   /// The strip is one fixed-height line whether or not anything is on it. This
   /// footer's height feeds back into the view above it — the grid and carousel
@@ -177,8 +195,11 @@ class GameViewFooter extends StatelessWidget {
     // that same filename says nothing.
     final String label = game.showRomFileNameSubtitle ? game.romname : '';
 
-    final List<Widget> facts = [
-      if (game.rating > 0) _InlineRating(game: game),
+    // One fact and one marker, so no separators: the bar-separated interleave
+    // this replaces existed for the rating that used to lead the line, and
+    // with the rating drawn ahead of the whole block there is nothing left for
+    // a bar to sit between.
+    final List<Widget> strip = [
       if (label.isNotEmpty)
         Flexible(
           child: Text(
@@ -194,14 +215,6 @@ class GameViewFooter extends StatelessWidget {
           ),
         ),
     ];
-
-    // Interleave the separators rather than hanging one off each segment, so
-    // the strip never ends on a dangling bar.
-    final List<Widget> strip = [];
-    for (int i = 0; i < facts.length; i++) {
-      if (i > 0) strip.add(const _FactSeparator());
-      strip.add(facts[i]);
-    }
 
     // The sync glyph rides at the end of the strip rather than taking a
     // segment of its own: it is a marker on the file, not another fact to
@@ -296,19 +309,28 @@ double get _pillHeight => 40.r;
 /// sit on it, the 16.0 cloud-sync glyph, with a little slack above it.
 double get _stripHeight => 18.r;
 
-/// Score as a bare star and number on the status strip.
+/// Score as a star and number, at the head of the action cluster and facing
+/// the play-time clock at the other end of it.
 ///
-/// This was a 32.r pill on chrome in the action row. It moved because that row
-/// is for controls and a rating is not one: it showed a number and answered to
-/// nothing (D15). The colour ramp survives the move — error at the bottom of
-/// the range, success at the top — since that is what makes the number
-/// readable at a glance.
+/// Three homes, and the middle one is the mistake worth not repeating. It
+/// started as a 32.r pill on chrome in this row; D15 took it out because the
+/// row is for controls and a score answers to nothing. It then spent a while
+/// as the first segment of the strip under the name, set at the strip's own
+/// size — which dropped the emphasis along with the chrome and left the one
+/// number people scan a list for smaller than everything around it.
+///
+/// The distinction D15 was reaching for is chrome, not position: a pill reads
+/// as pressable and a bare glyph does not. The clock has sat in this row as a
+/// bare readout since PLAY was removed and has never read as a button. So the
+/// score is back in the row on the same terms — no fill, no border, 22/17
+/// against the clock's 19/15 — and the two readouts bracket the pills between
+/// them. The colour ramp, error at the bottom of the range and success at the
+/// top, is what makes the number readable without reading it.
 ///
 /// The pill used to reserve the width of the widest possible score so it never
-/// resized between a "1" and a "10". Inline that reservation buys nothing: the
-/// strip is left-anchored and elastic, so the only thing a narrower number
-/// moves is the filename beside it, and moving between two games changes that
-/// text anyway.
+/// resized between a "1" and a "10". Bare, that reservation buys nothing: the
+/// cluster is right-anchored and the score is at its left edge, so a narrower
+/// number only moves itself.
 class _InlineRating extends StatelessWidget {
   final GameModel game;
 
@@ -331,13 +353,13 @@ class _InlineRating extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Icon(Symbols.star_rounded, color: ratingColor, size: 15.r, fill: 1),
-        SizedBox(width: 3.r),
+        Icon(Symbols.star_rounded, color: ratingColor, size: 22.r, fill: 1),
+        SizedBox(width: 4.r),
         Text(
           ratingValue.toStringAsFixed(0),
           style: TextStyle(
             color: scheme.onSurface,
-            fontSize: 12.r,
+            fontSize: 17.r,
             fontWeight: FontWeight.w800,
             height: 1.15,
           ),
@@ -397,33 +419,6 @@ class _InlinePlayTime extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-/// The bar between two segments of the status strip. Same punctuation, and the
-/// same reasoning, as the details footer's metadata line.
-class _FactSeparator extends StatelessWidget {
-  const _FactSeparator();
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 8.r),
-      child: Text(
-        '|',
-        style: TextStyle(
-          // Dimmer than the segments either side of it: it is punctuation, and
-          // at full strength it counted as a third thing to read between every
-          // pair.
-          color: scheme.onSurface.withValues(alpha: 0.45),
-          fontSize: 12.r,
-          fontWeight: FontWeight.w400,
-          height: 1.15,
-        ),
-      ),
     );
   }
 }
