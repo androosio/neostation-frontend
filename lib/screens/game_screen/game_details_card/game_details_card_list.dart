@@ -30,6 +30,7 @@ import 'package:neostation/services/logger_service.dart';
 import 'package:neostation/widgets/custom_notification.dart';
 import '../../../models/secondary_display_state.dart';
 import 'widgets/game_details_footer.dart';
+import 'widgets/game_details_tabs_header.dart';
 import 'detail_tab.dart';
 import 'widgets/scraping_progress_panel.dart';
 import 'tabs/game_details_general_tab.dart';
@@ -868,6 +869,21 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
       child: Stack(
         fit: StackFit.expand,
         children: [
+          // Header layer: the tab strip and its D-pad hints. It sits under the
+          // panels in the stack, and the panels start below its band, so it is
+          // never painted over by one sliding past.
+          Positioned(
+            left: 0.r,
+            right: 0.r,
+            top: 0.r,
+            child: GameDetailsTabsHeader(
+              isScreenshotVideoHidden: _isGameInfoHidden,
+              hasRetroAchievements: _hasRetroAchievements,
+              currentTab: _currentTab,
+              onTabChanged: _setTab,
+            ),
+          ),
+
           // Footer Layer: Action bar and synchronization status.
           GameDetailsFooter(
             system: _effectiveSystem,

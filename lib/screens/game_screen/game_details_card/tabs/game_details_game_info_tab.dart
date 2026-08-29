@@ -286,7 +286,7 @@ class GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
     return Positioned(
       left: 12.r,
       right: 12.r,
-      top: 12.r,
+      top: 55.r,
       bottom: widget.bottomOffset.r,
       // The panel is its own affordance now: its edge lights up while there
       // is something in here to drive, and a tap anywhere on it is the touch
