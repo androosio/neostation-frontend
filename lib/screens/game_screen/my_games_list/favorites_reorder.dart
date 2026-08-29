@@ -2,10 +2,12 @@ part of '../my_games_list.dart';
 
 /// Favorite toggling and list re-ordering for the system games list.
 ///
-/// A favourite toggle updates the flag in place and leaves the row where it
-/// is; favourites-first ordering is applied when the list is loaded. A
-/// re-scrape does re-sort, because a renamed game's alphabetical rank really
-/// did change — and that one follows the game rather than the index.
+/// A favourite toggle re-sorts the loaded list favourites-first, so the press
+/// has a visible result instead of one that only shows up the next time the
+/// system is opened. A re-scrape re-sorts too, because a renamed game's
+/// alphabetical rank really did change. The re-scrape follows the *game* to
+/// its new rank; the favourite toggle leaves the cursor on the row the user
+/// was looking at.
 ///
 /// All state lives on the host [State]; this extension only holds the methods
 /// that read and write it. The `setState` calls route through the host
@@ -51,36 +53,57 @@ extension _FavoritesReorder on _SystemGamesListState {
     }
   }
 
-  /// Mirrors a favourite change into the list already on screen, without
-  /// re-sorting it.
+  /// Mirrors a favourite change into the list already on screen and moves the
+  /// game to where reopening the system would seat it.
   ///
-  /// Favourites-first is the *load* order (the query behind
-  /// [GameService.loadGamesForSystem] sorts `is_favorite DESC` before the
-  /// name), so a newly favourited game does take its place at the front the
-  /// next time the system is opened. Re-sorting here instead made the row leap
-  /// to the top the instant the button was pressed, and because the cursor
-  /// stayed on the *index* rather than the game, the selection was left on
-  /// whatever game slid into the vacated slot.
+  /// Favourites-first is the *load* order — the query behind
+  /// [GameService.loadGamesForSystem] sorts `is_favorite DESC` before
+  /// `LOWER(game_display_name)` — and [_byFavouriteThenName] anticipates it
+  /// here so the press has a visible result rather than one that only appears
+  /// the next time the system is opened.
   ///
-  /// Publishes a new list rather than writing into the current one: the grid
-  /// and carousel key their cached artwork cards off the list identity, which
-  /// the re-sort this replaces used to change as a side effect.
+  /// **The cursor holds its place on screen; it does not follow the game.**
+  /// The highlight stays on the row the user was looking at, so the list never
+  /// moves out from under it. The trade is that a game jumping to the top
+  /// leaves the selection on whichever game slid up into the slot it vacated:
+  /// the reorder is the confirmation that the press registered, and the cursor
+  /// staying put is what keeps the press from relocating the user.
+  ///
+  /// The sort lands on [_allGames], not on the visible list, because in
+  /// subfolder view the visible list is *derived* from it — sorting the
+  /// derived copy would be undone by the next rebuild, and the flag itself
+  /// would be lost with it. Both are published as new lists rather than
+  /// written into: the grid and carousel key their cached artwork cards off
+  /// the list identity.
   void _applyFavoriteToLoadedList() {
     final selected = _selectedGame;
     if (selected == null) return;
 
-    final index = _games.indexWhere((game) => game.romname == selected.romname);
+    final index = _allGames.indexWhere(
+      (game) => game.romname == selected.romname,
+    );
     if (index == -1) return;
 
-    final updated = _games[index].copyWith(
-      isFavorite: !(_games[index].isFavorite ?? false),
+    // The slot to hold the cursor on, read from the visible list because that
+    // is the one the highlight indexes into.
+    final anchorIndex = _games.indexWhere(
+      (game) => game.romname == selected.romname,
+    );
+
+    final updated = _allGames[index].copyWith(
+      isFavorite: !(_allGames[index].isFavorite ?? false),
     );
 
     rebuild(() {
-      _games = replaceGameInList(_games, updated);
+      _allGames = replaceGameInList(_allGames, updated)
+        ..sort(_byFavouriteThenName);
+      _games = _buildDisplayList();
       _gameIndexMap = {for (int i = 0; i < _games.length; i++) _games[i]: i};
-      _selectedGameIndex = index;
-      _selectedGame = updated;
+
+      if (anchorIndex != -1 && anchorIndex < _games.length) {
+        _selectedGameIndex = anchorIndex;
+        _selectedGame = _games[anchorIndex];
+      }
     });
   }
 
@@ -107,13 +130,7 @@ extension _FavoritesReorder on _SystemGamesListState {
     }
 
     rebuild(() {
-      final sortedGames = List<GameModel>.from(_games);
-      sortedGames.sort((a, b) {
-        if (a.isFavorite == true && b.isFavorite != true) return -1;
-        if (a.isFavorite != true && b.isFavorite == true) return 1;
-        return a.name.compareTo(b.name);
-      });
-      _games = sortedGames;
+      _games = List<GameModel>.from(_games)..sort(_byFavouriteThenName);
       _gameIndexMap = {for (int i = 0; i < _games.length; i++) _games[i]: i};
 
       final newIndex = _games.indexWhere((g) => g.romname == romname);
@@ -130,4 +147,18 @@ extension _FavoritesReorder on _SystemGamesListState {
       if (mounted) _scrollToSelectedItem();
     });
   }
+}
+
+/// The order the list loads in: favourites first, then display name folded to
+/// lower case, exactly as `ORDER BY ur.is_favorite DESC,
+/// LOWER(game_display_name) ASC` does it.
+///
+/// Any in-memory re-sort is anticipating that query, so it has to agree with
+/// it. The favourites-first comparator this replaces compared names
+/// case-sensitively, which could seat a game somewhere a reload would not.
+int _byFavouriteThenName(GameModel a, GameModel b) {
+  final bool aFavourite = a.isFavorite == true;
+  final bool bFavourite = b.isFavorite == true;
+  if (aFavourite != bFavourite) return aFavourite ? -1 : 1;
+  return a.name.toLowerCase().compareTo(b.name.toLowerCase());
 }
