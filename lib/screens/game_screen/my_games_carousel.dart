@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
+import 'package:neostation/sync/sync_manager.dart';
 import 'package:neostation/models/game_model.dart';
 import 'package:neostation/models/system_model.dart';
 import 'package:neostation/utils/effective_system.dart';
@@ -582,6 +583,10 @@ class _GamesCarouselState extends State<GamesCarousel> {
       onToggleMute: widget.isSecondaryScreenActive ? null : _toggleVideoMute,
       hasVideo: !isFolder && _hasVideoFor(settledGame),
       isFolder: isFolder,
+      // The game's own system, so the cloud mark reflects the game rather than
+      // the placeholder an aggregate view is browsing under.
+      system: isFolder ? null : _effectiveSystemFor(settledGame),
+      syncProvider: context.read<SyncManager>().active,
     );
   }
 

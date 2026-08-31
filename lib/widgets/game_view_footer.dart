@@ -7,6 +7,9 @@ import 'package:neostation/l10n/app_locale.dart';
 import 'package:neostation/providers/retro_achievements_provider.dart';
 import 'package:neostation/providers/sqlite_config_provider.dart';
 import 'package:neostation/models/game_model.dart';
+import 'package:neostation/models/system_model.dart';
+import 'package:neostation/sync/i_sync_provider.dart';
+import 'package:neostation/widgets/neo_sync_status_icon.dart';
 import 'package:neostation/models/retro_achievements_game_info.dart';
 import 'package:neostation/services/sfx_service.dart';
 import 'package:neostation/utils/ra_coverage.dart';
@@ -44,6 +47,17 @@ class GameViewFooter extends StatelessWidget {
   /// it, so the confirm button reads OPEN instead of PLAY.
   final bool isFolder;
 
+  /// The game's *own* system and the active sync provider, for the cloud-sync
+  /// status icon; both null hides it.
+  ///
+  /// This footer carries that indicator because nothing else in these two
+  /// views can: it used to sit on the vertical action rail, which is gone. The
+  /// system is the game's rather than the view's, so an aggregate view reports
+  /// on the game in front of the user and not on the placeholder it is
+  /// browsing under.
+  final SystemModel? system;
+  final ISyncProvider? syncProvider;
+
   const GameViewFooter({
     super.key,
     required this.game,
@@ -55,6 +69,8 @@ class GameViewFooter extends StatelessWidget {
     this.onToggleMute,
     this.hasVideo = false,
     this.isFolder = false,
+    this.system,
+    this.syncProvider,
   });
 
   @override
@@ -117,6 +133,27 @@ class GameViewFooter extends StatelessWidget {
           ExcludeFocus(
             child: Row(
               children: [
+                // The cloud mark leads the row, next to the name it reports on
+                // rather than among the controls at the far end. It is a marker
+                // on the file, not a fact to read, so it stays a bare glyph:
+                // the filled chip it wore on the old action rail is what made
+                // it read as a button sitting among buttons.
+                //
+                // It is here and not on the identity column's second line
+                // because every "nothing to say" state collapses it to zero
+                // size, and that column's height is load-bearing — see the
+                // subtitle's forced strut above.
+                if (!isFolder && system != null && syncProvider != null) ...[
+                  NeoSyncStatusIcon(
+                    system: system!,
+                    game: game,
+                    syncProvider: syncProvider!,
+                    size: 16.0,
+                    showBackground: false,
+                    showGlyphShadow: false,
+                  ),
+                  SizedBox(width: 8.r),
+                ],
                 if (onToggleMute != null && hasVideo) ...[
                   _MuteHintPill(onToggleMute: onToggleMute!),
                   SizedBox(width: 6.r),
