@@ -562,15 +562,17 @@ double get _rowGap => 5.r;
 /// readout that changes size as the cursor moves is exactly what the rest of
 /// this footer was rebuilt to stop.
 ///
-/// Sized for the common three-character case at full size, and no wider: 80 is
-/// the narrowest chip that still renders "8.5" at its natural 42.8, and at 78
-/// that starts shrinking too. "10.0" is absorbed by scaling the number down
-/// rather than by growing the chip, the same trade PLAY's label makes.
+/// Sized for the common three-character case at full size, and barely wider.
+/// "8.5" is 42.8 at 14.r, and with the star at 16.r and a 4.r gap the chip
+/// renders it unscaled down to 75; at 74 the number itself starts shrinking.
+/// 76 is that floor plus a unit, so a font-metric wobble cannot tip the common
+/// score into scaling. "10.0" is absorbed by scaling down rather than by
+/// growing the chip, the same trade PLAY's label makes.
 ///
-/// Which means this number cannot be trimmed further without the *common* case
-/// losing size, and cannot grow without taking width off the achievements pill
-/// beside it.
-const double _scoreWidth = 80;
+/// Narrowing this further means taking it out of the number, not out of the
+/// chip: the star and the insets around it have already been trimmed to buy
+/// the last four units. Widening it takes width off the achievements pill.
+const double _scoreWidth = 76;
 
 /// The narrowest the achievements pill can be and still say anything: its
 /// icon, the count and a bar with somewhere to fill.
@@ -725,7 +727,7 @@ class _InlineRating extends StatelessWidget {
       // *geometrically* centred group reads 5px left-heavy. The widget rects
       // are symmetric to the decimal either way — this is only visible in the
       // pixels, which is why the numbers came off a screenshot.
-      padding: EdgeInsets.only(left: 5.r, right: 7.r),
+      padding: EdgeInsets.only(left: 4.r, right: 6.r),
       decoration: BoxDecoration(
         color: ChromeSurface.fill(context),
         borderRadius: _controlRadius,
@@ -742,8 +744,8 @@ class _InlineRating extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Icon(Symbols.star_rounded, color: ratingColor, size: 18.r, fill: 1),
-          SizedBox(width: 5.r),
+          Icon(Symbols.star_rounded, color: ratingColor, size: 16.r, fill: 1),
+          SizedBox(width: 4.r),
           // scaleDown never scales up, so every score that already fits is
           // untouched and only "10.0" is pulled in.
           Flexible(
