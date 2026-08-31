@@ -197,7 +197,13 @@ class GameDetailsFooter extends StatelessWidget {
   /// with it, and a games view whose one visible control was an achievements
   /// pill gave touch nothing to press.
   Widget _buildPlayButton(BuildContext context) {
-    final BorderRadius radius = _controlRadius;
+    // The one control on the row that keeps the theme's corner. Fully rounded
+    // it read as one more chip in the set, and PLAY is not one of the set --
+    // it is the row's primary action, and the squarer corner is part of what
+    // separates it from the three icon buttons beside it.
+    final BorderRadius radius =
+        Theme.of(context).extension<CornerRadii>()?.radiusExternal ??
+        BorderRadius.circular(14.r);
 
     return Container(
       // Deliberately a fixed width. The achievements pill beside it is
@@ -515,13 +521,16 @@ List<Shadow> get _onArtShadows => [
   Shadow(blurRadius: 1.r, color: Colors.black, offset: const Offset(2, 2)),
 ];
 
-/// The row's own corner: every chrome element on it is fully rounded, so the
-/// square controls come out as circles and the wider ones as stadiums.
+/// The corner every chrome element on the row wears *except* PLAY: fully
+/// rounded, so the square controls come out as circles and the achievements
+/// pill as a stadium.
 ///
 /// Deliberately not the theme's [CornerRadii]. That extension sets the corner
 /// style for the app's panels and cards, and at its squarer settings this row
 /// read as a strip of tiles; the controls are meant to read as a set of
-/// buttons floating on the artwork, which is a shape, not a preference.
+/// buttons floating on the artwork, which is a shape, not a preference. PLAY
+/// keeps the theme's corner precisely because it is *not* part of that set --
+/// see [GameDetailsFooter._buildPlayButton].
 BorderRadius get _controlRadius => BorderRadius.circular(_bottomRow.r);
 
 /// Height of the footer's row, and the size of every square control on it.

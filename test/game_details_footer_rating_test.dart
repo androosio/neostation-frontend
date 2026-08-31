@@ -218,11 +218,12 @@ void main() {
     expect(find.textContaining('01:01'), findsNothing);
   });
 
-  testWidgets('every control on the row is fully rounded', (tester) async {
-    // The square buttons come out as circles and the wide ones as stadiums,
-    // which is what makes the row read as a set of buttons on the artwork
-    // rather than a strip of tiles. It does not follow the theme's corner
-    // style: that is for panels and cards.
+  testWidgets('the icon buttons are circles and PLAY is not', (tester) async {
+    // The square buttons come out as circles, which is what makes them read as
+    // a set floating on the artwork rather than a strip of tiles, and they do
+    // not follow the theme's corner style to get there: that is for panels and
+    // cards. PLAY keeps the theme's corner precisely so it stays out of the
+    // set -- it is the row's primary action, not one more chip in it.
     await pumpFooter(tester, showsPill: true);
 
     for (final icon in [
@@ -246,6 +247,24 @@ void main() {
         reason: 'a circle, not a rounded square',
       );
     }
+
+    // The innermost decorated ancestor of the label is the button itself; the
+    // ones further out are the footer's own padding boxes.
+    final playButton = find
+        .ancestor(of: find.text('PLAY'), matching: find.byType(Container))
+        .evaluate()
+        .firstWhere((e) => (e.widget as Container).decoration is BoxDecoration);
+    final playRadius =
+        (((playButton.widget as Container).decoration as BoxDecoration)
+                    .borderRadius
+                as BorderRadius)
+            .topLeft
+            .x;
+    expect(
+      playRadius,
+      lessThan(playButton.size!.height / 2),
+      reason: 'squarer than the chips beside it, not a stadium',
+    );
   });
 
   testWidgets('the row is the same height whatever the game carries', (
