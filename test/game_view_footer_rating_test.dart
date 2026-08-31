@@ -111,7 +111,7 @@ void main() {
   testWidgets('the score outweighs the strip it left', (tester) async {
     await pumpFooter(tester, _game(rating: 16.0));
 
-    final score = tester.widget<Text>(find.text('8'));
+    final score = tester.widget<Text>(find.text('8.0'));
     final filename = tester.widget<Text>(find.text('Sonic The Hedgehog.gg'));
 
     expect(score.style!.fontSize, greaterThan(filename.style!.fontSize!));

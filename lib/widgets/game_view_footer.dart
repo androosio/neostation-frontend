@@ -356,7 +356,7 @@ class _InlineRating extends StatelessWidget {
         Icon(Symbols.star_rounded, color: ratingColor, size: 22.r, fill: 1),
         SizedBox(width: 4.r),
         Text(
-          ratingValue.toStringAsFixed(0),
+          ratingValue.toStringAsFixed(1),
           style: TextStyle(
             color: scheme.onSurface,
             fontSize: 17.r,
