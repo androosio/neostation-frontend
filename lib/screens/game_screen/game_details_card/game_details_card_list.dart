@@ -939,6 +939,7 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
                       maintainAnimation: true,
                       maintainInteractivity: true,
                       child: GameDetailsScreenshotVideoTab(
+                        bottomOffset: panelBottomOffset,
                         screenshotPath: screenshotPath,
                         isVideoDelayActive: _isVideoDelayActive,
                         videoController: widget.videoController,
