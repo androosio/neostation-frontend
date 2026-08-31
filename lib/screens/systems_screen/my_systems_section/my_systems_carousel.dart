@@ -69,7 +69,6 @@ class MySystemsCarousel extends StatefulWidget {
     this.selectedItemKey,
     this.showCardCounts = false,
     this.showChipFor,
-    this.showIndicatorStrip = true,
   });
 
   /// The initially selected system index.
@@ -106,10 +105,12 @@ class MySystemsCarousel extends StatefulWidget {
   /// carries it, so the key is never attached twice.
   final GlobalKey? selectedItemKey;
 
-  /// Whether each card names its own count under the logo. The systems screen
-  /// turns this on — its carousel has no footer, so the card is the only thing
-  /// that can say it. The collections browser leaves it off and lets its own
-  /// footer carry the count.
+  /// Whether each card names its own count under the logo.
+  ///
+  /// The collections browser turns this on: its cards are collections, and a
+  /// collection's size is not something the systems footer below can say for
+  /// it. The systems screen leaves it off — its footer carries the count, as
+  /// it does on main.
   final bool showCardCounts;
 
   /// Whether an entry appears in the bottom indicator strip. Null shows them
@@ -125,19 +126,6 @@ class MySystemsCarousel extends StatefulWidget {
   /// it is an action, not a destination, so it does not belong in a strip of
   /// places you can go.
   final bool Function(SystemInfo info)? showChipFor;
-
-  /// Whether the short-name chip strip is drawn under the carousel.
-  ///
-  /// The systems screen turns it off: the strip is 40px of screen the cards
-  /// could have instead, and the card slot is height-bound (its width is its
-  /// height minus the footer allowance), so every pixel the strip gives up
-  /// makes the artwork both taller *and* wider. What it said is not lost —
-  /// the centred card carries the system's logo and its count already.
-  ///
-  /// The collections browser keeps it. A collection's card is a mosaic of its
-  /// games with a name-as-logo, so the strip is the only place the names of
-  /// the collections *either side* of the centred one appear.
-  final bool showIndicatorStrip;
 
   /// Identifier this view registers its [GamepadNavigationManager] layer under.
   ///
@@ -934,18 +922,11 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
       fontWeight: FontWeight.bold,
     );
 
-    // Measured only for the strip: with no strip there is nothing to lay the
-    // labels out for, and `_scrollToPage` bails on its own before reading the
-    // cache (it has no scroll client without the strip).
-    final widths = widget.showIndicatorStrip
-        ? allSystems
-              .map(
-                (s) => _hasChip(s)
-                    ? _calculateItemWidth(s, selectedTextStyle)
-                    : 0.0,
-              )
-              .toList()
-        : const <double>[];
+    final widths = allSystems
+        .map(
+          (s) => _hasChip(s) ? _calculateItemWidth(s, selectedTextStyle) : 0.0,
+        )
+        .toList();
 
     // Cache for the hot scroll path (_scrollToPage) so it doesn't rebuild
     // the list or re-measure text on every frame while scrolling.
@@ -1050,7 +1031,6 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
                             info: system,
                             isSelected: isSelected,
                             backgroundCacheWidth: 1024,
-                            showCount: widget.showCardCounts,
                             onTap: handleTap,
                             // The centred card only. An off-centre card is
                             // painted outside the page slot the viewport
@@ -1059,6 +1039,7 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
                             onLongPress: isSelected && widget.onYPressed != null
                                 ? widget.onYPressed
                                 : null,
+                            showCount: widget.showCardCounts,
                           );
 
                       // Sibling overlay rather than a wrapper: wrapping only
@@ -1106,124 +1087,123 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
         ),
 
         // Secondary Systems Indicator List (Bottom).
-        if (widget.showIndicatorStrip)
-          SizedBox(
-            height: 40.r,
-            child: SingleChildScrollView(
-              controller: _scrollController,
-              scrollDirection: Axis.horizontal,
-              padding: EdgeInsets.symmetric(vertical: 6.r, horizontal: 4.r),
-              child: Stack(
-                children: [
-                  // Background track: every label keeps its surface shape
-                  // so unselected items still look like buttons.
-                  Row(
-                    children: allSystems.asMap().entries.map((entry) {
-                      final itemWidth = widths[entry.key];
-                      return Container(
-                        width: itemWidth,
-                        height: 32.r,
-                        margin: EdgeInsets.only(right: 4.r),
-                        decoration: BoxDecoration(
-                          color: itemWidth == 0
-                              ? Colors.transparent
-                              : Theme.of(context).colorScheme.surface,
-                          borderRadius:
-                              Theme.of(
-                                context,
-                              ).extension<CornerRadii>()?.radiusExternal ??
-                              BorderRadius.circular(14.r),
-                        ),
-                      );
-                    }).toList(),
-                  ),
+        SizedBox(
+          height: 40.r,
+          child: SingleChildScrollView(
+            controller: _scrollController,
+            scrollDirection: Axis.horizontal,
+            padding: EdgeInsets.symmetric(vertical: 6.r, horizontal: 4.r),
+            child: Stack(
+              children: [
+                // Background track: every label keeps its surface shape
+                // so unselected items still look like buttons.
+                Row(
+                  children: allSystems.asMap().entries.map((entry) {
+                    final itemWidth = widths[entry.key];
+                    return Container(
+                      width: itemWidth,
+                      height: 32.r,
+                      margin: EdgeInsets.only(right: 4.r),
+                      decoration: BoxDecoration(
+                        color: itemWidth == 0
+                            ? Colors.transparent
+                            : Theme.of(context).colorScheme.surface,
+                        borderRadius:
+                            Theme.of(
+                              context,
+                            ).extension<CornerRadii>()?.radiusExternal ??
+                            BorderRadius.circular(14.r),
+                      ),
+                    );
+                  }).toList(),
+                ),
 
-                  // Focused item sliding indicator. Painted between the
-                  // backgrounds and the text so the selected label gets a
-                  // solid fill while the text stays perfectly readable.
-                  Positioned.fill(
-                    child: ValueListenableBuilder<double>(
-                      valueListenable: _pageOffsetNotifier,
-                      builder: (context, page, _) {
-                        final (left, width) = _cursorRect(page, widths);
-                        return Stack(
-                          children: [
-                            Positioned(
-                              left: left,
-                              top: 0,
-                              bottom: 0,
-                              width: width,
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: theme.colorScheme.primary,
-                                  borderRadius:
-                                      Theme.of(context)
-                                          .extension<CornerRadii>()
-                                          ?.radiusExternal ??
-                                      BorderRadius.circular(14.r),
-                                ),
-                              ),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                  ),
-
-                  // Foreground text track. Transparent background so the
-                  // selector and surface backgrounds show through, while
-                  // the selected label uses onPrimary for contrast.
-                  ValueListenableBuilder<double>(
+                // Focused item sliding indicator. Painted between the
+                // backgrounds and the text so the selected label gets a
+                // solid fill while the text stays perfectly readable.
+                Positioned.fill(
+                  child: ValueListenableBuilder<double>(
                     valueListenable: _pageOffsetNotifier,
                     builder: (context, page, _) {
-                      final selectedIndex = page.round().clamp(
-                        0,
-                        allSystems.length - 1,
-                      );
-                      return Row(
-                        children: allSystems.asMap().entries.map((entry) {
-                          final index = entry.key;
-                          final system = entry.value;
-                          final isSelected = index == selectedIndex;
-                          final itemWidth = widths[index];
-
-                          return GestureDetector(
-                            onTap: () {
-                              SfxService().playNavSound();
-                              _carouselKey.currentState?.animateToPage(index);
-                            },
+                      final (left, width) = _cursorRect(page, widths);
+                      return Stack(
+                        children: [
+                          Positioned(
+                            left: left,
+                            top: 0,
+                            bottom: 0,
+                            width: width,
                             child: Container(
-                              width: itemWidth,
-                              height: 32.r,
-                              margin: EdgeInsets.only(right: 4.r),
-                              alignment: Alignment.center,
-                              color: Colors.transparent,
-                              child: !_hasChip(system)
-                                  ? const SizedBox.shrink()
-                                  : Text(
-                                      (system.shortName ??
-                                              system.title ??
-                                              AppLocale.unknown.getString(
-                                                context,
-                                              ))
-                                          .toUpperCase(),
-                                      textAlign: TextAlign.center,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: isSelected
-                                          ? selectedTextStyle
-                                          : textStyle,
-                                    ),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.primary,
+                                borderRadius:
+                                    Theme.of(context)
+                                        .extension<CornerRadii>()
+                                        ?.radiusExternal ??
+                                    BorderRadius.circular(14.r),
+                              ),
                             ),
-                          );
-                        }).toList(),
+                          ),
+                        ],
                       );
                     },
                   ),
-                ],
-              ),
+                ),
+
+                // Foreground text track. Transparent background so the
+                // selector and surface backgrounds show through, while
+                // the selected label uses onPrimary for contrast.
+                ValueListenableBuilder<double>(
+                  valueListenable: _pageOffsetNotifier,
+                  builder: (context, page, _) {
+                    final selectedIndex = page.round().clamp(
+                      0,
+                      allSystems.length - 1,
+                    );
+                    return Row(
+                      children: allSystems.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final system = entry.value;
+                        final isSelected = index == selectedIndex;
+                        final itemWidth = widths[index];
+
+                        return GestureDetector(
+                          onTap: () {
+                            SfxService().playNavSound();
+                            _carouselKey.currentState?.animateToPage(index);
+                          },
+                          child: Container(
+                            width: itemWidth,
+                            height: 32.r,
+                            margin: EdgeInsets.only(right: 4.r),
+                            alignment: Alignment.center,
+                            color: Colors.transparent,
+                            child: !_hasChip(system)
+                                ? const SizedBox.shrink()
+                                : Text(
+                                    (system.shortName ??
+                                            system.title ??
+                                            AppLocale.unknown.getString(
+                                              context,
+                                            ))
+                                        .toUpperCase(),
+                                    textAlign: TextAlign.center,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: isSelected
+                                        ? selectedTextStyle
+                                        : textStyle,
+                                  ),
+                          ),
+                        );
+                      }).toList(),
+                    );
+                  },
+                ),
+              ],
             ),
           ),
+        ),
       ],
     );
 

@@ -146,14 +146,12 @@ void main() {
   }
 
   group('SystemCardGridView navigation layers', () {
-    testWidgets('the chip strip is drawn by default and can be switched off', (
-      tester,
-    ) async {
-      // The systems screen switches it off: the strip is 40px of screen the
-      // height-bound cards can have instead, and the centred card already
-      // names the system and its count. The collections browser keeps it,
-      // since it is the only place the names of the neighbouring collections
-      // appear.
+    testWidgets('the chip strip is always drawn', (tester) async {
+      // It used to be switchable, because the systems screen switched it off:
+      // with no footer, its cards wanted the strip's 40px and the centred card
+      // said the system's name and count itself. The footer is back and says
+      // both again, so the opt-out went with it and every carousel — systems
+      // and collections — carries the strip.
       await tester.pumpWidget(
         host(
           MySystemsCarousel(
@@ -174,28 +172,6 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(milliseconds: 400));
       GamepadNavigationManager.popLayer('strip_on#1');
-
-      await tester.pumpWidget(
-        host(
-          MySystemsCarousel(
-            items: systems,
-            navLayerId: 'strip_off#1',
-            showIndicatorStrip: false,
-            enablePullToRescan: false,
-            enableDynamicBackground: false,
-            enableThemeAssets: false,
-            enableSecondaryDisplay: false,
-            enableTabBumpers: false,
-            cardOverrideBuilder: stubCards,
-          ),
-        ),
-      );
-      await settleInput(tester);
-      expect(find.text('SNES'), findsNothing);
-
-      await tester.pumpWidget(const SizedBox.shrink());
-      await tester.pump(const Duration(milliseconds: 400));
-      GamepadNavigationManager.popLayer('strip_off#1');
     });
 
     testWidgets('the default id is still the systems screen\'s own', (
@@ -581,10 +557,6 @@ void main() {
       expect(carousel.enableSecondaryDisplay, isFalse);
       expect(carousel.enableThemeAssets, isFalse);
       expect(carousel.enableTabBumpers, isFalse);
-      // Kept here, unlike on the systems screen: a collection's card is a
-      // mosaic with a name-as-logo, so the strip is where the names of the
-      // collections either side of the centred one are read.
-      expect(carousel.showIndicatorStrip, isTrue);
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(milliseconds: 400));

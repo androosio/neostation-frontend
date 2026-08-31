@@ -1,32 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localization/flutter_localization.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:neostation/l10n/app_locale.dart';
 import 'package:neostation/models/my_systems.dart';
 import 'core_footer.dart';
-import 'system_count_pill.dart';
+import 'footer_label_pill.dart';
 
-/// The systems **grid**'s footer: the focused card's count, bottom left.
-///
-/// The carousel has no footer at all — its cards are large enough to carry
-/// their own count under the logo. A grid card is not: its artwork is a fixed
-/// square, so the strip left under it is roughly half the carousel's, and a
-/// count row there shrinks the system logo to something smaller than the count
-/// itself. The count comes off the card in this view and lives here instead,
-/// which is what the strip was doing before it was removed.
-///
-/// Only the count. The system name is the card's own label repeated, and Enter
-/// duplicated both A on a pad and a tap on the selected card, so neither came
-/// back with it; Settings is on the card's Y / long-press menu.
-///
-/// The pill itself is [SystemCountPill], the same widget the carousel floats
-/// over its view — it is deliberately placed to land in the same spot, so the
-/// label must not differ between the two views either.
+/// Unified footer for the systems grid
+/// Implements the left-text and right-controls layout
 class SystemsGridFooter extends CoreFooter {
-  /// The focused card. A recent-game card is one game, so it carries its
-  /// name here rather than an invented count — see [SystemCountPill]. The row
-  /// keeps its height whatever the pill decides to draw, so the grid above does
-  /// not resize as the selection moves.
   final SystemInfo system;
+  final VoidCallback onEnter;
+  final VoidCallback onSettings;
 
-  const SystemsGridFooter({super.key, required this.system});
+  const SystemsGridFooter({
+    super.key,
+    required this.system,
+    required this.onEnter,
+    required this.onSettings,
+  });
 
   @override
   bool get centerControls => false;
@@ -35,9 +27,47 @@ class SystemsGridFooter extends CoreFooter {
   bool get showVersion => false;
 
   @override
-  Widget? buildLeftContent(BuildContext context) =>
-      SystemCountPill.bounded(system);
+  Widget? buildLeftContent(BuildContext context) {
+    return FooterLabelPill(
+      label: system.isGame
+          ? "${AppLocale.lastPlayed.getString(context)}: ${system.title}"
+          : system.title ?? "",
+      // Games are one-offs, so only real systems carry a count.
+      countText: system.isGame
+          ? null
+          : "${system.numOfRoms} ${system.folderName == 'android'
+                ? AppLocale.apps.getString(context)
+                : system.folderName == 'music'
+                ? AppLocale.tracks.getString(context)
+                : AppLocale.games.getString(context)}",
+    );
+  }
 
   @override
-  List<Widget> buildControls(BuildContext context) => const [];
+  List<Widget> buildControls(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return [
+      // Settings button (only for real systems, not for the 'All Games' shortcut if desired)
+      if (!system.isGame)
+        GamepadControl(
+          label: AppLocale.settings.getString(context),
+          iconPath: 'assets/images/gamepad/Xbox_Menu_button.png',
+          onTap: onSettings,
+          textColor: theme.colorScheme.onTertiaryFixed,
+          backgroundColor: theme.colorScheme.tertiaryFixed,
+        ),
+      if (!system.isGame) SizedBox(width: 8.r),
+      // Enter/Play button
+      GamepadControl(
+        label: system.isGame
+            ? AppLocale.play.getString(context)
+            : AppLocale.enter.getString(context),
+        iconPath: 'assets/images/gamepad/Xbox_A_button.png',
+        onTap: onEnter,
+        textColor: theme.colorScheme.onTertiary,
+        backgroundColor: theme.colorScheme.tertiary,
+      ),
+    ];
+  }
 }

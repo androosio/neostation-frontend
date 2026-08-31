@@ -28,14 +28,13 @@ import '../../../services/ra_library_match_runner.dart';
 import 'widgets/grid_empty_state.dart';
 import 'my_systems_carousel.dart';
 import 'package:neostation/widgets/custom_notification.dart';
+import 'package:neostation/widgets/systems_grid_footer.dart';
 import 'package:neostation/widgets/system_emulator_settings_dialog.dart';
 import 'package:neostation/sync/sync_manager.dart';
 import 'package:neostation/providers/theme_provider.dart';
 import '../../collections_screen/collections_browser_screen.dart';
 import '../../game_screen/android_apps/android_apps_grid.dart';
 import 'package:neostation/widgets/header_sort_dropdown.dart';
-import 'package:neostation/widgets/system_count_pill.dart';
-import 'package:neostation/widgets/systems_grid_footer.dart';
 import 'package:neostation/widgets/context_menu/anchored_context_menu.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
@@ -115,31 +114,34 @@ class MySystems extends StatelessWidget {
                 ? allSystems[selectedIndex]
                 : allSystems[0];
 
-            // Nothing under the carousel takes a row of its own: no footer,
-            // no chip strip, and no count on the cards. The pages are
-            // height-bound — a page is as wide as it is tall, less the card's
-            // footer allowance — so a row of chrome costs the artwork width
-            // as well as height. The count floats over the view instead, in
-            // the band the grid's footer occupies, so it does not move when
-            // the view mode changes.
-            systemsWidget = Stack(
+            systemsWidget = Column(
               children: [
-                Padding(
-                  padding: EdgeInsets.only(top: 42.r),
-                  child: MySystemsCarousel(
-                    selectedIndex: selectedIndex,
-                    onCardTapped: onCardTapped,
-                    selectedItemKey: _cardAnchorKey,
-                    showCardCounts: false,
-                    showIndicatorStrip: false,
-                    onYPressed: () => _openSystemContextMenu(
-                      context,
-                      currentSystem,
-                      configProvider,
+                Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(top: 42.r),
+                    child: MySystemsCarousel(
+                      selectedIndex: selectedIndex,
+                      onCardTapped: onCardTapped,
+                      selectedItemKey: _cardAnchorKey,
+                      onYPressed: () => _openSystemContextMenu(
+                        context,
+                        currentSystem,
+                        configProvider,
+                      ),
                     ),
                   ),
                 ),
-                SystemCountPill.floating(currentSystem),
+                SystemsGridFooter(
+                  system: currentSystem,
+                  onEnter: () {
+                    SfxService().playEnterSound();
+                    _navigateToSystem(context, currentSystem, configProvider);
+                  },
+                  onSettings: () {
+                    SfxService().playEnterSound();
+                    _openSystemSettings(context, currentSystem, configProvider);
+                  },
+                ),
               ],
             );
           } else {
@@ -252,10 +254,18 @@ class MySystems extends StatelessWidget {
             ),
           ),
         ),
-        // Count only, bottom left. A grid card's logo cannot spare the room a
-        // count row costs, so this view keeps the strip and the carousel does
-        // not — see [SystemsGridFooter].
-        SystemsGridFooter(system: currentSystem),
+        // Sticky footer displaying active system metadata and secondary actions.
+        SystemsGridFooter(
+          system: currentSystem,
+          onEnter: () {
+            SfxService().playEnterSound();
+            _navigateToSystem(context, currentSystem, configProvider);
+          },
+          onSettings: () {
+            SfxService().playEnterSound();
+            _openSystemSettings(context, currentSystem, configProvider);
+          },
+        ),
       ],
     );
   }
