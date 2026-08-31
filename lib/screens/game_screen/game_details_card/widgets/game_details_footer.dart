@@ -13,9 +13,7 @@ import '../../../../models/retro_achievements_game_info.dart';
 import '../../../../sync/i_sync_provider.dart';
 import 'package:neostation/themes/chrome_surface.dart';
 import '../../../../themes/corner_radii.dart';
-import '../../../../utils/game_utils.dart';
 import '../../../../widgets/neo_sync_status_icon.dart';
-import '../../../../widgets/monospaced_clock.dart';
 import '../../music/music_player.dart';
 import 'package:neostation/utils/ra_coverage.dart';
 
@@ -88,8 +86,6 @@ class GameDetailsFooter extends StatelessWidget {
 
     // Scenario 2: Standard Game Metadata UI.
     final bool hasRating = game.rating > 0;
-    final bool hasPlayTime =
-        GameUtils.formatPlayTime(game.playTime ?? 0) != '0s';
     final bool showsAchievements = _showsAchievements(context);
 
     // One row, always the same height, in reading order: what the game *is*
@@ -156,12 +152,9 @@ class GameDetailsFooter extends StatelessWidget {
                       syncProvider: syncProvider,
                       size: _controlSize,
                       showBackground: true,
+                      borderRadius: _controlRadius,
                       margin: EdgeInsets.only(left: 8.r),
                     ),
-                    if (hasPlayTime) ...[
-                      SizedBox(width: 12.r),
-                      _InlinePlayTime(game: game),
-                    ],
                     SizedBox(width: 12.r),
                     // Controls, in the order the removed rail had them.
                     if (onShowRandomGame != null) ...[
@@ -204,9 +197,7 @@ class GameDetailsFooter extends StatelessWidget {
   /// with it, and a games view whose one visible control was an achievements
   /// pill gave touch nothing to press.
   Widget _buildPlayButton(BuildContext context) {
-    final BorderRadius radius =
-        Theme.of(context).extension<CornerRadii>()?.radiusExternal ??
-        BorderRadius.circular(14.r);
+    final BorderRadius radius = _controlRadius;
 
     return Container(
       // Deliberately a fixed width. The achievements pill beside it is
@@ -405,15 +396,13 @@ class GameDetailsFooter extends StatelessWidget {
         hoverColor: Colors.transparent,
         highlightColor: Colors.transparent,
         splashColor: theme.colorScheme.onSurface.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8.r),
+        borderRadius: _controlRadius,
         child: Container(
           width: availableWidth,
-          height: 45.r,
+          height: _bottomRowHeight,
           decoration: BoxDecoration(
             color: ChromeSurface.fill(context),
-            borderRadius:
-                Theme.of(context).extension<CornerRadii>()?.radiusExternal ??
-                BorderRadius.circular(14.r),
+            borderRadius: _controlRadius,
             border: Border.all(
               color: Theme.of(context).colorScheme.outline,
               width: 1.r,
@@ -526,6 +515,15 @@ List<Shadow> get _onArtShadows => [
   Shadow(blurRadius: 1.r, color: Colors.black, offset: const Offset(2, 2)),
 ];
 
+/// The row's own corner: every chrome element on it is fully rounded, so the
+/// square controls come out as circles and the wider ones as stadiums.
+///
+/// Deliberately not the theme's [CornerRadii]. That extension sets the corner
+/// style for the app's panels and cards, and at its squarer settings this row
+/// read as a strip of tiles; the controls are meant to read as a set of
+/// buttons floating on the artwork, which is a shape, not a preference.
+BorderRadius get _controlRadius => BorderRadius.circular(_bottomRow.r);
+
 /// Height of the footer's row, and the size of every square control on it.
 ///
 /// One number, so the achievements pill, the sync chip, the three icon buttons
@@ -558,13 +556,6 @@ double get _bottomRowHeight => _bottomRow.r;
 double gameDetailsPanelBottomOffset() =>
     _bottomRow + _bottomPadding + _panelGap;
 
-/// Whether [game] has a play-time clock on the footer's row.
-bool gameDetailsFooterHasPlayTime(GameModel game) =>
-    GameUtils.formatPlayTime(game.playTime ?? 0) != '0s';
-
-/// Whether [game] has a score on the footer's row.
-bool gameDetailsFooterHasRating(GameModel game) => game.rating > 0;
-
 /// One square control on the footer's row: a glyph on the same pill the
 /// achievements indicator wears, so the row reads as a set.
 ///
@@ -586,9 +577,7 @@ class _FooterActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final BorderRadius radius =
-        theme.extension<CornerRadii>()?.radiusExternal ??
-        BorderRadius.circular(14.r);
+    final BorderRadius radius = _controlRadius;
 
     return Material(
       color: Colors.transparent,
@@ -684,53 +673,6 @@ class _InlineRating extends StatelessWidget {
             color: Colors.white,
             fontSize: 18.r,
             fontWeight: FontWeight.w800,
-            height: 1.15,
-            shadows: _onArtShadows,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// Accumulated play time as a clock glyph and an HH:MM:SS reading, at the right
-/// end of the footer's bottom row. Moved out of the action row as a pill for
-/// the same reason as [_InlineRating]: it reported, it did not act.
-class _InlinePlayTime extends StatelessWidget {
-  final GameModel game;
-
-  const _InlinePlayTime({required this.game});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        // Sized well past the 11.r it used to be: beside a 45.r pill, and the
-        // only thing on that side of the row, the small reading looked like a
-        // caption that had drifted there. Still the largest text in the footer,
-        // since reading it at a glance from arm's length is the point, but
-        // pulled back from the 20.r it briefly ran at — at that size it started
-        // competing with the game's artwork rather than sitting on it.
-        // `fill: 0` against the app-wide `IconThemeData(fill: 1.0)` in
-        // `main.dart`, for the same reason as the grid footer's clock: filled,
-        // this glyph is a solid disc with the hands knocked out of it, and a
-        // white disc on fanart reads as a badge rather than a clock.
-        Icon(
-          Symbols.schedule_rounded,
-          color: Colors.white,
-          size: 20.r,
-          fill: 0,
-          shadows: _onArtShadows,
-        ),
-        SizedBox(width: 6.r),
-        MonospacedClock(
-          text: MonospacedClock.format(game.playTime ?? 0),
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 18.r,
-            fontWeight: FontWeight.w700,
             height: 1.15,
             shadows: _onArtShadows,
           ),

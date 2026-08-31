@@ -14,7 +14,6 @@ import 'package:neostation/services/sfx_service.dart';
 import 'package:neostation/screens/game_screen/game_details_card/widgets/game_details_footer.dart';
 import 'package:neostation/sync/i_sync_provider.dart';
 import 'package:neostation/themes/chrome_surface.dart';
-import 'package:neostation/widgets/monospaced_clock.dart';
 
 /// The details card's footer is one row: the readouts on the left, the
 /// controls on the right, and nothing above it.
@@ -184,26 +183,67 @@ void main() {
     expect(find.text('8.0'), findsOneWidget);
   });
 
-  testWidgets('the readouts lead the row and the controls close it', (
+  testWidgets('the score leads the row and the controls close it', (
     tester,
   ) async {
     await pumpFooter(tester, showsPill: true);
 
     final star = tester.getRect(find.byIcon(Symbols.star_rounded));
     final trophy = tester.getRect(find.byIcon(Symbols.emoji_events_rounded));
-    final clock = tester.getRect(find.byType(MonospacedClock));
+    final heart = tester.getRect(find.byIcon(Symbols.favorite_rounded));
     final play = tester.getRect(find.text('PLAY'));
 
     expect(star.right, lessThanOrEqualTo(trophy.left));
-    expect(trophy.right, lessThanOrEqualTo(clock.left));
-    expect(clock.right, lessThanOrEqualTo(play.left));
+    expect(trophy.right, lessThanOrEqualTo(heart.left));
+    expect(heart.right, lessThanOrEqualTo(play.left));
 
     // One row: everything on it shares a centre line.
-    for (final other in [trophy, clock, play]) {
+    for (final other in [trophy, heart, play]) {
       expect(
         star.center.dy,
         moreOrLessEquals(other.center.dy, epsilon: 2.0),
         reason: 'one row, not a stack',
+      );
+    }
+  });
+
+  testWidgets('the play-time clock is not on this row', (tester) async {
+    // It was the last inert readout left among the controls. The score earns
+    // its place by being what a list is scanned for; a running total of hours
+    // is not, and the row it was crowding is the only touch surface the view
+    // has.
+    await pumpFooter(tester, game: _game(playTime: 3671));
+
+    expect(find.byIcon(Symbols.schedule_rounded), findsNothing);
+    expect(find.textContaining('01:01'), findsNothing);
+  });
+
+  testWidgets('every control on the row is fully rounded', (tester) async {
+    // The square buttons come out as circles and the wide ones as stadiums,
+    // which is what makes the row read as a set of buttons on the artwork
+    // rather than a strip of tiles. It does not follow the theme's corner
+    // style: that is for panels and cards.
+    await pumpFooter(tester, showsPill: true);
+
+    for (final icon in [
+      Symbols.casino_rounded,
+      Symbols.favorite_rounded,
+      Symbols.settings_rounded,
+    ]) {
+      final box = tester.widget<Container>(
+        find
+            .ancestor(of: find.byIcon(icon), matching: find.byType(Container))
+            .first,
+      );
+      final size = tester.getSize(find.byIcon(icon).first);
+      final radius =
+          ((box.decoration as BoxDecoration).borderRadius as BorderRadius)
+              .topLeft
+              .x;
+      expect(
+        radius,
+        greaterThanOrEqualTo(size.height / 2),
+        reason: 'a circle, not a rounded square',
       );
     }
   });
