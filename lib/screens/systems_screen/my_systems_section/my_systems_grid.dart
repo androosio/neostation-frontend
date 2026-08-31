@@ -268,8 +268,13 @@ class MySystems extends StatelessWidget {
   /// still opens the settings dialog directly, so the pad keeps its one-press
   /// route and this is purely an addition.
   ///
-  /// `Settings` is omitted for a recent-game card, which has no system to
-  /// configure — the same case the carousel already refuses with a notice.
+  /// `Settings` is the first row on every card, as it is in the games view's
+  /// own Y menu. It used to be omitted on a recent-game card, on the grounds
+  /// that such a card has no system to configure — but it does: the game on it
+  /// belongs to one, and [_openSystemSettings] now resolves it the same way
+  /// [_navigateToSystem] does. That left `View mode` as the top row on exactly
+  /// one kind of card, so the menu's first entry moved depending on which card
+  /// the cursor happened to be on.
   Future<void> _openSystemContextMenu(
     BuildContext context,
     SystemInfo system,
@@ -280,17 +285,16 @@ class MySystems extends StatelessWidget {
     final isCarousel = configProvider.config.systemViewMode == 'carousel';
 
     final items = <ContextMenuItem>[
-      if (!system.isGame)
-        ContextMenuItem(
-          id: _menuSettings,
-          label: AppLocale.settings.getString(context),
-          icon: Symbols.settings_rounded,
-        ),
+      ContextMenuItem(
+        id: _menuSettings,
+        label: AppLocale.settings.getString(context),
+        icon: Symbols.settings_rounded,
+      ),
       ContextMenuItem(
         id: _menuViewMode,
         label: AppLocale.viewMode.getString(context),
         icon: Symbols.grid_view_rounded,
-        separatorBefore: !system.isGame,
+        separatorBefore: true,
         children: [
           ContextMenuItem(
             id: _menuViewGrid,
@@ -332,6 +336,12 @@ class MySystems extends StatelessWidget {
   }
 
   /// Opens the emulator configuration dialog for a specific system.
+  ///
+  /// A recent-game card carries a game rather than a system, so it resolves
+  /// through the game's own `systemFolderName` — the same hop
+  /// [_navigateToSystem] makes to launch it. Without that the card's folder
+  /// name matches nothing in `detectedSystems`, the lookup throws, and the
+  /// catch below turns a real action into a "not available" notice.
   void _openSystemSettings(
     BuildContext context,
     SystemInfo system,
@@ -341,10 +351,14 @@ class MySystems extends StatelessWidget {
     MySystems.isNavigating = true;
 
     try {
-      final selectedSystem = system.folderName == 'all'
+      final String? folderName =
+          (system.isGame ? system.gameModel?.systemFolderName : null) ??
+          system.folderName;
+
+      final selectedSystem = folderName == 'all'
           ? _createAllGamesSystem(context, configProvider.detectedSystems)
           : configProvider.detectedSystems.firstWhere(
-              (s) => s.folderName == system.folderName,
+              (s) => s.folderName == folderName,
             );
 
       await Future.delayed(const Duration(milliseconds: 50));
