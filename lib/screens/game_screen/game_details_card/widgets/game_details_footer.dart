@@ -49,6 +49,11 @@ class GameDetailsFooter extends StatelessWidget {
   /// Opens the per-game settings dialog — the same one Start opens.
   final VoidCallback onOpenGameSettings;
 
+  /// Walks the card to its game info tab. The score chip's tap target: the
+  /// number is a summary of the facts that tab holds, so pressing it goes to
+  /// them rather than doing nothing.
+  final VoidCallback onShowGameInfo;
+
   const GameDetailsFooter({
     super.key,
     required this.system,
@@ -64,6 +69,7 @@ class GameDetailsFooter extends StatelessWidget {
     this.onShowRandomGame,
     required this.onToggleFavorite,
     required this.onOpenGameSettings,
+    required this.onShowGameInfo,
   });
 
   @override
@@ -149,7 +155,7 @@ class GameDetailsFooter extends StatelessWidget {
                         // Readouts first: the score, then the achievements pill
                         // taking whatever the controls leave it.
                         if (hasRating) ...[
-                          _InlineRating(game: game),
+                          _InlineRating(game: game, onTap: onShowGameInfo),
                           SizedBox(width: _rowGap),
                         ],
                         Expanded(
@@ -772,12 +778,18 @@ class _FooterActionButton extends StatelessWidget {
 ///
 /// It wears a chip, and the rule that took it off was the wrong rule: a row of
 /// chips with one bare readout floating at its head does not read as "that one
-/// is not pressable", it reads as unfinished. What separates the score from the
-/// controls is that its chip has no ink and no tap target, not that it has no
-/// chrome. It was tried bare, on the argument that a readout should not charge
-/// the row's only Expanded for its own edges — the width was real, the look was
-/// worse, and the width came back off the row's other side instead when the
-/// cloud glyph left it.
+/// is not pressable", it reads as unfinished. It was tried bare, on the
+/// argument that a readout should not charge the row's only Expanded for its
+/// own edges — the width was real, the look was worse, and the width came back
+/// off the row's other side instead when the cloud glyph left it.
+///
+/// It presses, and it goes to the game info tab. The chip spent a while as the
+/// one element on the row that looked pressable and was not, which is a worse
+/// answer than either a bare readout or a working one: a score is the shortest
+/// possible summary of what that tab holds, so the tap has an obvious
+/// destination and takes it. Same ink as the controls beside it, and like them
+/// it cannot take the gamepad cursor — the pad reaches that tab with the
+/// bumpers already, and this is the touch route to it.
 ///
 /// The colour ramp — error at the bottom of the range, success at the top — is
 /// what makes the number readable without reading it, and it is what lets the
@@ -787,7 +799,10 @@ class _FooterActionButton extends StatelessWidget {
 class _InlineRating extends StatelessWidget {
   final GameModel game;
 
-  const _InlineRating({required this.game});
+  /// Opens the game info tab.
+  final VoidCallback onTap;
+
+  const _InlineRating({required this.game, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -809,59 +824,79 @@ class _InlineRating extends StatelessWidget {
 
     final theme = Theme.of(context);
 
-    return Container(
-      width: _scoreWidth.r,
-      height: _bottomRowHeight,
-      // Tighter than the row's own gap, because this chip is mostly air at the
-      // row's height already and every unit of it is one the achievements pill
-      // beside it does not get — and deliberately 2.r narrower on the left.
-      //
-      // That asymmetry is an optical correction, not a slip: measured on
-      // device, the star's ink sits about 9px inside its own icon box while
-      // the number's last digit runs nearly to the edge of its, so a
-      // *geometrically* centred group reads 5px left-heavy. It survives the
-      // decimal's removal because it is about the star, not the number. The
-      // widget rects are symmetric either way — this is only visible in the
-      // pixels, which is why the numbers came off a screenshot.
-      padding: EdgeInsets.only(left: 4.r, right: 6.r),
-      decoration: BoxDecoration(
-        color: ChromeSurface.fill(context),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          SfxService().playNavSound();
+          onTap();
+        },
+        canRequestFocus: false,
+        focusColor: Colors.transparent,
+        hoverColor: Colors.transparent,
+        highlightColor: Colors.transparent,
+        splashColor: theme.colorScheme.onSurface.withValues(alpha: 0.1),
         borderRadius: _controlRadius,
-        border: Border.all(color: theme.colorScheme.outline, width: 1.r),
-        boxShadow: [
-          BoxShadow(
-            color: theme.colorScheme.shadow.withValues(alpha: 0.1),
-            blurRadius: 4.r,
-            offset: Offset(2.0.r, 2.0.r),
+        child: Container(
+          width: _scoreWidth.r,
+          height: _bottomRowHeight,
+          // Tighter than the row's own gap, because this chip is mostly air at the
+          // row's height already and every unit of it is one the achievements pill
+          // beside it does not get — and deliberately 2.r narrower on the left.
+          //
+          // That asymmetry is an optical correction, not a slip: measured on
+          // device, the star's ink sits about 9px inside its own icon box while
+          // the number's last digit runs nearly to the edge of its, so a
+          // *geometrically* centred group reads 5px left-heavy. It survives the
+          // decimal's removal because it is about the star, not the number. The
+          // widget rects are symmetric either way — this is only visible in the
+          // pixels, which is why the numbers came off a screenshot.
+          padding: EdgeInsets.only(left: 4.r, right: 6.r),
+          decoration: BoxDecoration(
+            color: ChromeSurface.fill(context),
+            borderRadius: _controlRadius,
+            border: Border.all(color: theme.colorScheme.outline, width: 1.r),
+            boxShadow: [
+              BoxShadow(
+                color: theme.colorScheme.shadow.withValues(alpha: 0.1),
+                blurRadius: 4.r,
+                offset: Offset(2.0.r, 2.0.r),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Icon(Symbols.star_rounded, color: ratingColor, size: 16.r, fill: 1),
-          SizedBox(width: 3.r),
-          // scaleDown never scales up, so every score that fits is untouched.
-          // Nothing reaches it at these sizes — it is here so a font-metric
-          // wobble shrinks the number rather than growing the chip.
-          Flexible(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                '$displayRating',
-                maxLines: 1,
-                softWrap: false,
-                style: TextStyle(
-                  color: theme.colorScheme.onSurface,
-                  fontSize: 16.r,
-                  fontWeight: FontWeight.w800,
-                  height: 1.15,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Icon(
+                Symbols.star_rounded,
+                color: ratingColor,
+                size: 16.r,
+                fill: 1,
+              ),
+              SizedBox(width: 3.r),
+              // scaleDown never scales up, so every score that fits is untouched.
+              // Nothing reaches it at these sizes — it is here so a font-metric
+              // wobble shrinks the number rather than growing the chip.
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    '$displayRating',
+                    maxLines: 1,
+                    softWrap: false,
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurface,
+                      fontSize: 16.r,
+                      fontWeight: FontWeight.w800,
+                      height: 1.15,
+                    ),
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

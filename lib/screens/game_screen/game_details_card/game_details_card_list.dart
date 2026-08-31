@@ -876,6 +876,7 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
             hasScreenScraper: _hasScreenScraper,
             isSecondaryScreenActive: widget.isSecondaryScreenActive,
             onShowAchievements: () => _setTab(DetailTab.achievements),
+            onShowGameInfo: () => _setTab(DetailTab.gameInfo),
             hasRetroAchievements: _hasRetroAchievements,
             isLoadingAchievements: _showsAchievementsLoading,
             currentGameInfo: _currentGameInfo,

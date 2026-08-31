@@ -152,6 +152,7 @@ void main() {
                         hasScreenScraper: false,
                         isSecondaryScreenActive: false,
                         onShowAchievements: () {},
+                        onShowGameInfo: () => pressed.add('gameInfo'),
                         hasRetroAchievements: showsPill,
                         // Loading is the cheapest state that makes the pill
                         // render without a fixture of achievement data.
@@ -296,9 +297,8 @@ void main() {
 
   testWidgets('the score wears the same chip as the controls', (tester) async {
     // A row of chips with one bare readout floating at its head did not read
-    // as "that one is not pressable", it read as unfinished. What keeps the
-    // score out of the control set is that its chip has no ink and no tap
-    // target, not that it has no chrome.
+    // as "that one is not pressable", it read as unfinished — and the chip it
+    // got back is pressable, so the row now means one thing by a chip.
     //
     // Taking it off was tried, for the width: the chip is 10 units of padding
     // and a hand-swept reservation, all of it charged to the achievements pill.
@@ -531,6 +531,25 @@ void main() {
     await tester.tap(find.text('PLAY'));
 
     expect(pressed, ['random', 'favorite', 'settings', 'play']);
+  });
+
+  testWidgets('the score opens the tab it summarizes', (tester) async {
+    // The chip was the one element on the row that looked pressable and was
+    // not. The score is the shortest summary of what the game info tab holds,
+    // so that is where the press goes.
+    await pumpFooter(tester);
+
+    await tester.tap(find.byIcon(Symbols.star_rounded));
+
+    expect(pressed, ['gameInfo']);
+  });
+
+  testWidgets('an unscored game has no chip to press', (tester) async {
+    // No chip at all below a rating of 1, so there is nothing to tap and
+    // nothing that looks like it should be tapped.
+    await pumpFooter(tester, game: _game(rating: 0));
+
+    expect(find.byIcon(Symbols.star_rounded), findsNothing);
   });
 
   testWidgets('the heart reports the flag it toggles', (tester) async {
