@@ -16,9 +16,13 @@ import '../../models/game_model.dart';
 import '../../utils/rom_tree.dart';
 import '../../constants/system_folder_names.dart';
 import '../../providers/collections_provider.dart';
+import '../../sync/i_sync_provider.dart';
+import '../../sync/sync_manager.dart';
+import '../../utils/effective_system.dart';
 import '../../widgets/achievements_badge.dart';
 import '../../widgets/collection_badge.dart';
 import '../../widgets/marquee_text.dart';
+import '../../widgets/neo_sync_status_icon.dart';
 import '../../widgets/system_logo_fallback.dart';
 
 /// A high-performance list view specialized for game browsing with gamepad support.
@@ -94,6 +98,13 @@ class GameListViewState extends State<GameListView>
   // Read once per build rather than per row: the row builder runs for every
   // visible entry, and a provider lookup there would subscribe each one.
   bool _showAchievementsBadge = false;
+
+  /// The active cloud-sync provider, read once per build.
+  ///
+  /// Null when nothing is signed in, which is the common case and costs the
+  /// rows nothing. Only the selected row draws a cloud mark, so one lookup
+  /// answers the whole list.
+  ISyncProvider? _syncProvider;
 
   /// ROM paths filed in at least one collection, read once per build.
   ///
@@ -274,6 +285,16 @@ class GameListViewState extends State<GameListView>
     _collections = SystemFolderNames.isCollection(widget.system.folderName)
         ? null
         : context.watch<CollectionsProvider>();
+    // Watched, not read: the mark is a live readout — it spins while a save is
+    // uploading and settles when it lands — so the row has to rebuild when the
+    // provider's state moves. Sync events are rare compared to cursor moves, so
+    // this adds no work to navigation.
+    //
+    // Nullable lookup: a host that has no SyncManager above it gets no mark
+    // rather than an exception, which is what keeps this view pumpable on its
+    // own — the collections and config providers it already reads are declared
+    // the same way.
+    _syncProvider = context.watch<SyncManager?>()?.active;
 
     final theme = Theme.of(context);
     final itemHeight = _itemHeightBase.r;
@@ -474,6 +495,42 @@ class GameListViewState extends State<GameListView>
                                           : theme.colorScheme.onSurface,
                                     ),
                                   ),
+                                // Cloud-sync state, at the end of the selected
+                                // row's title.
+                                //
+                                // The selected row only. This reports what the
+                                // provider is doing with *the game the cursor
+                                // is on* — it is the same one-game readout the
+                                // details card carried, moved to where the
+                                // selection actually is — and a library's worth
+                                // of identical cloud glyphs would say nothing
+                                // the one under the cursor does not.
+                                //
+                                // The widget collapses to nothing on its own
+                                // when there is nothing to report (sync off for
+                                // the system, signed out, no ScreenScraper id),
+                                // so the row is unchanged for everyone who does
+                                // not use cloud saves.
+                                if (isSelected && _syncProvider != null)
+                                  NeoSyncStatusIcon(
+                                    // The game's own system: in an aggregate
+                                    // view the list's system is a placeholder,
+                                    // and NeoSync's per-system settings hang
+                                    // off the real one.
+                                    system: _effectiveSystemFor(game),
+                                    game: game,
+                                    syncProvider: _syncProvider!,
+                                    // A mark among the row's other marks: the
+                                    // badges' own size, no chip, and no shadow
+                                    // — this row is flat surface, not artwork.
+                                    size: 11,
+                                    showBackground: false,
+                                    showGlyphShadow: false,
+                                    // The selected row's foreground, for the
+                                    // states that have no colour of their own.
+                                    mutedColor: theme.colorScheme.onPrimary,
+                                    margin: EdgeInsets.only(left: 4.r),
+                                  ),
                               ],
                             ),
                           ),
@@ -508,6 +565,28 @@ class GameListViewState extends State<GameListView>
         SizedBox(height: _bottomSlack.r),
       ],
     );
+  }
+
+  /// The hardware system [game] belongs to.
+  ///
+  /// In an aggregate view ('all', 'favorites', a collection) the list's own
+  /// system is a synthesized placeholder, and NeoSync's per-system settings and
+  /// ScreenScraper id hang off the real one — so the cloud mark has to resolve
+  /// the game's system rather than the view's. Single-system lists take the
+  /// list's system without touching the provider, exactly as before.
+  SystemModel _effectiveSystemFor(GameModel game) {
+    if (!widget.isAllMode) return widget.system;
+    try {
+      return resolveEffectiveSystem(
+        listSystem: widget.system,
+        game: game,
+        detectedSystems: context.read<SqliteConfigProvider>().detectedSystems,
+      );
+    } catch (e) {
+      // No provider in scope (or nothing detected yet): the placeholder is the
+      // only answer available.
+      return widget.system;
+    }
   }
 
   /// Renders a navigable subfolder row (icon + name + recursive game count).

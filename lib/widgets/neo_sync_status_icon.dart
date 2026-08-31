@@ -34,6 +34,21 @@ class NeoSyncStatusIcon extends StatefulWidget {
   /// same treatment as the text it sits next to.
   final bool showBackground;
 
+  /// Colour for the states that have no status colour of their own.
+  ///
+  /// "Sync is off for this game" and "no save found yet" are absences rather
+  /// than conditions, so they take the colour of the text around them and read
+  /// as part of the line instead of as a warning on it. That colour is the
+  /// theme's `onSurface` by default, which is wrong for a caller drawing on an
+  /// inverted background — the game list's selected row paints its foreground
+  /// in `onPrimary`, and an `onSurface` glyph there is the one mark on the row
+  /// that disappears into the highlight. Such a caller passes its own
+  /// foreground here; null keeps `onSurface`, which is right everywhere else.
+  ///
+  /// The states that *do* mean something — uploading, downloading, an error, a
+  /// full quota — keep their own colours regardless: those are the point.
+  final Color? mutedColor;
+
   /// Overrides the chip's corner, for a caller whose row is fully rounded.
   ///
   /// Only meaningful when [showBackground] is true. Null keeps the theme's own
@@ -58,6 +73,7 @@ class NeoSyncStatusIcon extends StatefulWidget {
     this.margin,
     this.showBackground = true,
     this.showGlyphShadow = true,
+    this.mutedColor,
     this.borderRadius,
   });
 
@@ -204,6 +220,7 @@ class _NeoSyncStatusIconState extends State<NeoSyncStatusIcon>
 
   _NeoSyncStatus _resolveStatus() {
     final game = widget.game!;
+    final muted = widget.mutedColor;
     final cloudSyncEnabled = game.cloudSyncEnabled ?? true;
     final gameState = widget.syncProvider.getGameSyncState(game.romname);
     final isSyncing = widget.syncProvider.status == SyncProviderStatus.syncing;
@@ -211,7 +228,7 @@ class _NeoSyncStatusIconState extends State<NeoSyncStatusIcon>
     if (!cloudSyncEnabled) {
       return _NeoSyncStatus(
         icon: Symbols.cloud_off_rounded,
-        color: Theme.of(context).colorScheme.onSurface,
+        color: muted ?? Theme.of(context).colorScheme.onSurface,
         isSyncing: false,
       );
     }
@@ -259,7 +276,7 @@ class _NeoSyncStatusIconState extends State<NeoSyncStatusIcon>
         case GameSyncStatus.disabled:
           return _NeoSyncStatus(
             icon: Symbols.cloud_off_rounded,
-            color: Colors.grey,
+            color: muted ?? Colors.grey,
             isSyncing: false,
           );
         case GameSyncStatus.quotaExceeded:
@@ -271,7 +288,7 @@ class _NeoSyncStatusIconState extends State<NeoSyncStatusIcon>
         case GameSyncStatus.noSaveFound:
           return _NeoSyncStatus(
             icon: Symbols.save_alt_rounded,
-            color: Colors.grey,
+            color: muted ?? Colors.grey,
             isSyncing: false,
           );
         case GameSyncStatus.missingEmulator:

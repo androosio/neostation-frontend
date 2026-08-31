@@ -11,7 +11,6 @@ import '../../../providers/file_provider.dart';
 import '../../../providers/retro_achievements_provider.dart';
 import '../../../sync/i_sync_provider.dart';
 import '../../../models/retro_achievements_game_info.dart';
-import '../../../repositories/game_repository.dart';
 import '../../../repositories/retro_achievements_repository.dart';
 import 'package:neostation/services/sfx_service.dart';
 import 'dialogs/ra_match_picker_dialog.dart';
@@ -189,7 +188,6 @@ class GameDetailsCardList extends StatefulWidget {
 class _GameDetailsCardListState extends State<GameDetailsCardList>
     with TickerProviderStateMixin {
   late AnimationController _animationController;
-  late AnimationController _syncIconController;
 
   static final _log = LoggerService.instance;
 
@@ -217,9 +215,6 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
 
   // Media playback configuration state.
   bool _isLoadingVideoConfig = true;
-
-  // Cloud Synchronization state.
-  late bool _cloudSyncEnabled;
 
   // ScreenScraper / Metadata acquisition state.
   bool _isScrapingGame = false;
@@ -346,7 +341,6 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
   void initState() {
     super.initState();
     _game = widget.game;
-    _cloudSyncEnabled = widget.game.cloudSyncEnabled ?? true;
 
     _muteButtonFocusNode = FocusNode();
     _achievementsButtonFocusNode = FocusNode();
@@ -380,11 +374,6 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
       vsync: this,
       duration: const Duration(milliseconds: 300),
     );
-    _syncIconController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1000),
-    );
-
     // Drives the horizontal slide between tab panels: it always eases whatever
     // shift the panels are holding back to zero, so the same run settles a
     // D-pad change, a committed swipe and an abandoned one.
@@ -404,8 +393,6 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
           if (_partnerTab != null) setState(() => _partnerTab = null);
         }
       });
-
-    _verifyCloudSyncStatus();
 
     // Trigger achievement hydration unless the user is rapidly scrolling through the library.
     if (!widget.isNavigatingFast) {
@@ -533,7 +520,6 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
 
       setState(() {
         _game = widget.game;
-        _cloudSyncEnabled = _game.cloudSyncEnabled ?? true;
         _currentGameInfo = cachedGameInfo;
         // Nothing has been asked about this game yet — and during a fast scroll
         // the lookup below is deferred entirely, so the answer may be a while
@@ -557,7 +543,6 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
         }
       }
       _loadMatchSource();
-      _verifyCloudSyncStatus();
 
       if (widget.showVideo) {
         _loadVideoConfig();
@@ -569,7 +554,6 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
       if (_currentGameInfo == null) {
         _loadAchievementsForGame(forceRefresh: false);
       }
-      _verifyCloudSyncStatus();
     }
 
     if (oldWidget.retroAchievementsProvider !=
@@ -614,7 +598,6 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
     widget.retroAchievementsProvider.removeListener(_onRAProviderChanged);
     _secondaryState?.removeListener(_onSecondaryStateChanged);
     _animationController.dispose();
-    _syncIconController.dispose();
     _tabSlide.dispose();
     _tabSlideController.dispose();
     _panelShift.dispose();
@@ -892,9 +875,6 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
             isMusicSystem: _effectiveSystem.folderName == 'music',
             hasScreenScraper: _hasScreenScraper,
             isSecondaryScreenActive: widget.isSecondaryScreenActive,
-            cloudSyncEnabled: _cloudSyncEnabled,
-            syncProvider: widget.syncProvider,
-            syncIconController: _syncIconController,
             onShowAchievements: () => _setTab(DetailTab.achievements),
             hasRetroAchievements: _hasRetroAchievements,
             isLoadingAchievements: _showsAchievementsLoading,
@@ -1566,29 +1546,6 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
           );
         }
       }
-    }
-  }
-
-  /// Synchronizes the actual cloud sync authorization status from the local database.
-  Future<void> _verifyCloudSyncStatus() async {
-    try {
-      final targetSystemFolder =
-          widget.isAllMode && widget.game.systemFolderName != null
-          ? widget.game.systemFolderName!
-          : widget.system.folderName;
-
-      final isEnabled = await GameRepository.isCloudSyncEnabled(
-        targetSystemFolder,
-        widget.game.romname,
-      );
-
-      if (mounted && _cloudSyncEnabled != isEnabled) {
-        setState(() {
-          _cloudSyncEnabled = isEnabled;
-        });
-      }
-    } catch (e) {
-      _log.e('Cloud sync status verification failed: $e');
     }
   }
 }

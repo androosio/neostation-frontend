@@ -10,11 +10,9 @@ import 'package:neostation/themes/app_themes.dart';
 import '../../../../models/system_model.dart';
 import '../../../../models/game_model.dart';
 import '../../../../models/retro_achievements_game_info.dart';
-import '../../../../sync/i_sync_provider.dart';
 import 'package:neostation/themes/chrome_surface.dart';
 import '../../../../themes/corner_radii.dart';
 import '../../music/music_player.dart';
-import '../../../../widgets/neo_sync_status_icon.dart';
 import 'package:neostation/utils/ra_coverage.dart';
 
 /// A sticky footer component for the game details card that provides actionable controls and status summaries.
@@ -28,9 +26,6 @@ class GameDetailsFooter extends StatelessWidget {
   final bool isMusicSystem;
   final bool hasScreenScraper;
   final bool isSecondaryScreenActive;
-  final bool cloudSyncEnabled;
-  final ISyncProvider syncProvider;
-  final AnimationController? syncIconController;
   final VoidCallback onShowAchievements;
   final bool hasRetroAchievements;
   final bool isLoadingAchievements;
@@ -59,9 +54,6 @@ class GameDetailsFooter extends StatelessWidget {
     required this.isMusicSystem,
     required this.hasScreenScraper,
     required this.isSecondaryScreenActive,
-    required this.cloudSyncEnabled,
-    required this.syncProvider,
-    this.syncIconController,
     required this.onShowAchievements,
     required this.hasRetroAchievements,
     required this.isLoadingAchievements,
@@ -94,9 +86,14 @@ class GameDetailsFooter extends StatelessWidget {
     // The two text lines that used to sit above this row are gone. The
     // metadata strip (players, publisher, year, genre) reads better in the
     // game info tab, which already carried half of those facts, so the strip
-    // is not repeated on the artwork; the filename went with it, and the
-    // cloud-sync glyph that rode at its end is a chip in this row now rather
-    // than a marker on a line that no longer exists.
+    // is not repeated on the artwork; the filename went with it.
+    //
+    // The cloud-sync glyph rode at that strip's end, spent a while as a chip
+    // in this row, and now lives on the game list's own selected row, at the
+    // end of the title. It says something about *the selected game*, and the
+    // list is where the selection is: on the card it was a second place to
+    // look for a mark the row could carry itself, and it was taking a chip's
+    // width off the achievements pill on every synced game.
     //
     // Fixed height, so the footer no longer resizes with what the selected
     // game happens to carry. The controls are always there, so the row is
@@ -148,18 +145,6 @@ class GameDetailsFooter extends StatelessWidget {
                           // Nothing to report, but the slot stays: it is what
                           // pushes the controls to the right margin.
                           : const SizedBox.shrink(),
-                    ),
-                    // Cloud-sync state, as a chip among chips. It collapses to
-                    // nothing when there is nothing to say, and takes its own
-                    // leading gap with it when it does.
-                    NeoSyncStatusIcon(
-                      system: system,
-                      game: game,
-                      syncProvider: syncProvider,
-                      size: _controlSize,
-                      showBackground: true,
-                      borderRadius: _controlRadius,
-                      margin: EdgeInsets.only(left: _rowGap),
                     ),
                     SizedBox(width: _rowGap),
                     // Controls, in the order the removed rail had them.
@@ -563,34 +548,36 @@ const double _bottomRow = 34;
 /// controls read as unevenly spaced even though each pair was deliberate.
 double get _rowGap => 5.r;
 
-/// The score chip's width, fixed.
+/// The width the score reserves, fixed.
 ///
-/// Two reasons it cannot size to its content. The number is one to four
-/// characters ("8.5" against "10.0"), and since the achievements pill beside it
-/// is the row's only Expanded, every character the score gains comes straight
-/// out of the pill -- so the pill was a different width on every game, and on a
-/// game scoring 10.0 it fell under [_pillMinWidth] and vanished outright. And a
-/// readout that changes size as the cursor moves is exactly what the rest of
-/// this footer was rebuilt to stop.
+/// It cannot size to its content, chip or no chip. The number is one or two
+/// characters ("8" against "10"), and since the achievements pill beside it is
+/// the row's only Expanded, every character the score gains comes straight out
+/// of the pill -- so the pill was a different width on every game, and on a
+/// game scoring 10 it fell under [_pillMinWidth] and vanished outright. A
+/// readout that moves what is beside it as the cursor walks the list is what
+/// the rest of this footer was rebuilt to stop.
 ///
-/// Sized for the common three-character case at full size, and barely wider.
-/// "8.5" is 42.8 at 14.r, and the chip is swept down until the number itself
-/// starts shrinking — the floor moves with whatever else is in the chip:
+/// The slot is left-aligned and draws nothing of its own, so the reservation is
+/// invisible: the star holds one x on every game and only the air after the
+/// number varies. That is what makes a fixed width cheap now. The old chip had
+/// to be centred inside its own edges and swept down by eye until the number
+/// started scaling:
 ///
-///     star 18.r, gap 5.r -> floor 80
-///     star 16.r, gap 4.r -> floor 75
-///     star 14.r, gap 3.r -> floor 72
+///     "8.5", star 18.r, gap 5.r -> floor 80
+///     "8.5", star 16.r, gap 4.r -> floor 75
+///     "8.5", star 14.r, gap 3.r -> floor 72   (73 shipped)
 ///
-/// 73 is that last floor plus a unit, so a font-metric wobble cannot tip the
-/// common score into scaling. "10.0" is absorbed by scaling down rather than by
-/// growing the chip, the same trade PLAY's label makes.
+/// Two things came out of that string since. The decimal point went, and so did
+/// the chip's own 10 units of padding. Measured at 14.r: the star is 14 wide, a
+/// digit 14.3, the gap 3 — so the widest content, "10", is 45.6. 48 is that
+/// plus wobble room, and the [FittedBox] takes anything past it out of the
+/// number rather than out of the pill.
 ///
-/// Every trim so far has come out of the chrome and left the number alone,
-/// which is deliberate: the number is the readout. There is very little chrome
-/// left, so narrowing this again means dropping the number below 14.r — a
-/// different decision from the ones above. Widening it takes width off the
-/// achievements pill.
-const double _scoreWidth = 73;
+/// The 25 units this gives back go to the row, not to the number: the score is
+/// still drawn at 14.r. Widening this again takes width off the achievements
+/// pill.
+const double _scoreWidth = 48;
 
 /// The widest the achievements pill is allowed to get.
 ///
@@ -618,7 +605,7 @@ const double _pillMaxWidth = 132;
 const double _pillMinWidth = 64;
 
 /// [_bottomRow] unscaled, for the widgets that take a bare `double` and apply
-/// `.r` themselves ([NeoSyncStatusIcon.size]).
+/// `.r` themselves.
 const double _controlSize = _bottomRow;
 
 /// Slack under the row, so the content does not sit on the card's edge.
@@ -721,12 +708,20 @@ class _FooterActionButton extends StatelessWidget {
 /// publisher scroll it out of sight. It came back to the row as a bare glyph
 /// and number on the artwork, which read as a caption that had drifted in.
 ///
-/// It wears a chip again, and the rule it broke was the wrong rule: a row of
-/// chips with one bare readout floating at its head does not read as "that one
-/// is not pressable", it reads as unfinished. What separates the score from
-/// the controls is that its chip has no ink and no tap target, not that it has
-/// no chrome. The colour ramp — error at the bottom of the range, success at
-/// the top — is what makes the number readable without reading it.
+/// It wore a chip for a while after that, on the argument that one bare readout
+/// among chips reads as unfinished rather than as unpressable. The chip is gone
+/// for good now, and the argument was answered by the row rather than won: it
+/// is information, not a control, and it was paying for its own edges in the
+/// only currency this row has. The chip cost 10 units of padding and a centred,
+/// hand-swept width; bare, the same reservation is 25 units narrower and
+/// invisible, and all of it goes to the achievements pill and the air around
+/// it.
+///
+/// The colour ramp — error at the bottom of the range, success at the top — is
+/// what makes the number readable without reading it, and it is what lets the
+/// number be whole: the half point a decimal would have carried is in the
+/// colour, and the character it would have cost is width this row does not have
+/// to spare.
 class _InlineRating extends StatelessWidget {
   final GameModel game;
 
@@ -736,6 +731,11 @@ class _InlineRating extends StatelessWidget {
   Widget build(BuildContext context) {
     // Normalizes a 0-20 score to a 0.0-10.0 scale for color interpolation.
     final ratingValue = (game.rating / 2).clamp(0.0, 10.0);
+    // Drawn as a whole number, rounded up. The point and its decimal are a
+    // character the slot has to reserve on every game, taken straight off the
+    // achievements pill; the colour keeps the half point they carried. Up
+    // rather than to nearest, so a game that scored at all never reads "0".
+    final displayRating = ratingValue.ceil();
     final colorRatio = (ratingValue - 1) / 9;
     final customColors = AppThemes.getCustomColors(context);
     final ratingColor = Color.lerp(
@@ -746,45 +746,28 @@ class _InlineRating extends StatelessWidget {
 
     final theme = Theme.of(context);
 
-    return Container(
+    // A reserved slot, not a chip: no fill, no border, no shadow, and the
+    // content pinned to its left edge so the star holds one x while the
+    // trailing air absorbs the difference between "8" and "10".
+    return SizedBox(
       width: _scoreWidth.r,
       height: _bottomRowHeight,
-      // Tighter than the pill's own 8.r, because at 45.r tall this chip is
-      // mostly air already and every unit of it is one the achievements pill
-      // beside it does not get — and deliberately 2.r narrower on the left.
-      //
-      // That asymmetry is an optical correction, not a slip: measured on
-      // device, the star's ink sits about 9px inside its own icon box while
-      // the number's last digit runs nearly to the edge of its, so a
-      // *geometrically* centred group reads 5px left-heavy. The widget rects
-      // are symmetric to the decimal either way — this is only visible in the
-      // pixels, which is why the numbers came off a screenshot.
-      padding: EdgeInsets.only(left: 4.r, right: 6.r),
-      decoration: BoxDecoration(
-        color: ChromeSurface.fill(context),
-        borderRadius: _controlRadius,
-        border: Border.all(color: theme.colorScheme.outline, width: 1.r),
-        boxShadow: [
-          BoxShadow(
-            color: theme.colorScheme.shadow.withValues(alpha: 0.1),
-            blurRadius: 4.r,
-            offset: Offset(2.0.r, 2.0.r),
-          ),
-        ],
-      ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Icon(Symbols.star_rounded, color: ratingColor, size: 14.r, fill: 1),
           SizedBox(width: 3.r),
-          // scaleDown never scales up, so every score that already fits is
-          // untouched and only "10.0" is pulled in.
+          // scaleDown never scales up, so every score that fits is untouched.
+          // Nothing reaches it at these sizes — it is here so a font-metric
+          // wobble shrinks the number rather than pushing the slot into the
+          // pill.
           Flexible(
             child: FittedBox(
               fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
               child: Text(
-                ratingValue.toStringAsFixed(1),
+                '$displayRating',
                 maxLines: 1,
                 softWrap: false,
                 style: TextStyle(
