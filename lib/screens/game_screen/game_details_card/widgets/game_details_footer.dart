@@ -562,10 +562,15 @@ double get _rowGap => 5.r;
 /// readout that changes size as the cursor moves is exactly what the rest of
 /// this footer was rebuilt to stop.
 ///
-/// Sized for the common three-character case at full size; "10.0" is absorbed
-/// by scaling the number down rather than by growing the chip, the same trade
-/// PLAY's label makes.
-const double _scoreWidth = 84;
+/// Sized for the common three-character case at full size, and no wider: 80 is
+/// the narrowest chip that still renders "8.5" at its natural 42.8, and at 78
+/// that starts shrinking too. "10.0" is absorbed by scaling the number down
+/// rather than by growing the chip, the same trade PLAY's label makes.
+///
+/// Which means this number cannot be trimmed further without the *common* case
+/// losing size, and cannot grow without taking width off the achievements pill
+/// beside it.
+const double _scoreWidth = 80;
 
 /// The narrowest the achievements pill can be and still say anything: its
 /// icon, the count and a bar with somewhere to fill.
