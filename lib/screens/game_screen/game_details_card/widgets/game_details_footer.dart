@@ -165,10 +165,9 @@ class GameDetailsFooter extends StatelessWidget {
                     // Controls, in the order the removed rail had them.
                     if (onShowRandomGame != null) ...[
                       _FooterActionButton(
-                        // Shuffle rather than the dice the Y menu uses: on a
-                        // 34.r chip the dice's pips are mush, and the two
-                        // crossing arrows survive being small.
-                        icon: Symbols.shuffle_rounded,
+                        // The same dice the Y context menu gives Random, so the
+                        // action carries one glyph wherever it is offered.
+                        icon: Symbols.casino_rounded,
                         onTap: onShowRandomGame!,
                       ),
                       SizedBox(width: _rowGap),

@@ -236,7 +236,7 @@ void main() {
     for (final finder in [
       // The score chip, by the star inside it.
       find.byIcon(Symbols.star_rounded),
-      find.byIcon(Symbols.shuffle_rounded),
+      find.byIcon(Symbols.casino_rounded),
       find.byIcon(Symbols.favorite_rounded),
       find.byIcon(Symbols.settings_rounded),
     ]) {
@@ -426,7 +426,7 @@ void main() {
       for (final finder in [
         find.byIcon(Symbols.star_rounded),
         find.byIcon(Symbols.emoji_events_rounded),
-        find.byIcon(Symbols.shuffle_rounded),
+        find.byIcon(Symbols.casino_rounded),
         find.byIcon(Symbols.favorite_rounded),
         find.byIcon(Symbols.settings_rounded),
         find.text('PLAY'),
@@ -471,7 +471,7 @@ void main() {
   ) async {
     await pumpFooter(tester);
 
-    await tester.tap(find.byIcon(Symbols.shuffle_rounded));
+    await tester.tap(find.byIcon(Symbols.casino_rounded));
     await tester.tap(find.byIcon(Symbols.favorite_rounded));
     await tester.tap(find.byIcon(Symbols.settings_rounded));
     await tester.tap(find.text('PLAY'));
@@ -500,7 +500,7 @@ void main() {
   ) async {
     await pumpFooter(tester, canRandom: false);
 
-    expect(find.byIcon(Symbols.shuffle_rounded), findsNothing);
+    expect(find.byIcon(Symbols.casino_rounded), findsNothing);
     // The rest of the row is untouched by its absence.
     expect(find.byIcon(Symbols.favorite_rounded), findsOneWidget);
     expect(find.text('PLAY'), findsOneWidget);
