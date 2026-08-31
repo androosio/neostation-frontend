@@ -6,10 +6,12 @@ import 'package:neostation/l10n/app_locale.dart';
 import 'package:neostation/models/game_model.dart';
 import 'package:neostation/models/system_model.dart';
 import 'package:neostation/providers/file_provider.dart';
+import 'package:neostation/providers/sqlite_config_provider.dart';
 import 'package:neostation/screens/game_screen/game_details_card/tabs/game_details_game_info_tab.dart';
 import 'package:neostation/services/sfx_service.dart';
 import 'package:neostation/themes/chrome_surface.dart';
 import 'package:neostation/themes/corner_radii.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// The game info panel says "there is something in here to read" by lighting
@@ -114,27 +116,33 @@ void main() {
     String description,
   ) async {
     await tester.pumpWidget(
-      MediaQuery(
-        data: const MediaQueryData(size: Size(1920, 1080)),
-        child: ScreenUtilInit(
-          designSize: const Size(640, 480),
-          builder: (context, child) => MaterialApp(
-            localizationsDelegates:
-                FlutterLocalization.instance.localizationsDelegates,
-            supportedLocales: FlutterLocalization.instance.supportedLocales,
-            // The panel asserts on these theme extensions, which the real app
-            // always carries.
-            theme: ThemeData(
-              extensions: [ChromeSurface.standard(), CornerRadii.m()],
-            ),
-            home: Scaffold(
-              body: SizedBox(
-                width: 600,
-                height: 1000,
-                child: _Host(
-                  system: _system,
-                  game: game,
-                  description: description,
+      // The panel reads the app's language off the config provider to pick the
+      // one description it shows, so the provider is part of the tree it needs
+      // — the same way the theme extensions below are.
+      ChangeNotifierProvider<SqliteConfigProvider>(
+        create: (_) => SqliteConfigProvider(),
+        child: MediaQuery(
+          data: const MediaQueryData(size: Size(1920, 1080)),
+          child: ScreenUtilInit(
+            designSize: const Size(640, 480),
+            builder: (context, child) => MaterialApp(
+              localizationsDelegates:
+                  FlutterLocalization.instance.localizationsDelegates,
+              supportedLocales: FlutterLocalization.instance.supportedLocales,
+              // The panel asserts on these theme extensions, which the real app
+              // always carries.
+              theme: ThemeData(
+                extensions: [ChromeSurface.standard(), CornerRadii.m()],
+              ),
+              home: Scaffold(
+                body: SizedBox(
+                  width: 600,
+                  height: 1000,
+                  child: _Host(
+                    system: _system,
+                    game: game,
+                    description: description,
+                  ),
                 ),
               ),
             ),
@@ -208,23 +216,27 @@ void main() {
   testWidgets('the header lines up across games with different gates', (
     tester,
   ) async {
-    // One language and a description that fits: nothing to drive.
+    // A description that fits its pane: nothing to drive.
     await mountPanel(tester, _game(descriptions: {'en': 'Short.'}), 'Short.');
     await tester.pump();
     final quiet = _factsX(tester);
+    expect(_isLit(tester), isFalse);
 
-    // Two languages: the panel is enterable from the first build. Walking the
-    // games list with this tab open must not shuffle the strip between the two.
+    // A description that overruns it: something to drive. This is the only
+    // gate left — the panel used to be enterable from its first build on any
+    // game scraped in two languages, back when a strip of language chips was
+    // the other thing in here the D-pad could walk. Walking the games list
+    // with this tab open must not shuffle the strip between the two states.
     await mountPanel(
       tester,
-      _game(descriptions: {'en': _paragraph, 'fr': _paragraph}),
-      _paragraph,
+      _game(descriptions: {'en': _overflowing}),
+      _overflowing,
     );
-    final lit = _factsX(tester);
-    expect(_isLit(tester), isTrue);
+    final onArrival = _factsX(tester);
     await tester.pump();
+    expect(_isLit(tester), isTrue);
 
-    expect(lit, quiet);
+    expect(onArrival, quiet);
     expect(_factsX(tester), quiet);
   });
 

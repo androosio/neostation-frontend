@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_localization/flutter_localization.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:provider/provider.dart';
 import 'package:neostation/l10n/app_locale.dart';
+import 'package:neostation/providers/sqlite_config_provider.dart';
 import 'package:neostation/services/sfx_service.dart';
 import '../../../../models/system_model.dart';
 import '../../../../models/game_model.dart';
@@ -46,57 +48,23 @@ class GameDetailsGameInfoTab extends StatefulWidget {
 }
 
 class GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
-  static const List<String> _languageLabels = [
-    'en',
-    'es',
-    'fr',
-    'de',
-    'it',
-    'pt',
-    'jp',
-    'ko',
-    'ru',
-    'zh',
-    'nl',
-    'sv',
-    'da',
-    'fi',
-    'no',
-    'pl',
-    'hu',
-    'cs',
-    'ro',
-  ];
-
-  static const Map<String, String> _languageNames = {
-    'en': 'English',
-    'es': 'Espanol',
-    'fr': 'Francais',
-    'de': 'Deutsch',
-    'it': 'Italiano',
-    'pt': 'Portugues',
-    'jp': 'Japanese',
-    'ko': 'Korean',
-    'zh': 'Chinese',
-    'nl': 'Nederlands',
-    'sv': 'Svenska',
-    'da': 'Dansk',
-    'fi': 'Suomi',
-    'no': 'Norsk',
-    'pl': 'Polski',
-    'hu': 'Magyar',
-    'cs': 'Cesky',
-    'ro': 'Romanian',
+  /// App language code -> the key the scraper files that language under.
+  ///
+  /// Only the two that actually differ are listed. ScreenScraper writes
+  /// Japanese as `jp` where the app calls it `ja`, and it has one Chinese
+  /// bucket where the app offers simplified and traditional separately, so
+  /// both app variants read the same text. Every other app language is its own
+  /// key, and `id` has no bucket at all — it falls through to English like any
+  /// other language a game was not scraped in.
+  static const Map<String, String> _descriptionKeys = {
+    'ja': 'jp',
+    'zh': 'zh',
+    'zh_Hant': 'zh',
   };
-
-  String _selectedLanguage = 'en';
 
   /// Drives the description pane: the D-pad scrolls it while the panel is
   /// active, and a finger can drag it at any time.
   final ScrollController _descriptionController = ScrollController();
-
-  /// Keeps the focused language chip inside its horizontal strip.
-  final Map<int, GlobalKey> _languageKeys = {};
 
   /// Whether the panel owns the D-pad.
   ///
@@ -128,7 +96,7 @@ class GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
   void _refreshDrivability() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final drivable = _canScroll || _availableLanguages().length > 1;
+      final drivable = _canScroll;
       if (drivable != _isDrivable) setState(() => _isDrivable = drivable);
     });
   }
@@ -146,11 +114,13 @@ class GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
 
   /// Hands the D-pad to the panel. Returns whether the input was consumed.
   ///
-  /// Refuses when there is nothing to drive — a description that fits and a
-  /// single language leave the D-pad better spent on the tabs and the list.
+  /// Refuses when there is nothing to drive: a description that fits in its
+  /// pane leaves the D-pad better spent on the tabs and the list. Scrolling is
+  /// now the only thing in here to drive — the language strip that was the
+  /// other half of this gate is gone.
   bool enterPanel() {
     if (_isPanelActive) return true; // Already inside — A stays consumed.
-    if (!_canScroll && _availableLanguages().length < 2) return false;
+    if (!_canScroll) return false;
 
     setState(() => _isPanelActive = true);
     return true;
@@ -170,11 +140,18 @@ class GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
   /// Gamepad navigation delegate: scrolls the description down one step.
   void moveDown() => _scrollDescription(_scrollStep);
 
-  /// Gamepad navigation delegate: previous description language.
-  void moveLeft() => _stepLanguage(-1);
+  /// Gamepad navigation delegate: nothing to the left or right in here.
+  ///
+  /// These used to walk the language strip. The panel shows one language now —
+  /// the user's — so there is no horizontal axis left to drive. They stay as
+  /// no-ops rather than being unregistered: the card dispatches left/right to
+  /// whichever panel holds the D-pad, and a panel that is being read should
+  /// swallow them rather than let a stray press slide the tab out from under
+  /// the text. B is the way out, as everywhere else.
+  void moveLeft() {}
 
-  /// Gamepad navigation delegate: next description language.
-  void moveRight() => _stepLanguage(1);
+  /// Gamepad navigation delegate: see [moveLeft].
+  void moveRight() {}
 
   void _scrollDescription(double delta) {
     if (!_isPanelActive || !_descriptionController.hasClients) return;
@@ -193,42 +170,6 @@ class GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
     );
   }
 
-  /// Walks the language strip by [delta], clamped to its ends.
-  ///
-  /// The chip is the selection, so a step applies the language outright rather
-  /// than parking a cursor on it that A would then have to confirm.
-  void _stepLanguage(int delta) {
-    if (!_isPanelActive) return;
-
-    final languages = _availableLanguages();
-    if (languages.length < 2) return;
-
-    final current = languages.indexOf(_selectedLanguage);
-    final next = ((current < 0 ? 0 : current) + delta).clamp(
-      0,
-      languages.length - 1,
-    );
-    if (next == current) return;
-
-    setState(() => _selectedLanguage = languages[next]);
-    // A new language is a new text: start it from the top.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      if (_descriptionController.hasClients) {
-        _descriptionController.jumpTo(0);
-      }
-      final key = _languageKeys[next];
-      if (key?.currentContext != null) {
-        Scrollable.ensureVisible(
-          key!.currentContext!,
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOut,
-          alignment: 0.5,
-        );
-      }
-    });
-  }
-
   @override
   void didUpdateWidget(GameDetailsGameInfoTab oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -238,13 +179,10 @@ class GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
     _refreshDrivability();
 
     // A new game is a new panel: drop the gate and start its text from the
-    // top, and fall back to English if it has nothing in the language the
-    // previous game was being read in.
+    // top. There is no language to carry over or reset any more — the panel
+    // resolves one from the app's own language on every build.
     if (oldWidget.game.romPath != widget.game.romPath) {
       _isPanelActive = false;
-      if (!_availableLanguages().contains(_selectedLanguage)) {
-        _selectedLanguage = 'en';
-      }
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && _descriptionController.hasClients) {
           _descriptionController.jumpTo(0);
@@ -259,15 +197,24 @@ class GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
     super.dispose();
   }
 
-  List<String> _availableLanguages() {
-    final descriptions = widget.game.descriptions;
-    if (descriptions == null || descriptions.isEmpty) return [];
-    return _languageLabels
-        .where(
-          (lang) =>
-              descriptions[lang] != null && descriptions[lang]!.isNotEmpty,
-        )
-        .toList();
+  /// The one language this panel reads the description in.
+  ///
+  /// The app's own display language, mapped onto the scraper's key for it. The
+  /// panel used to show every language a game had been scraped in, as a strip
+  /// of chips the D-pad walked — which put a language picker in front of a
+  /// user who has already told the app which language they read, on a tab
+  /// whose job is to be read.
+  ///
+  /// Falling back is [GameModel.getDescriptionForLanguage]'s job and it
+  /// already does it: the requested language, then English, then the rest of
+  /// its hierarchy, then anything the game has. A game scraped in one language
+  /// still shows that text rather than an empty pane.
+  String _descriptionLanguage(BuildContext context) {
+    final appLanguage = context
+        .watch<SqliteConfigProvider>()
+        .config
+        .appLanguage;
+    return _descriptionKeys[appLanguage] ?? appLanguage;
   }
 
   @override
@@ -516,9 +463,9 @@ class GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
   }
 
   Widget _buildScrapedView() {
-    final availableLanguages = _availableLanguages();
+    final descriptions = widget.game.descriptions;
 
-    if (availableLanguages.isEmpty) {
+    if (descriptions == null || descriptions.isEmpty) {
       return Padding(
         padding: EdgeInsets.all(12.r),
         child: _buildDescription(
@@ -527,74 +474,21 @@ class GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
       );
     }
 
-    final activeDesc = widget.game.getDescriptionForLanguage(_selectedLanguage);
+    // One language, resolved from the app's. The strip of chips that used to
+    // sit under this text is gone with it: it offered a choice the user had
+    // already made in Settings, and it cost the description a band of height
+    // on every game that happened to be scraped more than once.
+    final activeDesc = widget.game.getDescriptionForLanguage(
+      _descriptionLanguage(context),
+    );
 
-    return Column(
-      children: [
-        Expanded(
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12.r),
-            child: _buildDescription(
-              GameUtils.cleanupDescription(
-                activeDesc.isNotEmpty ? activeDesc : widget.description,
-              ),
-            ),
-          ),
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 12.r),
+      child: _buildDescription(
+        GameUtils.cleanupDescription(
+          activeDesc.isNotEmpty ? activeDesc : widget.description,
         ),
-        if (availableLanguages.length > 1)
-          Container(
-            height: 28.r,
-            margin: EdgeInsets.only(bottom: 4.r),
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: EdgeInsets.symmetric(horizontal: 8.r),
-              itemCount: availableLanguages.length,
-              separatorBuilder: (_, _) => SizedBox(width: 4.r),
-              itemBuilder: (context, index) {
-                final lang = availableLanguages[index];
-                final isSelected = lang == _selectedLanguage;
-                return Material(
-                  key: _languageKeys.putIfAbsent(index, () => GlobalKey()),
-                  color: isSelected
-                      ? Theme.of(context).colorScheme.primary
-                      : Theme.of(context).colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(6.r),
-                  child: InkWell(
-                    onTap: () {
-                      setState(() {
-                        _selectedLanguage = lang;
-                        // A tap is the touch equivalent of the A gate.
-                        _isPanelActive = true;
-                      });
-                    },
-                    borderRadius: BorderRadius.circular(6.r),
-                    // The strip hands each chip a tight height, so a vertical
-                    // padding would seat the label at the top and leave the
-                    // rest of the pill empty under it. Centre it instead.
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 8.r),
-                      child: Center(
-                        widthFactor: 1.0,
-                        child: Text(
-                          _languageNames[lang] ?? lang.toUpperCase(),
-                          style: TextStyle(
-                            color: isSelected
-                                ? Theme.of(context).colorScheme.onPrimary
-                                : Theme.of(context).colorScheme.onSurface,
-                            fontSize: 9.r,
-                            fontWeight: isSelected
-                                ? FontWeight.bold
-                                : FontWeight.normal,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-      ],
+      ),
     );
   }
 }
