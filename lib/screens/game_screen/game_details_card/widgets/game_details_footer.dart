@@ -122,7 +122,7 @@ class GameDetailsFooter extends StatelessWidget {
                     // taking whatever the controls leave it.
                     if (hasRating) ...[
                       _InlineRating(game: game),
-                      SizedBox(width: 8.r),
+                      SizedBox(width: _rowGap),
                     ],
                     Expanded(
                       child: showsAchievements
@@ -137,7 +137,7 @@ class GameDetailsFooter extends StatelessWidget {
                           // pushes the controls to the right margin.
                           : const SizedBox.shrink(),
                     ),
-                    SizedBox(width: 8.r),
+                    SizedBox(width: _rowGap),
                     // Controls. Two of the row's chips are gone: the cloud-sync
                     // state, which reported rather than acted and is on the
                     // grid/carousel footer anyway, and Random, which is a
@@ -153,12 +153,12 @@ class GameDetailsFooter extends StatelessWidget {
                       isOn: game.isFavorite == true,
                       onTap: onToggleFavorite,
                     ),
-                    SizedBox(width: 6.r),
+                    SizedBox(width: _rowGap),
                     _FooterActionButton(
                       icon: Symbols.settings_rounded,
                       onTap: onOpenGameSettings,
                     ),
-                    SizedBox(width: 6.r),
+                    SizedBox(width: _rowGap),
                     _buildPlayButton(context),
                   ],
                 ),
@@ -527,6 +527,28 @@ BorderRadius get _controlRadius => BorderRadius.circular(_bottomRow.r);
 /// `docs/collections/08-list-footer-sizing.md`.
 const double _bottomRow = 45;
 
+/// The one gap between every pair of things on the row.
+///
+/// It was 8 either side of the achievements pill and 6 between the buttons,
+/// which is close enough to look like a mistake rather than a rhythm -- the
+/// controls read as unevenly spaced even though each pair was deliberate.
+double get _rowGap => 6.r;
+
+/// The score chip's width, fixed.
+///
+/// Two reasons it cannot size to its content. The number is one to four
+/// characters ("8.5" against "10.0"), and since the achievements pill beside it
+/// is the row's only Expanded, every character the score gains comes straight
+/// out of the pill -- so the pill was a different width on every game, and on a
+/// game scoring 10.0 it fell under [_pillMinWidth] and vanished outright. And a
+/// readout that changes size as the cursor moves is exactly what the rest of
+/// this footer was rebuilt to stop.
+///
+/// Sized for the common three-character case at full size; "10.0" is absorbed
+/// by scaling the number down rather than by growing the chip, the same trade
+/// PLAY's label makes.
+const double _scoreWidth = 104;
+
 /// The narrowest the achievements pill can be and still say anything: its
 /// icon, the count and a bar with somewhere to fill.
 ///
@@ -664,6 +686,7 @@ class _InlineRating extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Container(
+      width: _scoreWidth.r,
       height: _bottomRowHeight,
       // Tighter than the pill's own 8.r: at 45.r tall this chip is mostly air
       // already, and every unit of it is one the achievements pill beside it
@@ -682,18 +705,27 @@ class _InlineRating extends StatelessWidget {
         ],
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Icon(Symbols.star_rounded, color: ratingColor, size: 22.r, fill: 1),
           SizedBox(width: 6.r),
-          Text(
-            ratingValue.toStringAsFixed(1),
-            style: TextStyle(
-              color: theme.colorScheme.onSurface,
-              fontSize: 18.r,
-              fontWeight: FontWeight.w800,
-              height: 1.15,
+          // scaleDown never scales up, so every score that already fits is
+          // untouched and only "10.0" is pulled in.
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                ratingValue.toStringAsFixed(1),
+                maxLines: 1,
+                softWrap: false,
+                style: TextStyle(
+                  color: theme.colorScheme.onSurface,
+                  fontSize: 18.r,
+                  fontWeight: FontWeight.w800,
+                  height: 1.15,
+                ),
+              ),
             ),
           ),
         ],

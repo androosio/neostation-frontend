@@ -318,6 +318,73 @@ void main() {
     expect(find.byIcon(Symbols.settings_rounded), findsOneWidget);
   });
 
+  testWidgets('the score chip is the same width whatever the score', (
+    tester,
+  ) async {
+    // The number runs from "0.1" to "10.0", and the achievements pill beside
+    // it is the row's only Expanded -- so a chip that sized to its content
+    // handed the pill a different width on every game, and on a 10.0 game it
+    // pushed the pill under its floor and off the row entirely.
+    final widths = <double>{};
+    final pillWidths = <double>{};
+    for (final rating in [0.1, 16.0, 17.0, 20.0]) {
+      await pumpFooter(
+        tester,
+        showsPill: true,
+        width: handheldCardWidth,
+        game: _game(rating: rating),
+      );
+      widths.add(
+        _decoratedAncestor(
+          tester,
+          find.byIcon(Symbols.star_rounded),
+        ).size!.width,
+      );
+      pillWidths.add(
+        _decoratedAncestor(
+          tester,
+          find.byIcon(Symbols.emoji_events_rounded),
+        ).size!.width,
+      );
+    }
+
+    expect(widths, hasLength(1), reason: 'one footprint for every score');
+    expect(
+      pillWidths,
+      hasLength(1),
+      reason: 'so the pill does not resize as the cursor walks the list',
+    );
+  });
+
+  testWidgets('the row is evenly spaced', (tester) async {
+    // It was 8 either side of the pill and 6 between the buttons, which reads
+    // as unevenly spaced rather than as a rhythm.
+    await pumpFooter(tester, showsPill: true, width: handheldCardWidth);
+
+    final rects = [
+      for (final finder in [
+        find.byIcon(Symbols.star_rounded),
+        find.byIcon(Symbols.emoji_events_rounded),
+        find.byIcon(Symbols.favorite_rounded),
+        find.byIcon(Symbols.settings_rounded),
+        find.text('PLAY'),
+      ])
+        _chipRect(tester, finder),
+    ];
+
+    final gaps = [
+      for (int i = 1; i < rects.length; i++) rects[i].left - rects[i - 1].right,
+    ];
+
+    for (final gap in gaps) {
+      expect(
+        gap,
+        moreOrLessEquals(gaps.first, epsilon: 0.5),
+        reason: 'one gap between every pair, got $gaps',
+      );
+    }
+  });
+
   testWidgets('the row is the same height whatever the game carries', (
     tester,
   ) async {
@@ -407,3 +474,9 @@ double _radiusOf(Element chip) =>
             as BorderRadius)
         .topLeft
         .x;
+
+/// The on-screen rectangle of the chip [of] sits inside.
+Rect _chipRect(WidgetTester tester, Finder of) {
+  final box = _decoratedAncestor(tester, of).renderObject! as RenderBox;
+  return box.localToGlobal(Offset.zero) & box.size;
+}
