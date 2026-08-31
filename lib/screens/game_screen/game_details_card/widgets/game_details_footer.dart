@@ -938,14 +938,19 @@ class _InlinePlayTime extends StatelessWidget {
         // `main.dart`: filled, this glyph is a solid disc with the hands
         // knocked out of it, and a white disc on fanart reads as a badge rather
         // than a clock.
+        // 17/15 rather than 20/18. The row below grew when the cloud glyph
+        // left it and this line was sized to match, which made a readout that
+        // reports on nothing the loudest thing above the artwork. It is a
+        // secondary fact and now reads as one; the line's own height is
+        // unchanged, so nothing below it moves.
         Icon(
           Symbols.schedule_rounded,
           color: Colors.white,
-          size: 20.r,
+          size: 17.r,
           fill: 0,
           shadows: _onArtShadows,
         ),
-        SizedBox(width: 6.r),
+        SizedBox(width: 5.r),
         // Hand-laid cells rather than `FontFeature.tabularFigures()`: Anta
         // carries no `tnum` table, so that feature is silently a no-op and the
         // reading jitters as the seconds tick.
@@ -953,7 +958,7 @@ class _InlinePlayTime extends StatelessWidget {
           text: MonospacedClock.format(game.playTime ?? 0),
           style: TextStyle(
             color: Colors.white,
-            fontSize: 18.r,
+            fontSize: 15.r,
             fontWeight: FontWeight.w700,
             height: 1.15,
             shadows: _onArtShadows,
