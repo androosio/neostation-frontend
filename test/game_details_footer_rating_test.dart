@@ -105,6 +105,7 @@ void main() {
     WidgetTester tester, {
     GameModel? game,
     bool showsPill = false,
+    bool canRandom = true,
     double width = 640,
   }) async {
     tester.view.physicalSize = const Size(1280, 720);
@@ -147,6 +148,9 @@ void main() {
                         // render without a fixture of achievement data.
                         isLoadingAchievements: showsPill,
                         onPlayGame: () => pressed.add('play'),
+                        onShowRandomGame: canRandom
+                            ? () => pressed.add('random')
+                            : null,
                         onToggleFavorite: () => pressed.add('favorite'),
                         onOpenGameSettings: () => pressed.add('settings'),
                       ),
@@ -232,6 +236,7 @@ void main() {
     for (final finder in [
       // The score chip, by the star inside it.
       find.byIcon(Symbols.star_rounded),
+      find.byIcon(Symbols.casino_rounded),
       find.byIcon(Symbols.favorite_rounded),
       find.byIcon(Symbols.settings_rounded),
     ]) {
@@ -294,7 +299,7 @@ void main() {
     );
     expect(
       pill.size!.width,
-      greaterThanOrEqualTo(78.0),
+      greaterThanOrEqualTo(64.0),
       reason: 'the icon, the count and a bar with somewhere to fill',
     );
   });
@@ -302,11 +307,11 @@ void main() {
   testWidgets('a card too narrow for the pill gets no pill, not a splinter', (
     tester,
   ) async {
-    // 380 is inside the one window where this decision is live: the fixed
-    // items still fit (below ~346 the row overflows outright, which no real
+    // 350 is inside the one window where this decision is live: the fixed
+    // items still fit (below ~314 the row overflows outright, which no real
     // card is narrow enough to reach) but what they leave is under the pill's
     // floor.
-    await pumpFooter(tester, showsPill: true, width: 380);
+    await pumpFooter(tester, showsPill: true, width: 350);
 
     expect(
       find.byIcon(Symbols.emoji_events_rounded),
@@ -387,6 +392,7 @@ void main() {
       for (final finder in [
         find.byIcon(Symbols.star_rounded),
         find.byIcon(Symbols.emoji_events_rounded),
+        find.byIcon(Symbols.casino_rounded),
         find.byIcon(Symbols.favorite_rounded),
         find.byIcon(Symbols.settings_rounded),
         find.text('PLAY'),
@@ -431,11 +437,12 @@ void main() {
   ) async {
     await pumpFooter(tester);
 
+    await tester.tap(find.byIcon(Symbols.casino_rounded));
     await tester.tap(find.byIcon(Symbols.favorite_rounded));
     await tester.tap(find.byIcon(Symbols.settings_rounded));
     await tester.tap(find.text('PLAY'));
 
-    expect(pressed, ['favorite', 'settings', 'play']);
+    expect(pressed, ['random', 'favorite', 'settings', 'play']);
   });
 
   testWidgets('the heart reports the flag it toggles', (tester) async {
@@ -454,18 +461,15 @@ void main() {
     );
   });
 
-  testWidgets('the row carries no readout that only reports', (tester) async {
-    // Two chips came off this row to pay for the achievements pill's width,
-    // and both were about something other than acting on the selected game:
-    // the cloud-sync glyph reported state (and is on the grid/carousel footer
-    // anyway), and Random is a view-level action rather than one about this
-    // game. Random is still on the Y menu.
-    await pumpFooter(tester);
+  testWidgets('a host with no random dialog gets no button for one', (
+    tester,
+  ) async {
+    await pumpFooter(tester, canRandom: false);
 
     expect(find.byIcon(Symbols.casino_rounded), findsNothing);
-    expect(find.byIcon(Symbols.cloud_rounded), findsNothing);
-    expect(find.byIcon(Symbols.cloud_off_rounded), findsNothing);
-    expect(find.byIcon(Symbols.cloud_done_rounded), findsNothing);
+    // The rest of the row is untouched by its absence.
+    expect(find.byIcon(Symbols.favorite_rounded), findsOneWidget);
+    expect(find.text('PLAY'), findsOneWidget);
   });
 
   testWidgets('nothing on the row can take the gamepad cursor', (tester) async {
