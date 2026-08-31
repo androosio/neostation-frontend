@@ -111,7 +111,7 @@ void main() {
   testWidgets('the score outweighs the strip it left', (tester) async {
     await pumpFooter(tester, _game(rating: 16.0));
 
-    final score = tester.widget<Text>(find.text('8.0'));
+    final score = tester.widget<Text>(find.text('8'));
     final filename = tester.widget<Text>(find.text('Sonic The Hedgehog.gg'));
 
     expect(score.style!.fontSize, greaterThan(filename.style!.fontSize!));
@@ -119,6 +119,19 @@ void main() {
       tester.widget<Icon>(find.byIcon(Symbols.star_rounded)).size,
       greaterThan(score.style!.fontSize!),
     );
+  });
+
+  testWidgets('the score is a whole number, rounded up', (tester) async {
+    // ScreenScraper stores the score out of 20 and the footer halves it, so
+    // half points are the common case. The list footer has no room for the
+    // decimal: 17/20 reads as "9" here, not "8.5".
+    await pumpFooter(tester, _game(rating: 17.0));
+    expect(find.text('9'), findsOneWidget);
+    expect(find.text('8.5'), findsNothing);
+
+    // And a game that scored at all never rounds down to nothing.
+    await pumpFooter(tester, _game(rating: 1.0));
+    expect(find.text('1'), findsOneWidget);
   });
 
   testWidgets('an unscored game leaves no star and no hole', (tester) async {

@@ -340,6 +340,10 @@ class _InlineRating extends StatelessWidget {
   Widget build(BuildContext context) {
     // Normalizes a 0-20 score to a 0.0-10.0 scale for color interpolation.
     final ratingValue = (game.rating / 2).clamp(0.0, 10.0);
+    // Drawn as a whole number, rounded up: the decimal cost a character's
+    // width in a row that has none to spare, and rounding up keeps a scored
+    // game off a "0" it never earned.
+    final displayRating = ratingValue.ceil();
     final colorRatio = (ratingValue - 1) / 9;
     final scheme = Theme.of(context).colorScheme;
     final customColors = AppThemes.getCustomColors(context);
@@ -356,7 +360,7 @@ class _InlineRating extends StatelessWidget {
         Icon(Symbols.star_rounded, color: ratingColor, size: 22.r, fill: 1),
         SizedBox(width: 4.r),
         Text(
-          ratingValue.toStringAsFixed(1),
+          '$displayRating',
           style: TextStyle(
             color: scheme.onSurface,
             fontSize: 17.r,
