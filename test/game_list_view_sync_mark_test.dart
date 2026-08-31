@@ -17,6 +17,7 @@ import 'package:neostation/screens/game_screen/game_list_view.dart';
 import 'package:neostation/services/sfx_service.dart';
 import 'package:neostation/sync/i_sync_provider.dart';
 import 'package:neostation/sync/sync_manager.dart';
+import 'package:neostation/widgets/neo_sync_status_icon.dart';
 
 /// The cloud-sync mark lives on the game list's selected row.
 ///
@@ -195,6 +196,53 @@ void main() {
 
     // At the end of the title, not before it.
     expect(tester.getRect(mark).left, greaterThan(selected.left));
+
+    await drain(tester);
+  });
+
+  testWidgets('the mark leads the row\'s other marks', (tester) async {
+    // It is the only one of the three that changes while you look at it — it
+    // spins as a save uploads and settles when it lands — and the only one that
+    // comes and goes with the cursor. Behind the others it would push them
+    // sideways every time the selection moved.
+    //
+    // Pinned structurally rather than by geometry: the collection diamond and
+    // the achievements trophy each need state this harness has no seam for (a
+    // membership, and the config flag that turns the trophy on), so what is
+    // asserted is the slot — the mark sits immediately after the title, and
+    // anything else the row draws is appended behind it.
+    useProvider(_FakeSync(GameSyncStatus.upToDate));
+    await pumpList(tester, selectedIndex: 1);
+
+    final row = tester
+        .widgetList<Row>(
+          find.descendant(
+            of: find
+                .ancestor(
+                  of: find.text('A Link to the Past'),
+                  matching: find.byType(GestureDetector),
+                )
+                .first,
+            matching: find.byType(Row),
+          ),
+        )
+        .first;
+
+    final titleSlot = row.children.indexWhere((w) => w is Expanded);
+    final markSlot = row.children.indexWhere((w) => w is NeoSyncStatusIcon);
+
+    expect(titleSlot, isNonNegative, reason: 'the title takes the row');
+    expect(
+      markSlot,
+      titleSlot + 1,
+      reason: 'first of the marks at the end of the title',
+    );
+
+    // And it is drawn past the title, not before it.
+    expect(
+      tester.getRect(find.byIcon(Symbols.check_circle_outline_rounded)).left,
+      greaterThan(tester.getRect(find.text('A Link to the Past')).left),
+    );
 
     await drain(tester);
   });

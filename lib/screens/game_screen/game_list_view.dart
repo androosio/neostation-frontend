@@ -458,45 +458,18 @@ class GameListViewState extends State<GameListView>
                                     ),
                                   ),
                                 ),
-                                // Collection mark, right-aligned ahead of the
-                                // achievements trophy. The favourite heart
-                                // stays on the left of the name: it is the one
-                                // mark the user sets on the game itself, while
-                                // these two report what the game belongs to and
-                                // what it is matched against, so they cluster
-                                // together at the end of the row.
-                                if (_collections?.isInAnyCollection(
-                                      game.romPath,
-                                    ) ==
-                                    true)
-                                  Padding(
-                                    padding: EdgeInsets.only(left: 4.r),
-                                    child: CollectionBadge.inline(
-                                      // The row's own foreground, so the mark
-                                      // stays legible on the selected row's
-                                      // inverted background — same rule as the
-                                      // achievements trophy.
-                                      color: isSelected
-                                          ? theme.colorScheme.onPrimary
-                                          : theme.colorScheme.primary,
-                                    ),
-                                  ),
-                                if (_showAchievementsBadge &&
-                                    AchievementsBadge.showsFor(game))
-                                  Padding(
-                                    padding: EdgeInsets.only(left: 4.r),
-                                    child: AchievementsBadge.inline(
-                                      game: game,
-                                      // The same colour as the row's title, so
-                                      // the trophy reads as part of the line
-                                      // rather than a warning next to it.
-                                      color: isSelected
-                                          ? theme.colorScheme.onPrimary
-                                          : theme.colorScheme.onSurface,
-                                    ),
-                                  ),
-                                // Cloud-sync state, at the end of the selected
-                                // row's title.
+                                // Cloud-sync state, first of the marks at the
+                                // end of the title.
+                                //
+                                // Ahead of the other two because it is the one
+                                // that changes while you look at it: it spins
+                                // as a save uploads and settles when it lands,
+                                // where the collection diamond and the trophy
+                                // are facts about the game that were already
+                                // true. It also comes and goes with the cursor,
+                                // and a mark that appears *between* two settled
+                                // ones pushes them sideways as the selection
+                                // moves.
                                 //
                                 // The selected row only. This reports what the
                                 // provider is doing with *the game the cursor
@@ -530,6 +503,44 @@ class GameListViewState extends State<GameListView>
                                     // states that have no colour of their own.
                                     mutedColor: theme.colorScheme.onPrimary,
                                     margin: EdgeInsets.only(left: 4.r),
+                                  ),
+                                // Collection mark, between the cloud glyph and
+                                // the achievements trophy. The favourite heart
+                                // stays on the left of the name: it is the one
+                                // mark the user sets on the game itself, while
+                                // these three report what the game belongs to,
+                                // what it is matched against and what the cloud
+                                // has of it, so they cluster together at the
+                                // end of the row.
+                                if (_collections?.isInAnyCollection(
+                                      game.romPath,
+                                    ) ==
+                                    true)
+                                  Padding(
+                                    padding: EdgeInsets.only(left: 4.r),
+                                    child: CollectionBadge.inline(
+                                      // The row's own foreground, so the mark
+                                      // stays legible on the selected row's
+                                      // inverted background — same rule as the
+                                      // achievements trophy.
+                                      color: isSelected
+                                          ? theme.colorScheme.onPrimary
+                                          : theme.colorScheme.primary,
+                                    ),
+                                  ),
+                                if (_showAchievementsBadge &&
+                                    AchievementsBadge.showsFor(game))
+                                  Padding(
+                                    padding: EdgeInsets.only(left: 4.r),
+                                    child: AchievementsBadge.inline(
+                                      game: game,
+                                      // The same colour as the row's title, so
+                                      // the trophy reads as part of the line
+                                      // rather than a warning next to it.
+                                      color: isSelected
+                                          ? theme.colorScheme.onPrimary
+                                          : theme.colorScheme.onSurface,
+                                    ),
                                   ),
                               ],
                             ),
