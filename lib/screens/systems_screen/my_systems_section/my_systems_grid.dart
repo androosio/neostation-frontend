@@ -137,10 +137,11 @@ class MySystems extends StatelessWidget {
                     SfxService().playEnterSound();
                     _navigateToSystem(context, currentSystem, configProvider);
                   },
-                  onSettings: () {
-                    SfxService().playEnterSound();
-                    _openSystemSettings(context, currentSystem, configProvider);
-                  },
+                  onOptions: () => _openSystemContextMenu(
+                    context,
+                    currentSystem,
+                    configProvider,
+                  ),
                 ),
               ],
             );
@@ -261,10 +262,8 @@ class MySystems extends StatelessWidget {
             SfxService().playEnterSound();
             _navigateToSystem(context, currentSystem, configProvider);
           },
-          onSettings: () {
-            SfxService().playEnterSound();
-            _openSystemSettings(context, currentSystem, configProvider);
-          },
+          onOptions: () =>
+              _openSystemContextMenu(context, currentSystem, configProvider),
         ),
       ],
     );
