@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
-import 'package:neostation/sync/sync_manager.dart';
 import 'package:neostation/models/game_model.dart';
 import 'package:neostation/models/system_model.dart';
 import 'package:neostation/utils/effective_system.dart';
@@ -23,7 +22,6 @@ import 'package:neostation/widgets/collection_badge.dart';
 import 'package:neostation/widgets/game_view_mode_dropdown.dart';
 import 'package:neostation/widgets/native_carousel.dart';
 import 'package:neostation/widgets/game_view_footer.dart';
-import 'package:neostation/widgets/letter_indicator.dart';
 import 'package:neostation/constants/system_folder_names.dart';
 import 'package:neostation/models/retro_achievements_game_info.dart';
 import 'package:neostation/providers/retro_achievements_provider.dart';
@@ -124,6 +122,7 @@ class GamesCarousel extends StatefulWidget {
 
 class _GamesCarouselState extends State<GamesCarousel> {
   final GlobalKey<NativeCarouselState> _carouselKey = GlobalKey();
+  final ScrollController _letterBarController = ScrollController();
 
   int _currentIndex = 0;
   late GamepadNavigation _gamepadNav;
@@ -155,33 +154,10 @@ class _GamesCarouselState extends State<GamesCarousel> {
   DateTime? _lastNavTime;
   bool _isNavigatingFast = false;
   static const Duration _fastNavThreshold = Duration(milliseconds: 150);
-
-  /// True only while a held direction is skipping letter-to-letter, which is
-  /// what raises the big-letter overlay. Same contract as the list view: an
-  /// ordinary fast swipe shows the game names themselves, so throwing a letter
-  /// over them the moment the scroll speeds up is just noise.
-  bool _isLetterJumping = false;
-  Timer? _letterJumpEndTimer;
-
-  /// How long after the last hop the overlay fades. It has to exceed the dwell
-  /// between two jumps or the letter would flash out and back in on each one.
-  static const Duration _letterJumpEndDelay = Duration(milliseconds: 600);
-
-  /// The footer floats over the carousel rather than sitting in a band of its
-  /// own, and the cards keep every pixel above it. Its height is a title line
-  /// and a status strip in `.r` units, so it is measured off the laid-out
-  /// widget rather than written down as a constant.
-  ///
-  /// A change here changes the page pitch under a live scroll position, which
-  /// the carousel only survives because [NativeCarousel] retires its position
-  /// with the geometry (see native_carousel.dart) — before that, this
-  /// measurement left the centred card sitting off-centre.
-  final GlobalKey _footerOverlayKey = GlobalKey();
-  double _footerHeight = 60;
-  bool _footerMeasureScheduled = false;
   static const Duration _chromeSettleDelay = Duration(milliseconds: 160);
   String? _chromeSig;
   Widget? _chromeFooter;
+  final Map<String, double> _letterWidthCache = {};
   final Map<String, bool> _fileExistsCache = {};
 
   /// Folder preview covers, keyed by "relPath|imageType" so box/fanart styles
@@ -270,8 +246,10 @@ class _GamesCarouselState extends State<GamesCarousel> {
 
   static const String _favoritesLabel = '★';
 
-  /// Sentinel alphabet group for folder cards (see [_letterJump]).
+  /// Sentinel alphabet group for folder cards (see [_uniqueLetters]).
   static const String _folderJumpGroup = '\u0000folder';
+
+  bool get _hasFavoriteGames => widget.games.any((g) => g.isFavorite == true);
 
   /// Whether the entry at [index] is a folder placeholder rather than a game.
   bool _isFolderIndex(int index) => index < widget.folderCount;
@@ -279,11 +257,51 @@ class _GamesCarouselState extends State<GamesCarousel> {
   /// Whether the centred card is a folder.
   bool get _isFolderCentred => _isFolderIndex(_currentIndex);
 
+  List<String> get _uniqueLetters {
+    final letters = <String>[];
+    if (_hasFavoriteGames) {
+      letters.add(_favoritesLabel);
+    }
+    for (var i = 0; i < widget.games.length; i++) {
+      // Folders are not alphabetical content — keep them out of the bar so its
+      // letters stay in order and always describe games.
+      if (_isFolderIndex(i)) continue;
+      final game = widget.games[i];
+      if (game.isFavorite == true) continue;
+
+      final displayName = game.name.isNotEmpty ? game.name : game.realname;
+      final letter = displayName.isNotEmpty
+          ? displayName[0].toUpperCase()
+          : '#';
+      if (letters.isEmpty || letters.last != letter) {
+        letters.add(letter);
+      }
+    }
+    return letters;
+  }
+
   String _getLetterForGame(GameModel game) {
     if (game.isFavorite == true) return _favoritesLabel;
 
     final displayName = game.name.isNotEmpty ? game.name : game.realname;
     return displayName.isNotEmpty ? displayName[0].toUpperCase() : '#';
+  }
+
+  int _getFirstGameIndexForLetter(String letter) {
+    if (letter == _favoritesLabel) {
+      for (int i = 0; i < widget.games.length; i++) {
+        if (_isFolderIndex(i)) continue;
+        if (widget.games[i].isFavorite == true) return i;
+      }
+      return 0;
+    }
+
+    for (int i = 0; i < widget.games.length; i++) {
+      if (_isFolderIndex(i)) continue;
+      if (widget.games[i].isFavorite == true) continue;
+      if (_getLetterForGame(widget.games[i]) == letter) return i;
+    }
+    return 0;
   }
 
   int get _gamesLength => widget.games.isEmpty ? 1 : widget.games.length;
@@ -295,6 +313,7 @@ class _GamesCarouselState extends State<GamesCarousel> {
     _settledIndex = _currentIndex;
     _initializeGamepad();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollToCurrentLetter();
       _updateBackground();
       _loadAchievementsForSelectedGame();
     });
@@ -312,11 +331,13 @@ class _GamesCarouselState extends State<GamesCarousel> {
       _settleTimer?.cancel();
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _carouselKey.currentState?.jumpToPage(_currentIndex);
+        _scrollToCurrentLetter();
         _updateBackground();
       });
       _scheduleAchievementsLoad();
     }
     if (widget.games != oldWidget.games) {
+      _letterWidthCache.clear();
       if (_currentIndex >= widget.games.length) {
         _currentIndex = 0;
       }
@@ -336,8 +357,8 @@ class _GamesCarouselState extends State<GamesCarousel> {
   void dispose() {
     _achievementsDebounce?.cancel();
     _settleTimer?.cancel();
-    _letterJumpEndTimer?.cancel();
     _cleanupGamepad();
+    _letterBarController.dispose();
     super.dispose();
   }
 
@@ -454,19 +475,7 @@ class _GamesCarouselState extends State<GamesCarousel> {
     // Jump rather than animate: at letter-jump cadence an animated page slide
     // across dozens of entries would still be running when the next hop fires.
     _carouselKey.currentState?.jumpToPage(target);
-    _raiseLetterOverlay();
     return true;
-  }
-
-  /// Shows the big-letter overlay and re-arms its fade-out. The letter itself
-  /// comes from the centred card in `build`, so a hop only has to say that a
-  /// jump is in progress.
-  void _raiseLetterOverlay() {
-    if (!_isLetterJumping) setState(() => _isLetterJumping = true);
-    _letterJumpEndTimer?.cancel();
-    _letterJumpEndTimer = Timer(_letterJumpEndDelay, () {
-      if (mounted) setState(() => _isLetterJumping = false);
-    });
   }
 
   /// Select tap — toggles global video sound. The preview plays on the
@@ -514,6 +523,7 @@ class _GamesCarouselState extends State<GamesCarousel> {
     }
     _scheduleAchievementsLoad();
     _scheduleChromeSettle();
+    _scrollToCurrentLetter();
     _updateBackground();
   }
 
@@ -564,6 +574,7 @@ class _GamesCarouselState extends State<GamesCarousel> {
     _chromeSig = sig;
     _chromeFooter = GameViewFooter(
       game: settledGame,
+      onPlay: widget.onPlay,
       hasRetroAchievements: hasRa,
       isLoadingAchievements: loadingRa,
       currentGameInfo: settled ? _currentGameInfo : null,
@@ -571,10 +582,6 @@ class _GamesCarouselState extends State<GamesCarousel> {
       onToggleMute: widget.isSecondaryScreenActive ? null : _toggleVideoMute,
       hasVideo: !isFolder && _hasVideoFor(settledGame),
       isFolder: isFolder,
-      // The game's own system, so the cloud-sync icon reflects the game rather
-      // than the placeholder an aggregate view is browsing under.
-      system: isFolder ? null : _effectiveSystemFor(settledGame),
-      syncProvider: context.read<SyncManager>().active,
     );
   }
 
@@ -742,6 +749,62 @@ class _GamesCarouselState extends State<GamesCarousel> {
       imageProvider,
       imagePath: imagePath,
     );
+  }
+
+  void _scrollToCurrentLetter() {
+    if (!_letterBarController.hasClients || widget.games.isEmpty) return;
+
+    if (_isFolderCentred) return;
+    final currentLetter = _getLetterForGame(widget.games[_currentIndex]);
+    final letters = _uniqueLetters;
+    final letterIndex = letters.indexOf(currentLetter);
+    if (letterIndex < 0) return;
+
+    final textStyle = TextStyle(fontSize: 11.r, fontWeight: FontWeight.bold);
+    final selectedTextStyle = textStyle.copyWith(fontWeight: FontWeight.w800);
+    double offset = 0;
+    for (int i = 0; i < letterIndex; i++) {
+      offset += _calculateLetterWidth(letters[i], selectedTextStyle) + 6.r;
+    }
+    final letterWidth = _calculateLetterWidth(currentLetter, selectedTextStyle);
+    final screenWidth = MediaQuery.of(context).size.width;
+    double targetOffset = offset - (screenWidth / 2) + (letterWidth / 2);
+    targetOffset = targetOffset.clamp(
+      0.0,
+      _letterBarController.position.maxScrollExtent,
+    );
+
+    _letterBarController.animateTo(
+      targetOffset,
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  double _calculateLetterWidth(String letter, TextStyle style) {
+    final cacheKey = '$letter|${style.fontSize}|${style.fontWeight?.value}';
+    return _letterWidthCache.putIfAbsent(cacheKey, () {
+      final textPainter = TextPainter(
+        text: TextSpan(text: letter, style: style),
+        textAlign: TextAlign.center,
+        maxLines: 1,
+        textDirection: TextDirection.ltr,
+      )..layout();
+      return textPainter.width + 20.r;
+    });
+  }
+
+  double _getLetterBarOffset(
+    String targetLetter,
+    List<String> letters,
+    TextStyle style,
+  ) {
+    double offset = 0;
+    for (final letter in letters) {
+      if (letter == targetLetter) break;
+      offset += _calculateLetterWidth(letter, style) + 6.r;
+    }
+    return offset;
   }
 
   String _folderForGame(GameModel game) {
@@ -1274,20 +1337,6 @@ class _GamesCarouselState extends State<GamesCarousel> {
     return _buildFallbackCard(game, theme);
   }
 
-  /// Reads the floating footer's laid-out height back into [_footerHeight].
-  ///
-  /// Runs after the frame, and only rebuilds when the height actually moved, so
-  /// it settles on the first frame and stays quiet through every swipe after
-  /// it.
-  void _measureFooterOverlay() {
-    final box =
-        _footerOverlayKey.currentContext?.findRenderObject() as RenderBox?;
-    if (box == null || !box.hasSize) return;
-    final height = box.size.height;
-    if ((height - _footerHeight).abs() < 0.5) return;
-    setState(() => _footerHeight = height);
-  }
-
   @override
   Widget build(BuildContext context) {
     if (widget.games.isEmpty) {
@@ -1305,128 +1354,189 @@ class _GamesCarouselState extends State<GamesCarousel> {
     _collections = SystemFolderNames.isCollection(widget.system.folderName)
         ? null
         : context.watch<CollectionsProvider>();
+    final theme = Theme.of(context);
     final currentGame =
         widget.games[_currentIndex.clamp(0, widget.games.length - 1)];
-    // Null while a folder is centred: folders sit outside A–Z, so the overlay
-    // says nothing rather than claiming the folder's own initial.
+    final letters = _uniqueLetters;
+    // Null while a folder is centred: folders sit outside A–Z, so no chip is
+    // highlighted rather than the folder's own initial claiming one.
     final String? currentLetter = _isFolderCentred
         ? null
         : _getLetterForGame(currentGame);
 
-    _buildSettledChrome();
+    final textStyle = TextStyle(
+      color: theme.colorScheme.onSurface,
+      fontSize: 11.r,
+      fontWeight: FontWeight.normal,
+    );
+    final selectedTextStyle = textStyle.copyWith(
+      color: theme.colorScheme.onPrimary,
+      fontWeight: FontWeight.w800,
+    );
 
-    // The footer's height feeds the carousel's bottom inset, so it has to be
-    // read back off the laid-out widget. At most one callback in flight.
-    if (!_footerMeasureScheduled) {
-      _footerMeasureScheduled = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _footerMeasureScheduled = false;
-        if (mounted) _measureFooterOverlay();
-      });
-    }
+    _buildSettledChrome();
 
     return Stack(
       children: [
-        // #188 layout: drop the top spacer so the carousel gets the full
-        // height (bigger cards sit closer together). Pad symmetrically so
-        // the centered card stays centered on-screen while still clearing
-        // the vertical legend on the left.
-        //
-        // The alphabet bar that used to sit between the cards and the footer is
-        // gone — a held left/right now raises the same big letter the list view
-        // shows, which says the one thing the bar was read for without spending
-        // a strip of the view on it. The artwork takes that height back, and
-        // stops where the footer begins — no scrim between them: the footer
-        // sits on the scaffold, not on the card.
-        Positioned.fill(
-          bottom: _footerHeight,
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 60.r),
-            child: NativeCarousel(
-              key: _carouselKey,
-              itemCount: widget.games.length,
-              initialIndex: _currentIndex.clamp(0, widget.games.length - 1),
-              // The list has no readable end — a press at the last card
-              // that does nothing reads as a dropped input, not as a
-              // boundary. Stepping past either end continues from the
-              // other.
-              wrap: true,
-              itemBuilder: (context, index) {
-                final isCentred = index == _currentIndex;
-                if (index < widget.folderCount) {
-                  final folder = widget.folderEntries[index];
-                  return KeyedSubtree(
-                    key: ValueKey('folder_${folder.relPath}'),
-                    child: GestureDetector(
-                      // Same touch contract as the game cards: an
-                      // off-centre folder centres first, the centred one
-                      // descends into itself.
-                      onTap: () {
-                        SfxService().playNavSound();
-                        if (isCentred) {
-                          widget.onFolderActivated?.call(index);
-                        } else {
-                          _carouselKey.currentState?.animateToPage(index);
-                        }
-                      },
-                      child: _withMenuAnchor(
-                        _buildFolderCard(folder, isFanart),
-                        isCentred,
-                      ),
-                    ),
-                  );
-                }
-                final game = widget.games[index];
-                return KeyedSubtree(
-                  key: ValueKey(game.romname),
-                  child: GestureDetector(
-                    // Tapping an off-centre card brings it to the middle;
-                    // tapping the centred one plays it, so touch users
-                    // never need the footer's A button.
-                    onLongPress: () => _handleCardLongPress(index),
-                    onTap: () {
-                      if (isCentred) {
-                        SfxService().playEnterSound();
-                        widget.onPlay();
-                      } else {
-                        SfxService().playNavSound();
-                        _carouselKey.currentState?.animateToPage(index);
-                      }
-                    },
-                    child: isFanart
-                        ? _withMenuAnchor(
-                            _buildFanartCard(game, isCentred),
+        Column(
+          children: [
+            // #188 layout: drop the top spacer so the carousel gets the full
+            // height (bigger cards sit closer together). Pad symmetrically so
+            // the centered card stays centered on-screen while still clearing
+            // the vertical legend on the left.
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 60.r),
+                child: NativeCarousel(
+                  key: _carouselKey,
+                  itemCount: widget.games.length,
+                  initialIndex: _currentIndex.clamp(0, widget.games.length - 1),
+                  // The list has no readable end — a press at the last card
+                  // that does nothing reads as a dropped input, not as a
+                  // boundary. Stepping past either end continues from the
+                  // other.
+                  wrap: true,
+                  itemBuilder: (context, index) {
+                    final isCentred = index == _currentIndex;
+                    if (index < widget.folderCount) {
+                      final folder = widget.folderEntries[index];
+                      return KeyedSubtree(
+                        key: ValueKey('folder_${folder.relPath}'),
+                        child: GestureDetector(
+                          // Same touch contract as the game cards: an
+                          // off-centre folder centres first, the centred one
+                          // descends into itself.
+                          onTap: () {
+                            SfxService().playNavSound();
+                            if (isCentred) {
+                              widget.onFolderActivated?.call(index);
+                            } else {
+                              _carouselKey.currentState?.animateToPage(index);
+                            }
+                          },
+                          child: _withMenuAnchor(
+                            _buildFolderCard(folder, isFanart),
                             isCentred,
-                          )
-                        : _buildBoxCard(
-                            game,
-                            isCentred,
-                            anchorKey: isCentred
-                                ? widget.selectedItemKey
-                                : null,
                           ),
-                  ),
-                );
-              },
-              onPageChanged: _onPageChanged,
+                        ),
+                      );
+                    }
+                    final game = widget.games[index];
+                    return KeyedSubtree(
+                      key: ValueKey(game.romname),
+                      child: GestureDetector(
+                        // Tapping an off-centre card brings it to the middle;
+                        // tapping the centred one plays it, so touch users
+                        // never need the footer's A button.
+                        onLongPress: () => _handleCardLongPress(index),
+                        onTap: () {
+                          if (isCentred) {
+                            SfxService().playEnterSound();
+                            widget.onPlay();
+                          } else {
+                            SfxService().playNavSound();
+                            _carouselKey.currentState?.animateToPage(index);
+                          }
+                        },
+                        child: isFanart
+                            ? _withMenuAnchor(
+                                _buildFanartCard(game, isCentred),
+                                isCentred,
+                              )
+                            : _buildBoxCard(
+                                game,
+                                isCentred,
+                                anchorKey: isCentred
+                                    ? widget.selectedItemKey
+                                    : null,
+                              ),
+                      ),
+                    );
+                  },
+                  onPageChanged: _onPageChanged,
+                ),
+              ),
             ),
-          ),
+            // Tight letter-bar box (chip height, no vertical slack) sits low
+            // against the footer. Reclaiming the old slack in real layout (vs a
+            // visual translate) lets the carousel above grow into it, so the
+            // artwork gets slightly bigger with no gap beneath it.
+            SizedBox(
+              height: 30.r,
+              child: SingleChildScrollView(
+                controller: _letterBarController,
+                scrollDirection: Axis.horizontal,
+                padding: EdgeInsets.symmetric(horizontal: 4.r),
+                child: Stack(
+                  children: [
+                    if (currentLetter != null)
+                      AnimatedPositioned(
+                        duration: const Duration(milliseconds: 120),
+                        curve: Curves.easeInOut,
+                        left: _getLetterBarOffset(
+                          currentLetter,
+                          letters,
+                          selectedTextStyle,
+                        ),
+                        top: 0,
+                        bottom: 0,
+                        width: _calculateLetterWidth(
+                          currentLetter,
+                          selectedTextStyle,
+                        ),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.secondary,
+                            borderRadius: BorderRadius.circular(12.r),
+                          ),
+                        ),
+                      ),
+                    Row(
+                      children: letters.map((letter) {
+                        final isSelected = letter == currentLetter;
+                        final w = _calculateLetterWidth(
+                          letter,
+                          selectedTextStyle,
+                        );
+                        return GestureDetector(
+                          onTap: () {
+                            SfxService().playNavSound();
+                            final gi = _getFirstGameIndexForLetter(letter);
+                            _carouselKey.currentState?.animateToPage(gi);
+                          },
+                          child: Container(
+                            width: w,
+                            height: 30.r,
+                            margin: EdgeInsets.only(right: 6.r),
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.primary.withValues(
+                                alpha: 0.1,
+                              ),
+                              borderRadius: BorderRadius.circular(12.r),
+                            ),
+                            child: Text(
+                              letter,
+                              textAlign: TextAlign.center,
+                              maxLines: 1,
+                              style: isSelected ? selectedTextStyle : textStyle,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // Footer pill driven by the debounced settled selection and
+            // memoized (see _buildSettledChrome) so it is not rebuilt on every
+            // fast-swipe frame.
+            // Flush to the bottom (no trailing spacer) so the footer sits at
+            // the same vertical position as the grid view's footer.
+            _chromeFooter!,
+          ],
         ),
-        // Footer pill driven by the debounced settled selection and memoized
-        // (see _buildSettledChrome) so it is not rebuilt on every fast-swipe
-        // frame. Positioned rather than in a column so its measured height is
-        // the only thing the cards above it have to answer to.
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: KeyedSubtree(key: _footerOverlayKey, child: _chromeFooter!),
-        ),
-        // Held left/right skips the alphabet; the letter it landed on is the
-        // only thing on screen that reports the jump, since a card carries its
-        // name and not its group.
-        if (currentLetter != null)
-          LetterIndicator(letter: currentLetter, visible: _isLetterJumping),
       ],
     );
   }
