@@ -148,12 +148,31 @@ class GameDetailsTabsHeader extends StatelessWidget {
     );
   }
 
+  /// The glyph for each tab, chosen to say what that panel *shows*.
+  ///
+  /// The first three said nothing of the sort. A gamepad on the wheel tab
+  /// named the app, not the panel — every tab in a games frontend is about a
+  /// game — and four floating squares on the box art tab named nothing at all.
+  ///
+  /// The three artwork tabs now read as one set, because they are one: a mark
+  /// on artwork for the wheel logo, a frame around artwork for the box art,
+  /// and a picture for the screenshots. Each is a rectangle with different
+  /// contents, which is the actual difference between the three panels.
+  ///
+  /// Game info takes the standard info mark rather than a document. A page of
+  /// text is what that tab looks like, but "i" is what it *is*, and it is the
+  /// one glyph in this strip a user has already learned somewhere else.
+  ///
+  /// All of these are drawn filled — `IconThemeData(fill: 1.0)` is set app-wide
+  /// in `main.dart` — so a candidate that reads well as an outline is not
+  /// necessarily one that reads well here. Two that did not: a "T" for the
+  /// title art, and a shipping carton for the box.
   static IconData _iconForTab(DetailTab tab) {
     return switch (tab) {
-      DetailTab.wheel => Symbols.gamepad_rounded,
-      DetailTab.box2d => Symbols.widgets_rounded,
+      DetailTab.wheel => Symbols.branding_watermark_rounded,
+      DetailTab.box2d => Symbols.filter_frames_rounded,
       DetailTab.screenshotVideo => Symbols.image_rounded,
-      DetailTab.gameInfo => Symbols.description_rounded,
+      DetailTab.gameInfo => Symbols.info_rounded,
       DetailTab.achievements => Symbols.emoji_events_rounded,
     };
   }

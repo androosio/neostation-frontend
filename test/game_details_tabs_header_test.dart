@@ -97,10 +97,10 @@ void main() {
       await pumpHeader(tester);
 
       for (final icon in [
-        Symbols.gamepad_rounded,
-        Symbols.widgets_rounded,
+        Symbols.branding_watermark_rounded,
+        Symbols.filter_frames_rounded,
         Symbols.image_rounded,
-        Symbols.description_rounded,
+        Symbols.info_rounded,
         Symbols.emoji_events_rounded,
       ]) {
         expect(find.byIcon(icon), findsOneWidget);
@@ -128,9 +128,9 @@ void main() {
     expect(find.byIcon(Symbols.image_rounded), findsNothing);
     expect(find.byIcon(Symbols.emoji_events_rounded), findsNothing);
     // The three that are always there stay.
-    expect(find.byIcon(Symbols.gamepad_rounded), findsOneWidget);
-    expect(find.byIcon(Symbols.widgets_rounded), findsOneWidget);
-    expect(find.byIcon(Symbols.description_rounded), findsOneWidget);
+    expect(find.byIcon(Symbols.branding_watermark_rounded), findsOneWidget);
+    expect(find.byIcon(Symbols.filter_frames_rounded), findsOneWidget);
+    expect(find.byIcon(Symbols.info_rounded), findsOneWidget);
   });
 
   testWidgets('the tab you are on is the one drawn on the cursor', (
@@ -142,10 +142,10 @@ void main() {
       tester.element(find.byType(GameDetailsTabsHeader)),
     ).colorScheme;
 
-    final current = tester.widget<Icon>(
-      find.byIcon(Symbols.description_rounded),
+    final current = tester.widget<Icon>(find.byIcon(Symbols.info_rounded));
+    final other = tester.widget<Icon>(
+      find.byIcon(Symbols.branding_watermark_rounded),
     );
-    final other = tester.widget<Icon>(find.byIcon(Symbols.gamepad_rounded));
 
     expect(current.color, scheme.onPrimary);
     expect(
