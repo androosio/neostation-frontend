@@ -132,12 +132,18 @@ class GameDetailsFooter extends StatelessWidget {
                     ],
                     Expanded(
                       child: showsAchievements
-                          ? LayoutBuilder(
-                              builder: (context, constraints) =>
-                                  _buildCompactAchievementsIndicator(
-                                    context,
-                                    availableWidth: constraints.maxWidth,
-                                  ),
+                          ? Align(
+                              // Left, so a capped pill leaves its slack between
+                              // itself and the controls rather than beside the
+                              // score.
+                              alignment: Alignment.centerLeft,
+                              child: LayoutBuilder(
+                                builder: (context, constraints) =>
+                                    _buildCompactAchievementsIndicator(
+                                      context,
+                                      availableWidth: constraints.maxWidth,
+                                    ),
+                              ),
                             )
                           // Nothing to report, but the slot stays: it is what
                           // pushes the controls to the right margin.
@@ -159,7 +165,10 @@ class GameDetailsFooter extends StatelessWidget {
                     // Controls, in the order the removed rail had them.
                     if (onShowRandomGame != null) ...[
                       _FooterActionButton(
-                        icon: Symbols.casino_rounded,
+                        // Shuffle rather than the dice the Y menu uses: on a
+                        // 34.r chip the dice's pips are mush, and the two
+                        // crossing arrows survive being small.
+                        icon: Symbols.shuffle_rounded,
                         onTap: onShowRandomGame!,
                       ),
                       SizedBox(width: _rowGap),
@@ -344,8 +353,11 @@ class GameDetailsFooter extends StatelessWidget {
     // Nothing rather than a splinter — see [_pillMinWidth].
     if (availableWidth < _pillMinWidth.r) return const SizedBox.shrink();
 
-    // The badge fills its (Expanded) slot outright: whatever the row leaves
-    // after the play-time clock beside it. It used to animate between 120.r and
+    // The badge takes its slot up to [_pillMaxWidth] and no further; the slack
+    // past that falls between it and the controls, so the row stays "readouts
+    // left, controls right" instead of stretching one pill across the card.
+    //
+    // It used to animate between 120.r and
     // full width, yielding the space to its right whenever a play-time pill was
     // there; the clock is inline text now and claims its width up front, so
     // there is no second width to ease to.
@@ -407,7 +419,7 @@ class GameDetailsFooter extends StatelessWidget {
         splashColor: theme.colorScheme.onSurface.withValues(alpha: 0.1),
         borderRadius: _controlRadius,
         child: Container(
-          width: availableWidth,
+          width: availableWidth.clamp(0.0, _pillMaxWidth.r),
           height: _bottomRowHeight,
           decoration: BoxDecoration(
             color: ChromeSurface.fill(context),
@@ -580,6 +592,20 @@ double get _rowGap => 5.r;
 /// different decision from the ones above. Widening it takes width off the
 /// achievements pill.
 const double _scoreWidth = 73;
+
+/// The widest the achievements pill is allowed to get.
+///
+/// It is the row's only Expanded, which is what let it be starved to seven
+/// pixels on a narrow card — and, on a wide one, what would let it run on for
+/// half the card. It carries an icon, a short count and a bar: past a point
+/// more width is just a longer bar, and the row reads better as a group of
+/// readouts on the left and a group of controls on the right with air between
+/// them than as one enormous pill pushing them apart.
+///
+/// 132 is what the handheld card gives it, which is the width this was tuned
+/// to — so on that device the cap changes nothing, and it is only wider cards
+/// (desktop, and the Deck) that meet it.
+const double _pillMaxWidth = 132;
 
 /// The narrowest the achievements pill can be and still say anything: its
 /// icon, the count and a bar with somewhere to fill.

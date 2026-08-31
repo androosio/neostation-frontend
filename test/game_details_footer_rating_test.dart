@@ -236,7 +236,7 @@ void main() {
     for (final finder in [
       // The score chip, by the star inside it.
       find.byIcon(Symbols.star_rounded),
-      find.byIcon(Symbols.casino_rounded),
+      find.byIcon(Symbols.shuffle_rounded),
       find.byIcon(Symbols.favorite_rounded),
       find.byIcon(Symbols.settings_rounded),
     ]) {
@@ -302,6 +302,40 @@ void main() {
       greaterThanOrEqualTo(64.0),
       reason: 'the icon, the count and a bar with somewhere to fill',
     );
+  });
+
+  testWidgets('a wide card does not stretch the pill across it', (
+    tester,
+  ) async {
+    // The pill is the row's only Expanded, which is what let it be starved to
+    // seven pixels on a narrow card and would let it run on for half a wide
+    // one. It carries an icon, a short count and a bar; past a point more
+    // width is just a longer bar.
+    final widths = <double>{};
+    for (final card in [handheldCardWidth, 640.0, 900.0, 1200.0]) {
+      await pumpFooter(tester, showsPill: true, width: card);
+      widths.add(
+        _decoratedAncestor(
+          tester,
+          find.byIcon(Symbols.emoji_events_rounded),
+        ).size!.width,
+      );
+    }
+
+    expect(
+      widths,
+      hasLength(1),
+      reason: 'one width from the handheld card up, got $widths',
+    );
+
+    // And the slack lands between the pill and the controls, not beside the
+    // score: the controls stay on the right margin.
+    await pumpFooter(tester, showsPill: true, width: 1200);
+    final play = _chipRect(tester, find.text('PLAY'));
+    final pill = _chipRect(tester, find.byIcon(Symbols.emoji_events_rounded));
+    final score = _chipRect(tester, find.byIcon(Symbols.star_rounded));
+    expect(1200 - play.right, lessThan(20), reason: 'controls hug the right');
+    expect(pill.left - score.right, lessThan(20), reason: 'readouts hug left');
   });
 
   testWidgets('a card too narrow for the pill gets no pill, not a splinter', (
@@ -392,7 +426,7 @@ void main() {
       for (final finder in [
         find.byIcon(Symbols.star_rounded),
         find.byIcon(Symbols.emoji_events_rounded),
-        find.byIcon(Symbols.casino_rounded),
+        find.byIcon(Symbols.shuffle_rounded),
         find.byIcon(Symbols.favorite_rounded),
         find.byIcon(Symbols.settings_rounded),
         find.text('PLAY'),
@@ -437,7 +471,7 @@ void main() {
   ) async {
     await pumpFooter(tester);
 
-    await tester.tap(find.byIcon(Symbols.casino_rounded));
+    await tester.tap(find.byIcon(Symbols.shuffle_rounded));
     await tester.tap(find.byIcon(Symbols.favorite_rounded));
     await tester.tap(find.byIcon(Symbols.settings_rounded));
     await tester.tap(find.text('PLAY'));
@@ -466,7 +500,7 @@ void main() {
   ) async {
     await pumpFooter(tester, canRandom: false);
 
-    expect(find.byIcon(Symbols.casino_rounded), findsNothing);
+    expect(find.byIcon(Symbols.shuffle_rounded), findsNothing);
     // The rest of the row is untouched by its absence.
     expect(find.byIcon(Symbols.favorite_rounded), findsOneWidget);
     expect(find.text('PLAY'), findsOneWidget);
