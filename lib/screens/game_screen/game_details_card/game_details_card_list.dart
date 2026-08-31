@@ -900,7 +900,6 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
             isLoadingAchievements: _showsAchievementsLoading,
             currentGameInfo: _currentGameInfo,
             onPlayGame: widget.onPlayGame,
-            onShowRandomGame: widget.onShowRandomGame,
             onToggleFavorite: widget.onToggleFavorite,
             onOpenGameSettings: widget.onOpenGameSettings,
           ),

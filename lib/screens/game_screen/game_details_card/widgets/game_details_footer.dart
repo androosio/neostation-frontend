@@ -13,7 +13,6 @@ import '../../../../models/retro_achievements_game_info.dart';
 import '../../../../sync/i_sync_provider.dart';
 import 'package:neostation/themes/chrome_surface.dart';
 import '../../../../themes/corner_radii.dart';
-import '../../../../widgets/neo_sync_status_icon.dart';
 import '../../music/music_player.dart';
 import 'package:neostation/utils/ra_coverage.dart';
 
@@ -40,10 +39,6 @@ class GameDetailsFooter extends StatelessWidget {
   /// same one a second tap on an already-selected sidebar row takes.
   final VoidCallback onPlayGame;
 
-  /// Opens the random-game dialog. Null hides the button, for hosts that have
-  /// no such dialog to open.
-  final VoidCallback? onShowRandomGame;
-
   /// Adds or removes this game from Favourites. The host owns the write and
   /// the follow-up (the Favourites system card appearing, the row leaving the
   /// Favourites view); the button only reports the current flag.
@@ -67,7 +62,6 @@ class GameDetailsFooter extends StatelessWidget {
     required this.isLoadingAchievements,
     this.currentGameInfo,
     required this.onPlayGame,
-    this.onShowRandomGame,
     required this.onToggleFavorite,
     required this.onOpenGameSettings,
   });
@@ -94,9 +88,9 @@ class GameDetailsFooter extends StatelessWidget {
     // The two text lines that used to sit above this row are gone. The
     // metadata strip (players, publisher, year, genre) reads better in the
     // game info tab, which already carried half of those facts, so the strip
-    // is not repeated on the artwork; the filename went with it, and the
-    // cloud-sync glyph that rode at its end is a pill in this row now rather
-    // than a marker on a line that no longer exists.
+    // is not repeated on the artwork, and the filename went with it. The
+    // cloud-sync glyph that rode at the end of that line went too: the
+    // grid/carousel footer is where it lives now.
     //
     // Fixed height, so the footer no longer resizes with what the selected
     // game happens to carry. The controls are always there, so the row is
@@ -143,27 +137,14 @@ class GameDetailsFooter extends StatelessWidget {
                           // pushes the controls to the right margin.
                           : const SizedBox.shrink(),
                     ),
-                    // Cloud-sync state, as a chip among chips. It collapses to
-                    // nothing when there is nothing to say, and takes its own
-                    // leading gap with it when it does.
-                    NeoSyncStatusIcon(
-                      system: system,
-                      game: game,
-                      syncProvider: syncProvider,
-                      size: _controlSize,
-                      showBackground: true,
-                      borderRadius: _controlRadius,
-                      margin: EdgeInsets.only(left: 6.r),
-                    ),
                     SizedBox(width: 8.r),
-                    // Controls, in the order the removed rail had them.
-                    if (onShowRandomGame != null) ...[
-                      _FooterActionButton(
-                        icon: Symbols.casino_rounded,
-                        onTap: onShowRandomGame!,
-                      ),
-                      SizedBox(width: 5.r),
-                    ],
+                    // Controls. Two of the row's chips are gone: the cloud-sync
+                    // state, which reported rather than acted and is on the
+                    // grid/carousel footer anyway, and Random, which is a
+                    // view-level action rather than one about the selected game
+                    // and is still on the Y menu. They cost ~116.r between
+                    // them, which is what the achievements pill needed to
+                    // render at all -- see the class doc on [_bottomRow].
                     _FooterActionButton(
                       icon: Symbols.favorite_rounded,
                       // Filled and tinted when the game is already a
@@ -172,7 +153,7 @@ class GameDetailsFooter extends StatelessWidget {
                       isOn: game.isFavorite == true,
                       onTap: onToggleFavorite,
                     ),
-                    SizedBox(width: 5.r),
+                    SizedBox(width: 6.r),
                     _FooterActionButton(
                       icon: Symbols.settings_rounded,
                       onTap: onOpenGameSettings,
@@ -209,10 +190,9 @@ class GameDetailsFooter extends StatelessWidget {
       // Deliberately a fixed width. The achievements pill beside it is
       // Expanded, so anything this button takes comes straight out of that
       // pill; long labels are absorbed by scaling the text down rather than by
-      // growing the button (see the FittedBox below). 104 was a quarter of the
-      // card's width on a 1920 handheld, which the pill was paying for.
-      width: 80.r,
-      height: _controlSize.r,
+      // growing the button (see the FittedBox below).
+      width: 104.r,
+      height: _bottomRowHeight,
       decoration: BoxDecoration(
         color: const Color(0xFF2ECC71),
         borderRadius: radius,
@@ -239,19 +219,19 @@ class GameDetailsFooter extends StatelessWidget {
             onPlayGame();
           },
           child: Padding(
-            padding: EdgeInsets.only(right: 8.r),
+            padding: EdgeInsets.only(right: 10.r),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Image.asset(
                   'assets/images/gamepad/Xbox_A_button.png',
-                  width: 24.r,
-                  height: 24.r,
+                  width: 32.r,
+                  height: 32.r,
                   color: Theme.of(context).colorScheme.onPrimary,
                 ),
-                SizedBox(width: 6.r),
+                SizedBox(width: 8.r),
                 // The label is localized and the button is a fixed width, so
-                // only the English "PLAY" fits at the full 12.r: the German,
+                // only the English "PLAY" fits at the full 14.r: the German,
                 // Russian and CJK labels used to render past its right edge.
                 // scaleDown shrinks just those to fit and never scales up, so
                 // the button's footprint stays constant either way.
@@ -265,8 +245,8 @@ class GameDetailsFooter extends StatelessWidget {
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.onPrimary,
                         fontWeight: FontWeight.w900,
-                        fontSize: 12.r,
-                        letterSpacing: 1.0,
+                        fontSize: 14.r,
+                        letterSpacing: 1.5,
                         height: 1.0,
                       ),
                     ),
@@ -431,7 +411,7 @@ class GameDetailsFooter extends StatelessWidget {
             // Symmetric 8.r horizontal inset so neither the trophy icon nor the
             // progress bar hugs the pill border. The progress column is always
             // Expanded, so it simply absorbs the padding at any pill width.
-            padding: EdgeInsets.symmetric(horizontal: 6.r, vertical: 4.r),
+            padding: EdgeInsets.symmetric(horizontal: 8.r, vertical: 4.r),
             child: Row(
               children: [
                 // RetroAchievements game icon.
@@ -452,17 +432,17 @@ class GameDetailsFooter extends StatelessWidget {
                             errorBuilder: (_, _, _) => Icon(
                               Symbols.emoji_events_rounded,
                               color: statusColor,
-                              size: 14.r,
+                              size: 16.r,
                             ),
                           )
                         : Icon(
                             Symbols.emoji_events_rounded,
                             color: statusColor,
-                            size: 14.r,
+                            size: 16.r,
                           ),
                   ),
                 ),
-                SizedBox(width: 6.r),
+                SizedBox(width: 8.r),
                 // Progress bar and achievement count. When the legend is hidden
                 // the pill stretches, so let this column (and its bar) fill the
                 // extra width via Expanded; otherwise keep the fixed 70.r width.
@@ -490,7 +470,7 @@ class GameDetailsFooter extends StatelessWidget {
                       // doesn't run all the way across — mirrors the grid/
                       // carousel pill's right margin under the progress count.
                       Padding(
-                        padding: EdgeInsets.only(right: 6.r),
+                        padding: EdgeInsets.only(right: 10.r),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(4.r),
                           child: LinearProgressIndicator(
@@ -533,18 +513,19 @@ BorderRadius get _controlRadius => BorderRadius.circular(_bottomRow.r);
 /// One number, so the achievements pill, the sync chip, the three icon buttons
 /// and PLAY all line up on both edges.
 ///
-/// It was the achievements pill's old 45, which is what the row was built
-/// around when the pill was the only thing on it. With four chips and PLAY
-/// beside it that no longer fits: on a 1920-wide handheld the details card is
-/// 1285px, the fixed items came to ~1237px of it, and the pill -- the row's
-/// only Expanded -- silently took the whole shortfall and rendered 7px wide
-/// with none of its contents. Everything on the row is sized off this, so
-/// bringing it down is what buys the pill its share back.
-const double _bottomRow = 34;
-
-/// [_bottomRow] unscaled, for the widgets that take a bare `double` and apply
-/// `.r` themselves ([NeoSyncStatusIcon.size]).
-const double _controlSize = _bottomRow;
+/// It is the achievements pill's own 45, which is what the row was built
+/// around when the pill was the only thing on it.
+///
+/// Everything on the row is sized off this, so it is the dial for the row's
+/// width budget -- and that budget is tight. The pill is the only Expanded
+/// here, so it silently absorbs whatever the fixed items leave: at 45 with a
+/// sync chip and a random button also on the row, what they left on a 1920
+/// handheld was seven pixels, and the pill rendered full-height, right-shaped
+/// and empty with no overflow to say so. Dropping those two is what pays for
+/// 45; putting either back means bringing this number down with it. The
+/// measurements and the sizing that does that are in
+/// `docs/collections/08-list-footer-sizing.md`.
+const double _bottomRow = 45;
 
 /// The narrowest the achievements pill can be and still say anything: its
 /// icon, the count and a bar with somewhere to fill.
@@ -555,7 +536,7 @@ const double _controlSize = _bottomRow;
 /// dark splinter between two chips rather than a control. Losing the pill on a
 /// card that cannot hold one is the honest outcome; the D-pad still reaches
 /// the achievements tab.
-const double _pillMinWidth = 72;
+const double _pillMinWidth = 78;
 
 /// Slack under the row, so the content does not sit on the card's edge.
 const double _bottomPadding = 11;
@@ -567,7 +548,7 @@ double get _bottomRowHeight => _bottomRow.r;
 
 /// The achievements pill's game icon: the row's height less its own vertical
 /// padding, so the artwork fills the chip rather than floating in it.
-double get _pillIconSize => (_bottomRow - 10).r;
+double get _pillIconSize => (_bottomRow - 13).r;
 
 /// How far above the card's bottom edge a tab panel should stop.
 ///
@@ -635,7 +616,7 @@ class _FooterActionButton extends StatelessWidget {
           ),
           child: Icon(
             icon,
-            size: 18.r,
+            size: 22.r,
             fill: isOn ? 1 : 0,
             color: isOn
                 ? AppThemes.getCustomColors(context).errorColor
@@ -684,6 +665,9 @@ class _InlineRating extends StatelessWidget {
 
     return Container(
       height: _bottomRowHeight,
+      // Tighter than the pill's own 8.r: at 45.r tall this chip is mostly air
+      // already, and every unit of it is one the achievements pill beside it
+      // does not get.
       padding: EdgeInsets.symmetric(horizontal: 8.r),
       decoration: BoxDecoration(
         color: ChromeSurface.fill(context),
@@ -701,13 +685,13 @@ class _InlineRating extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Icon(Symbols.star_rounded, color: ratingColor, size: 18.r, fill: 1),
-          SizedBox(width: 4.r),
+          Icon(Symbols.star_rounded, color: ratingColor, size: 22.r, fill: 1),
+          SizedBox(width: 6.r),
           Text(
             ratingValue.toStringAsFixed(1),
             style: TextStyle(
               color: theme.colorScheme.onSurface,
-              fontSize: 14.r,
+              fontSize: 18.r,
               fontWeight: FontWeight.w800,
               height: 1.15,
             ),

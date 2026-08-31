@@ -33,12 +33,6 @@ class NeoSyncStatusIcon extends StatefulWidget {
   /// same treatment as the text it sits next to.
   final bool showBackground;
 
-  /// Overrides the chip's corner, for a caller whose row is fully rounded.
-  ///
-  /// Only meaningful when [showBackground] is true. Null keeps the theme's own
-  /// internal radius, which is what every other caller wants.
-  final BorderRadius? borderRadius;
-
   /// Whether the bare glyph carries the drop shadow that lifts it off artwork.
   ///
   /// Only meaningful when [showBackground] is false. True on the details card,
@@ -57,7 +51,6 @@ class NeoSyncStatusIcon extends StatefulWidget {
     this.margin,
     this.showBackground = true,
     this.showGlyphShadow = true,
-    this.borderRadius,
   });
 
   /// Whether this icon will draw anything at all for the given game.
@@ -123,7 +116,6 @@ class _NeoSyncStatusIconState extends State<NeoSyncStatusIcon>
 
     final theme = Theme.of(context);
     final cornerRadius =
-        widget.borderRadius ??
         theme.extension<CornerRadii>()?.radiusInternal ??
         BorderRadius.circular(8.r);
 
