@@ -128,7 +128,7 @@ class GameDetailsFooter extends StatelessWidget {
                     // taking whatever the controls leave it.
                     if (hasRating) ...[
                       _InlineRating(game: game),
-                      SizedBox(width: 12.r),
+                      SizedBox(width: 8.r),
                     ],
                     Expanded(
                       child: showsAchievements
@@ -153,16 +153,16 @@ class GameDetailsFooter extends StatelessWidget {
                       size: _controlSize,
                       showBackground: true,
                       borderRadius: _controlRadius,
-                      margin: EdgeInsets.only(left: 8.r),
+                      margin: EdgeInsets.only(left: 6.r),
                     ),
-                    SizedBox(width: 12.r),
+                    SizedBox(width: 8.r),
                     // Controls, in the order the removed rail had them.
                     if (onShowRandomGame != null) ...[
                       _FooterActionButton(
                         icon: Symbols.casino_rounded,
                         onTap: onShowRandomGame!,
                       ),
-                      SizedBox(width: 6.r),
+                      SizedBox(width: 5.r),
                     ],
                     _FooterActionButton(
                       icon: Symbols.favorite_rounded,
@@ -172,12 +172,12 @@ class GameDetailsFooter extends StatelessWidget {
                       isOn: game.isFavorite == true,
                       onTap: onToggleFavorite,
                     ),
-                    SizedBox(width: 6.r),
+                    SizedBox(width: 5.r),
                     _FooterActionButton(
                       icon: Symbols.settings_rounded,
                       onTap: onOpenGameSettings,
                     ),
-                    SizedBox(width: 8.r),
+                    SizedBox(width: 6.r),
                     _buildPlayButton(context),
                   ],
                 ),
@@ -209,8 +209,9 @@ class GameDetailsFooter extends StatelessWidget {
       // Deliberately a fixed width. The achievements pill beside it is
       // Expanded, so anything this button takes comes straight out of that
       // pill; long labels are absorbed by scaling the text down rather than by
-      // growing the button (see the FittedBox below).
-      width: 104.r,
+      // growing the button (see the FittedBox below). 104 was a quarter of the
+      // card's width on a 1920 handheld, which the pill was paying for.
+      width: 80.r,
       height: _controlSize.r,
       decoration: BoxDecoration(
         color: const Color(0xFF2ECC71),
@@ -238,19 +239,19 @@ class GameDetailsFooter extends StatelessWidget {
             onPlayGame();
           },
           child: Padding(
-            padding: EdgeInsets.only(right: 10.r),
+            padding: EdgeInsets.only(right: 8.r),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Image.asset(
                   'assets/images/gamepad/Xbox_A_button.png',
-                  width: 32.r,
-                  height: 32.r,
+                  width: 24.r,
+                  height: 24.r,
                   color: Theme.of(context).colorScheme.onPrimary,
                 ),
-                SizedBox(width: 8.r),
+                SizedBox(width: 6.r),
                 // The label is localized and the button is a fixed width, so
-                // only the English "PLAY" fits at the full 14.r: the German,
+                // only the English "PLAY" fits at the full 12.r: the German,
                 // Russian and CJK labels used to render past its right edge.
                 // scaleDown shrinks just those to fit and never scales up, so
                 // the button's footprint stays constant either way.
@@ -264,8 +265,8 @@ class GameDetailsFooter extends StatelessWidget {
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.onPrimary,
                         fontWeight: FontWeight.w900,
-                        fontSize: 14.r,
-                        letterSpacing: 1.5,
+                        fontSize: 12.r,
+                        letterSpacing: 1.0,
                         height: 1.0,
                       ),
                     ),
@@ -340,6 +341,9 @@ class GameDetailsFooter extends StatelessWidget {
     required double availableWidth,
   }) {
     if (!_showsAchievements(context)) return const SizedBox.shrink();
+
+    // Nothing rather than a splinter — see [_pillMinWidth].
+    if (availableWidth < _pillMinWidth.r) return const SizedBox.shrink();
 
     // The badge fills its (Expanded) slot outright: whatever the row leaves
     // after the play-time clock beside it. It used to animate between 120.r and
@@ -427,7 +431,7 @@ class GameDetailsFooter extends StatelessWidget {
             // Symmetric 8.r horizontal inset so neither the trophy icon nor the
             // progress bar hugs the pill border. The progress column is always
             // Expanded, so it simply absorbs the padding at any pill width.
-            padding: EdgeInsets.symmetric(horizontal: 8.r, vertical: 4.r),
+            padding: EdgeInsets.symmetric(horizontal: 6.r, vertical: 4.r),
             child: Row(
               children: [
                 // RetroAchievements game icon.
@@ -438,8 +442,8 @@ class GameDetailsFooter extends StatelessWidget {
                       ).extension<CornerRadii>()?.radiusInternal ??
                       BorderRadius.circular(14.r),
                   child: Container(
-                    width: 32.r,
-                    height: 32.r,
+                    width: _pillIconSize,
+                    height: _pillIconSize,
                     color: theme.colorScheme.surface,
                     child: gameIconUrl != null
                         ? Image.network(
@@ -448,17 +452,17 @@ class GameDetailsFooter extends StatelessWidget {
                             errorBuilder: (_, _, _) => Icon(
                               Symbols.emoji_events_rounded,
                               color: statusColor,
-                              size: 16.r,
+                              size: 14.r,
                             ),
                           )
                         : Icon(
                             Symbols.emoji_events_rounded,
                             color: statusColor,
-                            size: 16.r,
+                            size: 14.r,
                           ),
                   ),
                 ),
-                SizedBox(width: 8.r),
+                SizedBox(width: 6.r),
                 // Progress bar and achievement count. When the legend is hidden
                 // the pill stretches, so let this column (and its bar) fill the
                 // extra width via Expanded; otherwise keep the fixed 70.r width.
@@ -486,7 +490,7 @@ class GameDetailsFooter extends StatelessWidget {
                       // doesn't run all the way across — mirrors the grid/
                       // carousel pill's right margin under the progress count.
                       Padding(
-                        padding: EdgeInsets.only(right: 10.r),
+                        padding: EdgeInsets.only(right: 6.r),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(4.r),
                           child: LinearProgressIndicator(
@@ -527,13 +531,31 @@ BorderRadius get _controlRadius => BorderRadius.circular(_bottomRow.r);
 /// Height of the footer's row, and the size of every square control on it.
 ///
 /// One number, so the achievements pill, the sync chip, the three icon buttons
-/// and PLAY all line up on both edges. It is the achievements pill's own 45.r,
-/// which is what the row was already built around.
-const double _bottomRow = 45;
+/// and PLAY all line up on both edges.
+///
+/// It was the achievements pill's old 45, which is what the row was built
+/// around when the pill was the only thing on it. With four chips and PLAY
+/// beside it that no longer fits: on a 1920-wide handheld the details card is
+/// 1285px, the fixed items came to ~1237px of it, and the pill -- the row's
+/// only Expanded -- silently took the whole shortfall and rendered 7px wide
+/// with none of its contents. Everything on the row is sized off this, so
+/// bringing it down is what buys the pill its share back.
+const double _bottomRow = 34;
 
 /// [_bottomRow] unscaled, for the widgets that take a bare `double` and apply
 /// `.r` themselves ([NeoSyncStatusIcon.size]).
 const double _controlSize = _bottomRow;
+
+/// The narrowest the achievements pill can be and still say anything: its
+/// icon, the count and a bar with somewhere to fill.
+///
+/// Below this it is omitted outright rather than drawn as a sliver. The row's
+/// budget is fixed items plus whatever is left, and "whatever is left" has no
+/// floor of its own -- a card narrow enough leaves a few pixels, which is a
+/// dark splinter between two chips rather than a control. Losing the pill on a
+/// card that cannot hold one is the honest outcome; the D-pad still reaches
+/// the achievements tab.
+const double _pillMinWidth = 72;
 
 /// Slack under the row, so the content does not sit on the card's edge.
 const double _bottomPadding = 11;
@@ -542,6 +564,10 @@ const double _bottomPadding = 11;
 const double _panelGap = 13;
 
 double get _bottomRowHeight => _bottomRow.r;
+
+/// The achievements pill's game icon: the row's height less its own vertical
+/// padding, so the artwork fills the chip rather than floating in it.
+double get _pillIconSize => (_bottomRow - 10).r;
 
 /// How far above the card's bottom edge a tab panel should stop.
 ///
@@ -609,7 +635,7 @@ class _FooterActionButton extends StatelessWidget {
           ),
           child: Icon(
             icon,
-            size: 22.r,
+            size: 18.r,
             fill: isOn ? 1 : 0,
             color: isOn
                 ? AppThemes.getCustomColors(context).errorColor
@@ -658,7 +684,7 @@ class _InlineRating extends StatelessWidget {
 
     return Container(
       height: _bottomRowHeight,
-      padding: EdgeInsets.symmetric(horizontal: 12.r),
+      padding: EdgeInsets.symmetric(horizontal: 8.r),
       decoration: BoxDecoration(
         color: ChromeSurface.fill(context),
         borderRadius: _controlRadius,
@@ -675,13 +701,13 @@ class _InlineRating extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Icon(Symbols.star_rounded, color: ratingColor, size: 22.r, fill: 1),
-          SizedBox(width: 6.r),
+          Icon(Symbols.star_rounded, color: ratingColor, size: 18.r, fill: 1),
+          SizedBox(width: 4.r),
           Text(
             ratingValue.toStringAsFixed(1),
             style: TextStyle(
               color: theme.colorScheme.onSurface,
-              fontSize: 18.r,
+              fontSize: 14.r,
               fontWeight: FontWeight.w800,
               height: 1.15,
             ),

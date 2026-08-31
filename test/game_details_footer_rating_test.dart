@@ -96,11 +96,17 @@ void main() {
 
   setUp(() => pressed = <String>[]);
 
+  /// The details card's own width, not the screen's. On a 1920-wide handheld
+  /// the sidebar takes the first third, which leaves the card ~435 of the
+  /// footer's design units -- the width the row actually has to fit in.
+  const double handheldCardWidth = 435;
+
   Future<void> pumpFooter(
     WidgetTester tester, {
     GameModel? game,
     bool showsPill = false,
     bool canRandom = true,
+    double width = 640,
   }) async {
     tester.view.physicalSize = const Size(1280, 720);
     tester.view.devicePixelRatio = 1.0;
@@ -124,7 +130,7 @@ void main() {
               body: Align(
                 alignment: Alignment.topLeft,
                 child: SizedBox(
-                  width: 640,
+                  width: width,
                   height: 360,
                   child: Stack(
                     children: [
@@ -272,6 +278,49 @@ void main() {
       ),
     );
     expect(score.size!.height, gear.size!.height);
+  });
+
+  testWidgets('the pill keeps a usable share on a handheld-sized card', (
+    tester,
+  ) async {
+    // The bug this pins: the pill is the row's only Expanded, so it is handed
+    // whatever the fixed items leave and has no floor of its own. On the Thor
+    // those items came to more than the card was wide, and the pill rendered
+    // 7px across -- full height, right shape, none of its contents, and no
+    // overflow banner to say so. Sizing the row is what buys the share back,
+    // so the budget has to be pinned at the width it broke on.
+    await pumpFooter(tester, showsPill: true, width: handheldCardWidth);
+
+    expect(find.byIcon(Symbols.emoji_events_rounded), findsOneWidget);
+
+    final pill = _decoratedAncestor(
+      tester,
+      find.byIcon(Symbols.emoji_events_rounded),
+    );
+    expect(
+      pill.size!.width,
+      greaterThanOrEqualTo(72.0),
+      reason: 'the icon, the count and a bar with somewhere to fill',
+    );
+  });
+
+  testWidgets('a card too narrow for the pill gets no pill, not a splinter', (
+    tester,
+  ) async {
+    // 350 is inside the one window where this decision is live: the fixed
+    // items still fit (below ~320 the row overflows outright, which no real
+    // card is narrow enough to reach) but what they leave is under the pill's
+    // floor.
+    await pumpFooter(tester, showsPill: true, width: 350);
+
+    expect(
+      find.byIcon(Symbols.emoji_events_rounded),
+      findsNothing,
+      reason: 'omitted outright rather than drawn as a dark sliver',
+    );
+    // The rest of the row is unaffected: the controls are what the row is for.
+    expect(find.text('PLAY'), findsOneWidget);
+    expect(find.byIcon(Symbols.settings_rounded), findsOneWidget);
   });
 
   testWidgets('the row is the same height whatever the game carries', (
