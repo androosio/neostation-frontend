@@ -161,6 +161,7 @@ class ToolsSettingsContentState extends State<ToolsSettingsContent> {
         message: localeScanning,
         type: GlobalNotificationType.info,
         progress: 0,
+        ongoing: true,
       );
 
       final result = await RomFolderOrganizerService.organizeRomFolders(
@@ -174,6 +175,7 @@ class ToolsSettingsContentState extends State<ToolsSettingsContent> {
             message: localeScanning,
             type: GlobalNotificationType.info,
             progress: completed / total,
+            ongoing: true,
           );
         },
       );
@@ -330,6 +332,7 @@ class ToolsSettingsContentState extends State<ToolsSettingsContent> {
         message: localeScanning,
         type: GlobalNotificationType.info,
         progress: 0,
+        ongoing: true,
       );
 
       final result = await MetadataCleanupService.clean(
@@ -343,6 +346,7 @@ class ToolsSettingsContentState extends State<ToolsSettingsContent> {
             ),
             type: GlobalNotificationType.info,
             progress: progress,
+            ongoing: true,
           );
         },
       );

@@ -1494,6 +1494,7 @@ class _SetupWizardState extends State<SetupWizard> with WidgetsBindingObserver {
       message: localeEsdeImporting,
       type: GlobalNotificationType.info,
       progress: 0,
+      ongoing: true,
     );
 
     EsdeImportResult? result;
@@ -1515,6 +1516,7 @@ class _SetupWizardState extends State<SetupWizard> with WidgetsBindingObserver {
                 : '$localeEsdeImporting: $label',
             type: GlobalNotificationType.info,
             progress: p,
+            ongoing: true,
           );
         },
       );

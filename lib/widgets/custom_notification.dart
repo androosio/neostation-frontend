@@ -51,6 +51,7 @@ class AppNotification {
     NotificationType type = NotificationType.info,
     String? notificationId,
     double? progress,
+    bool ongoing = false,
   }) {
     final id = notificationId ?? _generateId();
     GlobalNotificationService().show(
@@ -61,6 +62,7 @@ class AppNotification {
       icon: icon,
       type: _mapType(type),
       progress: progress,
+      ongoing: ongoing,
     );
   }
 
@@ -84,8 +86,8 @@ class AppNotification {
     );
   }
 
-  /// Dismisses the notification with [notificationId], or all notifications if
-  /// no id is provided.
+  /// Dismisses the notification with [notificationId], or every notification
+  /// that is not tracking running work if no id is provided.
   static void dismiss([String? notificationId]) {
     GlobalNotificationService().dismiss(notificationId);
   }

@@ -83,6 +83,7 @@ class ScrapingContentState extends State<ScrapingContent> {
         message: localeScrapingInProgress,
         type: GlobalNotificationType.info,
         progress: 0,
+        ongoing: true,
       );
 
       // Paso 1: Sincronizar system IDs

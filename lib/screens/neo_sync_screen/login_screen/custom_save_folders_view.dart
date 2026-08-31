@@ -211,6 +211,7 @@ class _CustomSaveFoldersViewState extends State<CustomSaveFoldersView> {
         type: custom.NotificationType.info,
         notificationId: notificationId,
         progress: 0,
+        ongoing: true,
       );
 
       try {
@@ -224,6 +225,7 @@ class _CustomSaveFoldersViewState extends State<CustomSaveFoldersView> {
             type: custom.NotificationType.info,
             notificationId: notificationId,
             progress: provider.syncProgress,
+            ongoing: true,
           );
         }
 

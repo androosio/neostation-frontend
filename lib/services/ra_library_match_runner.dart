@@ -140,6 +140,9 @@ class RaLibraryMatchRunner {
     );
     publish();
 
+    // Every caller of this is a pass that is still running, so the
+    // notification is marked ongoing and "Clear all" leaves it alone. The
+    // terminal message goes through `_finish`, which clears the flag.
     void showOrUpdate({
       required String message,
       required GlobalNotificationType type,
@@ -151,6 +154,7 @@ class RaLibraryMatchRunner {
           message: message,
           type: type,
           progress: progress,
+          ongoing: true,
         );
       } else {
         notificationShown = true;
@@ -160,6 +164,7 @@ class RaLibraryMatchRunner {
           message: message,
           type: type,
           progress: progress,
+          ongoing: true,
         );
       }
     }

@@ -60,6 +60,7 @@ class _ScrapingNotificationListenerState
           : AppLocale.scrapingInProgress.getString(context),
       type: GlobalNotificationType.info,
       progress: total > 0 ? processed / total : null,
+      ongoing: true,
     );
   }
 

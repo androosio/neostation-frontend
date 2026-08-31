@@ -336,6 +336,7 @@ class DirectoriesSettingsContentState
       message: localeEsdeImporting,
       type: GlobalNotificationType.info,
       progress: 0,
+      ongoing: true,
     );
 
     EsdeImportResult? result;
@@ -357,6 +358,7 @@ class DirectoriesSettingsContentState
                 : '$localeEsdeImporting: $label',
             type: GlobalNotificationType.info,
             progress: p,
+            ongoing: true,
           );
         },
       );
