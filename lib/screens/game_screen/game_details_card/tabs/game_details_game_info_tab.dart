@@ -460,11 +460,26 @@ class GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
   /// needs a bounded box to measure its overflow against.
   double get _headerFactsHeight => 16.r;
 
-  /// The developer / players / year pills, in the order they are read.
+  /// The scraped facts, in the order they are read.
+  ///
+  /// Publisher and genre joined developer, players and year here when the
+  /// details footer's metadata strip was removed: this panel already carried
+  /// three of the five, and the strip was painting the other two onto the
+  /// game's fanart on every view, one marquee'd line above the filename. All
+  /// five in one place is the tab's whole job, and the strip's two are the
+  /// ones a reader has to *look* for rather than glance at.
+  ///
+  /// Empty fields drop out entirely rather than rendering a placeholder, so an
+  /// unscraped game leaves the strip empty and the row collapses.
   List<Widget> _buildHeaderFacts() {
     return [
       if (widget.game.developer.isNotEmpty)
         _InfoPill(icon: Symbols.business_rounded, text: widget.game.developer),
+      if (widget.game.publisher.isNotEmpty)
+        _InfoPill(
+          icon: Symbols.storefront_rounded,
+          text: widget.game.publisher,
+        ),
       if (widget.game.players.isNotEmpty)
         _InfoPill(icon: Symbols.people_rounded, text: widget.game.players),
       if (widget.game.year.isNotEmpty)
@@ -474,6 +489,8 @@ class GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
               RegExp(r'\d{4}').stringMatch(widget.game.year) ??
               widget.game.year,
         ),
+      if (widget.game.genre.isNotEmpty)
+        _InfoPill(icon: Symbols.category_rounded, text: widget.game.genre),
     ];
   }
 

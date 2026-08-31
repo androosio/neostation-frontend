@@ -1809,6 +1809,9 @@ class _SystemGamesListState extends State<SystemGamesList> {
           _isPlayingGameBlocked = isBlocked;
         },
         onShowRandomGame: _showRandomGameDialog,
+        onPlayGame: _selectCurrentGame,
+        onToggleFavorite: _toggleFavorite,
+        onOpenGameSettings: _openGameSettingsDialog,
         onBack: _goBack,
         onGameUpdated: _handleGameUpdated, // Sync UI after metadata edits.
         onFavoriteToggled: _handleFavoriteToggledFromCard,

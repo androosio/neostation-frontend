@@ -103,6 +103,14 @@ class GameDetailsCardList extends StatefulWidget {
   final VoidCallback? onFavoriteToggled;
   final void Function(String romname)? onGameDeleted;
 
+  /// The footer's touch controls, all of them routes to something the host
+  /// already owns: PLAY is what A does, the heart is what the context menu's
+  /// Favourites row does, and the cog is what Start opens. The card holds no
+  /// state for any of them — it only draws the buttons and reports the press.
+  final VoidCallback onPlayGame;
+  final VoidCallback onToggleFavorite;
+  final VoidCallback onOpenGameSettings;
+
   /// Callback to register the primary trigger action (standard Gamepad A).
   final Function(VoidCallback)? onRegisterTriggerAction;
 
@@ -159,6 +167,9 @@ class GameDetailsCardList extends StatefulWidget {
     this.onGameUpdated,
     this.onFavoriteToggled,
     this.onGameDeleted,
+    required this.onPlayGame,
+    required this.onToggleFavorite,
+    required this.onOpenGameSettings,
     this.onRegisterTriggerAction,
     this.onRegisterSecondaryAction,
     this.onRegisterIsPlayingGameBlocked,
@@ -850,18 +861,7 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
     // game with no achievements pill loses the footer's whole action row, and
     // a panel still reserving room for one would end above a band of bare
     // artwork.
-    final double panelBottomOffset = gameDetailsPanelBottomOffset(
-      showsAchievements: GameDetailsFooter.showsAchievementsFor(
-        context,
-        game: _game,
-        hasRetroAchievements: _hasRetroAchievements,
-        isLoadingAchievements: _showsAchievementsLoading,
-        currentGameInfo: _currentGameInfo,
-      ),
-      hasPlayTime: gameDetailsFooterHasPlayTime(_game),
-      hasRating: gameDetailsFooterHasRating(_game),
-      hasMetadata: gameDetailsFooterHasMetadata(_game),
-    );
+    final double panelBottomOffset = gameDetailsPanelBottomOffset();
 
     return Card(
       color: Colors.transparent,
@@ -899,6 +899,10 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
             hasRetroAchievements: _hasRetroAchievements,
             isLoadingAchievements: _showsAchievementsLoading,
             currentGameInfo: _currentGameInfo,
+            onPlayGame: widget.onPlayGame,
+            onShowRandomGame: widget.onShowRandomGame,
+            onToggleFavorite: widget.onToggleFavorite,
+            onOpenGameSettings: widget.onOpenGameSettings,
           ),
 
           // Panel layer: the tabs share one strip so a D-pad step or a
