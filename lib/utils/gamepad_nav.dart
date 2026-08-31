@@ -72,8 +72,9 @@ class GamepadNavigation {
   final VoidCallback? onLeftBumper;
   final VoidCallback? onRightBumper;
 
-  /// Select (View) chord combos. The Select button is a pure modifier — on its
-  /// own it does nothing. While it is held (or within a short window of a pulse),
+  /// Select (View) chord combos. On its own Select fires [onSelectButton], or
+  /// [globalSelectTap] when the layer defines none.
+  /// While it is held (or within a short window of a pulse),
   /// a face-button press fires the matching modifier callback instead of its
   /// normal action, and suppresses that normal action.
   final VoidCallback? onSelectModifierA;
@@ -255,6 +256,16 @@ class GamepadNavigation {
   /// Only the active navigation layer drives this.
   static final ValueNotifier<bool> selectHeldNotifier = ValueNotifier(false);
 
+  /// App-wide fallback for a plain Select (View) tap.
+  ///
+  /// The header notification bell registers itself here so Select opens the
+  /// notifications popup from anywhere the header is on screen, without every
+  /// screen having to wire up a callback it does not own. It only runs when the
+  /// active layer has no [onSelectButton] of its own: a screen that already
+  /// gives Select a meaning (muting the preview video, picking a save) keeps
+  /// it, and never fires two actions from one press.
+  static VoidCallback? globalSelectTap;
+
   /// Tap-vs-chord decisions for Select. See [SelectTap] for the rules.
   final SelectTap _selectTap = SelectTap();
 
@@ -296,7 +307,12 @@ class GamepadNavigation {
     _selectTapTimer = Timer(SelectTap.chordWindow, () {
       _selectTapTimer = null;
       if (!_selectTap.tapStillValid) return;
-      onSelectButton?.call();
+      final owned = onSelectButton;
+      if (owned != null) {
+        owned();
+        return;
+      }
+      globalSelectTap?.call();
     });
   }
 
@@ -816,9 +832,10 @@ class GamepadNavigation {
       if (!allowedWhileTyping.contains(event.inputType)) return;
     }
 
-    // Select (View) is a PURE chord modifier: on its own it does nothing. Track
-    // its state — before the press/release gate below — so a face button pressed
-    // alongside it fires a combo. Some controllers only reliably report one edge
+    // Select (View) is first and foremost a chord modifier. Track its state —
+    // before the press/release gate below — so a face button pressed alongside
+    // it fires a combo; a tap that fires no chord falls through to the tap
+    // action on release (see [_onSelectUp]). Some controllers only reliably report one edge
     // of this button, so the timestamp is stamped on BOTH press and release.
     if (event.inputType == GamepadInputType.buttonSelect) {
       final now = DateTime.now();
