@@ -6,6 +6,7 @@ import '../models/game_model.dart';
 import '../models/neo_sync_models.dart';
 import '../models/system_model.dart';
 import '../sync/i_sync_provider.dart';
+import '../themes/chrome_surface.dart';
 import '../themes/corner_radii.dart';
 
 /// Compact icon-only NeoSync status indicator.
@@ -166,7 +167,10 @@ class _NeoSyncStatusIconState extends State<NeoSyncStatusIcon>
         width: widget.size.r,
         height: widget.size.r,
         decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
+          // The same fill every other chip in a footer row uses, rather than an
+          // opaque surface. This one sits among them, and at full opacity it
+          // was the only chip on the row the artwork did not show through.
+          color: ChromeSurface.fill(context),
           borderRadius: cornerRadius,
           boxShadow: [
             BoxShadow(

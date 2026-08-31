@@ -563,16 +563,23 @@ double get _rowGap => 5.r;
 /// this footer was rebuilt to stop.
 ///
 /// Sized for the common three-character case at full size, and barely wider.
-/// "8.5" is 42.8 at 14.r, and with the star at 16.r and a 4.r gap the chip
-/// renders it unscaled down to 75; at 74 the number itself starts shrinking.
-/// 76 is that floor plus a unit, so a font-metric wobble cannot tip the common
-/// score into scaling. "10.0" is absorbed by scaling down rather than by
+/// "8.5" is 42.8 at 14.r, and the chip is swept down until the number itself
+/// starts shrinking — the floor moves with whatever else is in the chip:
+///
+///     star 18.r, gap 5.r -> floor 80
+///     star 16.r, gap 4.r -> floor 75
+///     star 14.r, gap 3.r -> floor 72
+///
+/// 73 is that last floor plus a unit, so a font-metric wobble cannot tip the
+/// common score into scaling. "10.0" is absorbed by scaling down rather than by
 /// growing the chip, the same trade PLAY's label makes.
 ///
-/// Narrowing this further means taking it out of the number, not out of the
-/// chip: the star and the insets around it have already been trimmed to buy
-/// the last four units. Widening it takes width off the achievements pill.
-const double _scoreWidth = 76;
+/// Every trim so far has come out of the chrome and left the number alone,
+/// which is deliberate: the number is the readout. There is very little chrome
+/// left, so narrowing this again means dropping the number below 14.r — a
+/// different decision from the ones above. Widening it takes width off the
+/// achievements pill.
+const double _scoreWidth = 73;
 
 /// The narrowest the achievements pill can be and still say anything: its
 /// icon, the count and a bar with somewhere to fill.
@@ -744,8 +751,8 @@ class _InlineRating extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Icon(Symbols.star_rounded, color: ratingColor, size: 16.r, fill: 1),
-          SizedBox(width: 4.r),
+          Icon(Symbols.star_rounded, color: ratingColor, size: 14.r, fill: 1),
+          SizedBox(width: 3.r),
           // scaleDown never scales up, so every score that already fits is
           // untouched and only "10.0" is pulled in.
           Flexible(
