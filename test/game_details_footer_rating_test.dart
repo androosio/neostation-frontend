@@ -356,6 +356,28 @@ void main() {
     );
   });
 
+  testWidgets('the score chip is inset optically, not geometrically', (
+    tester,
+  ) async {
+    // Guard against this being "tidied" back to a symmetric inset. Measured on
+    // device, the star's ink sits about 9px inside its icon box while the
+    // number's last digit runs nearly to the edge of its own, so equal insets
+    // put the group 5px right of where it looks centred. The widget rects are
+    // symmetric to the decimal either way, which is exactly why the imbalance
+    // survived until someone looked at the pixels.
+    await pumpFooter(tester, width: handheldCardWidth);
+
+    final chip = _chipRect(tester, find.byIcon(Symbols.star_rounded));
+    final star = tester.getRect(find.byIcon(Symbols.star_rounded));
+    final number = tester.getRect(find.text('9.0'));
+
+    expect(
+      star.left - chip.left,
+      lessThan(chip.right - number.right),
+      reason: 'the star side is tighter, to pay for the ink inside its box',
+    );
+  });
+
   testWidgets('the row is evenly spaced', (tester) async {
     // It was 8 either side of the pill and 6 between the buttons, which reads
     // as unevenly spaced rather than as a rhythm.

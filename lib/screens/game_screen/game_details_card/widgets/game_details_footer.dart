@@ -688,10 +688,17 @@ class _InlineRating extends StatelessWidget {
     return Container(
       width: _scoreWidth.r,
       height: _bottomRowHeight,
-      // Tighter than the pill's own 8.r: at 45.r tall this chip is mostly air
-      // already, and every unit of it is one the achievements pill beside it
-      // does not get.
-      padding: EdgeInsets.symmetric(horizontal: 8.r),
+      // Tighter than the pill's own 8.r, because at 45.r tall this chip is
+      // mostly air already and every unit of it is one the achievements pill
+      // beside it does not get — and deliberately 2.r narrower on the left.
+      //
+      // That asymmetry is an optical correction, not a slip: measured on
+      // device, the star's ink sits about 9px inside its own icon box while
+      // the number's last digit runs nearly to the edge of its, so a
+      // *geometrically* centred group reads 5px left-heavy. The widget rects
+      // are symmetric to the decimal either way — this is only visible in the
+      // pixels, which is why the numbers came off a screenshot.
+      padding: EdgeInsets.only(left: 6.r, right: 8.r),
       decoration: BoxDecoration(
         color: ChromeSurface.fill(context),
         borderRadius: _controlRadius,
