@@ -219,52 +219,59 @@ void main() {
   });
 
   testWidgets('the icon buttons are circles and PLAY is not', (tester) async {
-    // The square buttons come out as circles, which is what makes them read as
-    // a set floating on the artwork rather than a strip of tiles, and they do
-    // not follow the theme's corner style to get there: that is for panels and
-    // cards. PLAY keeps the theme's corner precisely so it stays out of the
-    // set -- it is the row's primary action, not one more chip in it.
+    // Everything on the row wears the same chip, fully rounded, so the square
+    // controls come out as circles and the wider ones as stadiums -- that is
+    // what makes the row read as one set rather than a strip of tiles, and it
+    // does not follow the theme's corner style to get there: that is for
+    // panels and cards. PLAY keeps the theme's corner precisely so it stays
+    // out of the set; it is the row's primary action, not one more chip in it.
     await pumpFooter(tester, showsPill: true);
 
-    for (final icon in [
-      Symbols.casino_rounded,
-      Symbols.favorite_rounded,
-      Symbols.settings_rounded,
+    for (final finder in [
+      // The score chip, by the star inside it.
+      find.byIcon(Symbols.star_rounded),
+      find.byIcon(Symbols.casino_rounded),
+      find.byIcon(Symbols.favorite_rounded),
+      find.byIcon(Symbols.settings_rounded),
     ]) {
-      final box = tester.widget<Container>(
-        find
-            .ancestor(of: find.byIcon(icon), matching: find.byType(Container))
-            .first,
-      );
-      final size = tester.getSize(find.byIcon(icon).first);
-      final radius =
-          ((box.decoration as BoxDecoration).borderRadius as BorderRadius)
-              .topLeft
-              .x;
+      final chip = _decoratedAncestor(tester, finder);
       expect(
-        radius,
-        greaterThanOrEqualTo(size.height / 2),
-        reason: 'a circle, not a rounded square',
+        _radiusOf(chip),
+        greaterThanOrEqualTo(chip.size!.height / 2),
+        reason: 'fully rounded, not a rounded square',
       );
     }
 
-    // The innermost decorated ancestor of the label is the button itself; the
-    // ones further out are the footer's own padding boxes.
-    final playButton = find
-        .ancestor(of: find.text('PLAY'), matching: find.byType(Container))
-        .evaluate()
-        .firstWhere((e) => (e.widget as Container).decoration is BoxDecoration);
-    final playRadius =
-        (((playButton.widget as Container).decoration as BoxDecoration)
-                    .borderRadius
-                as BorderRadius)
-            .topLeft
-            .x;
+    final play = _decoratedAncestor(tester, find.text('PLAY'));
     expect(
-      playRadius,
-      lessThan(playButton.size!.height / 2),
+      _radiusOf(play),
+      lessThan(play.size!.height / 2),
       reason: 'squarer than the chips beside it, not a stadium',
     );
+  });
+
+  testWidgets('the score wears the same chip as the controls', (tester) async {
+    // A row of chips with one bare readout floating at its head did not read
+    // as "that one is not pressable", it read as unfinished. What keeps the
+    // score out of the control set is that its chip has no ink and no tap
+    // target, not that it has no chrome.
+    await pumpFooter(tester);
+
+    final score = _decoratedAncestor(tester, find.byIcon(Symbols.star_rounded));
+    final gear = _decoratedAncestor(
+      tester,
+      find.byIcon(Symbols.settings_rounded),
+    );
+
+    expect(
+      (score.widget as Container).decoration,
+      isA<BoxDecoration>().having(
+        (d) => d.color,
+        'fill',
+        ((gear.widget as Container).decoration as BoxDecoration).color,
+      ),
+    );
+    expect(score.size!.height, gear.size!.height);
   });
 
   testWidgets('the row is the same height whatever the game carries', (
@@ -341,3 +348,16 @@ void main() {
     );
   });
 }
+
+/// The nearest ancestor of [of] that actually draws a chip. The `Container`s
+/// further out are the footer's own padding boxes and carry no decoration.
+Element _decoratedAncestor(WidgetTester tester, Finder of) => find
+    .ancestor(of: of, matching: find.byType(Container))
+    .evaluate()
+    .firstWhere((e) => (e.widget as Container).decoration is BoxDecoration);
+
+double _radiusOf(Element chip) =>
+    (((chip.widget as Container).decoration as BoxDecoration).borderRadius
+            as BorderRadius)
+        .topLeft
+        .x;

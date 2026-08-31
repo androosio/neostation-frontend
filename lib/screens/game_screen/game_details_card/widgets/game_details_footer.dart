@@ -512,15 +512,6 @@ class GameDetailsFooter extends StatelessWidget {
   }
 }
 
-/// Drop shadow for glyphs and readouts painted straight onto the game's fanart.
-///
-/// The score and the play-time clock sit on artwork rather than on a chrome
-/// surface, so both carry the same shadow and read as one block. The controls
-/// beside them do not need it: each has a filled pill of its own.
-List<Shadow> get _onArtShadows => [
-  Shadow(blurRadius: 1.r, color: Colors.black, offset: const Offset(2, 2)),
-];
-
 /// The corner every chrome element on the row wears *except* PLAY: fully
 /// rounded, so the square controls come out as circles and the achievements
 /// pill as a stadium.
@@ -630,23 +621,22 @@ class _FooterActionButton extends StatelessWidget {
   }
 }
 
-/// Score as a star and number at the left end of the footer's bottom row,
-/// facing the play-time clock at the other end with the achievements pill
-/// between them.
+/// Score as a star and a number, at the head of the footer's row.
 ///
-/// It has been in three places, and the middle one is the mistake worth not
-/// repeating. It started as a 45.r pill on chrome *in* that row, which D15
-/// took out because the row is for controls and a score answers to nothing.
-/// It then spent a while as one more segment of the metadata marquee, at the
-/// strip's own size — which cost it the emphasis along with the chrome, and
-/// let it scroll out of sight behind a long publisher.
+/// It has been in four places, and the middle two are the mistakes worth not
+/// repeating. It started as a pill in this row, which was removed on the rule
+/// that the row is for controls and a score answers to nothing. It then spent
+/// a while as one more segment of the metadata marquee, at the strip's own
+/// size — which cost it the emphasis along with the chrome, and let a long
+/// publisher scroll it out of sight. It came back to the row as a bare glyph
+/// and number on the artwork, which read as a caption that had drifted in.
 ///
-/// Back on the row, but as a readout rather than as chrome: bare glyph and
-/// number at 22/18, no fill, no border, nothing that reads as pressable. That
-/// is the same treatment the clock beside it gets, and the same reason — the
-/// row's *controls* wear pills, and these two do not. The colour ramp — error
-/// at the bottom of the range, success at the top — is what makes the number
-/// readable without reading it.
+/// It wears a chip again, and the rule it broke was the wrong rule: a row of
+/// chips with one bare readout floating at its head does not read as "that one
+/// is not pressable", it reads as unfinished. What separates the score from
+/// the controls is that its chip has no ink and no tap target, not that it has
+/// no chrome. The colour ramp — error at the bottom of the range, success at
+/// the top — is what makes the number readable without reading it.
 class _InlineRating extends StatelessWidget {
   final GameModel game;
 
@@ -664,29 +654,40 @@ class _InlineRating extends StatelessWidget {
       colorRatio,
     )!;
 
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Icon(
-          Symbols.star_rounded,
-          color: ratingColor,
-          size: 22.r,
-          fill: 1,
-          shadows: _onArtShadows,
-        ),
-        SizedBox(width: 4.r),
-        Text(
-          ratingValue.toStringAsFixed(1),
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 18.r,
-            fontWeight: FontWeight.w800,
-            height: 1.15,
-            shadows: _onArtShadows,
+    final theme = Theme.of(context);
+
+    return Container(
+      height: _bottomRowHeight,
+      padding: EdgeInsets.symmetric(horizontal: 12.r),
+      decoration: BoxDecoration(
+        color: ChromeSurface.fill(context),
+        borderRadius: _controlRadius,
+        border: Border.all(color: theme.colorScheme.outline, width: 1.r),
+        boxShadow: [
+          BoxShadow(
+            color: theme.colorScheme.shadow.withValues(alpha: 0.1),
+            blurRadius: 4.r,
+            offset: Offset(2.0.r, 2.0.r),
           ),
-        ),
-      ],
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Icon(Symbols.star_rounded, color: ratingColor, size: 22.r, fill: 1),
+          SizedBox(width: 6.r),
+          Text(
+            ratingValue.toStringAsFixed(1),
+            style: TextStyle(
+              color: theme.colorScheme.onSurface,
+              fontSize: 18.r,
+              fontWeight: FontWeight.w800,
+              height: 1.15,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
