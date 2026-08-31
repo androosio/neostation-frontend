@@ -1072,6 +1072,20 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
   /// rather than on the panel itself.
   Widget _slidingPanel(DetailTab tab, Widget panel) {
     return Positioned.fill(
+      // Keyed by the tab, because four of these five are conditional on
+      // [_isPanelMounted] and the media panel is not. The list therefore goes
+      // one child, two children, one again on every transition, and the media
+      // panel's *index* in it moves. Unkeyed, Flutter matches children by type
+      // and position, so that shift rematched the media panel's element
+      // against a different panel's widget and threw its State away.
+      //
+      // That State holds the screenshot's measured aspect ratio. Losing it put
+      // the panel back on its `16 / 9` fallback for exactly one build — a
+      // 224x384 arcade screenshot rendering three times too wide and cropped
+      // to cover — and it re-measured from the image cache one post-frame
+      // callback later. One painted frame, on every tab change: the flicker at
+      // the edge of the slide, where the partner panel mounts or clears.
+      key: ValueKey(tab),
       // The card's stack only clips what overflows it in layout, and this is a
       // paint-time translation, so without a clip of its own a travelling
       // panel would paint straight over the games list.
