@@ -12,6 +12,8 @@ import '../../../../models/game_model.dart';
 import '../../../../models/retro_achievements_game_info.dart';
 import 'package:neostation/themes/chrome_surface.dart';
 import '../../../../themes/corner_radii.dart';
+import '../../../../utils/game_utils.dart';
+import '../../../../widgets/monospaced_clock.dart';
 import '../../music/music_player.dart';
 import 'package:neostation/utils/ra_coverage.dart';
 
@@ -78,12 +80,14 @@ class GameDetailsFooter extends StatelessWidget {
 
     // Scenario 2: Standard Game Metadata UI.
     final bool hasRating = game.rating > 0;
+    final bool hasPlayTime =
+        GameUtils.formatPlayTime(game.playTime ?? 0) != '0s';
     final bool showsAchievements = _showsAchievements(context);
 
     // One row, always the same height, in reading order: what the game *is*
     // on the left, what you can *do* with it on the right.
     //
-    // The two text lines that used to sit above this row are gone. The
+    // The two text lines that used to sit above this row are mostly gone. The
     // metadata strip (players, publisher, year, genre) reads better in the
     // game info tab, which already carried half of those facts, so the strip
     // is not repeated on the artwork; the filename went with it.
@@ -95,10 +99,17 @@ class GameDetailsFooter extends StatelessWidget {
     // look for a mark the row could carry itself, and it was taking a chip's
     // width off the achievements pill on every synced game.
     //
-    // Fixed height, so the footer no longer resizes with what the selected
-    // game happens to carry. The controls are always there, so the row is
-    // always there — see [gameDetailsPanelBottomOffset], which is a constant
-    // for the same reason.
+    // What is left of those lines is the play-time clock, on its own above the
+    // row. It was on the row once and that is what starved the achievements
+    // pill down to seven pixels; a play-time reading is 96 to 112 units wide
+    // and the row's spare, on the handheld card, is about 46. The line costs
+    // the row nothing, which is the only place the clock fits without the pill
+    // paying for it.
+    //
+    // Fixed height, both parts of it: the line is reserved whether or not the
+    // game has a reading to put on it, so the footer does not resize with what
+    // the selected game happens to carry — see [gameDetailsPanelBottomOffset],
+    // which is a constant for the same reason.
     return Positioned(
       bottom: -0.5.r,
       left: -0.5.r,
@@ -111,70 +122,86 @@ class GameDetailsFooter extends StatelessWidget {
               right: 12.r,
               bottom: _bottomPadding.r,
             ),
-            child: SizedBox(
-              height: _bottomRowHeight,
-              // The whole row is touch-only. Every action on it has a hardware
-              // binding already (A launches, Y opens the context menu, Start
-              // opens settings), and a focusable widget inside the card would
-              // put a second cursor in a view that owns its own selection.
-              child: ExcludeFocus(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    // Readouts first: the score, then the achievements pill
-                    // taking whatever the controls leave it.
-                    if (hasRating) ...[
-                      _InlineRating(game: game),
-                      SizedBox(width: _rowGap),
-                    ],
-                    Expanded(
-                      child: showsAchievements
-                          ? Align(
-                              // Left, so a capped pill leaves its slack between
-                              // itself and the controls rather than beside the
-                              // score.
-                              alignment: Alignment.centerLeft,
-                              child: LayoutBuilder(
-                                builder: (context, constraints) =>
-                                    _buildCompactAchievementsIndicator(
-                                      context,
-                                      availableWidth: constraints.maxWidth,
-                                    ),
-                              ),
-                            )
-                          // Nothing to report, but the slot stays: it is what
-                          // pushes the controls to the right margin.
-                          : const SizedBox.shrink(),
-                    ),
-                    SizedBox(width: _rowGap),
-                    // Controls, in the order the removed rail had them.
-                    if (onShowRandomGame != null) ...[
-                      _FooterActionButton(
-                        // The same dice the Y context menu gives Random, so the
-                        // action carries one glyph wherever it is offered.
-                        icon: Symbols.casino_rounded,
-                        onTap: onShowRandomGame!,
-                      ),
-                      SizedBox(width: _rowGap),
-                    ],
-                    _FooterActionButton(
-                      icon: Symbols.favorite_rounded,
-                      // Filled and tinted when the game is already a
-                      // favourite: the button is a toggle, so its state has to
-                      // be readable without pressing it.
-                      isOn: game.isFavorite == true,
-                      onTap: onToggleFavorite,
-                    ),
-                    SizedBox(width: _rowGap),
-                    _FooterActionButton(
-                      icon: Symbols.settings_rounded,
-                      onTap: onOpenGameSettings,
-                    ),
-                    SizedBox(width: _rowGap),
-                    _buildPlayButton(context),
-                  ],
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  height: _clockLine.r,
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: hasPlayTime
+                        ? _InlinePlayTime(game: game)
+                        : const SizedBox.shrink(),
+                  ),
                 ),
-              ),
+                SizedBox(
+                  height: _bottomRowHeight,
+                  // The whole row is touch-only. Every action on it has a
+                  // hardware binding already (A launches, Y opens the context
+                  // menu, Start opens settings), and a focusable widget inside
+                  // the card would put a second cursor in a view that owns its
+                  // own selection.
+                  child: ExcludeFocus(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        // Readouts first: the score, then the achievements pill
+                        // taking whatever the controls leave it.
+                        if (hasRating) ...[
+                          _InlineRating(game: game),
+                          SizedBox(width: _rowGap),
+                        ],
+                        Expanded(
+                          child: showsAchievements
+                              ? Align(
+                                  // Left, so a capped pill leaves its slack between
+                                  // itself and the controls rather than beside the
+                                  // score.
+                                  alignment: Alignment.centerLeft,
+                                  child: LayoutBuilder(
+                                    builder: (context, constraints) =>
+                                        _buildCompactAchievementsIndicator(
+                                          context,
+                                          availableWidth: constraints.maxWidth,
+                                        ),
+                                  ),
+                                )
+                              // Nothing to report, but the slot stays: it is what
+                              // pushes the controls to the right margin.
+                              : const SizedBox.shrink(),
+                        ),
+                        SizedBox(width: _rowGap),
+                        // Controls, in the order the removed rail had them.
+                        if (onShowRandomGame != null) ...[
+                          _FooterActionButton(
+                            // The same dice the Y context menu gives Random, so the
+                            // action carries one glyph wherever it is offered.
+                            icon: Symbols.casino_rounded,
+                            onTap: onShowRandomGame!,
+                          ),
+                          SizedBox(width: _rowGap),
+                        ],
+                        _FooterActionButton(
+                          icon: Symbols.favorite_rounded,
+                          // Filled and tinted when the game is already a
+                          // favourite: the button is a toggle, so its state has to
+                          // be readable without pressing it.
+                          isOn: game.isFavorite == true,
+                          onTap: onToggleFavorite,
+                        ),
+                        SizedBox(width: _rowGap),
+                        _FooterActionButton(
+                          icon: Symbols.settings_rounded,
+                          onTap: onOpenGameSettings,
+                        ),
+                        SizedBox(width: _rowGap),
+                        _buildPlayButton(context),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -202,8 +229,10 @@ class GameDetailsFooter extends StatelessWidget {
       // Deliberately a fixed width. The achievements pill beside it is
       // Expanded, so anything this button takes comes straight out of that
       // pill; long labels are absorbed by scaling the text down rather than by
-      // growing the button (see the FittedBox below).
-      width: 80.r,
+      // growing the button (see the FittedBox below). 88 rather than 80 since
+      // the row grew: the badge and the label grew with it, and at 80 the
+      // English label was the one being scaled down to fit.
+      width: 88.r,
       height: _controlSize.r,
       decoration: BoxDecoration(
         color: const Color(0xFF2ECC71),
@@ -237,13 +266,13 @@ class GameDetailsFooter extends StatelessWidget {
               children: [
                 Image.asset(
                   'assets/images/gamepad/Xbox_A_button.png',
-                  width: 24.r,
-                  height: 24.r,
+                  width: 28.r,
+                  height: 28.r,
                   color: Theme.of(context).colorScheme.onPrimary,
                 ),
                 SizedBox(width: 6.r),
                 // The label is localized and the button is a fixed width, so
-                // only the English "PLAY" fits at the full 12.r: the German,
+                // only the English "PLAY" fits at the full 13.r: the German,
                 // Russian and CJK labels used to render past its right edge.
                 // scaleDown shrinks just those to fit and never scales up, so
                 // the button's footprint stays constant either way.
@@ -257,7 +286,7 @@ class GameDetailsFooter extends StatelessWidget {
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.onPrimary,
                         fontWeight: FontWeight.w900,
-                        fontSize: 12.r,
+                        fontSize: 13.r,
                         letterSpacing: 1.0,
                         height: 1.0,
                       ),
@@ -447,13 +476,13 @@ class GameDetailsFooter extends StatelessWidget {
                             errorBuilder: (_, _, _) => Icon(
                               Symbols.emoji_events_rounded,
                               color: statusColor,
-                              size: 14.r,
+                              size: 16.r,
                             ),
                           )
                         : Icon(
                             Symbols.emoji_events_rounded,
                             color: statusColor,
-                            size: 14.r,
+                            size: 16.r,
                           ),
                   ),
                 ),
@@ -472,7 +501,7 @@ class GameDetailsFooter extends StatelessWidget {
                           progressText.toUpperCase(),
                           style: TextStyle(
                             color: theme.colorScheme.onSurface,
-                            fontSize: 10.r,
+                            fontSize: 11.r,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 0.5,
                           ),
@@ -490,7 +519,7 @@ class GameDetailsFooter extends StatelessWidget {
                           borderRadius: BorderRadius.circular(4.r),
                           child: LinearProgressIndicator(
                             value: progress,
-                            minHeight: 5.r,
+                            minHeight: 6.r,
                             backgroundColor: theme.colorScheme.onSurface
                                 .withValues(alpha: 0.1),
                             valueColor: AlwaysStoppedAnimation<Color>(
@@ -536,10 +565,23 @@ BorderRadius get _controlRadius => BorderRadius.circular(_bottomRow.r);
 /// absorbs whatever the fixed items leave. At 45, with six things on the row,
 /// what they left on a 1920 handheld was seven pixels: the pill rendered
 /// full-height, right-shaped and empty, with no overflow to say so. Sizing the
-/// row down is what pays for all six being here. Raising this number without
-/// taking something off the row puts the pill straight back under its floor --
-/// the measurements are in `docs/collections/08-list-footer-sizing.md`.
-const double _bottomRow = 34;
+/// row down to 34 is what paid for all six being here, and the note recording
+/// that sweep put the starving point just above 40 --
+/// `docs/collections/08-list-footer-sizing.md`.
+///
+/// Then two things came off the row's fixed side. The cloud-sync glyph left
+/// altogether for the game list's selected row (~39 with its gap), and the
+/// score's chip was slimmed by the decimal point and a tighter reservation
+/// (~25). That is ~64 the pill did not have when 40 was the ceiling, and it is
+/// what this is spending: each unit here costs three, one per square control.
+///
+/// 40, which leaves the pill about 115 on the handheld card — well clear of
+/// [_pillMinWidth], and under [_pillMaxWidth], so the cap only binds on wider
+/// cards now. The ceiling is not a fixed number: it is whatever leaves the pill
+/// above its floor, and it moves every time something joins or leaves the row.
+/// Anything that puts an item back has to come out of here again — which is
+/// why the play-time clock went above the row rather than on it.
+const double _bottomRow = 40;
 
 /// The one gap between every pair of things on the row.
 ///
@@ -548,36 +590,34 @@ const double _bottomRow = 34;
 /// controls read as unevenly spaced even though each pair was deliberate.
 double get _rowGap => 5.r;
 
-/// The width the score reserves, fixed.
+/// The score chip's width, fixed.
 ///
-/// It cannot size to its content, chip or no chip. The number is one or two
-/// characters ("8" against "10"), and since the achievements pill beside it is
-/// the row's only Expanded, every character the score gains comes straight out
-/// of the pill -- so the pill was a different width on every game, and on a
-/// game scoring 10 it fell under [_pillMinWidth] and vanished outright. A
-/// readout that moves what is beside it as the cursor walks the list is what
-/// the rest of this footer was rebuilt to stop.
+/// It cannot size to its content. The number is one or two characters ("8"
+/// against "10"), and since the achievements pill beside it is the row's only
+/// Expanded, every character the score gains comes straight out of the pill --
+/// so the pill was a different width on every game, and on a game scoring 10 it
+/// fell under [_pillMinWidth] and vanished outright. A readout that moves what
+/// is beside it as the cursor walks the list is what the rest of this footer
+/// was rebuilt to stop.
 ///
-/// The slot is left-aligned and draws nothing of its own, so the reservation is
-/// invisible: the star holds one x on every game and only the air after the
-/// number varies. That is what makes a fixed width cheap now. The old chip had
-/// to be centred inside its own edges and swept down by eye until the number
-/// started scaling:
+/// The number is swept down by eye until the chip starts scaling it, and the
+/// floor moves with whatever else is in the chip and with how many characters
+/// the number has:
 ///
 ///     "8.5", star 18.r, gap 5.r -> floor 80
 ///     "8.5", star 16.r, gap 4.r -> floor 75
 ///     "8.5", star 14.r, gap 3.r -> floor 72   (73 shipped)
 ///
-/// Two things came out of that string since. The decimal point went, and so did
-/// the chip's own 10 units of padding. Measured at 14.r: the star is 14 wide, a
-/// digit 14.3, the gap 3 — so the widest content, "10", is 45.6. 48 is that
-/// plus wobble room, and the [FittedBox] takes anything past it out of the
-/// number rather than out of the pill.
+/// Two things came out of that string since. The decimal point went — the score
+/// is drawn whole — and the chip came off and went back on around a bigger
+/// star and number, sized for the taller row. Measured at 16.r: the star is 16
+/// wide, a digit 16.3, the gap 3, the padding 4 + 6 — so the widest content,
+/// "10", needs 61.7. 64 is that plus wobble room, and the [FittedBox] takes
+/// anything past it out of the number rather than out of the pill.
 ///
-/// The 25 units this gives back go to the row, not to the number: the score is
-/// still drawn at 14.r. Widening this again takes width off the achievements
-/// pill.
-const double _scoreWidth = 48;
+/// Still 9 under the 73 it was at the smaller sizes, because the decimal point
+/// was worth more than the growth. Widening it takes width off the pill.
+const double _scoreWidth = 64;
 
 /// The widest the achievements pill is allowed to get.
 ///
@@ -588,9 +628,15 @@ const double _scoreWidth = 48;
 /// readouts on the left and a group of controls on the right with air between
 /// them than as one enormous pill pushing them apart.
 ///
-/// 132 is what the handheld card gives it, which is the width this was tuned
-/// to — so on that device the cap changes nothing, and it is only wider cards
-/// (desktop, and the Deck) that meet it.
+/// 132 was what the handheld card gave it when this was tuned, so the cap
+/// changed nothing there and only wider cards (desktop, and the Deck) met it.
+/// The handheld card is under it now — the row grew to 40 and the score took
+/// its chip back — so it lands around 115 there, and the cap binds from about
+/// a 640-wide card up.
+///
+/// Left where it is deliberately. The cap is a ceiling on how long the bar is
+/// allowed to get, not a target: raising it to track whatever the handheld
+/// happens to leave would make every change to the row a change to the cap.
 const double _pillMaxWidth = 132;
 
 /// The narrowest the achievements pill can be and still say anything: its
@@ -607,6 +653,21 @@ const double _pillMinWidth = 64;
 /// [_bottomRow] unscaled, for the widgets that take a bare `double` and apply
 /// `.r` themselves.
 const double _controlSize = _bottomRow;
+
+/// Height of the play-time line above the row.
+///
+/// Reserved whether or not the selected game has a reading to put on it: the
+/// footer's height is the one thing every panel above it is positioned off
+/// (see [gameDetailsPanelBottomOffset]), so a line that appeared only for
+/// played games would move the panels as the cursor walked the list -- which
+/// is the exact fault the row below it was rebuilt to fix.
+///
+/// 26 holds the 18.r reading and its 20.r glyph with a little air. The clock is
+/// up here rather than on the row because it does not fit on the row: a
+/// play-time reading measures 96 to 112 units and the row's spare, on the
+/// handheld card, is about 46. It was on the row once, and that is the era the
+/// achievements pill rendered seven pixels wide.
+const double _clockLine = 26;
 
 /// Slack under the row, so the content does not sit on the card's edge.
 const double _bottomPadding = 11;
@@ -626,12 +687,13 @@ double get _pillIconSize => (_bottomRow - 10).r;
 /// a metadata strip that an unscraped game did not have, an achievements pill
 /// that an unmatched one did not get — so a panel that reserved a fixed band
 /// either ended above bare artwork or was overdrawn. The row holds the
-/// controls, and those are there for every game, so there is nothing left to
-/// vary.
+/// controls, and those are there for every game; the play-time line above it
+/// is reserved for every game whether or not it has a reading. So there is
+/// nothing left to vary.
 ///
 /// Unscaled, like the panels' own offsets — the caller applies `.r`.
 double gameDetailsPanelBottomOffset() =>
-    _bottomRow + _bottomPadding + _panelGap;
+    _clockLine + _bottomRow + _bottomPadding + _panelGap;
 
 /// One square control on the footer's row: a glyph on the same pill the
 /// achievements indicator wears, so the row reads as a set.
@@ -686,7 +748,7 @@ class _FooterActionButton extends StatelessWidget {
           ),
           child: Icon(
             icon,
-            size: 18.r,
+            size: 21.r,
             fill: isOn ? 1 : 0,
             color: isOn
                 ? AppThemes.getCustomColors(context).errorColor
@@ -708,14 +770,14 @@ class _FooterActionButton extends StatelessWidget {
 /// publisher scroll it out of sight. It came back to the row as a bare glyph
 /// and number on the artwork, which read as a caption that had drifted in.
 ///
-/// It wore a chip for a while after that, on the argument that one bare readout
-/// among chips reads as unfinished rather than as unpressable. The chip is gone
-/// for good now, and the argument was answered by the row rather than won: it
-/// is information, not a control, and it was paying for its own edges in the
-/// only currency this row has. The chip cost 10 units of padding and a centred,
-/// hand-swept width; bare, the same reservation is 25 units narrower and
-/// invisible, and all of it goes to the achievements pill and the air around
-/// it.
+/// It wears a chip, and the rule that took it off was the wrong rule: a row of
+/// chips with one bare readout floating at its head does not read as "that one
+/// is not pressable", it reads as unfinished. What separates the score from the
+/// controls is that its chip has no ink and no tap target, not that it has no
+/// chrome. It was tried bare, on the argument that a readout should not charge
+/// the row's only Expanded for its own edges — the width was real, the look was
+/// worse, and the width came back off the row's other side instead when the
+/// cloud glyph left it.
 ///
 /// The colour ramp — error at the bottom of the range, success at the top — is
 /// what makes the number readable without reading it, and it is what lets the
@@ -732,9 +794,10 @@ class _InlineRating extends StatelessWidget {
     // Normalizes a 0-20 score to a 0.0-10.0 scale for color interpolation.
     final ratingValue = (game.rating / 2).clamp(0.0, 10.0);
     // Drawn as a whole number, rounded up. The point and its decimal are a
-    // character the slot has to reserve on every game, taken straight off the
-    // achievements pill; the colour keeps the half point they carried. Up
-    // rather than to nearest, so a game that scored at all never reads "0".
+    // character the chip has to reserve on every game, and the chip's width
+    // comes off the achievements pill; the colour keeps the half point they
+    // carried. Up rather than to nearest, so a game that scored at all never
+    // reads "0".
     final displayRating = ratingValue.ceil();
     final colorRatio = (ratingValue - 1) / 9;
     final customColors = AppThemes.getCustomColors(context);
@@ -746,33 +809,52 @@ class _InlineRating extends StatelessWidget {
 
     final theme = Theme.of(context);
 
-    // A reserved slot, not a chip: no fill, no border, no shadow, and the
-    // content pinned to its left edge so the star holds one x while the
-    // trailing air absorbs the difference between "8" and "10".
-    return SizedBox(
+    return Container(
       width: _scoreWidth.r,
       height: _bottomRowHeight,
+      // Tighter than the row's own gap, because this chip is mostly air at the
+      // row's height already and every unit of it is one the achievements pill
+      // beside it does not get — and deliberately 2.r narrower on the left.
+      //
+      // That asymmetry is an optical correction, not a slip: measured on
+      // device, the star's ink sits about 9px inside its own icon box while
+      // the number's last digit runs nearly to the edge of its, so a
+      // *geometrically* centred group reads 5px left-heavy. It survives the
+      // decimal's removal because it is about the star, not the number. The
+      // widget rects are symmetric either way — this is only visible in the
+      // pixels, which is why the numbers came off a screenshot.
+      padding: EdgeInsets.only(left: 4.r, right: 6.r),
+      decoration: BoxDecoration(
+        color: ChromeSurface.fill(context),
+        borderRadius: _controlRadius,
+        border: Border.all(color: theme.colorScheme.outline, width: 1.r),
+        boxShadow: [
+          BoxShadow(
+            color: theme.colorScheme.shadow.withValues(alpha: 0.1),
+            blurRadius: 4.r,
+            offset: Offset(2.0.r, 2.0.r),
+          ),
+        ],
+      ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Icon(Symbols.star_rounded, color: ratingColor, size: 14.r, fill: 1),
+          Icon(Symbols.star_rounded, color: ratingColor, size: 16.r, fill: 1),
           SizedBox(width: 3.r),
           // scaleDown never scales up, so every score that fits is untouched.
           // Nothing reaches it at these sizes — it is here so a font-metric
-          // wobble shrinks the number rather than pushing the slot into the
-          // pill.
+          // wobble shrinks the number rather than growing the chip.
           Flexible(
             child: FittedBox(
               fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
               child: Text(
                 '$displayRating',
                 maxLines: 1,
                 softWrap: false,
                 style: TextStyle(
                   color: theme.colorScheme.onSurface,
-                  fontSize: 14.r,
+                  fontSize: 16.r,
                   fontWeight: FontWeight.w800,
                   height: 1.15,
                 ),
@@ -781,6 +863,68 @@ class _InlineRating extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Shadows that lift a bare glyph or a line of text off the game's fanart.
+///
+/// The row below carries none of these: every element on it sits on a chip, and
+/// a shadow inside a chip is grime. This line is painted straight onto the
+/// artwork, where a light frame under a white reading takes it away entirely.
+List<Shadow> get _onArtShadows => [
+  Shadow(blurRadius: 1.r, color: Colors.black, offset: const Offset(2, 2)),
+];
+
+/// Accumulated play time as a clock glyph and an HH:MM:SS reading, on its own
+/// line above the footer's row.
+///
+/// It was on the row, as a pill, and then as a bare readout among the controls.
+/// Both cost the achievements pill beside them width they could not spare — the
+/// reading alone is 112 units at 14.r, against a row whose whole surplus on the
+/// handheld card is about 46 — so it came off the row entirely for a while.
+/// Up here it is free: the line is vertical space, and the row's budget is
+/// horizontal.
+///
+/// White with a drop shadow, not the theme's `onSurface`: this line paints
+/// straight onto the game's fanart, which can be any colour under it.
+class _InlinePlayTime extends StatelessWidget {
+  final GameModel game;
+
+  const _InlinePlayTime({required this.game});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        // `fill: 0` against the app-wide `IconThemeData(fill: 1.0)` in
+        // `main.dart`: filled, this glyph is a solid disc with the hands
+        // knocked out of it, and a white disc on fanart reads as a badge rather
+        // than a clock.
+        Icon(
+          Symbols.schedule_rounded,
+          color: Colors.white,
+          size: 20.r,
+          fill: 0,
+          shadows: _onArtShadows,
+        ),
+        SizedBox(width: 6.r),
+        // Hand-laid cells rather than `FontFeature.tabularFigures()`: Anta
+        // carries no `tnum` table, so that feature is silently a no-op and the
+        // reading jitters as the seconds tick.
+        MonospacedClock(
+          text: MonospacedClock.format(game.playTime ?? 0),
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 18.r,
+            fontWeight: FontWeight.w700,
+            height: 1.15,
+            shadows: _onArtShadows,
+          ),
+        ),
+      ],
     );
   }
 }

@@ -25,11 +25,12 @@ import 'package:neostation/themes/chrome_surface.dart';
 /// where the selection it reports on actually is. What is left is pinned here
 /// because each piece has been moved before:
 ///
-///  * The score has been in four places — a pill in this row, a segment of
+///  * The score has been in five places — a pill in this row, a segment of
 ///    the metadata marquee (where a long publisher could scroll it out of
-///    sight), a chip back in the row, and now a bare readout at its head. It
-///    is information, not a control, and the chip was charging the row's only
-///    Expanded for its edges.
+///    sight), a bare readout on the artwork, a chip back in the row, and once
+///    a bare slot again when the chip's width was wanted for the achievements
+///    pill. The width was real; the look was worse. The chip stayed and the
+///    width came off the row's other side, when the cloud glyph left it.
 ///  * PLAY was removed as a third route to something A and a double tap
 ///    already did. It is back because the rail that carried every *other*
 ///    touch affordance was removed too, which left touch with one pressable
@@ -96,9 +97,20 @@ void main() {
   /// footer's design units -- the width the row actually has to fit in.
   const double handheldCardWidth = 435;
 
-  /// The score's reserved width, mirrored from the footer's private constant.
-  /// The slot draws nothing, so this is the only way to say where it ends.
-  const double scoreSlot = 48;
+  /// The score's own number.
+  ///
+  /// The play-time clock above the row lays every character in its own [Text],
+  /// so a bare `find.text('1')` matches its digits as well — this scopes the
+  /// search to the chip the star is in.
+  Finder scoreText(String number) => find.descendant(
+    of: find
+        .ancestor(
+          of: find.byIcon(Symbols.star_rounded),
+          matching: find.byType(Container),
+        )
+        .first,
+    matching: find.text(number),
+  );
 
   Future<void> pumpFooter(
     WidgetTester tester, {
@@ -179,15 +191,15 @@ void main() {
     // and the chip is fixed-width, so that reservation came off the
     // achievements pill beside it. The half point lives in the colour ramp.
     await pumpFooter(tester, game: _game(rating: 17.0));
-    expect(find.text('9'), findsOneWidget);
+    expect(scoreText('9'), findsOneWidget);
     expect(find.text('8.5'), findsNothing);
 
     await pumpFooter(tester, game: _game(rating: 16.0));
-    expect(find.text('8'), findsOneWidget);
+    expect(scoreText('8'), findsOneWidget);
 
     // Rounded up, not to nearest: a game that scored at all never reads "0".
     await pumpFooter(tester, game: _game(rating: 1.0));
-    expect(find.text('1'), findsOneWidget);
+    expect(scoreText('1'), findsOneWidget);
   });
 
   testWidgets('the score leads the row and the controls close it', (
@@ -214,29 +226,54 @@ void main() {
     }
   });
 
-  testWidgets('the play-time clock is not on this row', (tester) async {
-    // It was the last inert readout left among the controls. The score earns
-    // its place by being what a list is scanned for; a running total of hours
-    // is not, and the row it was crowding is the only touch surface the view
-    // has.
-    await pumpFooter(tester, game: _game(playTime: 3671));
+  testWidgets('the play-time clock is above the row, not on it', (
+    tester,
+  ) async {
+    // It was on the row once, and that is the era the achievements pill beside
+    // it rendered seven pixels wide: the reading is 96 to 112 units and the
+    // row's spare on the handheld card is about 46. The line above costs the
+    // row nothing, because the row's budget is horizontal and a line is not.
+    await pumpFooter(tester, game: _game(playTime: 3671), width: 640);
 
+    final clock = find.byIcon(Symbols.schedule_rounded);
+    expect(clock, findsOneWidget);
+
+    expect(
+      tester.getRect(clock).bottom,
+      lessThanOrEqualTo(tester.getRect(find.byType(ExcludeFocus)).top),
+      reason: 'above the row, not among the controls',
+    );
+  });
+
+  testWidgets('the clock line is reserved even for an unplayed game', (
+    tester,
+  ) async {
+    // The footer's height is what every panel above it is positioned off, so a
+    // line that came and went with the selected game would move the panels as
+    // the cursor walked the list.
+    await pumpFooter(tester, game: _game(playTime: 3671));
+    final played = tester.getSize(find.byType(GameDetailsFooter));
+
+    await pumpFooter(tester, game: _game(playTime: null));
     expect(find.byIcon(Symbols.schedule_rounded), findsNothing);
-    expect(find.textContaining('01:01'), findsNothing);
+    expect(
+      tester.getSize(find.byType(GameDetailsFooter)).height,
+      played.height,
+    );
   });
 
   testWidgets('the icon buttons are circles and PLAY is not', (tester) async {
-    // Every control on the row wears the same chip, fully rounded, so the
-    // square ones come out as circles and the wider ones as stadiums -- that is
+    // Everything on the row wears the same chip, fully rounded, so the square
+    // controls come out as circles and the wider ones as stadiums -- that is
     // what makes the row read as one set rather than a strip of tiles, and it
     // does not follow the theme's corner style to get there: that is for
     // panels and cards. PLAY keeps the theme's corner precisely so it stays
     // out of the set; it is the row's primary action, not one more chip in it.
-    // The score is not in the loop at all: it is a readout, and it has no chip
-    // to be round.
     await pumpFooter(tester, showsPill: true);
 
     for (final finder in [
+      // The score chip, by the star inside it.
+      find.byIcon(Symbols.star_rounded),
       find.byIcon(Symbols.casino_rounded),
       find.byIcon(Symbols.favorite_rounded),
       find.byIcon(Symbols.settings_rounded),
@@ -257,36 +294,32 @@ void main() {
     );
   });
 
-  testWidgets('the score wears no chip at all', (tester) async {
-    // It wore one for a while, on the argument that a lone bare readout among
-    // chips reads as unfinished rather than as unpressable. The row answered
-    // it: the chip cost 10 units of padding and a centred, hand-swept width,
-    // and every one of them came off the achievements pill, which is the row's
-    // only Expanded. A readout does not get to charge a control for its edges.
+  testWidgets('the score wears the same chip as the controls', (tester) async {
+    // A row of chips with one bare readout floating at its head did not read
+    // as "that one is not pressable", it read as unfinished. What keeps the
+    // score out of the control set is that its chip has no ink and no tap
+    // target, not that it has no chrome.
+    //
+    // Taking it off was tried, for the width: the chip is 10 units of padding
+    // and a hand-swept reservation, all of it charged to the achievements pill.
+    // The width came off the cloud glyph instead, which left the row entirely.
     await pumpFooter(tester);
 
-    final chrome = find
-        .ancestor(
-          of: find.byIcon(Symbols.star_rounded),
-          matching: find.byType(Container),
-        )
-        .evaluate()
-        .where((e) => (e.widget as Container).decoration != null);
-
-    expect(
-      chrome,
-      isEmpty,
-      reason: 'no fill, no border, no shadow between the star and the row',
+    final score = _decoratedAncestor(tester, find.byIcon(Symbols.star_rounded));
+    final gear = _decoratedAncestor(
+      tester,
+      find.byIcon(Symbols.settings_rounded),
     );
 
-    // The controls it sits beside still have theirs — this is the score's
-    // exception, not the row losing its chrome.
     expect(
-      (_decoratedAncestor(tester, find.byIcon(Symbols.settings_rounded)).widget
-              as Container)
-          .decoration,
-      isA<BoxDecoration>(),
+      (score.widget as Container).decoration,
+      isA<BoxDecoration>().having(
+        (d) => d.color,
+        'fill',
+        ((gear.widget as Container).decoration as BoxDecoration).color,
+      ),
     );
+    expect(score.size!.height, gear.size!.height);
   });
 
   testWidgets('the pill keeps a usable share on a handheld-sized card', (
@@ -320,8 +353,12 @@ void main() {
     // seven pixels on a narrow card and would let it run on for half a wide
     // one. It carries an icon, a short count and a bar; past a point more
     // width is just a longer bar.
+    //
+    // The handheld card no longer reaches the cap — the row grew and the score
+    // took its chip back, so what is left there is under it. The cap is
+    // asserted where it binds, from 640 up.
     final widths = <double>{};
-    for (final card in [handheldCardWidth, 640.0, 900.0, 1200.0]) {
+    for (final card in [640.0, 900.0, 1200.0]) {
       await pumpFooter(tester, showsPill: true, width: card);
       widths.add(
         _decoratedAncestor(
@@ -331,10 +368,16 @@ void main() {
       );
     }
 
+    expect(widths, hasLength(1), reason: 'one width from 640 up, got $widths');
+
+    // And the handheld card is under it, not over: the cap never grows a pill.
+    await pumpFooter(tester, showsPill: true, width: handheldCardWidth);
     expect(
-      widths,
-      hasLength(1),
-      reason: 'one width from the handheld card up, got $widths',
+      _decoratedAncestor(
+        tester,
+        find.byIcon(Symbols.emoji_events_rounded),
+      ).size!.width,
+      lessThanOrEqualTo(widths.single),
     );
 
     // And the slack lands between the pill and the controls, not beside the
@@ -342,13 +385,9 @@ void main() {
     await pumpFooter(tester, showsPill: true, width: 1200);
     final play = _chipRect(tester, find.text('PLAY'));
     final pill = _chipRect(tester, find.byIcon(Symbols.emoji_events_rounded));
-    // From the end of the score's reserved slot rather than a chip it no
-    // longer has: between the number and the pill sits the slot's own trailing
-    // air, which belongs to the score, not to the row.
-    final slotEnd =
-        tester.getRect(find.byIcon(Symbols.star_rounded)).left + scoreSlot;
+    final score = _chipRect(tester, find.byIcon(Symbols.star_rounded));
     expect(1200 - play.right, lessThan(20), reason: 'controls hug the right');
-    expect(pill.left - slotEnd, lessThan(20), reason: 'readouts hug left');
+    expect(pill.left - score.right, lessThan(20), reason: 'readouts hug left');
   });
 
   testWidgets('a card too narrow for the pill gets no pill, not a splinter', (
@@ -371,7 +410,7 @@ void main() {
     expect(find.byIcon(Symbols.settings_rounded), findsOneWidget);
   });
 
-  testWidgets('the score reserves the same width whatever the score', (
+  testWidgets('the score chip is the same width whatever the score', (
     tester,
   ) async {
     // The number runs from "1" to "10", and the achievements pill beside it is
@@ -379,8 +418,7 @@ void main() {
     // the pill a different width on every game, and on a 10 game it pushed the
     // pill under its floor and off the row entirely.
     //
-    // The slot has no edges to measure now, so the reservation is read off what
-    // it holds up: where the pill starts is where the score's slot ends.
+    final chipWidths = <double>{};
     final pillLefts = <double>{};
     final pillWidths = <double>{};
     for (final rating in [0.1, 16.0, 17.0, 20.0]) {
@@ -393,9 +431,13 @@ void main() {
       final pill = _chipRect(tester, find.byIcon(Symbols.emoji_events_rounded));
       pillLefts.add(pill.left);
       pillWidths.add(pill.width);
+      chipWidths.add(
+        _chipRect(tester, find.byIcon(Symbols.star_rounded)).width,
+      );
     }
 
-    expect(pillLefts, hasLength(1), reason: 'one footprint for every score');
+    expect(chipWidths, hasLength(1), reason: 'one footprint for every score');
+    expect(pillLefts, hasLength(1), reason: 'so is where the pill starts');
     expect(
       pillWidths,
       hasLength(1),
@@ -403,39 +445,41 @@ void main() {
     );
   });
 
-  testWidgets('the score reserves to its right, not around itself', (
+  testWidgets('the score chip is inset optically, not geometrically', (
     tester,
   ) async {
-    // The old chip was centred inside its own edges, which meant a one-digit
-    // score sat further right than a two-digit one — invisible while the chip
-    // drew a box around both, and a step to the side once it did not. Bare, the
-    // slot is left-aligned: the star holds one x on every game and the spare
-    // width falls after the number, where nothing can see it.
-    await pumpFooter(tester, game: _game(rating: 2.0));
-    final narrowStar = tester.getRect(find.byIcon(Symbols.star_rounded)).left;
-    final narrowNumber = tester.getRect(find.text('1')).left;
+    // Guard against this being "tidied" back to a symmetric inset. Measured on
+    // device, the star's ink sits about 9px inside its icon box while the
+    // number's last digit runs nearly to the edge of its own, so equal insets
+    // put the group 5px right of where it looks centred. The widget rects are
+    // symmetric either way, which is exactly why the imbalance survived until
+    // someone looked at the pixels.
+    await pumpFooter(tester, width: handheldCardWidth);
 
-    await pumpFooter(tester, game: _game(rating: 20.0));
-    expect(tester.getRect(find.byIcon(Symbols.star_rounded)).left, narrowStar);
-    expect(tester.getRect(find.text('10')).left, narrowNumber);
+    final chip = _chipRect(tester, find.byIcon(Symbols.star_rounded));
+    final star = tester.getRect(find.byIcon(Symbols.star_rounded));
+    final number = tester.getRect(scoreText('9'));
+
+    expect(
+      star.left - chip.left,
+      lessThan(chip.right - number.right),
+      reason: 'the star side is tighter, to pay for the ink inside its box',
+    );
   });
 
-  testWidgets('the controls are evenly spaced', (tester) async {
+  testWidgets('the row is evenly spaced', (tester) async {
     // It was 8 either side of the pill and 6 between the buttons, which reads
     // as unevenly spaced rather than as a rhythm.
     //
-    // The one seam this cannot cover is the pill's right edge. The pill is the
-    // row's only Expanded *and* it is capped, so every unit the row does not
-    // spend collects there: on a wide card, and now on a handheld one too,
-    // since the score gave 25 units back and the cloud glyph left the row
-    // entirely. That slack is deliberate — the row is meant to read as readouts
-    // on the left and controls on the right — so the rhythm is asserted inside
-    // the control group and across the readouts, and the seam is only required
-    // not to close up tighter than the rhythm.
+    // On a wide card the pill meets its cap and the leftover collects at its
+    // right edge, so this is asserted at the handheld width, where the pill is
+    // under the cap and takes up every unit the row does not spend.
     await pumpFooter(tester, showsPill: true, width: handheldCardWidth);
 
-    final controls = [
+    final rects = [
       for (final finder in [
+        find.byIcon(Symbols.star_rounded),
+        find.byIcon(Symbols.emoji_events_rounded),
         find.byIcon(Symbols.casino_rounded),
         find.byIcon(Symbols.favorite_rounded),
         find.byIcon(Symbols.settings_rounded),
@@ -445,33 +489,16 @@ void main() {
     ];
 
     final gaps = [
-      for (int i = 1; i < controls.length; i++)
-        controls[i].left - controls[i - 1].right,
+      for (int i = 1; i < rects.length; i++) rects[i].left - rects[i - 1].right,
     ];
 
     for (final gap in gaps) {
       expect(
         gap,
         moreOrLessEquals(gaps.first, epsilon: 0.5),
-        reason: 'one gap between every pair of controls, got $gaps',
+        reason: 'one gap between every pair, got $gaps',
       );
     }
-
-    // The score and the pill keep the same rhythm between them: the slot's
-    // trailing air is inside the reservation, so the gap after it is the row's.
-    final pill = _chipRect(tester, find.byIcon(Symbols.emoji_events_rounded));
-    final star = tester.getRect(find.byIcon(Symbols.star_rounded));
-    expect(
-      pill.left - (star.left + scoreSlot),
-      moreOrLessEquals(gaps.first, epsilon: 0.5),
-      reason: 'the readouts are one gap apart, like the controls',
-    );
-
-    expect(
-      controls.first.left - pill.right,
-      greaterThanOrEqualTo(gaps.first - 0.5),
-      reason: 'the cap\'s slack lands here, and never closes below the rhythm',
-    );
   });
 
   testWidgets('the row is the same height whatever the game carries', (
