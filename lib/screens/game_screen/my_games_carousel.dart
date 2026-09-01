@@ -16,6 +16,7 @@ import 'package:neostation/providers/system_background_provider.dart';
 import 'package:neostation/services/game_service.dart';
 import 'package:neostation/services/sfx_service.dart';
 import 'package:neostation/utils/gamepad_nav.dart';
+import 'package:neostation/utils/letter_bar.dart';
 import 'package:neostation/utils/letter_jump.dart';
 import 'package:neostation/providers/collections_provider.dart';
 import 'package:neostation/widgets/achievements_badge.dart';
@@ -250,7 +251,11 @@ class _GamesCarouselState extends State<GamesCarousel> {
   /// Sentinel alphabet group for folder cards (see [_uniqueLetters]).
   static const String _folderJumpGroup = '\u0000folder';
 
-  bool get _hasFavoriteGames => widget.games.any((g) => g.isFavorite == true);
+  /// How many games at the head of the list loaded as favourites. See
+  /// [favoritesRunLength] for why the ★ group is a range of the list rather
+  /// than a property of a game.
+  int get _favoritesRunLength =>
+      favoritesRunLength(widget.games, folderCount: widget.folderCount);
 
   /// Whether the entry at [index] is a folder placeholder rather than a game.
   bool _isFolderIndex(int index) => index < widget.folderCount;
@@ -258,49 +263,36 @@ class _GamesCarouselState extends State<GamesCarousel> {
   /// Whether the centred card is a folder.
   bool get _isFolderCentred => _isFolderIndex(_currentIndex);
 
-  List<String> get _uniqueLetters {
-    final letters = <String>[];
-    if (_hasFavoriteGames) {
-      letters.add(_favoritesLabel);
+  List<String> get _uniqueLetters => letterBarGroups(
+    widget.games,
+    folderCount: widget.folderCount,
+    favoritesLabel: _favoritesLabel,
+  );
+
+  /// The bar's group for the entry at [index].
+  ///
+  /// Takes an index rather than a game because the ★ group is a range of the
+  /// list, not a property of a model — see [_favoritesRunLength].
+  String _getLetterForIndex(int index) {
+    if (_isFolderIndex(index)) return _folderJumpGroup;
+    if (index < widget.folderCount + _favoritesRunLength) {
+      return _favoritesLabel;
     }
-    for (var i = 0; i < widget.games.length; i++) {
-      // Folders are not alphabetical content — keep them out of the bar so its
-      // letters stay in order and always describe games.
-      if (_isFolderIndex(i)) continue;
-      final game = widget.games[i];
-      if (game.isFavorite == true) continue;
-
-      final displayName = game.name.isNotEmpty ? game.name : game.realname;
-      final letter = displayName.isNotEmpty
-          ? displayName[0].toUpperCase()
-          : '#';
-      if (letters.isEmpty || letters.last != letter) {
-        letters.add(letter);
-      }
-    }
-    return letters;
-  }
-
-  String _getLetterForGame(GameModel game) {
-    if (game.isFavorite == true) return _favoritesLabel;
-
-    final displayName = game.name.isNotEmpty ? game.name : game.realname;
-    return displayName.isNotEmpty ? displayName[0].toUpperCase() : '#';
+    return letterGroupOf(widget.games[index]);
   }
 
   int _getFirstGameIndexForLetter(String letter) {
+    final favoritesRun = _favoritesRunLength;
     if (letter == _favoritesLabel) {
-      for (int i = 0; i < widget.games.length; i++) {
-        if (_isFolderIndex(i)) continue;
-        if (widget.games[i].isFavorite == true) return i;
-      }
-      return 0;
+      return favoritesRun > 0 ? widget.folderCount : 0;
     }
 
-    for (int i = 0; i < widget.games.length; i++) {
-      if (_isFolderIndex(i)) continue;
-      if (widget.games[i].isFavorite == true) continue;
-      if (_getLetterForGame(widget.games[i]) == letter) return i;
+    for (
+      var i = widget.folderCount + favoritesRun;
+      i < widget.games.length;
+      i++
+    ) {
+      if (letterGroupOf(widget.games[i]) == letter) return i;
     }
     return 0;
   }
@@ -467,9 +459,7 @@ class _GamesCarouselState extends State<GamesCarousel> {
       forward: forward,
       // Folders share one sentinel group so a held jump clears them in a
       // single hop rather than pausing on each folder's initial.
-      letterAt: (index) => _isFolderIndex(index)
-          ? _folderJumpGroup
-          : _getLetterForGame(widget.games[index]),
+      letterAt: _getLetterForIndex,
     );
     if (target == null) return false;
 
@@ -760,7 +750,7 @@ class _GamesCarouselState extends State<GamesCarousel> {
     if (!_letterBarController.hasClients || widget.games.isEmpty) return;
 
     if (_isFolderCentred) return;
-    final currentLetter = _getLetterForGame(widget.games[_currentIndex]);
+    final currentLetter = _getLetterForIndex(_currentIndex);
     final letters = _uniqueLetters;
     final letterIndex = letters.indexOf(currentLetter);
     if (letterIndex < 0) return;
@@ -1360,14 +1350,12 @@ class _GamesCarouselState extends State<GamesCarousel> {
         ? null
         : context.watch<CollectionsProvider>();
     final theme = Theme.of(context);
-    final currentGame =
-        widget.games[_currentIndex.clamp(0, widget.games.length - 1)];
     final letters = _uniqueLetters;
     // Null while a folder is centred: folders sit outside A–Z, so no chip is
     // highlighted rather than the folder's own initial claiming one.
     final String? currentLetter = _isFolderCentred
         ? null
-        : _getLetterForGame(currentGame);
+        : _getLetterForIndex(_currentIndex.clamp(0, widget.games.length - 1));
 
     final textStyle = TextStyle(
       color: theme.colorScheme.onSurface,
