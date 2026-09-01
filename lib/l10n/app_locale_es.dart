@@ -183,6 +183,9 @@ const Map<String, dynamic> appLocaleEs = {
   AppLocale.showAchievementsBadge: 'Insignias de logros',
   AppLocale.showAchievementsBadgeSubtitle:
       'Mostrar el número de logros en los juegos asociados con RetroAchievements',
+  AppLocale.showCloudSyncIcon: 'Icono de guardado en la nube',
+  AppLocale.showCloudSyncIconSubtitle:
+      'Mostrar el estado de sincronización en la nube junto al juego seleccionado',
   AppLocale.raMatchOnStartup: 'Asociar logros al iniciar',
   AppLocale.raMatchOnStartupSubtitle:
       'Empareja ROMs nuevas tras el escaneo inicial. Para toda una biblioteca, ejecuta antes Emparejar juegos de RetroAchievements en Herramientas.',

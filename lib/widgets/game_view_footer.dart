@@ -143,7 +143,15 @@ class GameViewFooter extends StatelessWidget {
                 // because every "nothing to say" state collapses it to zero
                 // size, and that column's height is load-bearing — see the
                 // subtitle's forced strut above.
-                if (!isFolder && system != null && syncProvider != null) ...[
+                // Watched here rather than passed in: the views that host this
+                // footer memoize the widget instance, so a setting read there
+                // would not reach a footer already built.
+                if (!isFolder &&
+                    system != null &&
+                    syncProvider != null &&
+                    context.select<SqliteConfigProvider, bool>(
+                      (p) => p.config.showCloudSyncIcon,
+                    )) ...[
                   NeoSyncStatusIcon(
                     system: system!,
                     game: game,

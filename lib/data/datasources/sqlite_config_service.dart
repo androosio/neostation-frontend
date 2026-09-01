@@ -262,6 +262,12 @@ class SqliteConfigService {
                 ) ??
                 0) ==
             1,
+        showCloudSyncIcon:
+            (int.tryParse(
+                  userConfig?['show_cloud_sync_icon']?.toString() ?? '1',
+                ) ??
+                1) ==
+            1,
         raMatchOnStartup:
             (int.tryParse(
                   userConfig?['ra_match_on_startup']?.toString() ?? '0',
@@ -337,6 +343,7 @@ class SqliteConfigService {
         fanartDimLevel: config.fanartDimLevel,
         esdeFolderPath: config.esdeFolderPath,
         showAchievementsBadge: config.showAchievementsBadge ? 1 : 0,
+        showCloudSyncIcon: config.showCloudSyncIcon ? 1 : 0,
         raMatchOnStartup: config.raMatchOnStartup ? 1 : 0,
         subfolderViewAll: config.subfolderViewAll ? 1 : 0,
       );

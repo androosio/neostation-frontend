@@ -179,6 +179,9 @@ const Map<String, dynamic> appLocaleId = {
   AppLocale.showAchievementsBadge: 'Lencana Prestasi',
   AppLocale.showAchievementsBadgeSubtitle:
       'Tampilkan jumlah prestasi pada gim yang cocok dengan RetroAchievements',
+  AppLocale.showCloudSyncIcon: 'Ikon simpanan awan',
+  AppLocale.showCloudSyncIconSubtitle:
+      'Tampilkan status sinkronisasi awan di samping gim yang dipilih',
   AppLocale.raMatchOnStartup: 'Cocokkan prestasi saat mulai',
   AppLocale.raMatchOnStartupSubtitle:
       'Mencocokkan ROM baru setelah pemindaian awal. Untuk seluruh pustaka, jalankan Cocokkan Game RetroAchievements di Alat terlebih dahulu.',

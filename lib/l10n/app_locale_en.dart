@@ -177,6 +177,9 @@ const Map<String, dynamic> appLocaleEn = {
   AppLocale.showAchievementsBadge: 'Achievement Badges',
   AppLocale.showAchievementsBadgeSubtitle:
       'Show the achievement count on games matched to RetroAchievements',
+  AppLocale.showCloudSyncIcon: 'Cloud Save Icon',
+  AppLocale.showCloudSyncIconSubtitle:
+      'Show the cloud sync status beside the selected game',
   AppLocale.raMatchOnStartup: 'Match achievements on Startup',
   AppLocale.raMatchOnStartupSubtitle:
       'Matches new ROMs after the startup scan. To match a whole library, run Match RetroAchievements Games in Tools first.',

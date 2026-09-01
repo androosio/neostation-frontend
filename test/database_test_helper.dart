@@ -158,6 +158,7 @@ class DatabaseTestHelper {
         now_playing_dim_level INTEGER DEFAULT 100,
         fanart_dim_level INTEGER DEFAULT 25,
         show_achievements_badge INTEGER DEFAULT 0,
+        show_cloud_sync_icon INTEGER DEFAULT 1,
         ra_match_on_startup INTEGER DEFAULT 0,
         subfolder_view_all INTEGER DEFAULT 0
       )

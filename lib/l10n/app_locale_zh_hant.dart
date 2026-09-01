@@ -151,6 +151,8 @@ const Map<String, dynamic> appLocaleZhHant = {
   AppLocale.use12HourClockSubtitle: '以 12 小時制（AM/PM）顯示時間，而非 24 小時制',
   AppLocale.showAchievementsBadge: '成就徽章',
   AppLocale.showAchievementsBadgeSubtitle: '在已比對 RetroAchievements 的遊戲上顯示成就數量',
+  AppLocale.showCloudSyncIcon: '雲端存檔圖示',
+  AppLocale.showCloudSyncIconSubtitle: '在所選遊戲旁顯示雲端同步狀態',
   AppLocale.raMatchOnStartup: '啟動時比對成就',
   AppLocale.raMatchOnStartupSubtitle:
       '在啟動掃描後比對新的 ROM。若要比對整個遊戲庫，請先在工具中執行「比對 RetroAchievements 遊戲」。',

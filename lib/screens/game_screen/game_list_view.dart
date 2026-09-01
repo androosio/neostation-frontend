@@ -99,6 +99,12 @@ class GameListViewState extends State<GameListView>
   // visible entry, and a provider lookup there would subscribe each one.
   bool _showAchievementsBadge = false;
 
+  /// Whether the user wants the cloud mark at all, read once per build.
+  ///
+  /// A settings toggle, so it moves rarely; kept beside the provider lookup it
+  /// gates rather than checked per row.
+  bool _showCloudSyncIcon = true;
+
   /// The active cloud-sync provider, read once per build.
   ///
   /// Null when nothing is signed in, which is the common case and costs the
@@ -294,6 +300,9 @@ class GameListViewState extends State<GameListView>
     // rather than an exception, which is what keeps this view pumpable on its
     // own — the collections and config providers it already reads are declared
     // the same way.
+    _showCloudSyncIcon = context.select<SqliteConfigProvider, bool>(
+      (p) => p.config.showCloudSyncIcon,
+    );
     _syncProvider = context.watch<SyncManager?>()?.active;
 
     final theme = Theme.of(context);
@@ -484,7 +493,9 @@ class GameListViewState extends State<GameListView>
                                 // the system, signed out, no ScreenScraper id),
                                 // so the row is unchanged for everyone who does
                                 // not use cloud saves.
-                                if (isSelected && _syncProvider != null)
+                                if (isSelected &&
+                                    _showCloudSyncIcon &&
+                                    _syncProvider != null)
                                   NeoSyncStatusIcon(
                                     // The game's own system: in an aggregate
                                     // view the list's system is a placeholder,

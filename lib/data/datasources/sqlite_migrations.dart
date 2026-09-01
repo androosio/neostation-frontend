@@ -603,6 +603,9 @@ class SqliteMigrations {
       case 155:
         await _migrateToVersion155(db);
         break;
+      case 156:
+        await _migrateToVersion156(db);
+        break;
       default:
         _log.w('No migration defined for version $version');
     }
@@ -6919,6 +6922,37 @@ class SqliteMigrations {
       _log.i('Migration v155 completed');
     } catch (e, stackTrace) {
       _log.e('Error in migration v155: $e');
+      _log.e('   StackTrace: $stackTrace');
+      rethrow;
+    }
+  }
+
+  /// Migration v156: Adds `user_config.show_cloud_sync_icon`, the switch for
+  /// the cloud-save mark the game views draw beside the selected game.
+  ///
+  /// Defaults to 1 — on. The mark predates this setting and already collapses
+  /// to nothing for anyone it has nothing to report on (sync off for the
+  /// system, signed out, no ScreenScraper id), so defaulting it off would take
+  /// a live readout away from the users who do sync without them asking.
+  ///
+  /// Idempotent — the column is added only when absent.
+  static Future<void> _migrateToVersion156(Database db) async {
+    _log.i('Migration v156: Adding show_cloud_sync_icon to user_config');
+    try {
+      final tableInfo = db.select('PRAGMA table_info(user_config)');
+      final columns = tableInfo.map((c) => c['name'].toString()).toList();
+      if (!columns.contains('show_cloud_sync_icon')) {
+        db.execute(
+          'ALTER TABLE user_config ADD COLUMN show_cloud_sync_icon '
+          'INTEGER DEFAULT 1',
+        );
+        _log.i('Column show_cloud_sync_icon added via v156');
+      } else {
+        _log.i('Column show_cloud_sync_icon already exists');
+      }
+      _log.i('Migration v156 completed');
+    } catch (e, stackTrace) {
+      _log.e('Error in migration v156: $e');
       _log.e('   StackTrace: $stackTrace');
       rethrow;
     }

@@ -182,6 +182,9 @@ const Map<String, dynamic> appLocaleDe = {
   AppLocale.showAchievementsBadge: 'Erfolgs-Abzeichen',
   AppLocale.showAchievementsBadgeSubtitle:
       'Die Anzahl der Erfolge auf Spielen anzeigen, die RetroAchievements zugeordnet sind',
+  AppLocale.showCloudSyncIcon: 'Cloud-Speicher-Symbol',
+  AppLocale.showCloudSyncIconSubtitle:
+      'Den Cloud-Sync-Status neben dem ausgewählten Spiel anzeigen',
   AppLocale.raMatchOnStartup: 'Erfolge beim Start zuordnen',
   AppLocale.raMatchOnStartupSubtitle:
       'Ordnet neue ROMs nach dem Start-Scan zu. Für eine ganze Bibliothek zuerst RetroAchievements-Spiele zuordnen unter Werkzeuge ausführen.',

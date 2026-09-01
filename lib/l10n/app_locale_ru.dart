@@ -181,6 +181,9 @@ const Map<String, dynamic> appLocaleRu = {
   AppLocale.showAchievementsBadge: 'Значки достижений',
   AppLocale.showAchievementsBadgeSubtitle:
       'Показывать количество достижений на играх, сопоставленных с RetroAchievements',
+  AppLocale.showCloudSyncIcon: 'Значок облачных сохранений',
+  AppLocale.showCloudSyncIconSubtitle:
+      'Показывать состояние облачной синхронизации рядом с выбранной игрой',
   AppLocale.raMatchOnStartup: 'Сопоставлять достижения при запуске',
   AppLocale.raMatchOnStartupSubtitle:
       'Сопоставляет новые ROM после стартового сканирования. Для всей библиотеки сначала запустите «Сопоставить игры RetroAchievements» в разделе «Инструменты».',

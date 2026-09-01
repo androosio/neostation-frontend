@@ -155,6 +155,8 @@ const Map<String, dynamic> appLocaleJa = {
   AppLocale.showAchievementsBadge: '実績バッジ',
   AppLocale.showAchievementsBadgeSubtitle:
       'RetroAchievements と一致したゲームに実績数を表示します',
+  AppLocale.showCloudSyncIcon: 'クラウドセーブのアイコン',
+  AppLocale.showCloudSyncIconSubtitle: '選択中のゲームの横にクラウド同期の状態を表示します',
   AppLocale.raMatchOnStartup: '起動時に実績を照合',
   AppLocale.raMatchOnStartupSubtitle:
       '起動時スキャンの後、新しい ROM を照合します。ライブラリ全体を照合するには、先にツールの「RetroAchievements のゲームを照合」を実行してください。',

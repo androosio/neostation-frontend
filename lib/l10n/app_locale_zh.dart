@@ -151,6 +151,8 @@ const Map<String, dynamic> appLocaleZh = {
   AppLocale.use12HourClockSubtitle: '以 12 小时制（AM/PM）显示时间，而非 24 小时制',
   AppLocale.showAchievementsBadge: '成就徽章',
   AppLocale.showAchievementsBadgeSubtitle: '在已匹配 RetroAchievements 的游戏上显示成就数量',
+  AppLocale.showCloudSyncIcon: '云存档图标',
+  AppLocale.showCloudSyncIconSubtitle: '在所选游戏旁显示云同步状态',
   AppLocale.raMatchOnStartup: '启动时匹配成就',
   AppLocale.raMatchOnStartupSubtitle:
       '在启动扫描后匹配新的 ROM。若要匹配整个游戏库，请先在工具中运行“匹配 RetroAchievements 游戏”。',

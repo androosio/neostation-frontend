@@ -99,6 +99,13 @@ extension SqliteConfigMutators on SqliteConfigProvider {
     _notify();
   }
 
+  /// Persists whether the game views draw the cloud-save status mark.
+  Future<void> updateShowCloudSyncIcon(bool value) async {
+    _config = _config.copyWith(showCloudSyncIcon: value);
+    await SqliteConfigService.saveConfig(_config);
+    _notify();
+  }
+
   /// Persists the game details card tab last chosen with L1/R1, as the
   /// `DetailTab` enum name, so it carries across games, systems and restarts.
   Future<void> updateGameDetailsTab(String tabName) async {

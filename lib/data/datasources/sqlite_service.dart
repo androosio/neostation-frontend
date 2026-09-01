@@ -459,7 +459,7 @@ class SqliteService {
   SqliteService._internal();
 
   // Database configuration
-  static const int _databaseVersion = 155;
+  static const int _databaseVersion = 156;
   static const String _databaseName = 'data.sqlite';
 
   DatabaseAdapter? _database;
@@ -1955,6 +1955,7 @@ class SqliteService {
         fanart_dim_level INTEGER DEFAULT 25,
         esde_folder_path TEXT DEFAULT '',
         show_achievements_badge INTEGER DEFAULT 0,
+        show_cloud_sync_icon INTEGER DEFAULT 1,
         ra_match_on_startup INTEGER DEFAULT 0,
         subfolder_view_all INTEGER DEFAULT 0
       );
@@ -2778,6 +2779,7 @@ class SqliteService {
     int? fanartDimLevel,
     String? esdeFolderPath,
     int? showAchievementsBadge,
+    int? showCloudSyncIcon,
     int? raMatchOnStartup,
     int? subfolderViewAll,
   }) async {
@@ -2926,6 +2928,10 @@ class SqliteService {
 
     if (showAchievementsBadge != null) {
       updates['show_achievements_badge'] = showAchievementsBadge;
+    }
+
+    if (showCloudSyncIcon != null) {
+      updates['show_cloud_sync_icon'] = showCloudSyncIcon;
     }
 
     // Both statements run in one transaction. Apart alone they can straddle a

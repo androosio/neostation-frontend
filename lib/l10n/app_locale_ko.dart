@@ -154,6 +154,8 @@ const Map<String, dynamic> appLocaleKo = {
   AppLocale.showAchievementsBadge: '업적 배지',
   AppLocale.showAchievementsBadgeSubtitle:
       'RetroAchievements와 일치한 게임에 업적 개수를 표시합니다',
+  AppLocale.showCloudSyncIcon: '클라우드 저장 아이콘',
+  AppLocale.showCloudSyncIconSubtitle: '선택한 게임 옆에 클라우드 동기화 상태를 표시합니다',
   AppLocale.raMatchOnStartup: '시작할 때 업적 일치',
   AppLocale.raMatchOnStartupSubtitle:
       '시작 스캔 후 새 ROM을 매칭합니다. 라이브러리 전체를 매칭하려면 먼저 도구의 "RetroAchievements 게임 매칭"을(를) 실행하세요.',

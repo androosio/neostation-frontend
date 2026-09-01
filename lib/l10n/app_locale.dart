@@ -188,6 +188,9 @@ mixin AppLocale {
   static const String showAchievementsBadge = 'show_achievements_badge';
   static const String showAchievementsBadgeSubtitle =
       'show_achievements_badge_subtitle';
+  static const String showCloudSyncIcon = 'show_cloud_sync_icon';
+  static const String showCloudSyncIconSubtitle =
+      'show_cloud_sync_icon_subtitle';
   static const String raMatchOnStartup = 'ra_match_on_startup';
   static const String raMatchOnStartupSubtitle = 'ra_match_on_startup_subtitle';
   static const String raMatchOnStartupBacklogWarning =

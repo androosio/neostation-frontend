@@ -196,6 +196,15 @@ class ConfigModel {
   /// empty one.
   final bool showAchievementsBadge;
 
+  /// Whether the game views draw the cloud-save status mark.
+  ///
+  /// On by default: the mark already hides itself for everyone it has nothing
+  /// to say to — sync off for the system, signed out, no ScreenScraper id — so
+  /// the only people who see it are the ones it reports on, and defaulting it
+  /// off would hide a live readout from exactly them. This is for the user who
+  /// syncs and still wants the row clean.
+  final bool showCloudSyncIcon;
+
   /// Whether the startup folder scan is followed by a RetroAchievements match
   /// pass over whatever it just added.
   ///
@@ -257,6 +266,7 @@ class ConfigModel {
     this.dockSlotCount = 3,
     this.esdeFolderPath = '',
     this.showAchievementsBadge = false,
+    this.showCloudSyncIcon = true,
     this.raMatchOnStartup = false,
     this.subfolderViewAll = false,
   });
@@ -462,6 +472,14 @@ class ConfigModel {
               '1' ||
           (json['showAchievementsBadge'] ?? false).toString().toLowerCase() ==
               'true',
+      // Absent key => 1 => on, matching the column default: the mark predates
+      // this setting, so a config written before it must keep showing it.
+      showCloudSyncIcon:
+          (json['showCloudSyncIcon'] ?? json['show_cloud_sync_icon'] ?? 1)
+                  .toString() ==
+              '1' ||
+          (json['showCloudSyncIcon'] ?? false).toString().toLowerCase() ==
+              'true',
       // Same reasoning: absent => 0 => off, matching the column default.
       raMatchOnStartup:
           (json['raMatchOnStartup'] ?? json['ra_match_on_startup'] ?? 0)
@@ -531,6 +549,7 @@ class ConfigModel {
       'dockSlotCount': dockSlotCount,
       'esdeFolderPath': esdeFolderPath,
       'showAchievementsBadge': showAchievementsBadge,
+      'showCloudSyncIcon': showCloudSyncIcon,
       'raMatchOnStartup': raMatchOnStartup,
       'subfolderViewAll': subfolderViewAll,
     };
@@ -582,6 +601,7 @@ class ConfigModel {
     int? dockSlotCount,
     String? esdeFolderPath,
     bool? showAchievementsBadge,
+    bool? showCloudSyncIcon,
     bool? raMatchOnStartup,
     bool? subfolderViewAll,
   }) {
@@ -632,6 +652,7 @@ class ConfigModel {
       esdeFolderPath: esdeFolderPath ?? this.esdeFolderPath,
       showAchievementsBadge:
           showAchievementsBadge ?? this.showAchievementsBadge,
+      showCloudSyncIcon: showCloudSyncIcon ?? this.showCloudSyncIcon,
       raMatchOnStartup: raMatchOnStartup ?? this.raMatchOnStartup,
       subfolderViewAll: subfolderViewAll ?? this.subfolderViewAll,
     );
