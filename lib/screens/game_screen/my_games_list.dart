@@ -510,8 +510,21 @@ class _SystemGamesListState extends State<SystemGamesList> {
   }
 
   /// Responds to SQLite database updates by reloading the game list.
+  ///
+  /// Not while this route is leaving. The systems carousel and grid `await` the
+  /// push of this screen and call `SqliteDatabaseProvider.refresh()` in the
+  /// `finally` that runs when it pops; `loadDatabase` notifies on the way in
+  /// *and* on the way out, so a screen that is still mounted through the pop
+  /// transition answered by reloading its whole library twice.
+  ///
+  /// That is wasted work on a list nobody will see again, and it is visible
+  /// while it happens: the reload comes back sorted favourites-first, so a game
+  /// marked during the visit — which [_applyFavoriteToLoadedList] deliberately
+  /// left where it stood — jumps to the front. In the carousel the alphabet
+  /// bar's highlight is an `AnimatedPositioned`, so it slides across to the
+  /// favourites chip mid-transition.
   void _onDatabaseUpdated() {
-    if (mounted && !_isLoadingGames) {
+    if (mounted && !_isLoadingGames && !_isNavigatingBack) {
       _loadGames();
     }
   }
