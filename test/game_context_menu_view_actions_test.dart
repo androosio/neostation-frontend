@@ -9,12 +9,13 @@ import 'package:neostation/services/sfx_service.dart';
 import 'package:neostation/widgets/context_menu/game_context_menu.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Covers the view-level actions the game context menu absorbed when the
-/// vertical action rail was removed: view mode and random. With no rail and no
-/// button legend in the games views, this menu is the only route to them for a
-/// user without a gamepad, so each row has to be present when the host binds it
-/// and absent when it does not. Scrape is deliberately not one of them — it
-/// lives in game settings and in the scrape tab.
+/// Covers the actions the game context menu absorbed when the vertical action
+/// rail was removed: view mode, random, and scrape. With no rail and no button
+/// legend in the games views, this menu is the only route to them for a user
+/// without a gamepad, so each row has to be present when the host binds it and
+/// absent when it does not — scrape included, because a game whose own system
+/// has no ScreenScraper mapping cannot be scraped at all and must not be
+/// offered a row that does nothing.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -40,8 +41,7 @@ void main() {
       label: 'Favorite',
       icon: Symbols.favorite_rounded,
       isMember: false,
-      add: () async {},
-      remove: () async {},
+      setMember: (_) async => true,
     ),
   ];
 
@@ -93,7 +93,32 @@ void main() {
 
     expect(find.text(label(ctx, AppLocale.viewMode)), findsOneWidget);
     expect(find.text(label(ctx, AppLocale.randomGame)), findsOneWidget);
-    // Scrape is not offered here at all.
+    // Left unbound above, so absent — the same rule scrape follows.
+    expect(find.text(label(ctx, AppLocale.hintScrape)), findsNothing);
+  });
+
+  testWidgets('scrape is offered when the host binds it, and fires', (
+    tester,
+  ) async {
+    final ctx = await pumpHost(tester);
+    var scraped = 0;
+    // ignore: unawaited_futures
+    showGameContextMenu(
+      context: ctx,
+      targets: targets,
+      onSettings: () {},
+      onScrape: () => scraped++,
+    );
+    await tester.pumpAndSettle();
+
+    // It sits at the top with Settings, not down with the view-level actions:
+    // both act on this one game.
+    expect(find.text(label(ctx, AppLocale.hintScrape)), findsOneWidget);
+
+    await tester.tap(find.text(label(ctx, AppLocale.hintScrape)));
+    await tester.pumpAndSettle();
+
+    expect(scraped, 1);
     expect(find.text(label(ctx, AppLocale.hintScrape)), findsNothing);
   });
 
@@ -159,7 +184,7 @@ void main() {
 
   testWidgets('the membership rows still work alongside them', (tester) async {
     final ctx = await pumpHost(tester);
-    var added = 0;
+    final calls = <bool>[];
     // ignore: unawaited_futures
     showGameContextMenu(
       context: ctx,
@@ -169,8 +194,10 @@ void main() {
           label: 'Favorite',
           icon: Symbols.favorite_rounded,
           isMember: false,
-          add: () async => added++,
-          remove: () async {},
+          setMember: (member) async {
+            calls.add(member);
+            return true;
+          },
         ),
       ],
       onSettings: () {},
@@ -179,12 +206,13 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // Favourites now costs one more press: open `Add to…`, then activate it.
+    // Favourites costs one more press than the old direct Y toggle: open
+    // `Add to…`, then tick it.
     await tester.tap(find.text(label(ctx, AppLocale.addTo)));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Favorite'));
     await tester.pumpAndSettle();
 
-    expect(added, 1);
+    expect(calls, <bool>[true]);
   });
 }

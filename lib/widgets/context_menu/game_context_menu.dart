@@ -7,9 +7,9 @@ import 'package:neostation/widgets/context_menu/anchored_context_menu.dart';
 /// One membership bucket a game can belong to, as presented by the Y menu.
 ///
 /// The menu itself is membership-agnostic: the caller supplies the buckets and
-/// the callbacks that mutate them, so Favourites (backed by
-/// `user_roms.is_favorite`) and, later, user collections can sit side by side
-/// without the menu knowing the difference.
+/// the callback that mutates them, so Favourites (backed by
+/// `user_roms.is_favorite`) and user collections can sit side by side without
+/// the menu knowing the difference.
 class GameContextMenuTarget {
   /// Stable identifier, unique within one menu (e.g. `favorites`).
   final String id;
@@ -19,50 +19,62 @@ class GameContextMenuTarget {
 
   final IconData icon;
 
-  /// Whether the game is currently in this bucket. Drives which submenu the
-  /// target is listed under.
+  /// Whether the game is currently in this bucket. Seeds the checkbox; the
+  /// menu owns the state from then on.
   final bool isMember;
 
-  /// Adds the game to the bucket. Only called when [isMember] is false.
-  final Future<void> Function() add;
-
-  /// Removes the game from the bucket. Only called when [isMember] is true.
-  final Future<void> Function() remove;
+  /// Puts the game in the bucket, or takes it out, and reports whether the
+  /// change stuck. Returning false reverts the checkbox the menu already
+  /// flipped.
+  final Future<bool> Function(bool member) setMember;
 
   const GameContextMenuTarget({
     required this.id,
     required this.label,
     required this.icon,
     required this.isMember,
-    required this.add,
-    required this.remove,
+    required this.setMember,
   });
 }
 
 const String _settingsId = 'settings';
 const String _createId = 'create';
+const String _scrapeId = 'scrape';
 const String _viewModeId = 'view_mode';
 const String _randomId = 'random';
-const String _addPrefix = 'add:';
-const String _removePrefix = 'remove:';
+const String _togglePrefix = 'toggle:';
 
 /// Opens the per-game Y menu anchored to [anchorKey]'s widget.
 ///
-/// The menu shows `Settings`, `Add to…` (every target the game is not in) and
-/// `Remove from…` (every target it is in); a submenu that would be empty is
-/// omitted entirely rather than greyed out. `Settings` is the row the cursor
-/// starts on: it is the one action every game has, and the one the menu is
-/// most often opened for.
+/// The menu shows `Settings`, `Scrape`, and one `Add to…` row holding **every**
+/// bucket as a checkbox — Favourites and each collection, in or out, all in one
+/// list. `Settings` is the row the cursor starts on: it is the one action every
+/// game has, and the one the menu is most often opened for.
 ///
-/// [onCreateTarget] adds a trailing `New collection…` row to `Add to…`. It is
-/// the seam collections plug into.
+/// The checklist replaced a split into `Add to…` and `Remove from…`. That split
+/// sorted each bucket by the game's state, so Favourites sat under a different
+/// parent for the very next game and no press was ever twice in the same place;
+/// an empty half was dropped entirely, which shifted the rows below it too. It
+/// also cost one whole visit per bucket, because activating a row closed the
+/// menu — putting a game in three collections meant opening the menu three
+/// times. The checklist toggles in place and stays open, so position is fixed
+/// and a run of changes is one visit.
+///
+/// [onCreateTarget] adds a trailing `New collection…` row to the checklist. It
+/// is the seam collections plug into, and it is the one row there that still
+/// closes the menu: it is an action rather than a membership, and the hairline
+/// above it says so.
+///
+/// [onScrape] sits with `Settings` rather than with the view-level actions
+/// below, because like `Settings` it acts on this one game. The host leaves it
+/// unbound for a game that cannot be scraped at all — one whose own system has
+/// no ScreenScraper mapping — so the row is absent rather than present and
+/// silently inert.
 ///
 /// [onViewMode] and [onRandom] are the view-level actions that used to live on
-/// the vertical action rail. They are grouped below the membership rows,
-/// separated from them, and each is omitted when the host has nothing to bind —
-/// the menu is the only route to them for a user without a gamepad. Scraping is
-/// deliberately not among them: it is reached from game settings and from the
-/// scrape tab.
+/// the vertical action rail. They are grouped below the membership row,
+/// separated from it, and each is omitted when the host has nothing to bind —
+/// the menu is the only route to them for a user without a gamepad.
 Future<void> showGameContextMenu({
   required BuildContext context,
   required List<GameContextMenuTarget> targets,
@@ -70,6 +82,7 @@ Future<void> showGameContextMenu({
   GlobalKey? anchorKey,
   Future<void> Function()? onCreateTarget,
   String? createTargetLabel,
+  VoidCallback? onScrape,
   VoidCallback? onViewMode,
   VoidCallback? onRandom,
 }) async {
@@ -77,31 +90,22 @@ Future<void> showGameContextMenu({
     onCreateTarget == null || createTargetLabel != null,
     'createTargetLabel is required when onCreateTarget is supplied',
   );
-  final addTargets = targets.where((t) => !t.isMember).toList();
-  final removeTargets = targets.where((t) => t.isMember).toList();
 
-  final addChildren = <ContextMenuItem>[
-    for (final target in addTargets)
+  final membershipChildren = <ContextMenuItem>[
+    for (final target in targets)
       ContextMenuItem(
-        id: '$_addPrefix${target.id}',
+        id: '$_togglePrefix${target.id}',
         label: target.label,
         icon: target.icon,
+        checkable: true,
+        selected: target.isMember,
       ),
     if (onCreateTarget != null)
       ContextMenuItem(
         id: _createId,
         label: createTargetLabel ?? '',
         icon: Symbols.add_rounded,
-        separatorBefore: addTargets.isNotEmpty,
-      ),
-  ];
-
-  final removeChildren = <ContextMenuItem>[
-    for (final target in removeTargets)
-      ContextMenuItem(
-        id: '$_removePrefix${target.id}',
-        label: target.label,
-        icon: target.icon,
+        separatorBefore: targets.isNotEmpty,
       ),
   ];
 
@@ -111,19 +115,18 @@ Future<void> showGameContextMenu({
       label: AppLocale.gameSettings.getString(context),
       icon: Symbols.settings_rounded,
     ),
-    if (addChildren.isNotEmpty)
+    if (onScrape != null)
+      ContextMenuItem(
+        id: _scrapeId,
+        label: AppLocale.hintScrape.getString(context),
+        icon: Symbols.cloud_download_rounded,
+      ),
+    if (membershipChildren.isNotEmpty)
       ContextMenuItem(
         id: 'add',
         label: AppLocale.addTo.getString(context),
         icon: Symbols.playlist_add_rounded,
-        children: addChildren,
-      ),
-    if (removeChildren.isNotEmpty)
-      ContextMenuItem(
-        id: 'remove',
-        label: AppLocale.removeFrom.getString(context),
-        icon: Symbols.playlist_remove_rounded,
-        children: removeChildren,
+        children: membershipChildren,
       ),
     // View-level actions. The hairline marks where the menu stops acting on
     // this one game and starts acting on the whole view.
@@ -149,16 +152,28 @@ Future<void> showGameContextMenu({
     anchorKey: anchorKey,
     // The anchor is a whole list row / grid card, so the menu starts at its
     // left edge instead of past its right one — which leaves the room the
-    // `Add to…` / `Remove from…` submenus need on the right.
+    // `Add to…` checklist needs on the right.
     alignment: ContextMenuAlignment.overAnchor,
     layerId: 'game_context_menu',
     submenuLayerId: 'game_context_submenu',
+    onToggle: (String id, {required bool checked}) async {
+      if (!id.startsWith(_togglePrefix)) return true;
+      final target = _targetById(targets, id.substring(_togglePrefix.length));
+      if (target == null) return true;
+      return target.setMember(checked);
+    },
   );
 
+  // Memberships resolved through [onToggle] while the menu was open, so
+  // anything that comes back here is one of the leaves.
   if (result == null) return;
 
   if (result == _settingsId) {
     onSettings();
+    return;
+  }
+  if (result == _scrapeId) {
+    onScrape?.call();
     return;
   }
   if (result == _createId) {
@@ -171,16 +186,6 @@ Future<void> showGameContextMenu({
   }
   if (result == _randomId) {
     onRandom?.call();
-    return;
-  }
-  if (result.startsWith(_addPrefix)) {
-    final target = _targetById(targets, result.substring(_addPrefix.length));
-    if (target != null) await target.add();
-    return;
-  }
-  if (result.startsWith(_removePrefix)) {
-    final target = _targetById(targets, result.substring(_removePrefix.length));
-    if (target != null) await target.remove();
   }
 }
 

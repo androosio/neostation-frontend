@@ -3,11 +3,13 @@ part of '../my_games_list.dart';
 /// The Y-button game context menu for the system games list.
 ///
 /// Y used to toggle the favourite directly; it now opens an anchored menu that
-/// starts on `Settings`, with the favourite one submenu away under `Add to…` /
-/// `Remove from…`. With the vertical action rail gone this menu is also the
+/// starts on `Settings`, with the favourite one submenu away in the `Add to…`
+/// checklist. With the vertical action rail gone this menu is also the
 /// only route to the view-level actions (view mode, random) for a user without
 /// a gamepad, so it carries those below a separator — and a long-press on a row
-/// opens it, which is what [_openGameContextMenuFor] is for.
+/// opens it, which is what [_openGameContextMenuFor] is for. Scrape rides along
+/// for the same reason: Select + A is the only other way to reach it from a
+/// games view, and that chord needs a gamepad.
 extension _ContextMenu on _SystemGamesListState {
   /// Long-press entry point: selects [game] first so the menu anchors to its
   /// row, then opens the menu once that row has been laid out with the anchor
@@ -47,16 +49,37 @@ extension _ContextMenu on _SystemGamesListState {
     final memberIds = await collectionsProvider.collectionIdsFor(game);
     if (!mounted) return;
 
-    final favouritesLabel = AppLocale.favorite.getString(context);
+    // Set when a toggle takes the game out of the bucket this very list *is*,
+    // which leaves the loaded list stale. The reload waits for the menu to
+    // close: the panel is anchored to the selected row, so pulling that row out
+    // from under it mid-checklist would move the menu — or strand it over a
+    // different game — half way through a run of changes.
+    var reloadWhenClosed = false;
+
+    // Scrape resolves the ScreenScraper platform from the game's *own* system,
+    // so an aggregate view's id is no use: `all` / `favorites` have no mapping
+    // and `collection:<uuid>` has no `app_systems` row at all. A game with
+    // neither is one [_scrapeSelectedGame] would drop on the floor, so the row
+    // is left off rather than offered and ignored.
+    final canScrape = (game.systemId ?? widget.system.id) != null;
 
     final targets = <GameContextMenuTarget>[
       GameContextMenuTarget(
         id: _favoritesTargetId,
-        label: favouritesLabel,
+        label: AppLocale.favorite.getString(context),
         icon: Symbols.favorite_rounded,
         isMember: game.isFavorite == true,
-        add: () => _setFavoriteFromMenu(true, favouritesLabel),
-        remove: () => _setFavoriteFromMenu(false, favouritesLabel),
+        setMember: (bool member) async {
+          final applied = await _setFavoriteFromMenu(member);
+          // In the Favourites view every game is a favourite, so only a removal
+          // can strand a row here.
+          if (applied &&
+              !member &&
+              widget.system.folderName == SystemFolderNames.favorites) {
+            reloadWhenClosed = true;
+          }
+          return applied;
+        },
       ),
       for (final collection in collectionsProvider.collections)
         GameContextMenuTarget(
@@ -64,16 +87,19 @@ extension _ContextMenu on _SystemGamesListState {
           label: collection.name,
           icon: Symbols.bookmark_rounded,
           isMember: memberIds.contains(collection.id),
-          add: () => _setCollectionMembershipFromMenu(
-            collection.id,
-            collection.name,
-            adding: true,
-          ),
-          remove: () => _setCollectionMembershipFromMenu(
-            collection.id,
-            collection.name,
-            adding: false,
-          ),
+          setMember: (bool member) async {
+            final applied = await _setCollectionMembershipFromMenu(
+              collection.id,
+              adding: member,
+            );
+            if (applied &&
+                !member &&
+                widget.system.folderName ==
+                    '${SystemFolderNames.collectionPrefix}${collection.id}') {
+              reloadWhenClosed = true;
+            }
+            return applied;
+          },
         ),
     ];
 
@@ -84,52 +110,49 @@ extension _ContextMenu on _SystemGamesListState {
       onSettings: _openGameSettingsDialog,
       onCreateTarget: () => _createCollectionFromMenu(game),
       createTargetLabel: AppLocale.newCollection.getString(context),
+      // The view-independent path, in every view. It feeds `_scrapeProgress`
+      // and `_selectedScrapeStatus`, which the details card renders as its own
+      // progress panel, so the list view loses nothing by not going through the
+      // card's registered action — and grid and carousel, which have no card to
+      // register one, work off the same call.
+      onScrape: canScrape ? _scrapeSelectedGame : null,
       onViewMode: () =>
           GameViewModeDropdown.globalKey.currentState?.showDropdown(),
       onRandom: _showRandomGameDialog,
     );
-  }
 
-  /// Applies a favourite change chosen in the menu and reports it.
-  ///
-  /// [_toggleFavorite] already owns the full follow-up (refreshDetectedSystems
-  /// so the Favourites system card appears/disappears, and the local
-  /// `copyWith(isFavorite:)`), so the menu adds the toast and — exactly like
-  /// [_setCollectionMembershipFromMenu] — the reload that lets an unfavourited
-  /// game leave the Favourites view it was removed from.
-  Future<void> _setFavoriteFromMenu(bool adding, String label) async {
-    await _toggleFavorite();
     if (!mounted) return;
-
-    // Viewing Favourites and the game just left it: the toggle above only
-    // updates the flag on the row already loaded, so without this the row
-    // stays visible until the list is rebuilt. (In this view every game is a
-    // favourite, so only removal can happen here.)
-    if (!adding && widget.system.folderName == SystemFolderNames.favorites) {
-      await _loadGames();
-      if (!mounted) return;
-    }
-
-    AppNotification.showNotification(
-      context,
-      (adding ? AppLocale.addedToCollection : AppLocale.removedFromCollection)
-          .getString(context)
-          .replaceFirst('{name}', label),
-      type: NotificationType.success,
-    );
+    if (reloadWhenClosed) await _loadGames();
   }
 
-  /// Adds or removes the selected game from [collectionId] and reports it.
+  /// Applies a favourite change chosen in the checklist, reporting whether it
+  /// stuck.
   ///
-  /// When the list currently being shown *is* that collection, the removed game
-  /// has to leave the view too, so the list is reloaded.
-  Future<void> _setCollectionMembershipFromMenu(
-    String collectionId,
-    String label, {
+  /// [_toggleFavorite] owns the whole follow-up — the write, the
+  /// `refreshDetectedSystems` that makes the Favourites system card appear or
+  /// disappear, and the in-place rewrite of the loaded row — and it reports its
+  /// own failure. On failure it leaves the flag alone, so the row it re-selects
+  /// is the honest answer to whether the change landed, and the checklist can
+  /// revert a box it flipped for a write that did not happen.
+  ///
+  /// Nothing is toasted here: the checkbox the user just ticked is the
+  /// feedback, and a run through the list would otherwise stack one
+  /// notification per press over the menu still being read.
+  Future<bool> _setFavoriteFromMenu(bool member) async {
+    await _toggleFavorite();
+    if (!mounted) return false;
+    return (_selectedGame?.isFavorite ?? false) == member;
+  }
+
+  /// Adds or removes the selected game from [collectionId], reporting whether
+  /// it stuck. An error is toasted, because unlike a success it has nothing on
+  /// screen to show for itself — the checkbox is about to spring back.
+  Future<bool> _setCollectionMembershipFromMenu(
+    String collectionId, {
     required bool adding,
   }) async {
     final game = _selectedGame;
-    if (game == null) return;
+    if (game == null) return false;
 
     final provider = context.read<CollectionsProvider>();
     try {
@@ -140,31 +163,15 @@ extension _ContextMenu on _SystemGamesListState {
       }
     } catch (e) {
       _SystemGamesListState._log.e('Collection membership change failed: $e');
-      if (!mounted) return;
+      if (!mounted) return false;
       AppNotification.showNotification(
         context,
         AppLocale.errorUpdatingCollection.getString(context),
         type: NotificationType.error,
       );
-      return;
+      return false;
     }
-
-    if (!mounted) return;
-
-    // Viewing the collection we just changed: the list itself is now stale.
-    if (widget.system.folderName ==
-        '${SystemFolderNames.collectionPrefix}$collectionId') {
-      await _loadGames();
-      if (!mounted) return;
-    }
-
-    AppNotification.showNotification(
-      context,
-      (adding ? AppLocale.addedToCollection : AppLocale.removedFromCollection)
-          .getString(context)
-          .replaceFirst('{name}', label),
-      type: NotificationType.success,
-    );
+    return true;
   }
 
   /// Creates a collection from the `New collection…` row and puts [game] in it.

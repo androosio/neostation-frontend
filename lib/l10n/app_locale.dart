@@ -844,9 +844,7 @@ mixin AppLocale {
   // Game context menu (Y)
   // ---------------------------------------------------------------------------
   static const String addTo = 'add_to';
-  static const String removeFrom = 'remove_from';
   static const String addedToCollection = 'added_to_collection';
-  static const String removedFromCollection = 'removed_from_collection';
   static const String newCollection = 'new_collection';
   static const String newCollectionDefaultName = 'new_collection_default_name';
   static const String collections = 'collections';

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -35,7 +37,25 @@ class ContextMenuItem {
   /// card size), so the menu shows what is active the way the systems and
   /// game-view dropdowns do. Ignored on a submenu parent, whose trailing slot
   /// already carries the chevron.
+  ///
+  /// On a [checkable] row this seeds the checkbox instead: the menu owns the
+  /// state from then on.
   final bool selected;
+
+  /// Marks the row as a membership toggle rather than an action.
+  ///
+  /// Activating it flips its checkbox where it stands and leaves the menu open,
+  /// so several buckets can be changed in one visit, and reports the change
+  /// through [AnchoredContextMenu.onToggle] instead of popping the stack with
+  /// [id]. The trailing slot draws a box rather than a bare tick, because the
+  /// difference that matters to the reader is that the row can be pressed
+  /// again.
+  ///
+  /// A checkable row's position never depends on its own state, which is the
+  /// point: the alternative — sorting members into one submenu and non-members
+  /// into another — moves a bucket every time it is used, so no press is ever
+  /// in the same place twice.
+  final bool checkable;
 
   const ContextMenuItem({
     required this.id,
@@ -44,10 +64,21 @@ class ContextMenuItem {
     this.children = const <ContextMenuItem>[],
     this.separatorBefore = false,
     this.selected = false,
+    this.checkable = false,
   });
 
   bool get hasSubmenu => children.isNotEmpty;
 }
+
+/// Applies a [ContextMenuItem.checkable] row's change, returning whether it
+/// stuck.
+///
+/// Returning false reverts the checkbox the menu already flipped, so a write
+/// that failed never leaves the menu claiming it succeeded. The menu is
+/// optimistic on purpose: a checkbox that waited for a database round trip
+/// would lag every press.
+typedef ContextMenuToggle =
+    Future<bool> Function(String id, {required bool checked});
 
 /// Which edge of the anchor the panel hangs off.
 enum ContextMenuAlignment {
@@ -84,6 +115,10 @@ const double _kViewportMargin = 8;
 /// [initialSubmenuIndex] highlighted inside it, so a two-press shortcut
 /// (open + activate) can land on a nested item.
 ///
+/// [onToggle] receives every [ContextMenuItem.checkable] row's change. Those
+/// rows do not resolve the menu, so a menu built only from them returns null
+/// however much the user changed with it.
+///
 /// Each level pushes its own [GamepadNavigationManager] layer ([layerId] /
 /// [submenuLayerId]) and pops it in `dispose`, so app resume re-activates the
 /// top-most menu rather than the screen buried under it.
@@ -98,6 +133,7 @@ Future<String?> showAnchoredContextMenu({
   ContextMenuAlignment alignment = ContextMenuAlignment.besideAnchor,
   String layerId = 'context_menu',
   String submenuLayerId = 'context_submenu',
+  ContextMenuToggle? onToggle,
 }) async {
   if (items.isEmpty) return null;
 
@@ -122,6 +158,7 @@ Future<String?> showAnchoredContextMenu({
           alignment: alignment,
           layerId: layerId,
           submenuLayerId: submenuLayerId,
+          onToggle: onToggle,
         ),
       );
     },
@@ -194,6 +231,11 @@ class AnchoredContextMenu extends StatefulWidget {
   final String layerId;
   final String submenuLayerId;
 
+  /// Applies a [ContextMenuItem.checkable] row's change. Shared with every
+  /// submenu this panel opens, because the checklist normally lives one level
+  /// down from the row that names it.
+  final ContextMenuToggle? onToggle;
+
   /// Whether this panel is a nested level rather than the root menu.
   ///
   /// Only a submenu closes on D-pad left: left is how the user walks back out
@@ -213,6 +255,7 @@ class AnchoredContextMenu extends StatefulWidget {
     this.alignment = ContextMenuAlignment.besideAnchor,
     this.layerId = 'context_menu',
     this.submenuLayerId = 'context_submenu',
+    this.onToggle,
     this.isSubmenu = false,
   });
 
@@ -224,6 +267,18 @@ class _AnchoredContextMenuState extends State<AnchoredContextMenu> {
   late final GamepadNavigation _gamepadNav;
   late int _selectedIndex;
   bool _submenuOpen = false;
+
+  /// Live checkbox state for every [ContextMenuItem.checkable] row, seeded from
+  /// [ContextMenuItem.selected] and owned by the panel from then on. Held here
+  /// rather than rebuilt from the caller's items because the items are handed
+  /// to `showGeneralDialog` once and never rebuilt: the checklist has to be
+  /// able to redraw itself without the menu being torn down and reopened.
+  late final Map<String, bool> _checked;
+
+  /// Rows whose [ContextMenuToggle] has not come back yet. A second press on
+  /// the same row is dropped rather than queued -- two writes racing on one
+  /// bucket can land in either order, and the loser would decide the answer.
+  final Set<String> _toggling = <String>{};
 
   /// One key per row, used to anchor that row's submenu next to it, and to
   /// scroll that row back into view when the cursor walks onto it.
@@ -243,6 +298,10 @@ class _AnchoredContextMenuState extends State<AnchoredContextMenu> {
     super.initState();
     _itemKeys = List.generate(widget.items.length, (_) => GlobalKey());
     _selectedIndex = widget.initialIndex.clamp(0, widget.items.length - 1);
+    _checked = <String, bool>{
+      for (final item in widget.items)
+        if (item.checkable) item.id: item.selected,
+    };
 
     _gamepadNav = GamepadNavigation(
       // `Add to` holds one row per collection, so this list is as long as the
@@ -368,8 +427,38 @@ class _AnchoredContextMenuState extends State<AnchoredContextMenu> {
       _openSubmenu(_selectedIndex);
       return;
     }
+    if (item.checkable) {
+      // Deliberately not awaited: the box flips on this frame and the write
+      // catches up. B stays live throughout, so a slow write can never trap
+      // the user inside the menu.
+      unawaited(_toggleChecked(item));
+      return;
+    }
     SfxService().playEnterSound();
     Navigator.of(context).pop(item.id);
+  }
+
+  /// Flips [item]'s checkbox and reports it, reverting if the write did not
+  /// stick. The menu stays open either way -- that is the whole difference
+  /// between a checkable row and a leaf.
+  Future<void> _toggleChecked(ContextMenuItem item) async {
+    if (_toggling.contains(item.id)) return;
+    final bool next = !(_checked[item.id] ?? item.selected);
+
+    SfxService().playEnterSound();
+    setState(() {
+      _checked[item.id] = next;
+      _toggling.add(item.id);
+    });
+
+    final bool applied =
+        await widget.onToggle?.call(item.id, checked: next) ?? true;
+    if (!mounted) return;
+
+    setState(() {
+      _toggling.remove(item.id);
+      if (!applied) _checked[item.id] = !next;
+    });
   }
 
   /// Opens [index]'s children as a second level, anchored to that row. The
@@ -404,6 +493,7 @@ class _AnchoredContextMenuState extends State<AnchoredContextMenu> {
             layerId: widget.submenuLayerId,
             // One level only: a third level would reuse the same layer id.
             submenuLayerId: widget.submenuLayerId,
+            onToggle: widget.onToggle,
             isSubmenu: true,
           ),
         );
@@ -665,6 +755,22 @@ class _AnchoredContextMenuState extends State<AnchoredContextMenu> {
                           alpha: 0.7,
                         ),
                       )
+                    else if (item.checkable)
+                      // A box, filled or empty, rather than a tick that is
+                      // simply absent: an unchecked row has to read as
+                      // something the user can press, and the column of empty
+                      // boxes is what says the whole list is a checklist.
+                      Icon(
+                        _isChecked(item)
+                            ? Symbols.check_box_rounded
+                            : Symbols.check_box_outline_blank_rounded,
+                        size: 14.r,
+                        color: _isChecked(item)
+                            ? theme.colorScheme.primary
+                            : theme.colorScheme.onSurface.withValues(
+                                alpha: 0.45,
+                              ),
+                      )
                     else if (item.selected)
                       Icon(
                         Symbols.check_rounded,
@@ -681,4 +787,8 @@ class _AnchoredContextMenuState extends State<AnchoredContextMenu> {
     }
     return rows;
   }
+
+  /// Whether [item]'s checkbox is currently ticked. Falls back to the caller's
+  /// seed for a row the map has never held (a non-checkable row asked about).
+  bool _isChecked(ContextMenuItem item) => _checked[item.id] ?? item.selected;
 }
