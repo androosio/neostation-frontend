@@ -310,6 +310,14 @@ class _SystemGamesListState extends State<SystemGamesList> {
   // Media controllers.
   VideoPlayerController? _videoController;
 
+  // A game leaving the favourites block is re-seated into its alphabetical
+  // place, but not while the context menu is standing on top of it: the panel
+  // is anchored to the selected row, so moving that row mid-checklist would
+  // shift the menu or leave it describing a different game. The romnames pile
+  // up here instead and are flushed when the menu closes.
+  bool _deferFavoriteReseat = false;
+  final Set<String> _pendingFavoriteReseats = {};
+
   // Scraping state.
   final Set<String> _scrapingGameRomnames = {};
   final Map<String, double> _scrapeProgress = {};

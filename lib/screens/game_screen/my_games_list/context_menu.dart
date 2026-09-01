@@ -103,6 +103,10 @@ extension _ContextMenu on _SystemGamesListState {
         ),
     ];
 
+    // Membership changes land live, but a game leaving the favourites block
+    // must not move the row this menu is anchored to. Held until it closes.
+    _deferFavoriteReseat = true;
+
     await showGameContextMenu(
       context: context,
       targets: targets,
@@ -121,8 +125,18 @@ extension _ContextMenu on _SystemGamesListState {
       onRandom: _showRandomGameDialog,
     );
 
+    _deferFavoriteReseat = false;
     if (!mounted) return;
-    if (reloadWhenClosed) await _loadGames();
+
+    // A reload rebuilds the list from the database in load order, which seats
+    // everything correctly on its own — so the held moves are only owed when
+    // there is no reload coming.
+    if (reloadWhenClosed) {
+      _pendingFavoriteReseats.clear();
+      await _loadGames();
+      return;
+    }
+    _flushPendingFavoriteReseats();
   }
 
   /// Applies a favourite change chosen in the checklist, reporting whether it

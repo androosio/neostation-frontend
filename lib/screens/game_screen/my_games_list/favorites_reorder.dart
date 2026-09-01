@@ -2,10 +2,20 @@ part of '../my_games_list.dart';
 
 /// Favorite toggling and list re-ordering for the system games list.
 ///
-/// A favourite toggle marks the game where it stands: the heart fills, the row
-/// does not move, and the list is left in the order it loaded in. Favourites
+/// Marking a favourite leaves the game where it stands: the heart fills, the
+/// row does not move, and the list keeps the order it loaded in. Favourites
 /// sort to the top the next time the system is opened, which is when the user
 /// is looking for them rather than in the middle of browsing.
+///
+/// **Un-marking one does move it**, and the asymmetry is deliberate. Adding is
+/// an annotation — the game is fine where it is, and hauling it to the top
+/// costs the user their place. Removing is about the block at the front: the
+/// game is standing in a group it no longer belongs to, and leaving it there
+/// makes the list lie. It showed: the carousel's alphabet bar reads its groups
+/// off the list as ordered, so an un-favourited game stranded at the head of
+/// the list raised a chip out of sequence (a `G` sitting before `4` and `A`)
+/// and a duplicate of its real letter further along, which then never
+/// highlighted because the bar matches the first chip with that label.
 ///
 /// A re-scrape *does* re-sort, because a renamed game's alphabetical rank
 /// really did change, and it follows the game to its new rank.
@@ -54,8 +64,9 @@ extension _FavoritesReorder on _SystemGamesListState {
     }
   }
 
-  /// Mirrors a favourite change into the list already on screen, leaving the
-  /// game exactly where it is.
+  /// Mirrors a favourite change into the list already on screen — leaving the
+  /// game where it is when it was *marked*, and handing it to
+  /// [_reseatUnfavoritedGame] when it was un-marked.
   ///
   /// Favourites-first is the *load* order — the query behind
   /// [GameService.loadGamesForSystem] sorts `is_favorite DESC` before
@@ -72,9 +83,10 @@ extension _FavoritesReorder on _SystemGamesListState {
   /// into navigation, and marking a run of favourites meant re-finding your
   /// place after every one.
   ///
-  /// So the row is rewritten in place and nothing moves. The order is still
+  /// So a mark rewrites the row in place and nothing moves. The order is still
   /// favourites-first the next time the system opens, which is when that order
-  /// is worth something.
+  /// is worth something. Removal is the other case, and it does move — see the
+  /// extension's own doc for why the two are not symmetric.
   ///
   /// The update lands on [_allGames], not on the visible list, because in
   /// subfolder view the visible list is *derived* from it — writing to the
@@ -113,6 +125,65 @@ extension _FavoritesReorder on _SystemGamesListState {
         _selectedGame = _games[anchorIndex];
       }
     });
+
+    // Marking: done, the game stays put. Un-marking: it has just left the block
+    // at the front and has to go back to its own place.
+    if (updated.isFavorite != true) {
+      if (_deferFavoriteReseat) {
+        _pendingFavoriteReseats.add(updated.romname);
+      } else {
+        _reseatUnfavoritedGame(updated.romname);
+      }
+    }
+  }
+
+  /// Moves [romname] out of the favourites block and back to its alphabetical
+  /// place, leaving every other game exactly where it is.
+  ///
+  /// Deliberately a splice rather than a sort. Running [_byFavouriteThenName]
+  /// over the whole list would also drag every favourite *added* since the load
+  /// up to the top — the jump-under-the-cursor this file exists to prevent,
+  /// arriving by the back door on an unrelated press.
+  ///
+  /// The cursor holds its slot instead of following the game: the entry below
+  /// slides up into it, so pruning a block of favourites is a run of presses in
+  /// one place. Following would scroll the library away to wherever the game
+  /// landed, which is the behaviour that was rejected for marking.
+  void _reseatUnfavoritedGame(String romname) {
+    // Same identity back means there was nothing to do: no such ROM, re-marked
+    // before the flush reached it (a toggle and its undo inside one visit to
+    // the menu), or already in its place.
+    final reseated = reseatUnfavoritedGame(_allGames, romname);
+    if (identical(reseated, _allGames)) return;
+
+    final anchorIndex = _selectedGameIndex;
+    rebuild(() {
+      _allGames = reseated;
+      _games = _buildDisplayList();
+      _gameIndexMap = {for (int i = 0; i < _games.length; i++) _games[i]: i};
+
+      if (anchorIndex >= 0 && anchorIndex < _games.length) {
+        _selectedGameIndex = anchorIndex;
+        _selectedGame = _games[anchorIndex];
+      } else if (_games.isNotEmpty) {
+        _selectedGameIndex = _games.length - 1;
+        _selectedGame = _games.last;
+      }
+    });
+
+    // The cursor is on a different game now, so the artwork, preview and
+    // achievements lookups behind it are stale.
+    _performBackgroundOperationsForSelectedGame();
+  }
+
+  /// Applies the moves held back while the context menu was open.
+  void _flushPendingFavoriteReseats() {
+    if (_pendingFavoriteReseats.isEmpty) return;
+    final pending = List<String>.from(_pendingFavoriteReseats);
+    _pendingFavoriteReseats.clear();
+    for (final romname in pending) {
+      _reseatUnfavoritedGame(romname);
+    }
   }
 
   /// Sorts the list and re-anchors focus to a specific ROM.
@@ -172,5 +243,5 @@ int _byFavouriteThenName(GameModel a, GameModel b) {
   final bool aFavourite = a.isFavorite == true;
   final bool bFavourite = b.isFavorite == true;
   if (aFavourite != bFavourite) return aFavourite ? -1 : 1;
-  return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+  return compareGameNames(a, b);
 }
