@@ -4,13 +4,13 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
 import 'package:neostation/l10n/app_locale.dart';
-import 'package:neostation/providers/retro_achievements_provider.dart';
 import 'package:neostation/providers/sqlite_config_provider.dart';
 import 'package:neostation/models/game_model.dart';
 import 'package:neostation/models/system_model.dart';
 import 'package:neostation/sync/i_sync_provider.dart';
 import 'package:neostation/widgets/neo_sync_status_icon.dart';
 import 'package:neostation/models/retro_achievements_game_info.dart';
+import 'package:neostation/screens/game_screen/game_details_card/widgets/game_details_footer.dart';
 import 'package:neostation/services/sfx_service.dart';
 import 'package:neostation/utils/ra_coverage.dart';
 import 'package:neostation/themes/app_themes.dart';
@@ -170,14 +170,20 @@ class GameViewFooter extends StatelessWidget {
                   _SteamStyleRating(game: game),
                   SizedBox(width: 6.r),
                 ],
-                // Signed out, no achievement data is ever loaded, so the pill
-                // would render its "none" state for every game in the library
-                // and read as "this game has no achievements" rather than
-                // "nobody asked RetroAchievements". Say nothing instead.
-                if (hasRetroAchievements &&
-                    context.select<RetroAchievementsProvider, bool>(
-                      (ra) => ra.isConnected,
-                    )) ...[
+                // The details card's own test, shared rather than restated:
+                // signed out nothing is ever loaded, so the pill would settle
+                // on its "none" state for every game in the library and read as
+                // "this game has no achievements" rather than "nobody asked";
+                // and a game RetroAchievements has answered zero for gets no
+                // pill at all rather than one saying so. A lookup still in
+                // flight keeps it — only a settled zero hides it.
+                if (GameDetailsFooter.showsAchievementsFor(
+                  context,
+                  game: game,
+                  hasRetroAchievements: hasRetroAchievements,
+                  isLoadingAchievements: isLoadingAchievements,
+                  currentGameInfo: currentGameInfo,
+                )) ...[
                   _CompactAchievementsIndicator(
                     game: game,
                     isLoading: isLoadingAchievements,
